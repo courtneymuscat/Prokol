@@ -11,7 +11,7 @@ async function ownsQuestion(coachId: string, questionId: string) {
     .select('id, forms!inner(coach_id)')
     .eq('id', questionId)
     .single()
-  const f = data?.forms as { coach_id: string } | null
+  const f = data?.forms?.[0] as { coach_id: string } | undefined
   return f?.coach_id === coachId
 }
 
