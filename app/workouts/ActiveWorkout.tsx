@@ -409,12 +409,12 @@ function ExerciseNotes({ weId, note, onNoteChange }: { weId: string; note: strin
 
   // Load existing note from DB on mount
   useEffect(() => {
-    supabase.from('workout_exercises').select('notes').eq('id', weId).single()
-      .then(({ data }) => {
-        const existing = (data as Record<string, unknown>)?.notes as string | null
-        if (existing) { onNoteChange(existing); setOpen(true) }
-      })
-      .catch(() => {/* notes column missing */})
+    Promise.resolve(
+      supabase.from('workout_exercises').select('notes').eq('id', weId).single()
+    ).then(({ data }) => {
+      const existing = (data as Record<string, unknown>)?.notes as string | null
+      if (existing) { onNoteChange(existing); setOpen(true) }
+    }).catch(() => {/* notes column missing */})
   }, [weId])
 
   if (!open) {
