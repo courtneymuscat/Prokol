@@ -106,7 +106,7 @@ export default function WorkoutEditor({ workoutId, onClose, onSaved }: Props) {
 
     setExercises(
       weRows.map((we) => {
-        const ex = we.exercises as { id: string; name: string; category: string; equipment: string } | null
+        const ex = (we.exercises as unknown) as { id: string; name: string; category: string; equipment: string } | null
         return {
           weId: we.id,
           exerciseId: ex?.id ?? '',

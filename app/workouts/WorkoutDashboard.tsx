@@ -19,7 +19,7 @@ export default function WorkoutDashboard() {
   const [view, setView] = useState<'dashboard' | 'active' | 'edit'>('dashboard')
   const [workouts, setWorkouts] = useState<WorkoutSummary[]>([])
   const [loading, setLoading] = useState(true)
-  const [cloneTemplate, setCloneTemplate] = useState<{ name: string; exercises: Exercise[] } | null>(null)
+  const [cloneTemplate, setCloneTemplate] = useState<{ name: string; exercises: Exercise[]; sections: import('./ActiveWorkout').FreestyleSection[] } | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function WorkoutDashboard() {
     const summaries: WorkoutSummary[] = wData.map((w) => {
       const exRows = (weData ?? [])
         .filter((we) => we.workout_id === w.id)
-        .map((we) => we.exercises as Exercise | null)
+        .map((we) => (we.exercises as unknown) as Exercise | null)
         .filter(Boolean) as Exercise[]
       const duration = w.ended_at
         ? Math.round((new Date(w.ended_at).getTime() - new Date(w.started_at).getTime()) / 60000)
@@ -255,7 +255,7 @@ function WorkoutCard({ workout, onClone, onEdit }: { workout: WorkoutSummary; on
 
     setDetail({
       exercises: (weRows ?? []).map((we) => {
-        const ex = we.exercises as { name: string; category: string } | null
+        const ex = (we.exercises as unknown) as { name: string; category: string } | null
         return {
           weId: we.id,
           name: ex?.name ?? '',
