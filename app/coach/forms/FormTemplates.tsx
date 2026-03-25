@@ -61,19 +61,28 @@ const TEMPLATES = [
 export default function FormTemplates() {
   const router = useRouter()
   const [loading, setLoading] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   async function useTemplate(templateId: string) {
     setLoading(templateId)
-    const res = await fetch('/api/forms/from-template', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ templateId }),
-    })
-    if (res.ok) {
-      const { id } = await res.json()
-      router.push(`/coach/forms/${id}/edit`)
+    setError(null)
+    try {
+      const res = await fetch('/api/forms/from-template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateId }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error ?? `Error ${res.status}`)
+        setLoading(null)
+        return
+      }
+      router.push(`/coach/forms/${data.id}/edit`)
+    } catch (e) {
+      setError('Network error — try again')
+      setLoading(null)
     }
-    setLoading(null)
   }
 
   return (
@@ -82,6 +91,9 @@ export default function FormTemplates() {
         <p className="text-sm font-semibold text-gray-700">Start from a template</p>
         <p className="text-xs text-gray-400 mt-0.5">Pre-built forms ready to use — edit any questions after creating.</p>
       </div>
+      {error && (
+        <p className="text-sm text-red-600 bg-red-50 rounded-xl px-4 py-2">{error}</p>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {TEMPLATES.map((t) => (
           <div key={t.id} className={`rounded-2xl border p-4 space-y-3 ${t.color}`}>
