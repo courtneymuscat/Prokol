@@ -248,9 +248,9 @@ export default function FoodSearch({ onSelect }: Props) {
                                 <span className="text-sm font-bold text-gray-700 whitespace-nowrap">{food.calories_per_100g} kcal</span>
                               </div>
                               <div className="flex flex-wrap gap-1.5 mt-1.5">
-                                <MacroPill label="P" value={food.protein_per_100g} color="bg-blue-50 text-blue-700" />
-                                <MacroPill label="C" value={food.carbs_per_100g} color="bg-amber-50 text-amber-700" />
-                                <MacroPill label="F" value={food.fat_per_100g} color="bg-rose-50 text-rose-700" />
+                                <MacroPill label="P" value={food.protein_per_100g} color="bg-macro-p text-macro-p" />
+                                <MacroPill label="C" value={food.carbs_per_100g} color="bg-macro-c text-macro-c" />
+                                <MacroPill label="F" value={food.fat_per_100g} color="bg-macro-f text-macro-f" />
                               </div>
                             </button>
                           </li>
@@ -282,9 +282,9 @@ export default function FoodSearch({ onSelect }: Props) {
                                 <span className={`text-sm font-bold whitespace-nowrap ${isHighlighted ? 'text-blue-600' : 'text-gray-700'}`}>{food.calories_per_100g ?? 0} kcal</span>
                               </div>
                               <div className="flex flex-wrap gap-1.5 mt-2">
-                                <MacroPill label="P" value={food.protein_per_100g ?? 0} color="bg-blue-50 text-blue-700" />
-                                <MacroPill label="C" value={food.carbs_per_100g ?? 0} color="bg-amber-50 text-amber-700" />
-                                <MacroPill label="F" value={food.fat_per_100g ?? 0} color="bg-rose-50 text-rose-700" />
+                                <MacroPill label="P" value={food.protein_per_100g ?? 0} color="bg-macro-p text-macro-p" />
+                                <MacroPill label="C" value={food.carbs_per_100g ?? 0} color="bg-macro-c text-macro-c" />
+                                <MacroPill label="F" value={food.fat_per_100g ?? 0} color="bg-macro-f text-macro-f" />
                               </div>
                             </button>
                           </li>
@@ -523,9 +523,9 @@ export default function FoodSearch({ onSelect }: Props) {
             <div className="grid grid-cols-4 gap-1.5 pt-1">
               {[
                 { label: 'Calories', value: Math.round((selected.calories_per_100g ?? 0) * factor), unit: 'kcal', color: 'text-gray-900' },
-                { label: 'Protein', value: Math.round((selected.protein_per_100g ?? 0) * factor * 10) / 10, unit: 'g', color: 'text-blue-700' },
-                { label: 'Carbs', value: Math.round((selected.carbs_per_100g ?? 0) * factor * 10) / 10, unit: 'g', color: 'text-amber-700' },
-                { label: 'Fat', value: Math.round((selected.fat_per_100g ?? 0) * factor * 10) / 10, unit: 'g', color: 'text-rose-700' },
+                { label: 'Protein', value: Math.round((selected.protein_per_100g ?? 0) * factor * 10) / 10, unit: 'g', color: 'text-macro-p' },
+                { label: 'Carbs', value: Math.round((selected.carbs_per_100g ?? 0) * factor * 10) / 10, unit: 'g', color: 'text-macro-c' },
+                { label: 'Fat', value: Math.round((selected.fat_per_100g ?? 0) * factor * 10) / 10, unit: 'g', color: 'text-macro-f' },
               ].map(({ label, value, unit, color }) => (
                 <div key={label} className="bg-white rounded-lg p-2 text-center">
                   <p className={`text-sm font-bold ${color}`}>{value}</p>

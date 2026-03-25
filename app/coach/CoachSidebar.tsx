@@ -66,31 +66,31 @@ export default function CoachSidebar({ unreadCount }: { unreadCount: number }) {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-56 bg-white border-r shrink-0 min-h-screen sticky top-0 h-screen">
-        <div className="px-5 py-5 border-b">
-          <a href="/dashboard" className="flex items-center gap-2 group">
-            <span className="text-base font-bold text-gray-900">NutriCoach</span>
-            <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full">Coach</span>
+      <aside className="hidden md:flex flex-col w-56 bg-white shrink-0 min-h-screen sticky top-0 h-screen border-r border-gray-100">
+        <div className="px-5 pt-6 pb-5">
+          <a href="/dashboard" className="flex items-center gap-2">
+            <span className="text-[15px] font-bold tracking-tight text-gray-900">NutriCoach</span>
+            <span className="text-[10px] bg-blue-100 text-blue-700 font-semibold px-1.5 py-0.5 rounded-md leading-none">Coach</span>
           </a>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 px-3 pb-4 space-y-0.5">
           {NAV.map((item) => {
             const active = path === item.href || (item.href !== '/coach/dashboard' && path.startsWith(item.href))
             return (
               <a
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
                   active
                     ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
                 }`}
               >
-                <span className={active ? 'text-blue-600' : 'text-gray-400'}>{item.icon}</span>
+                <span className={`flex-shrink-0 ${active ? 'text-blue-500' : 'text-gray-400'}`}>{item.icon}</span>
                 <span>{item.label}</span>
                 {item.badge && unreadCount > 0 && (
-                  <span className="ml-auto text-xs bg-blue-600 text-white font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
+                  <span className="ml-auto text-[11px] bg-blue-500 text-white font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-tight">
                     {unreadCount}
                   </span>
                 )}
@@ -99,13 +99,27 @@ export default function CoachSidebar({ unreadCount }: { unreadCount: number }) {
           })}
         </nav>
 
-        <div className="px-3 py-4 border-t">
+        <div className="px-3 pt-3 pb-5 border-t border-gray-100 space-y-0.5">
+          <a
+            href="/coach/settings"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
+              path === '/coach/settings'
+                ? 'bg-blue-50 text-blue-700'
+                : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
+            }`}
+          >
+            <svg className={`w-4.5 h-4.5 flex-shrink-0 ${path === '/coach/settings' ? 'text-blue-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Settings
+          </a>
           <a
             href="/dashboard"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13.5px] font-medium text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition-all"
           >
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
             My dashboard
           </a>
@@ -113,12 +127,12 @@ export default function CoachSidebar({ unreadCount }: { unreadCount: number }) {
       </aside>
 
       {/* Mobile top nav */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b px-4 py-3 flex items-center justify-between">
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100">
         <div className="flex items-center gap-2">
-          <span className="text-base font-bold text-gray-900">NutriCoach</span>
-          <span className="text-xs bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full">Coach</span>
+          <span className="text-[15px] font-bold tracking-tight text-gray-900">NutriCoach</span>
+          <span className="text-[10px] bg-blue-100 text-blue-700 font-semibold px-1.5 py-0.5 rounded-md leading-none">Coach</span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           {NAV.map((item) => {
             const active = path === item.href || (item.href !== '/coach/dashboard' && path.startsWith(item.href))
             return (
@@ -129,7 +143,7 @@ export default function CoachSidebar({ unreadCount }: { unreadCount: number }) {
               >
                 {item.icon}
                 {item.badge && unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-blue-600 rounded-full" />
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full" />
                 )}
               </a>
             )

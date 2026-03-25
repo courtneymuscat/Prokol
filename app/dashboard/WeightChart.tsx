@@ -172,8 +172,8 @@ export default function WeightChart() {
         >
           <defs>
             <linearGradient id="wgrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.18" />
-              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+              <stop offset="0%" stopColor="#FFD885" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="#FFD885" stopOpacity="0" />
             </linearGradient>
           </defs>
 
@@ -205,7 +205,7 @@ export default function WeightChart() {
           <path d={areaD} fill="url(#wgrad)" />
 
           {/* Line */}
-          <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          <path d={pathD} fill="none" stroke="#FFD885" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
 
           {/* Dots — only show when few points */}
           {display.length <= 20 &&
@@ -216,7 +216,7 @@ export default function WeightChart() {
                 cy={toY(p.value)}
                 r={3}
                 fill="white"
-                stroke="#3b82f6"
+                stroke="#FFD885"
                 strokeWidth={2}
               />
             ))}
@@ -247,7 +247,7 @@ export default function WeightChart() {
                 strokeWidth={1}
                 strokeDasharray="3 3"
               />
-              <circle cx={tooltip.x} cy={tooltip.y} r={5} fill="#3b82f6" />
+              <circle cx={tooltip.x} cy={tooltip.y} r={5} fill="#FFD885" />
               <g>
                 <rect
                   x={Math.min(tooltip.x + 8, CHART_W - 110)}

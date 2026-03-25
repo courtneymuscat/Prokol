@@ -118,9 +118,9 @@ export default function MealBuilder({ onSaved }: { onSaved: () => void }) {
           <div className="grid grid-cols-4 gap-2 text-center">
             {[
               { label: 'Calories', value: Math.round(totals.calories), unit: 'kcal', color: 'text-gray-900' },
-              { label: 'Protein', value: Math.round(totals.protein * 10) / 10, unit: 'g', color: 'text-blue-600' },
-              { label: 'Carbs', value: Math.round(totals.carbs * 10) / 10, unit: 'g', color: 'text-amber-600' },
-              { label: 'Fat', value: Math.round(totals.fat * 10) / 10, unit: 'g', color: 'text-rose-600' },
+              { label: 'Protein', value: Math.round(totals.protein * 10) / 10, unit: 'g', color: 'text-macro-p' },
+              { label: 'Carbs', value: Math.round(totals.carbs * 10) / 10, unit: 'g', color: 'text-macro-c' },
+              { label: 'Fat', value: Math.round(totals.fat * 10) / 10, unit: 'g', color: 'text-macro-f' },
             ].map(({ label, value, unit, color }) => (
               <div key={label} className="bg-white rounded-lg py-2 px-1">
                 <p className={`text-lg font-bold ${color}`}>{value}</p>

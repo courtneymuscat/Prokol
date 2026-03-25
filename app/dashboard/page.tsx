@@ -42,27 +42,22 @@ export default async function DashboardPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Nav */}
-      <nav className="bg-white border-b px-6 py-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold text-gray-900">NutriCoach</h1>
-        <div className="flex items-center gap-4">
-          <a href="/workouts" className="text-sm text-gray-600 hover:underline">
-            Workouts
-          </a>
-          <a href="/messages" className="text-sm text-gray-600 hover:underline">
-            Messages
-          </a>
-          <a href="/coach/dashboard" className="text-sm text-gray-600 hover:underline">
-            Coach
-          </a>
-          <a href="/pricing" className="text-sm text-gray-600 hover:underline">
-            Pricing
-          </a>
-          <span className="text-sm text-gray-600">{user.email}</span>
+      <nav className="bg-white px-6 py-3.5 flex justify-between items-center border-b border-gray-100 sticky top-0 z-20">
+        <span className="text-[15px] font-bold tracking-tight text-gray-900">NutriCoach</span>
+        <div className="flex items-center gap-1">
+          {[
+            { href: '/workouts', label: 'Workouts' },
+            { href: '/messages', label: 'Messages' },
+            { href: '/coach/dashboard', label: 'Coach' },
+            { href: '/pricing', label: 'Pricing' },
+          ].map(({ href, label }) => (
+            <a key={href} href={href} className="text-[13px] font-medium text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+              {label}
+            </a>
+          ))}
+          <span className="text-[13px] text-gray-400 px-2 hidden sm:block">{user.email}</span>
           <form action={logout}>
-            <button
-              type="submit"
-              className="text-sm text-red-600 hover:underline"
-            >
+            <button type="submit" className="text-[13px] font-medium text-gray-500 hover:text-red-500 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
               Log out
             </button>
           </form>

@@ -264,9 +264,65 @@ function NotesTab({ clientId }: { clientId: string }) {
   )
 }
 
+// ── Files tab ─────────────────────────────────────────────────────────────────
+
+type ClientFile = { url: string; label: string; formTitle: string; submittedAt: string }
+
+function FilesTab({ clientId }: { clientId: string }) {
+  const [files, setFiles] = useState<ClientFile[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch(`/api/coach/clients/${clientId}/files`)
+      .then((r) => r.json())
+      .then((d) => setFiles(Array.isArray(d) ? d : []))
+      .finally(() => setLoading(false))
+  }, [clientId])
+
+  if (loading) return <p className="text-sm text-gray-400 py-10 text-center">Loading files…</p>
+  if (files.length === 0) return <Empty label="No files uploaded yet." />
+
+  return (
+    <div className="space-y-3">
+      {files.map((f, i) => {
+        const filename = decodeURIComponent(f.url.split('/').pop()?.split('?')[0] ?? 'file')
+        const ext = filename.split('.').pop()?.toLowerCase() ?? ''
+        const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(ext)
+        return (
+          <div key={i} className="bg-white rounded-2xl border p-4 flex items-center gap-4">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+              {isImage ? (
+                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">{f.label}</p>
+              <p className="text-xs text-gray-400">{f.formTitle} · {fmtFull(f.submittedAt)}</p>
+            </div>
+            <a
+              href={f.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex-shrink-0"
+            >
+              View
+            </a>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
-type TabId = 'overview' | 'checkins' | 'nutrition' | 'training' | 'notes'
+type TabId = 'overview' | 'checkins' | 'nutrition' | 'training' | 'notes' | 'files'
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview', label: 'Overview' },
@@ -274,6 +330,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'nutrition', label: 'Nutrition' },
   { id: 'training', label: 'Training' },
   { id: 'notes', label: 'Notes' },
+  { id: 'files', label: 'Files' },
 ]
 
 export default function ClientTabs({ clientId }: { clientId: string }) {
@@ -314,6 +371,9 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
 
       {/* Notes — always loaded on demand */}
       {tab === 'notes' && <NotesTab clientId={clientId} />}
+
+      {/* Files */}
+      {tab === 'files' && <FilesTab clientId={clientId} />}
 
       {/* Check-ins */}
       {tab === 'checkins' && data && (

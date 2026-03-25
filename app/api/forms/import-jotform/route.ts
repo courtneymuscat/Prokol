@@ -3,7 +3,7 @@ import { requireCoach } from '@/lib/coach'
 import type { NextRequest } from 'next/server'
 
 // Map JotForm question types to our types
-function mapType(jotType: string): 'text' | 'textarea' | 'radio' | 'select' | 'number' {
+function mapType(jotType: string): 'text' | 'textarea' | 'radio' | 'checkbox' | 'dropdown' | 'number' {
   switch (jotType) {
     case 'control_textarea':
     case 'control_address':
@@ -13,8 +13,9 @@ function mapType(jotType: string): 'text' | 'textarea' | 'radio' | 'select' | 'n
     case 'control_scale':
       return 'radio'
     case 'control_dropdown':
+      return 'dropdown'
     case 'control_checkbox':
-      return 'select'
+      return 'checkbox'
     case 'control_number':
     case 'control_spinner':
       return 'number'
@@ -25,13 +26,16 @@ function mapType(jotType: string): 'text' | 'textarea' | 'radio' | 'select' | 'n
 
 // Extract options from a JotForm question
 function getOptions(q: Record<string, unknown>): string[] | null {
-  const special = q.special as Record<string, unknown> | undefined
-  if (special) {
-    const opts = Object.values(special).filter((v) => typeof v === 'string' && v.trim())
-    if (opts.length) return opts as string[]
+  // JotForm uses "none" as a string sentinel when a field doesn't apply.
+  // Only treat `special` as an options object if it really is a plain object.
+  const special = q.special
+  if (special && typeof special === 'object' && !Array.isArray(special)) {
+    const opts = Object.values(special as Record<string, unknown>)
+      .filter((v): v is string => typeof v === 'string' && !!(v as string).trim())
+    if (opts.length) return opts
   }
   const options = q.options as string | undefined
-  if (options) {
+  if (options && options !== 'none') {
     const opts = options.split('|').map((o) => o.trim()).filter(Boolean)
     if (opts.length) return opts
   }
@@ -88,12 +92,14 @@ export async function POST(req: NextRequest) {
   // Insert questions
   const questions = sorted.map((q, i) => {
     const type = mapType(q.type as string)
-    const options = ['radio', 'select'].includes(type) ? getOptions(q) : null
+    const options = ['radio', 'checkbox', 'dropdown'].includes(type) ? getOptions(q) : null
     const label = (q.text as string) || (q.name as string) || 'Question'
+    const sublabel = (q.sublabel as string | undefined)?.replace(/<[^>]+>/g, '').trim() || null
     return {
       form_id: form.id,
       order_index: i,
-      label: label.replace(/<[^>]+>/g, '').trim(), // strip any HTML tags
+      label: label.replace(/<[^>]+>/g, '').trim(),
+      description: sublabel,
       type,
       options,
       required: q.required === 'Yes',

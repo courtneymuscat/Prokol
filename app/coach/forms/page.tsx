@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import FormTemplates from './FormTemplates'
 import JotFormImport from './JotFormImport'
 import PasteImport from './PasteImport'
+import DeleteFormButton from './DeleteFormButton'
 
 const TYPE_LABELS: Record<string, string> = {
   onboarding: 'Onboarding',
@@ -105,6 +106,7 @@ export default async function CoachFormsPage() {
               >
                 Edit
               </a>
+              <DeleteFormButton formId={form.id} />
             </div>
           </div>
         ))}

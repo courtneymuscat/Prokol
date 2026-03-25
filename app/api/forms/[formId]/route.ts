@@ -24,7 +24,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
   const { data: questions } = await supabase
     .from('form_questions')
-    .select('id, order_index, label, type, options, required')
+    .select('id, order_index, label, description, type, options, required')
     .eq('form_id', formId)
     .order('order_index')
 

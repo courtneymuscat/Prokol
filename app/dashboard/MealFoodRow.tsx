@@ -143,9 +143,9 @@ export default function MealFoodRow({ onChange, onRemove }: Props) {
         {macros ? (
           <>
             <span className="font-semibold text-gray-700 whitespace-nowrap">{macros.calories} kcal</span>
-            <span className="text-blue-600 whitespace-nowrap">P {macros.protein}g</span>
-            <span className="text-amber-600 whitespace-nowrap">C {macros.carbs}g</span>
-            <span className="text-rose-600 whitespace-nowrap">F {macros.fat}g</span>
+            <span className="text-macro-p whitespace-nowrap">P {macros.protein}g</span>
+            <span className="text-macro-c whitespace-nowrap">C {macros.carbs}g</span>
+            <span className="text-macro-f whitespace-nowrap">F {macros.fat}g</span>
           </>
         ) : (
           <span className="text-gray-300 text-xs">— select a food</span>

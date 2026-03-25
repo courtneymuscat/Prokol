@@ -2,13 +2,15 @@
 
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-type QuestionType = 'text' | 'textarea' | 'number' | 'select'
+type QuestionType = 'text' | 'textarea' | 'number' | 'radio' | 'checkbox' | 'dropdown' | 'file_upload' | 'image'
 
 type Question = {
   id: string | null   // null = not yet saved
   order_index: number
   label: string
+  description: string | null
   type: QuestionType
   options: string[] | null
   required: boolean
@@ -26,7 +28,11 @@ const TYPE_LABELS: Record<QuestionType, string> = {
   text: 'Short text',
   textarea: 'Long text',
   number: 'Number',
-  select: 'Multiple choice',
+  radio: 'Single choice',
+  checkbox: 'Multiple choice',
+  dropdown: 'Dropdown',
+  file_upload: 'File upload',
+  image: 'Image',
 }
 
 export default function FormBuilderPage({ params }: { params: Promise<{ formId: string }> }) {
@@ -48,7 +54,15 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
       .then((r) => r.json())
       .then((d) => {
         setMeta({ title: d.title, description: d.description ?? '', type: d.type, is_active: d.is_active })
-        setQuestions(d.questions ?? [])
+        // Normalise questions from DB: convert legacy 'select' → 'radio', ensure options is always array|null
+        const qs = (d.questions ?? []).map((q: Question) => ({
+          ...q,
+          type: q.type === 'select' ? 'radio' : q.type,
+          options: Array.isArray(q.options) ? q.options
+            : typeof q.options === 'string' ? (() => { try { const p = JSON.parse(q.options as unknown as string); return Array.isArray(p) ? p : null } catch { return null } })()
+            : null,
+        }))
+        setQuestions(qs)
         setLoading(false)
       })
   }, [formId, isNew])
@@ -56,7 +70,7 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
   function addQuestion() {
     setQuestions((prev) => [
       ...prev,
-      { id: null, order_index: prev.length, label: '', type: 'text', options: null, required: false, _dirty: true },
+      { id: null, order_index: prev.length, label: '', description: null, type: 'text', options: null, required: false, _dirty: true },
     ])
   }
 
@@ -229,6 +243,14 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
         >
           + Add question
         </button>
+
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full bg-blue-600 text-white py-3 rounded-2xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        >
+          {saving ? 'Saving…' : saved ? 'Saved!' : 'Save form'}
+        </button>
       </main>
     </div>
   )
@@ -245,17 +267,36 @@ function QuestionCard({
   onMove: (dir: -1 | 1) => void
 }) {
   const [optionInput, setOptionInput] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   function addOption() {
     const val = optionInput.trim()
     if (!val) return
-    onChange({ options: [...(q.options ?? []), val] })
+    const current = Array.isArray(q.options) ? q.options : []
+    onChange({ options: [...current, val] })
     setOptionInput('')
   }
 
   function removeOption(i: number) {
-    onChange({ options: (q.options ?? []).filter((_, j) => j !== i) })
+    const current = Array.isArray(q.options) ? q.options : []
+    onChange({ options: current.filter((_, j) => j !== i) })
   }
+
+  async function handleImageUpload(file: File) {
+    setUploading(true)
+    setUploadError(null)
+    const supabase = createClient()
+    const ext = file.name.split('.').pop()
+    const path = `forms/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+    const { data, error } = await supabase.storage.from('form-images').upload(path, file, { upsert: true })
+    if (error) { setUploadError(error.message); setUploading(false); return }
+    const { data: { publicUrl } } = supabase.storage.from('form-images').getPublicUrl(data.path)
+    onChange({ options: [publicUrl] })
+    setUploading(false)
+  }
+
+  const imageUrl = q.type === 'image' ? q.options?.[0] ?? null : null
 
   const inputClass = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white'
 
@@ -275,14 +316,25 @@ function QuestionCard({
           <input
             value={q.label}
             onChange={(e) => onChange({ label: e.target.value })}
-            placeholder="Question…"
+            placeholder={q.type === 'image' ? 'Caption (optional)…' : 'Question…'}
             className={inputClass}
           />
+          {q.type !== 'image' && (
+            <input
+              value={q.description ?? ''}
+              onChange={(e) => onChange({ description: e.target.value || null })}
+              placeholder="Description (optional)…"
+              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white placeholder:text-gray-300"
+            />
+          )}
 
           <div className="flex gap-2">
             <select
               value={q.type}
-              onChange={(e) => onChange({ type: e.target.value as QuestionType, options: e.target.value === 'select' ? [] : null })}
+              onChange={(e) => {
+                const t = e.target.value as QuestionType
+                onChange({ type: t, options: (t === 'radio' || t === 'checkbox' || t === 'dropdown') ? (q.options ?? []) : null })
+              }}
               className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
             >
               {Object.entries(TYPE_LABELS).map(([v, l]) => (
@@ -290,20 +342,22 @@ function QuestionCard({
               ))}
             </select>
 
-            <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={q.required}
-                onChange={(e) => onChange({ required: e.target.checked })}
-                className="rounded"
-              />
-              Required
-            </label>
+            {q.type !== 'image' && (
+              <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={q.required}
+                  onChange={(e) => onChange({ required: e.target.checked })}
+                  className="rounded"
+                />
+                Required
+              </label>
+            )}
           </div>
 
-          {q.type === 'select' && (
+          {(q.type === 'radio' || q.type === 'checkbox' || q.type === 'dropdown') && (
             <div className="space-y-1.5">
-              {(q.options ?? []).map((opt, i) => (
+              {(Array.isArray(q.options) ? q.options : []).map((opt, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <span className="flex-1 text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">{opt}</span>
                   <button onClick={() => removeOption(i)} className="text-gray-300 hover:text-red-400">
@@ -321,6 +375,50 @@ function QuestionCard({
                 />
                 <button onClick={addOption} className="text-xs font-medium text-blue-600 hover:text-blue-800 px-2">Add</button>
               </div>
+            </div>
+          )}
+
+          {q.type === 'file_upload' && (
+            <p className="text-xs text-gray-400 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              Client will be prompted to upload a file. Uploads save automatically to their profile.
+            </p>
+          )}
+
+          {q.type === 'image' && (
+            <div className="space-y-2">
+              {imageUrl ? (
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imageUrl} alt="Form image" className="w-full max-h-48 object-contain rounded-lg border border-gray-200 bg-gray-50" />
+                  <button
+                    onClick={() => onChange({ options: null })}
+                    className="absolute top-2 right-2 bg-white border border-gray-200 rounded-lg p-1 text-gray-400 hover:text-red-500 hover:border-red-200 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+                </div>
+              ) : (
+                <label className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-lg py-6 cursor-pointer transition-colors ${uploading ? 'border-blue-200 bg-blue-50' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'}`}>
+                  {uploading ? (
+                    <p className="text-xs text-blue-500 font-medium">Uploading…</p>
+                  ) : (
+                    <>
+                      <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <p className="text-xs text-gray-400">Click to upload an image</p>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={uploading}
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImageUpload(f) }}
+                    className="sr-only"
+                  />
+                </label>
+              )}
+              {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
             </div>
           )}
         </div>

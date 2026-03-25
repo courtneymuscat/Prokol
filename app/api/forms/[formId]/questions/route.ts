@@ -32,6 +32,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       form_id: formId,
       order_index,
       label: body.label ?? 'New question',
+      description: body.description ?? null,
       type: body.type ?? 'text',
       options: body.options ?? null,
       required: body.required ?? false,

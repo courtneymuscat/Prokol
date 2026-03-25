@@ -17,21 +17,41 @@ type Template = {
 
 const TEMPLATES: Record<string, Template> = {
   onboarding: {
-    title: 'Client Onboarding',
+    title: 'Client Onboarding & Health Assessment',
     type: 'onboarding',
     questions: [
+      // Personal info
+      { label: 'Date of birth', type: 'text', required: false },
+      { label: 'Height (cm or ft/in)', type: 'text', required: false },
+      { label: 'Current weight (kg or lbs)', type: 'number', required: false },
+      { label: 'What is your occupation / how active is your job?', type: 'text', required: false },
+      // Goals & motivation
       { label: 'What is your primary goal?', type: 'radio', options: ['Fat loss', 'Muscle gain', 'Improve performance', 'General health & fitness', 'Sport-specific training'], required: true },
+      { label: 'What is your main motivation for starting now?', type: 'textarea', required: true },
+      { label: 'What does success look like to you in 3 months?', type: 'textarea', required: true },
+      // Health history
+      { label: 'Do you have any diagnosed medical conditions?', type: 'textarea', required: false },
+      { label: 'Are you currently taking any medications or supplements?', type: 'textarea', required: false },
+      { label: 'Have you had any surgeries or serious injuries in the past?', type: 'textarea', required: false },
+      { label: 'Do you have any injuries, pain, or physical limitations?', type: 'textarea', required: false },
+      // Lifestyle
+      { label: 'Do you smoke or use tobacco?', type: 'radio', options: ['No', 'Occasionally', 'Yes'], required: false },
+      { label: 'How often do you consume alcohol?', type: 'radio', options: ['Never', 'Occasionally (< once a week)', '1–3 times per week', '4+ times per week'], required: false },
+      { label: 'How many hours of sleep do you get on average?', type: 'number', required: false },
+      { label: 'How would you rate your current stress levels?', type: 'radio', options: ['Low', 'Moderate', 'High', 'Very high'], required: false },
+      // Training
       { label: 'How would you describe your current fitness level?', type: 'radio', options: ['Beginner (new to training)', 'Intermediate (training 1–2 years)', 'Advanced (training 3+ years)', 'Athlete / competitive'], required: true },
       { label: 'How many days per week can you train?', type: 'radio', options: ['1–2 days', '3–4 days', '5–6 days', 'Every day'], required: true },
       { label: 'What types of training do you enjoy or have access to?', type: 'textarea', required: false },
-      { label: 'Do you have any injuries, pain, or physical limitations?', type: 'textarea', required: false },
+      // Nutrition
       { label: 'Do you have any dietary restrictions or food allergies?', type: 'textarea', required: false },
       { label: 'How would you describe your current diet?', type: 'radio', options: ['No structure / eating whatever', 'Tracking calories loosely', 'Tracking macros consistently', 'Following a specific diet plan'], required: false },
       { label: 'How many meals do you typically eat per day?', type: 'radio', options: ['1–2 meals', '3 meals', '4–5 meals', '6+ meals / always snacking'], required: false },
       { label: 'How much water do you drink daily (litres)?', type: 'number', required: false },
-      { label: 'How many hours of sleep do you get on average?', type: 'number', required: false },
-      { label: 'How would you rate your current stress levels?', type: 'radio', options: ['Low', 'Moderate', 'High', 'Very high'], required: false },
-      { label: 'What is your occupation / how active is your job?', type: 'text', required: false },
+      // Coaching history
+      { label: 'Have you worked with a coach before?', type: 'radio', options: ['No, this is my first time', 'Yes, briefly', 'Yes, for an extended period'], required: false },
+      { label: "What did or didn't work in previous attempts?", type: 'textarea', required: false },
+      // Catch-all
       { label: 'Is there anything else you would like me to know?', type: 'textarea', required: false },
     ],
   },
@@ -71,24 +91,6 @@ const TEMPLATES: Record<string, Template> = {
     ],
   },
 
-  initial_assessment: {
-    title: 'Initial Health Assessment',
-    type: 'onboarding',
-    questions: [
-      { label: 'Date of birth', type: 'text', required: false },
-      { label: 'Height (cm or ft/in)', type: 'text', required: false },
-      { label: 'Current weight (kg or lbs)', type: 'number', required: false },
-      { label: 'Do you have any diagnosed medical conditions?', type: 'textarea', required: false },
-      { label: 'Are you currently taking any medications or supplements?', type: 'textarea', required: false },
-      { label: 'Have you had any surgeries or serious injuries in the past?', type: 'textarea', required: false },
-      { label: 'Do you smoke or use tobacco?', type: 'radio', options: ['No', 'Occasionally', 'Yes'], required: false },
-      { label: 'How often do you consume alcohol?', type: 'radio', options: ['Never', 'Occasionally (< once a week)', '1–3 times per week', '4+ times per week'], required: false },
-      { label: 'What is your main motivation for starting now?', type: 'textarea', required: true },
-      { label: 'Have you worked with a coach before?', type: 'radio', options: ['No, this is my first time', 'Yes, briefly', 'Yes, for an extended period'], required: false },
-      { label: "What did or didn't work in previous attempts?", type: 'textarea', required: false },
-      { label: 'What does success look like to you in 3 months?', type: 'textarea', required: true },
-    ],
-  },
 }
 
 export async function POST(req: NextRequest) {

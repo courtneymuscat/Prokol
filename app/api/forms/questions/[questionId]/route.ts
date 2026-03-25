@@ -27,6 +27,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     .from('form_questions')
     .update({
       label: body.label,
+      description: body.description ?? null,
       type: body.type,
       options: body.options ?? null,
       required: body.required ?? false,

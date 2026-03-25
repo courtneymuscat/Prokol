@@ -246,9 +246,9 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
             {!isEditing && (
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                 <span className="text-xs font-medium text-gray-500">{Math.round(t.calories)} kcal</span>
-                <span className="text-xs text-blue-500">P {Math.round(t.protein * 10) / 10}g</span>
-                <span className="text-xs text-amber-500">C {Math.round(t.carbs * 10) / 10}g</span>
-                <span className="text-xs text-rose-500">F {Math.round(t.fat * 10) / 10}g</span>
+                <span className="text-xs text-macro-p">P {Math.round(t.protein * 10) / 10}g</span>
+                <span className="text-xs text-macro-c">C {Math.round(t.carbs * 10) / 10}g</span>
+                <span className="text-xs text-macro-f">F {Math.round(t.fat * 10) / 10}g</span>
               </div>
             )}
           </div>
@@ -352,9 +352,9 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
                 </div>
                 <div className="flex items-center gap-2 text-xs">
                   <span className="font-medium text-gray-600">{item.calories} kcal</span>
-                  <span className="text-blue-500">P {item.protein}g</span>
-                  <span className="text-amber-500">C {item.carbs}g</span>
-                  <span className="text-rose-500">F {item.fat}g</span>
+                  <span className="text-macro-p">P {item.protein}g</span>
+                  <span className="text-macro-c">C {item.carbs}g</span>
+                  <span className="text-macro-f">F {item.fat}g</span>
                 </div>
               </div>
             ))}
@@ -362,9 +362,9 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</p>
               <div className="flex items-center gap-2 text-xs font-semibold">
                 <span className="text-gray-700">{Math.round(t.calories)} kcal</span>
-                <span className="text-blue-600">P {Math.round(t.protein * 10) / 10}g</span>
-                <span className="text-amber-600">C {Math.round(t.carbs * 10) / 10}g</span>
-                <span className="text-rose-600">F {Math.round(t.fat * 10) / 10}g</span>
+                <span className="text-macro-p">P {Math.round(t.protein * 10) / 10}g</span>
+                <span className="text-macro-c">C {Math.round(t.carbs * 10) / 10}g</span>
+                <span className="text-macro-f">F {Math.round(t.fat * 10) / 10}g</span>
               </div>
             </div>
           </div>

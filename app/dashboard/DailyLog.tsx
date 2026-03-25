@@ -219,9 +219,9 @@ export default function DailyLog() {
           <div className="grid grid-cols-4 gap-2 text-center">
             {[
               { label: 'Calories', value: Math.round(totals.calories), unit: 'kcal', color: 'text-white' },
-              { label: 'Protein', value: fmt1(totals.protein), unit: 'g', color: 'text-blue-400' },
-              { label: 'Carbs', value: fmt1(totals.carbs), unit: 'g', color: 'text-amber-400' },
-              { label: 'Fat', value: fmt1(totals.fat), unit: 'g', color: 'text-rose-400' },
+              { label: 'Protein', value: fmt1(totals.protein), unit: 'g', color: 'text-macro-p' },
+              { label: 'Carbs', value: fmt1(totals.carbs), unit: 'g', color: 'text-macro-c' },
+              { label: 'Fat', value: fmt1(totals.fat), unit: 'g', color: 'text-macro-f' },
             ].map(({ label, value, unit, color }) => (
               <div key={label}>
                 <p className={`text-xl font-bold ${color}`}>{value}</p>
@@ -257,9 +257,9 @@ export default function DailyLog() {
                     {logs.length > 0 && (
                       <p className="text-xs text-gray-400 mt-0.5">
                         {Math.round(mt.calories)} kcal
-                        <span className="text-blue-500 ml-2">P {fmt1(mt.protein)}g</span>
-                        <span className="text-amber-500 ml-1">C {fmt1(mt.carbs)}g</span>
-                        <span className="text-rose-500 ml-1">F {fmt1(mt.fat)}g</span>
+                        <span className="text-macro-p ml-2">P {fmt1(mt.protein)}g</span>
+                        <span className="text-macro-c ml-1">C {fmt1(mt.carbs)}g</span>
+                        <span className="text-macro-f ml-1">F {fmt1(mt.fat)}g</span>
                       </p>
                     )}
                   </div>
@@ -367,9 +367,9 @@ export default function DailyLog() {
                                 </div>
                                 <div className="flex items-center gap-2 text-xs flex-shrink-0">
                                   <span className="font-semibold text-gray-700">{log.calories} kcal</span>
-                                  <span className="text-blue-500 hidden sm:inline">P {log.protein}g</span>
-                                  <span className="text-amber-500 hidden sm:inline">C {log.carbs}g</span>
-                                  <span className="text-rose-500 hidden sm:inline">F {log.fat}g</span>
+                                  <span className="text-macro-p hidden sm:inline">P {log.protein}g</span>
+                                  <span className="text-macro-c hidden sm:inline">C {log.carbs}g</span>
+                                  <span className="text-macro-f hidden sm:inline">F {log.fat}g</span>
                                 </div>
                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                                   <button
@@ -403,9 +403,9 @@ export default function DailyLog() {
                                       <span className="text-gray-600">{item.name} <span className="text-gray-400">· {item.grams}g</span></span>
                                       <div className="flex items-center gap-2 text-gray-500">
                                         <span>{item.calories} kcal</span>
-                                        <span className="text-blue-400">P {item.protein}g</span>
-                                        <span className="text-amber-400">C {item.carbs}g</span>
-                                        <span className="text-rose-400">F {item.fat}g</span>
+                                        <span className="text-macro-p">P {item.protein}g</span>
+                                        <span className="text-macro-c">C {item.carbs}g</span>
+                                        <span className="text-macro-f">F {item.fat}g</span>
                                       </div>
                                     </div>
                                   ))}
