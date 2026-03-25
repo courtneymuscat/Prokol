@@ -33,8 +33,8 @@ export default async function SubmissionDetailPage({ params }: Ctx) {
   ])
 
   const sorted = (answers ?? []).sort((a, b) => {
-    const oa = (a.form_questions as { order_index: number } | null)?.order_index ?? 0
-    const ob = (b.form_questions as { order_index: number } | null)?.order_index ?? 0
+    const oa = (a.form_questions as { order_index: number }[] | undefined)?.[0]?.order_index ?? 0
+    const ob = (b.form_questions as { order_index: number }[] | undefined)?.[0]?.order_index ?? 0
     return oa - ob
   })
 
@@ -59,7 +59,7 @@ export default async function SubmissionDetailPage({ params }: Ctx) {
           <p className="text-gray-400 text-sm text-center py-8">No answers recorded.</p>
         )}
         {sorted.map((a, i) => {
-          const q = a.form_questions as { label: string; type: string } | null
+          const q = (a.form_questions as { label: string; type: string }[] | undefined)?.[0]
           return (
             <div key={i} className="bg-white rounded-2xl border p-5 space-y-1">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{q?.label ?? 'Question'}</p>
