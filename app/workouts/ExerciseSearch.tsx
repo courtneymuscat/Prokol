@@ -64,6 +64,7 @@ export default function ExerciseSearch({ onSelect, onClose }: Props) {
   const [createName, setCreateName] = useState('')
   const [createCategory, setCreateCategory] = useState('other')
   const [createEquipment, setCreateEquipment] = useState('bodyweight')
+  const [createVideoUrl, setCreateVideoUrl] = useState('')
   const [createSaving, setCreateSaving] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -94,7 +95,7 @@ export default function ExerciseSearch({ onSelect, onClose }: Props) {
     const res = await fetch('/api/exercises/custom', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: createName, category: createCategory, equipment: createEquipment }),
+      body: JSON.stringify({ name: createName, category: createCategory, equipment: createEquipment, video_url: createVideoUrl }),
     })
     setCreateSaving(false)
     if (res.ok) {
@@ -196,6 +197,12 @@ export default function ExerciseSearch({ onSelect, onClose }: Props) {
                   ))}
                 </select>
               </div>
+              <input
+                value={createVideoUrl}
+                onChange={(e) => setCreateVideoUrl(e.target.value)}
+                placeholder="YouTube URL (optional)"
+                className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
               <div className="flex gap-2">
                 <button
                   onClick={handleCreate}

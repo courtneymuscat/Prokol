@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return Response.json({ error: 'Unauthorised' }, { status: 401 })
 
-  const { name, category, equipment } = await req.json()
+  const { name, category, equipment, video_url } = await req.json()
   if (!name?.trim()) return Response.json({ error: 'Name is required' }, { status: 400 })
 
   const { data, error } = await supabase
@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
       equipment: equipment || 'bodyweight',
       is_custom: true,
       created_by: session.user.id,
+      video_url: video_url?.trim() || null,
     })
     .select('id, name, category, equipment, muscles, video_url')
     .single()
