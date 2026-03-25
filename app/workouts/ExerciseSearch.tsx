@@ -153,13 +153,15 @@ export default function ExerciseSearch({ onSelect, onClose }: Props) {
             <p className="text-xs text-gray-400 font-medium px-3 pb-1">Recently used</p>
           )}
           {list.length === 0 && query.length >= 2 && !creating && (
-            <div className="text-center py-4 space-y-2">
-              <p className="text-sm text-gray-400">No exercises found</p>
+            <p className="text-sm text-gray-400 text-center py-4">No exercises found</p>
+          )}
+          {query.length >= 2 && !creating && (
+            <div className="pt-1 border-t mt-1">
               <button
                 onClick={() => { setCreateName(query); setCreating(true) }}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-800 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                className="w-full text-left px-3 py-2 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
               >
-                + Create &quot;{query}&quot;
+                + Create &quot;{query}&quot; as custom exercise
               </button>
             </div>
           )}
