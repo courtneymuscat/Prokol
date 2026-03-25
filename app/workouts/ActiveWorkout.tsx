@@ -641,7 +641,7 @@ export default function ActiveWorkout({ onFinish, onBack, template }: Props) {
       .insert({ workout_id: workoutId, exercise_id: exercise.id, order_index: exerciseCount })
       .select('id').single()
     if (!data) return
-    setItems((prev) => [...prev, { type: 'exercise', weId: data.id, exercise, sets: [newSet(1)], metrics: defaultMetrics(exercise.category), showRest: false }])
+    setItems((prev) => [...prev, { type: 'exercise', weId: data.id, exercise, sets: [newSet(1)], metrics: defaultMetrics(exercise.category), showRest: false, note: '' }])
   }
 
   function addFreestyleSection() {
