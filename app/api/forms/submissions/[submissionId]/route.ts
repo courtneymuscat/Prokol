@@ -43,8 +43,8 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     form_type: form?.type ?? 'custom',
     answers: (answers ?? []).map((a) => ({
       question_id: a.question_id,
-      label: (a.form_questions as { label: string; type: string; order_index: number } | null)?.label ?? '',
-      type: (a.form_questions as { label: string; type: string; order_index: number } | null)?.type ?? 'text',
+      label: (a.form_questions as { label: string; type: string; order_index: number }[] | undefined)?.[0]?.label ?? '',
+      type: (a.form_questions as { label: string; type: string; order_index: number }[] | undefined)?.[0]?.type ?? 'text',
       value: a.value,
     })),
   })
