@@ -60,6 +60,11 @@ export default function ExerciseSearch({ onSelect, onClose }: Props) {
   const [recent, setRecent] = useState<Exercise[]>([])
   const [category, setCategory] = useState('all')
   const [previewEx, setPreviewEx] = useState<Exercise | null>(null)
+  const [creating, setCreating] = useState(false)
+  const [createName, setCreateName] = useState('')
+  const [createCategory, setCreateCategory] = useState('other')
+  const [createEquipment, setCreateEquipment] = useState('bodyweight')
+  const [createSaving, setCreateSaving] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -82,6 +87,21 @@ export default function ExerciseSearch({ onSelect, onClose }: Props) {
     }, 250)
     return () => clearTimeout(timer)
   }, [query, category])
+
+  async function handleCreate() {
+    if (!createName.trim()) return
+    setCreateSaving(true)
+    const res = await fetch('/api/exercises/custom', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: createName, category: createCategory, equipment: createEquipment }),
+    })
+    setCreateSaving(false)
+    if (res.ok) {
+      const ex = await res.json()
+      onSelect(ex)
+    }
+  }
 
   const list = query.length >= 2 ? results : recent
   const isRecent = query.length < 2
@@ -132,8 +152,61 @@ export default function ExerciseSearch({ onSelect, onClose }: Props) {
           {isRecent && recent.length > 0 && (
             <p className="text-xs text-gray-400 font-medium px-3 pb-1">Recently used</p>
           )}
-          {list.length === 0 && query.length >= 2 && (
-            <p className="text-sm text-gray-400 text-center py-4">No exercises found</p>
+          {list.length === 0 && query.length >= 2 && !creating && (
+            <div className="text-center py-4 space-y-2">
+              <p className="text-sm text-gray-400">No exercises found</p>
+              <button
+                onClick={() => { setCreateName(query); setCreating(true) }}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+              >
+                + Create &quot;{query}&quot;
+              </button>
+            </div>
+          )}
+          {creating && (
+            <div className="p-3 space-y-2 border rounded-xl bg-gray-50">
+              <p className="text-xs font-semibold text-gray-700">New exercise</p>
+              <input
+                autoFocus
+                value={createName}
+                onChange={(e) => setCreateName(e.target.value)}
+                placeholder="Exercise name"
+                className="w-full border rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+              <div className="flex gap-2">
+                <select
+                  value={createCategory}
+                  onChange={(e) => setCreateCategory(e.target.value)}
+                  className="flex-1 border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                >
+                  {CATEGORIES.filter(c => c !== 'all').map(c => (
+                    <option key={c} value={c} className="capitalize">{c}</option>
+                  ))}
+                  <option value="other">other</option>
+                </select>
+                <select
+                  value={createEquipment}
+                  onChange={(e) => setCreateEquipment(e.target.value)}
+                  className="flex-1 border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                >
+                  {['bodyweight','barbell','dumbbell','machine','cable','kettlebell','bands','other'].map(e => (
+                    <option key={e} value={e}>{e}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCreate}
+                  disabled={createSaving || !createName.trim()}
+                  className="flex-1 bg-blue-600 text-white text-xs font-semibold py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {createSaving ? 'Creating…' : 'Add to workout'}
+                </button>
+                <button onClick={() => setCreating(false)} className="text-xs text-gray-400 hover:text-gray-600 px-2">
+                  Cancel
+                </button>
+              </div>
+            </div>
           )}
           {list.length === 0 && query.length < 2 && (
             <p className="text-sm text-gray-400 text-center py-4">Type to search 800+ exercises</p>
