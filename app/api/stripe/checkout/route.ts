@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
         },
       },
       success_url: `${baseUrl}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`,
+      allow_promotion_codes: true,
       cancel_url: `${baseUrl}/pricing`,
     })
 
