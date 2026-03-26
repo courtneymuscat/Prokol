@@ -20,6 +20,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "NutriCoach",
   description: "Track your nutrition and progress",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "NutriCoach",
+  },
 };
 
 export default function RootLayout({
@@ -32,6 +38,12 @@ export default function RootLayout({
       lang="en"
       className={cn("h-full", "antialiased", inter.variable, geistMono.variable, "font-sans", geist.variable)}
     >
+      <head>
+        <link rel="apple-touch-icon" href="/icons/icon-180.png" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="theme-color" content="#FFD885" />
+      </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
