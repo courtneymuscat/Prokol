@@ -11,8 +11,7 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = await createClient()
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { data: { user } } = await supabase.auth.getUser()
 
     const priceId = getStripePriceId(planKey, billing)
     if (!priceId) {
@@ -25,17 +24,17 @@ export async function POST(req: NextRequest) {
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
-      customer_email: session.user.email,
+      ...(user?.email ? { customer_email: user.email } : {}),
       line_items: [{ price: priceId, quantity: 1 }],
       metadata: {
-        userId: session.user.id,
+        userId: user?.id ?? '',
         planKey,
         billing,
         userType,
       },
       subscription_data: {
         metadata: {
-          userId: session.user.id,
+          userId: user?.id ?? '',
           planKey,
           userType,
         },
@@ -46,7 +45,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: checkoutSession.url })
   } catch (err) {
-    console.error('Stripe checkout error:', err)
-    return NextResponse.json({ error: 'Failed to create checkout session' }, { status: 500 })
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('Stripe checkout error:', message)
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

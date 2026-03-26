@@ -42,6 +42,10 @@ function PlanCard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planKey: plan.planKey, billing, userType }),
       })
+      if (res.status === 401) {
+        router.push(`/login?redirect=/pricing`)
+        return
+      }
       const data = await res.json()
       if (data.url) {
         window.location.href = data.url
