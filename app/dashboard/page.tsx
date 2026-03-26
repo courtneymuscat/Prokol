@@ -12,6 +12,7 @@ import CycleTracker from './CycleTracker'
 import CyclePhaseBar from './CyclePhaseBar'
 import FormsSection from './FormsSection'
 import CoachBanner from './CoachBanner'
+import ProgressPhotos from './ProgressPhotos'
 import UpgradePrompt from '@/components/UpgradePrompt'
 
 export default async function DashboardPage() {
@@ -21,21 +22,22 @@ export default async function DashboardPage() {
   const user = session?.user
   if (!user) redirect('/login')
 
-  // Check onboarding status
+  // Check onboarding status + fetch targets
   const { data: profile } = await supabase
     .from('profiles')
-    .select('onboarding_completed')
+    .select('onboarding_completed, goal, target_calories, target_protein, target_carbs, target_fat, tdee')
     .eq('id', user.id)
     .single()
   if (profile && profile.onboarding_completed === false) redirect('/onboarding')
 
   // Subscription feature access
   const sub = await getSubscription()
-  const canWeightChart  = sub.canAccess(FEATURES.WEIGHT_TRACKING)
-  const canMealBuilder  = sub.canAccess(FEATURES.MEAL_BUILDER)
-  const canFullCheckin  = sub.canAccess(FEATURES.DAILY_CHECKIN)
-  const canCycleAdv     = sub.canAccess(FEATURES.CYCLE_TRACKER)
-  const canMealScanner  = sub.canAccess(FEATURES.MEAL_SCANNER)
+  const canWeightChart      = sub.canAccess(FEATURES.WEIGHT_TRACKING)
+  const canMealBuilder      = sub.canAccess(FEATURES.MEAL_BUILDER)
+  const canFullCheckin      = sub.canAccess(FEATURES.DAILY_CHECKIN)
+  const canCycleAdv         = sub.canAccess(FEATURES.CYCLE_TRACKER)
+  const canMealScanner      = sub.canAccess(FEATURES.MEAL_SCANNER)
+  const canProgressCompare  = sub.canAccess(FEATURES.PROGRESS_COMPARE)
 
   // Only show check-in banner for coached users (they have a coach waiting)
   const isCoached = sub.tier === 'coached'
@@ -118,6 +120,34 @@ export default async function DashboardPage() {
         {/* Coach banner — only shown when actually coached */}
         {coachEmail && <CoachBanner coachEmail={coachEmail} />}
 
+        {/* Daily targets card — shown when TDEE has been calculated */}
+        {profile?.target_calories && (
+          <div className="bg-white rounded-2xl border px-5 py-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Daily targets</p>
+              <a href="/settings" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Edit →</a>
+            </div>
+            <div className="grid grid-cols-4 gap-3 text-center">
+              <div>
+                <p className="text-xl font-bold text-gray-900">{profile.target_calories}</p>
+                <p className="text-xs text-gray-400 mt-0.5">kcal</p>
+              </div>
+              <div>
+                <p className="text-xl font-bold text-blue-600">{profile.target_protein}g</p>
+                <p className="text-xs text-gray-400 mt-0.5">protein</p>
+              </div>
+              <div>
+                <p className="text-xl font-bold text-amber-600">{profile.target_carbs}g</p>
+                <p className="text-xs text-gray-400 mt-0.5">carbs</p>
+              </div>
+              <div>
+                <p className="text-xl font-bold text-rose-600">{profile.target_fat}g</p>
+                <p className="text-xs text-gray-400 mt-0.5">fat</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Check-in reminder banner — only for coached users */}
         {showCheckInBanner && (
           <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
@@ -159,6 +189,11 @@ export default async function DashboardPage() {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Cycle Tracker</h3>
           <CycleTracker advancedAccess={canCycleAdv} />
           <CyclePhaseBar />
+        </section>
+
+        {/* Progress Photos */}
+        <section>
+          <ProgressPhotos canCompare={canProgressCompare} />
         </section>
 
         {/* Coach Forms */}

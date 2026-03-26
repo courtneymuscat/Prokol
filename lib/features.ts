@@ -9,13 +9,14 @@ export const FEATURES = {
   CYCLE_BASIC:        'cycle_basic',    // period dates + phase bar only
 
   // ── Tier 2 — Optimiser ($19.99 AUD/mo) ───────────────────────────────────
-  MEAL_BUILDER:       'meal_builder',
-  SAVED_MEALS:        'saved_meals',
-  WORKOUT_SECTIONS:   'workout_sections',
-  EXERCISE_HISTORY:   'exercise_history',
-  WEIGHT_TRACKING:    'weight_tracking',   // full chart + history
-  DAILY_CHECKIN:      'daily_checkin',     // full: sleep/HRV/RHR/notes
-  CYCLE_TRACKER:      'cycle_tracker',     // symptoms, BBT, cervical mucus, moods
+  MEAL_BUILDER:        'meal_builder',
+  SAVED_MEALS:         'saved_meals',
+  WORKOUT_SECTIONS:    'workout_sections',
+  EXERCISE_HISTORY:    'exercise_history',
+  WEIGHT_TRACKING:     'weight_tracking',    // full chart + history
+  DAILY_CHECKIN:       'daily_checkin',      // full: sleep/HRV/RHR/notes
+  CYCLE_TRACKER:       'cycle_tracker',      // symptoms, BBT, cervical mucus, moods
+  PROGRESS_COMPARE:    'progress_compare',   // before/after photo comparison
 
   // ── Tier 3 — Elite ($34.99 AUD/mo) ───────────────────────────────────────
   MEAL_SCANNER:         'meal_scanner',         // AI photo → detect + log foods
@@ -58,6 +59,7 @@ const TIER_2_FEATURES: Feature[] = [
   FEATURES.WEIGHT_TRACKING,
   FEATURES.DAILY_CHECKIN,
   FEATURES.CYCLE_TRACKER,
+  FEATURES.PROGRESS_COMPARE,
 ]
 
 const TIER_3_FEATURES: Feature[] = [
