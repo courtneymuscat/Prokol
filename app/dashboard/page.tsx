@@ -36,9 +36,11 @@ export default async function DashboardPage() {
   const canMealBuilder      = sub.canAccess(FEATURES.MEAL_BUILDER)
   const canFullCheckin      = sub.canAccess(FEATURES.DAILY_CHECKIN)
   const canCycleAdv         = sub.canAccess(FEATURES.CYCLE_TRACKER)
-  const canMealScanner      = sub.canAccess(FEATURES.MEAL_SCANNER)
-  const canProgressPhotos   = sub.canAccess(FEATURES.PROGRESS_PHOTOS)
-  const canProgressCompare  = sub.canAccess(FEATURES.PROGRESS_COMPARE)
+  const canMealScanner        = sub.canAccess(FEATURES.MEAL_SCANNER)
+  const canProgressPhotos     = sub.canAccess(FEATURES.PROGRESS_PHOTOS)
+  const canProgressCompare    = sub.canAccess(FEATURES.PROGRESS_COMPARE)
+  const canAdvancedAnalytics  = sub.canAccess(FEATURES.ADVANCED_ANALYTICS)
+  const canCycleIntelligence  = sub.canAccess(FEATURES.CYCLE_INTELLIGENCE)
 
   // Only show check-in banner for coached users (they have a coach waiting)
   const isCoached = sub.tier === 'coached'
@@ -187,6 +189,20 @@ export default async function DashboardPage() {
         {/* Daily Food Log */}
         <DailyLog canScanMeal={canMealScanner} />
 
+        {/* Elite teaser — AI meal scanner */}
+        {!canMealScanner && (
+          <div className="flex items-center gap-4 bg-purple-50 border border-purple-100 rounded-2xl px-5 py-4">
+            <span className="text-2xl">📸</span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-purple-900">Log meals instantly with AI</p>
+              <p className="text-xs text-purple-600 mt-0.5">Take a photo of your meal and let AI detect and log the foods automatically.</p>
+            </div>
+            <a href="/pricing" className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg text-purple-900 hover:opacity-90 transition-colors" style={{ backgroundColor: '#e9d5ff' }}>
+              Try Elite →
+            </a>
+          </div>
+        )}
+
         {/* Meal Builder + Saved Meals */}
         <section>
           {canMealBuilder
@@ -201,7 +217,33 @@ export default async function DashboardPage() {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Cycle Tracker</h3>
             <CycleTracker advancedAccess={canCycleAdv} />
             <CyclePhaseBar />
+            {!canCycleIntelligence && (
+              <div className="flex items-center gap-4 bg-purple-50 border border-purple-100 rounded-2xl px-5 py-4 mt-4">
+                <span className="text-2xl">🔮</span>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-purple-900">Cycle Intelligence</p>
+                  <p className="text-xs text-purple-600 mt-0.5">Predict your next period, ovulation & phase windows — plus personalised insights based on your data.</p>
+                </div>
+                <a href="/pricing" className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg text-purple-900 hover:opacity-90 transition-colors" style={{ backgroundColor: '#e9d5ff' }}>
+                  Try Elite →
+                </a>
+              </div>
+            )}
           </section>
+        )}
+
+        {/* Advanced Analytics — teaser for non-Elite */}
+        {!canAdvancedAnalytics && (
+          <div className="flex items-center gap-4 bg-purple-50 border border-purple-100 rounded-2xl px-5 py-4">
+            <span className="text-2xl">📊</span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-purple-900">Advanced Analytics</p>
+              <p className="text-xs text-purple-600 mt-0.5">Spot trends across your nutrition, training, and recovery — all in one dashboard.</p>
+            </div>
+            <a href="/pricing" className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg text-purple-900 hover:opacity-90 transition-colors" style={{ backgroundColor: '#e9d5ff' }}>
+              Try Elite →
+            </a>
+          </div>
         )}
 
         {/* Progress Photos */}
