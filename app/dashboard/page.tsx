@@ -9,6 +9,7 @@ import MealSection from './MealSection'
 import CycleTracker from './CycleTracker'
 import CyclePhaseBar from './CyclePhaseBar'
 import FormsSection from './FormsSection'
+import CoachBanner from './CoachBanner'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -38,6 +39,24 @@ export default async function DashboardPage() {
     .maybeSingle()
 
   const showCheckInBanner = !recentCheckIn
+
+  // Check if this user is currently coached
+  let coachEmail: string | null = null
+  const { data: coachRel } = await supabase
+    .from('coach_clients')
+    .select('coach_id')
+    .eq('client_id', user.id)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  if (coachRel) {
+    const { data: coachProfile } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('id', coachRel.coach_id)
+      .single()
+    coachEmail = coachProfile?.email ?? null
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -70,6 +89,9 @@ export default async function DashboardPage() {
           <h2 className="text-2xl font-semibold text-gray-900">Welcome back!</h2>
           <p className="text-gray-500 mt-1 text-sm">{user.email}</p>
         </div>
+
+        {/* Coach banner */}
+        {coachEmail && <CoachBanner coachEmail={coachEmail} />}
 
         {/* Check-in reminder banner */}
         {showCheckInBanner && (

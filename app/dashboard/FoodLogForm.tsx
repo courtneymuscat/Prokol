@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import FoodSearch, { type FoodResult } from './FoodSearch'
+import { Card } from '@/components/ui/card'
 
 export default function FoodLogForm() {
   const router = useRouter()
@@ -80,7 +81,7 @@ export default function FoodLogForm() {
   }
 
   return (
-    <div className="bg-white rounded-xl border p-6">
+    <Card className="p-6">
       <h3 className="text-lg font-semibold mb-4 text-gray-900">Log Food</h3>
       <form onSubmit={handleSubmit} className="space-y-3">
         <FoodSearch onSelect={handleFoodSelect} />
@@ -166,6 +167,6 @@ export default function FoodLogForm() {
           {pending ? 'Saving...' : 'Save Food Log'}
         </button>
       </form>
-    </div>
+    </Card>
   )
 }

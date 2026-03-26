@@ -3,6 +3,7 @@ import { requireCoach } from '@/lib/coach'
 import { createClient } from '@/lib/supabase/server'
 import ClientTabs from './ClientTabs'
 import MessageButton from './MessageButton'
+import RemoveClientButton from './RemoveClientButton'
 
 export default async function ClientProfilePage({
   params,
@@ -31,11 +32,12 @@ export default async function ClientProfilePage({
     .eq('id', clientId)
     .single()
 
-  const tierLabel: Record<string, string> = { tier_1: 'Free', tier_2: 'Pro', tier_3: 'Elite' }
+  const tierLabel: Record<string, string> = { tier_1: 'Free', tier_2: 'Pro', tier_3: 'Elite', coached: 'Coached' }
   const tierColor: Record<string, string> = {
     tier_1: 'bg-gray-100 text-gray-500',
     tier_2: 'bg-blue-100 text-blue-600',
     tier_3: 'bg-purple-100 text-purple-600',
+    coached: 'bg-green-100 text-green-600',
   }
   const tier = profile?.subscription_tier ?? 'tier_1'
 
@@ -67,7 +69,10 @@ export default async function ClientProfilePage({
               </p>
             )}
           </div>
-          <MessageButton coachId={coachId} clientId={clientId} />
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <RemoveClientButton clientId={clientId} />
+            <MessageButton coachId={coachId} clientId={clientId} />
+          </div>
         </div>
       </div>
 

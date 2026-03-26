@@ -10,11 +10,12 @@ type Client = {
   lastCheckIn: string | null
 }
 
-const TIER_LABELS: Record<string, string> = { tier_1: 'Free', tier_2: 'Pro', tier_3: 'Elite' }
+const TIER_LABELS: Record<string, string> = { tier_1: 'Free', tier_2: 'Pro', tier_3: 'Elite', coached: 'Coached' }
 const TIER_COLORS: Record<string, string> = {
   tier_1: 'bg-gray-100 text-gray-500',
   tier_2: 'bg-blue-100 text-blue-600',
   tier_3: 'bg-purple-100 text-purple-600',
+  coached: 'bg-green-100 text-green-600',
 }
 
 function timeAgo(iso: string | null) {

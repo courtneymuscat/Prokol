@@ -112,15 +112,31 @@ export default async function PricingPage() {
             <h2 className="text-2xl font-bold text-gray-900">For Individuals</h2>
             <p className="text-gray-500 mt-1">Track your nutrition, training, and wellness.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {INDIVIDUAL_PLANS.map((plan) => (
-              <PlanCard
-                key={plan.id}
-                plan={plan}
-                current={sub.userType === 'individual' && sub.tier === plan.id}
-              />
-            ))}
-          </div>
+
+          {sub.tier === 'coached' ? (
+            <div className="bg-white rounded-2xl border border-blue-100 p-8 text-center space-y-3 max-w-lg mx-auto">
+              <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mx-auto">
+                <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">You&apos;re with a coach</h3>
+              <p className="text-sm text-gray-500">
+                Your coach covers your plan — you have full Pro access included. Individual plans are not needed while you&apos;re being coached.
+              </p>
+              <p className="text-xs text-gray-400">If you leave your coach you&apos;ll be moved to the Free plan and can upgrade from here.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {INDIVIDUAL_PLANS.map((plan) => (
+                <PlanCard
+                  key={plan.id}
+                  plan={plan}
+                  current={sub.userType === 'individual' && sub.tier === plan.id}
+                />
+              ))}
+            </div>
+          )}
         </section>
 
         {/* Coach plans */}

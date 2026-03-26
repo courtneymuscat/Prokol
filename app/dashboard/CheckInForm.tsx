@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { Card } from '@/components/ui/card'
 
 const SLEEP_QUALITY_OPTIONS = [
   { value: 'deep_restful', label: 'Deep & Restful' },
@@ -86,7 +87,7 @@ export default function CheckInForm() {
   }
 
   return (
-    <div className="bg-white rounded-xl border p-6">
+    <Card className="p-6">
       <h3 className="text-lg font-semibold mb-4 text-gray-900">Daily Check-In</h3>
       <form onSubmit={handleSubmit} className="space-y-4">
 
@@ -166,6 +167,6 @@ export default function CheckInForm() {
           {pending ? 'Saving...' : 'Save Daily Check-In'}
         </button>
       </form>
-    </div>
+    </Card>
   )
 }

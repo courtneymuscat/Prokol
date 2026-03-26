@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Card } from '@/components/ui/card'
 
 const SLEEP_QUALITY_OPTIONS = [
   { value: 'deep_restful', label: 'Deep & Restful' },
@@ -390,7 +391,7 @@ export default function DailyCheckIn() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-xl border p-6">
+      <Card className="p-6">
         <h3 className="text-lg font-semibold mb-4 text-gray-900">Daily Check-In</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -439,12 +440,12 @@ export default function DailyCheckIn() {
             {pending ? 'Saving...' : 'Save Daily Check-In'}
           </button>
         </form>
-      </div>
+      </Card>
 
       <section>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Latest Check-In</h3>
         {latest ? (
-          <div className="bg-white rounded-xl border overflow-hidden">
+          <Card className="overflow-hidden">
             <button onClick={handleToggle} className="w-full text-left px-4 pt-4 pb-3">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
@@ -489,7 +490,7 @@ export default function DailyCheckIn() {
                 ))}
               </div>
             )}
-          </div>
+          </Card>
         ) : (
           <p className="text-gray-400 text-sm">No check-ins yet. Complete your first check-in below.</p>
         )}

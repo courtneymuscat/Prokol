@@ -51,7 +51,7 @@ export async function GET(
 
     supabase
       .from('food_logs')
-      .select('id, log_date, meal_type, food_name, calories, protein, carbs, fat')
+      .select('id, log_date, meal_type, food_name, calories, protein, carbs, fat, scan_image_url')
       .eq('user_id', clientId)
       .order('log_date', { ascending: false })
       .limit(50),

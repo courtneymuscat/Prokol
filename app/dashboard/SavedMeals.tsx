@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { Card } from '@/components/ui/card'
 
 type MealItem = {
   id: string
@@ -190,10 +191,10 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
 
   if (meals.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-dashed border-gray-200 p-8 text-center">
+      <Card className="p-8 text-center border-dashed">
         <p className="text-sm font-medium text-gray-400">No saved meals yet</p>
         <p className="text-xs text-gray-300 mt-1">Build your first meal above and save it</p>
-      </div>
+      </Card>
     )
   }
 
@@ -212,7 +213,7 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
     const isPicking = pickingMealFor === meal.id
 
     return (
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+      <Card className="overflow-hidden">
         {/* Header row */}
         <div
           className="flex items-center gap-2 px-3 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none"
@@ -369,7 +370,7 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
             </div>
           </div>
         )}
-      </div>
+      </Card>
     )
   }
 

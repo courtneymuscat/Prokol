@@ -18,11 +18,12 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
   if (invite.status !== 'pending') return
   if (new Date(invite.expires_at) < new Date()) return
 
-  // Link client to coach
+  // Link client to coach and switch them to coached tier (no individual plan)
   await supabase.from('coach_clients').upsert(
-    { coach_id: invite.coach_id, client_id: clientId, accepted_at: new Date().toISOString() },
+    { coach_id: invite.coach_id, client_id: clientId, accepted_at: new Date().toISOString(), status: 'active' },
     { onConflict: 'coach_id,client_id' }
   )
+  await supabase.from('profiles').update({ subscription_tier: 'coached' }).eq('id', clientId)
 
   // Mark invite accepted
   await supabase.from('coach_invites').update({ status: 'accepted' }).eq('id', invite.id)

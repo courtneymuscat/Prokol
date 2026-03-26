@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { Card } from '@/components/ui/card'
 
 function todayLocal() {
   const d = new Date()
@@ -62,7 +63,7 @@ export default function WeightLog() {
   }
 
   return (
-    <div className="bg-white rounded-xl border p-6 flex flex-col">
+    <Card className="p-6 flex flex-col">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-semibold text-gray-900">Log Weight</h3>
         <button
@@ -115,6 +116,6 @@ export default function WeightLog() {
           {pending ? 'Saving...' : 'Log Weight'}
         </button>
       </form>
-    </div>
+    </Card>
   )
 }

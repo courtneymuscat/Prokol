@@ -40,6 +40,7 @@ type FoodLog = {
   protein: number
   carbs: number
   fat: number
+  scan_image_url: string | null
 }
 
 type Note = {
@@ -436,6 +437,19 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
                     {Math.round(totals.cal)} kcal · {Math.round(totals.p)}g P · {Math.round(totals.c)}g C · {Math.round(totals.f)}g F
                   </p>
                 </div>
+                {/* Scan images for this day */}
+                {Array.from(new Set(logs.map((l) => l.scan_image_url).filter(Boolean))).map((url) => (
+                  <div key={url} className="px-5 pt-3">
+                    <a href={url!} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={url!}
+                        alt="Meal scan"
+                        className="w-full max-h-52 object-cover rounded-xl border border-gray-100 hover:opacity-90 transition-opacity"
+                      />
+                    </a>
+                    <p className="text-[10px] text-gray-400 mt-1 mb-1">📷 Scanned meal — tap to view full size</p>
+                  </div>
+                ))}
                 {logs.map((l) => (
                   <div key={l.id} className="px-5 py-3 border-t border-gray-50 flex items-center justify-between">
                     <div>

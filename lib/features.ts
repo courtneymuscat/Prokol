@@ -21,7 +21,7 @@ export const FEATURES = {
 } as const
 
 export type Feature = typeof FEATURES[keyof typeof FEATURES]
-export type SubscriptionTier = 'tier_1' | 'tier_2' | 'tier_3'
+export type SubscriptionTier = 'tier_1' | 'tier_2' | 'tier_3' | 'coached'
 export type UserType = 'individual' | 'coach' | 'business'
 
 // ─── Tier → feature mapping ───────────────────────────────────────────────────
@@ -53,6 +53,7 @@ export const TIER_FEATURES: Record<SubscriptionTier, Feature[]> = {
   tier_1: TIER_1_FEATURES,
   tier_2: TIER_2_FEATURES,
   tier_3: TIER_3_FEATURES,
+  coached: TIER_2_FEATURES, // coached clients get Pro-level access, covered by coach's plan
 }
 
 // ─── canAccess helper ─────────────────────────────────────────────────────────

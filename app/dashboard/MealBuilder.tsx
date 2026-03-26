@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import MealFoodRow, { type RowData } from './MealFoodRow'
+import { Card } from '@/components/ui/card'
 
 type MealItem = RowData & { id: string }
 
@@ -73,7 +74,7 @@ export default function MealBuilder({ onSaved }: { onSaved: () => void }) {
   }
 
   return (
-    <div className="bg-white rounded-xl border p-6 space-y-5">
+    <Card className="p-6 space-y-5">
       {/* Name */}
       <div>
         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
@@ -143,6 +144,6 @@ export default function MealBuilder({ onSaved }: { onSaved: () => void }) {
       >
         {saving ? 'Saving...' : 'Save Meal'}
       </button>
-    </div>
+    </Card>
   )
 }

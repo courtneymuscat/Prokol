@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Card } from '@/components/ui/card'
 
 type DataPoint = {
   date: string
@@ -62,19 +63,19 @@ export default function WeightChart() {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border p-6">
+      <Card className="p-6">
         <h3 className="text-base font-semibold text-gray-900 mb-3">Weight Over Time</h3>
         <p className="text-sm text-gray-400">Loading...</p>
-      </div>
+      </Card>
     )
   }
 
   if (points.length < 2) {
     return (
-      <div className="bg-white rounded-xl border p-6">
+      <Card className="p-6">
         <h3 className="text-base font-semibold text-gray-900 mb-3">Weight Over Time</h3>
         <p className="text-sm text-gray-400">Log at least 2 check-ins to see your weight trend.</p>
-      </div>
+      </Card>
     )
   }
 
@@ -140,7 +141,7 @@ export default function WeightChart() {
   const deltaColor = delta < 0 ? 'text-green-600' : delta > 0 ? 'text-red-500' : 'text-gray-500'
 
   return (
-    <div className="bg-white rounded-xl border p-6">
+    <Card className="p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-base font-semibold text-gray-900">Weight Over Time</h3>
@@ -284,6 +285,6 @@ export default function WeightChart() {
           )}
         </svg>
       </div>
-    </div>
+    </Card>
   )
 }

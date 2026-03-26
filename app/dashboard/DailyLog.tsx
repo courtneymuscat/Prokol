@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import FoodSearch, { type FoodResult } from './FoodSearch'
+import MealScanModal from './MealScanModal'
 
 const MEALS = [
   { key: 'breakfast' as const, label: 'Breakfast' },
@@ -72,6 +73,7 @@ export default function DailyLog() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValues, setEditValues] = useState({ food_name: '', calories: '', protein: '', carbs: '', fat: '' })
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null)
+  const [scanningMeal, setScanningMeal] = useState<MealKey | null>(null)
 
   const fetchLogs = useCallback(async () => {
     setLoading(true)
@@ -264,16 +266,29 @@ export default function DailyLog() {
                     )}
                   </div>
                   {!isAdding ? (
-                    <button
-                      type="button"
-                      onClick={() => { setAddingTo(meal.key); setPendingEntry(null) }}
-                      className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
-                    >
-                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                      Add Food
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setScanningMeal(meal.key)}
+                        className="p-1.5 text-gray-400 hover:text-gray-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                        title="Scan meal with camera"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setAddingTo(meal.key); setPendingEntry(null) }}
+                        className="flex items-center gap-1 text-xs font-semibold text-gray-400 hover:text-gray-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Food
+                      </button>
+                    </div>
                   ) : (
                     <button
                       type="button"
@@ -448,6 +463,15 @@ export default function DailyLog() {
             )
           })}
         </div>
+      )}
+
+      {scanningMeal && (
+        <MealScanModal
+          mealKey={scanningMeal}
+          date={date}
+          onLogged={fetchLogs}
+          onClose={() => setScanningMeal(null)}
+        />
       )}
     </div>
   )

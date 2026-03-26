@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { Card } from '@/components/ui/card'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type Flow = 'spotting' | 'light' | 'medium' | 'heavy'
@@ -314,12 +315,12 @@ function EducationCard({ edu }: { edu: { headline: string; body: string; source?
 
 function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl p-4 space-y-3 shadow-sm border border-gray-100">
+    <Card className="p-4 space-y-3">
       <p className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
         <span>{icon}</span>{title}
       </p>
       {children}
-    </div>
+    </Card>
   )
 }
 
@@ -892,7 +893,7 @@ export default function CycleTracker() {
 
   return (
     <>
-      <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
+      <Card className="p-4">
         <div className="flex items-center justify-between mb-5">
           <button type="button" onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-500">
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
@@ -1026,7 +1027,7 @@ export default function CycleTracker() {
             <p className="w-full text-xs text-gray-300 mt-1">Log 2+ complete cycles to see predictions</p>
           )}
         </div>
-      </div>
+      </Card>
 
       {selectedDate && selectedLog && (
         <CycleModal log={selectedLog} saving={saving} onUpdate={saveLog} onClose={() => setSelectedDate(null)} />
