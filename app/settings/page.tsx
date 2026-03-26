@@ -48,17 +48,17 @@ export default async function SettingsPage() {
                 <p className="text-lg font-bold text-gray-900">{profile.target_calories}</p>
                 <p className="text-xs text-gray-400">kcal</p>
               </div>
+              <div className="rounded-xl bg-purple-50 py-3">
+                <p className="text-lg font-bold text-purple-400">{profile.target_protein}g</p>
+                <p className="text-xs text-purple-400">protein</p>
+              </div>
+              <div className="rounded-xl bg-green-50 py-3">
+                <p className="text-lg font-bold text-green-400">{profile.target_carbs}g</p>
+                <p className="text-xs text-green-400">carbs</p>
+              </div>
               <div className="rounded-xl bg-blue-50 py-3">
-                <p className="text-lg font-bold text-blue-700">{profile.target_protein}g</p>
-                <p className="text-xs text-blue-400">protein</p>
-              </div>
-              <div className="rounded-xl bg-amber-50 py-3">
-                <p className="text-lg font-bold text-amber-700">{profile.target_carbs}g</p>
-                <p className="text-xs text-amber-400">carbs</p>
-              </div>
-              <div className="rounded-xl bg-rose-50 py-3">
-                <p className="text-lg font-bold text-rose-700">{profile.target_fat}g</p>
-                <p className="text-xs text-rose-400">fat</p>
+                <p className="text-lg font-bold text-blue-400">{profile.target_fat}g</p>
+                <p className="text-xs text-blue-400">fat</p>
               </div>
             </div>
             {profile.tdee && (
