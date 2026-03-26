@@ -121,12 +121,12 @@ export default async function DashboardPage() {
         {/* Coach banner — only shown when actually coached */}
         {coachEmail && <CoachBanner coachEmail={coachEmail} />}
 
-        {/* Daily targets card — shown when TDEE has been calculated */}
-        {profile?.target_calories && (
+        {/* Daily targets card */}
+        {profile?.target_calories ? (
           <div className="bg-white rounded-2xl border px-5 py-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Daily targets</p>
-              <a href="/settings" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Edit →</a>
+              <a href="/onboarding" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Recalculate →</a>
             </div>
             <div className="grid grid-cols-4 gap-3 text-center">
               <div>
@@ -146,6 +146,16 @@ export default async function DashboardPage() {
                 <p className="text-xs text-gray-400 mt-0.5">fat</p>
               </div>
             </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-dashed px-5 py-5 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-700">No targets set yet</p>
+              <p className="text-xs text-gray-400 mt-0.5">Get personalised calorie & macro targets based on your activity.</p>
+            </div>
+            <a href="/onboarding" className="flex-shrink-0 text-sm font-semibold px-4 py-2 rounded-xl text-gray-900 ml-4" style={{ backgroundColor: '#FFD885' }}>
+              Set targets →
+            </a>
           </div>
         )}
 
