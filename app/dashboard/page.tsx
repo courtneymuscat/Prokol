@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getSubscription } from '@/lib/subscription'
+import { FEATURES } from '@/lib/features'
 import { logout } from '@/app/actions/auth'
 import DailyLog from './DailyLog'
 import DailyCheckIn from './DailyCheckIn'
@@ -10,12 +12,11 @@ import CycleTracker from './CycleTracker'
 import CyclePhaseBar from './CyclePhaseBar'
 import FormsSection from './FormsSection'
 import CoachBanner from './CoachBanner'
+import UpgradePrompt from '@/components/UpgradePrompt'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  const { data: { session } } = await supabase.auth.getSession()
 
   const user = session?.user
   if (!user) redirect('/login')
@@ -28,34 +29,45 @@ export default async function DashboardPage() {
     .single()
   if (profile && profile.onboarding_completed === false) redirect('/onboarding')
 
-  // Check if client has submitted a check-in in the last 7 days
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-  const { data: recentCheckIn } = await supabase
-    .from('check_ins')
-    .select('id')
-    .eq('user_id', user.id)
-    .gte('created_at', sevenDaysAgo)
-    .limit(1)
-    .maybeSingle()
+  // Subscription feature access
+  const sub = await getSubscription()
+  const canWeightChart  = sub.canAccess(FEATURES.WEIGHT_TRACKING)
+  const canMealBuilder  = sub.canAccess(FEATURES.MEAL_BUILDER)
+  const canFullCheckin  = sub.canAccess(FEATURES.DAILY_CHECKIN)
+  const canCycleAdv     = sub.canAccess(FEATURES.CYCLE_TRACKER)
+  const canMealScanner  = sub.canAccess(FEATURES.MEAL_SCANNER)
 
-  const showCheckInBanner = !recentCheckIn
-
-  // Check if this user is currently coached
+  // Only show check-in banner for coached users (they have a coach waiting)
+  const isCoached = sub.tier === 'coached'
+  let showCheckInBanner = false
   let coachEmail: string | null = null
-  const { data: coachRel } = await supabase
-    .from('coach_clients')
-    .select('coach_id')
-    .eq('client_id', user.id)
-    .eq('status', 'active')
-    .maybeSingle()
 
-  if (coachRel) {
-    const { data: coachProfile } = await supabase
-      .from('profiles')
-      .select('email')
-      .eq('id', coachRel.coach_id)
-      .single()
-    coachEmail = coachProfile?.email ?? null
+  if (isCoached) {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: recentCheckIn } = await supabase
+      .from('check_ins')
+      .select('id')
+      .eq('user_id', user.id)
+      .gte('created_at', sevenDaysAgo)
+      .limit(1)
+      .maybeSingle()
+    showCheckInBanner = !recentCheckIn
+
+    const { data: coachRel } = await supabase
+      .from('coach_clients')
+      .select('coach_id')
+      .eq('client_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+
+    if (coachRel) {
+      const { data: coachProfile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('id', coachRel.coach_id)
+        .single()
+      coachEmail = coachProfile?.email ?? null
+    }
   }
 
   return (
@@ -68,7 +80,7 @@ export default async function DashboardPage() {
             { href: '/workouts', label: 'Workouts' },
             { href: '/messages', label: 'Messages' },
             { href: '/coach/dashboard', label: 'Coach' },
-            { href: '/pricing', label: 'Pricing' },
+            { href: '/pricing', label: 'Upgrade' },
           ].map(({ href, label }) => (
             <a key={href} href={href} className="text-[13px] font-medium text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
               {label}
@@ -85,15 +97,25 @@ export default async function DashboardPage() {
 
       <main className="max-w-4xl mx-auto p-6 space-y-8">
         {/* Welcome */}
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Welcome back!</h2>
-          <p className="text-gray-500 mt-1 text-sm">{user.email}</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-gray-900">Welcome back!</h2>
+            <p className="text-gray-500 mt-1 text-sm">{user.email}</p>
+          </div>
+          {/* Tier badge */}
+          <a href="/pricing" className="text-xs font-semibold px-3 py-1.5 rounded-full border hover:opacity-80 transition-colors" style={{
+            backgroundColor: sub.tier === 'tier_3' ? '#f3e8ff' : sub.tier === 'tier_2' || sub.tier === 'coached' ? '#FFF5D0' : '#f3f4f6',
+            color: sub.tier === 'tier_3' ? '#7c3aed' : sub.tier === 'tier_2' || sub.tier === 'coached' ? '#B08000' : '#6b7280',
+            borderColor: sub.tier === 'tier_3' ? '#e9d5ff' : sub.tier === 'tier_2' || sub.tier === 'coached' ? '#FFE9A8' : '#e5e7eb',
+          }}>
+            {sub.tier === 'tier_3' ? 'Elite' : sub.tier === 'tier_2' ? 'Optimiser' : sub.tier === 'coached' ? 'Coached' : 'Tracker — Free'}
+          </a>
         </div>
 
-        {/* Coach banner */}
+        {/* Coach banner — only shown when actually coached */}
         {coachEmail && <CoachBanner coachEmail={coachEmail} />}
 
-        {/* Check-in reminder banner */}
+        {/* Check-in reminder banner — only for coached users */}
         {showCheckInBanner && (
           <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
             <svg className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -101,44 +123,47 @@ export default async function DashboardPage() {
             </svg>
             <div className="flex-1">
               <p className="text-sm font-semibold text-amber-800">Weekly check-in due</p>
-              <p className="text-xs text-amber-700 mt-0.5">You haven't submitted your weekly check-in yet. Your coach is waiting on your update.</p>
+              <p className="text-xs text-amber-700 mt-0.5">You haven&apos;t submitted your weekly check-in yet. Your coach is waiting on your update.</p>
             </div>
-            <a
-              href="#daily-checkin"
-              className="flex-shrink-0 text-xs font-semibold bg-amber-500 text-white px-3 py-1.5 rounded-lg hover:bg-amber-600 transition-colors"
-            >
+            <a href="#daily-checkin" className="flex-shrink-0 text-xs font-semibold bg-amber-500 text-white px-3 py-1.5 rounded-lg hover:bg-amber-600 transition-colors">
               Check in now
             </a>
           </div>
         )}
 
-        {/* Weight — log + chart side by side */}
+        {/* Weight — log + chart */}
         <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
           <WeightLog />
-          <WeightChart />
+          {canWeightChart
+            ? <WeightChart />
+            : <UpgradePrompt plan="Optimiser" feature="Weight trend chart" />
+          }
         </section>
 
         {/* Daily Food Log */}
-        <DailyLog />
+        <DailyLog canScanMeal={canMealScanner} />
 
         {/* Meal Builder + Saved Meals */}
         <section>
-          <MealSection />
+          {canMealBuilder
+            ? <MealSection />
+            : <UpgradePrompt plan="Optimiser" feature="Meal builder & saved meals" />
+          }
         </section>
 
         {/* Cycle Tracker */}
         <section>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Cycle Tracker</h3>
-          <CycleTracker />
+          <CycleTracker advancedAccess={canCycleAdv} />
           <CyclePhaseBar />
         </section>
 
         {/* Coach Forms */}
         <FormsSection />
 
-        {/* Daily Check-In + Latest */}
+        {/* Daily Check-In */}
         <div id="daily-checkin">
-          <DailyCheckIn />
+          <DailyCheckIn fullAccess={canFullCheckin} />
         </div>
       </main>
     </div>

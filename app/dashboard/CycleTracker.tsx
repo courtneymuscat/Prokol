@@ -371,8 +371,8 @@ function SymptomGroup({ title, symptoms, selected, onToggle, color = 'orange' }:
 }
 
 // ── Modal ──────────────────────────────────────────────────────────────────
-function CycleModal({ log, saving, onUpdate, onClose }: {
-  log: CycleLog; saving: boolean; onUpdate: (log: CycleLog) => void; onClose: () => void
+function CycleModal({ log, saving, onUpdate, onClose, advancedAccess = true }: {
+  log: CycleLog; saving: boolean; onUpdate: (log: CycleLog) => void; onClose: () => void; advancedAccess?: boolean
 }) {
   const [local, setLocal] = useState<CycleLog>(log)
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -528,7 +528,7 @@ function CycleModal({ log, saving, onUpdate, onClose }: {
           </Section>
 
           {/* ── Fertility ── */}
-          <Section title="Fertility Tracking (FAM)" icon="🌡">
+          {advancedAccess && <Section title="Fertility Tracking (FAM)" icon="🌡">
             <InfoBox color="teal">
               <strong>FAM — Fertility Awareness Method:</strong> Ovulation is the main event of your cycle. You only make progesterone if you ovulate — and progesterone is essential for mood, sleep, bones and thyroid. Tracking BBT, cervical mucus and cervix position together gives you a complete picture of when (and whether) you ovulated.
             </InfoBox>
@@ -584,7 +584,7 @@ function CycleModal({ log, saving, onUpdate, onClose }: {
                 className="mt-2 w-36 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 bg-gray-50 focus:bg-white"
               />
             </div>
-          </Section>
+          </Section>}
 
           {/* ── Ovulation Pain ── */}
           <Section title="Ovulation Pain (Mittelschmerz)" icon="⚡">
@@ -619,150 +619,155 @@ function CycleModal({ log, saving, onUpdate, onClose }: {
             )}
           </Section>
 
-          {/* ── Symptoms ── */}
-          <Section title="Symptoms" icon="🩺">
-            <SymptomGroup title="Pain" color="orange"
-              symptoms={[
-                { key: 'cramps_mild', label: 'Mild cramps' },
-                { key: 'cramps_moderate', label: 'Moderate cramps' },
-                { key: 'cramps_severe', label: 'Severe cramps' },
-                { key: 'back_pain', label: 'Back pain' },
-                { key: 'headache', label: 'Headache' },
-                { key: 'migraine', label: 'Migraine' },
-              ]}
-              selected={local.symptoms} onToggle={toggleSymptom} />
+          {/* ── Advanced sections (Optimiser+) ── */}
+          {!advancedAccess && (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center space-y-3">
+              <p className="text-sm font-semibold text-gray-700">Symptoms, BBT, Cervical Mucus & Mood tracking</p>
+              <p className="text-xs text-gray-400">Unlock advanced cycle tracking on the Optimiser plan</p>
+              <a href="/pricing" className="inline-block text-xs font-semibold px-4 py-2 rounded-xl text-gray-900 hover:opacity-90" style={{ backgroundColor: '#FFD885' }}>Upgrade to Optimiser →</a>
+            </div>
+          )}
 
-            <SymptomGroup title="Digestive" color="amber"
-              symptoms={[
-                { key: 'bloating', label: 'Bloating' },
-                { key: 'nausea', label: 'Nausea' },
-                { key: 'diarrhea_period', label: 'Diarrhea with period' },
-              ]}
-              selected={local.symptoms} onToggle={toggleSymptom} />
+          {/* ── Advanced sections (Symptoms, Mood, Wellbeing — Optimiser+) ── */}
+          {advancedAccess && <>
+            <Section title="Symptoms" icon="🩺">
+              <SymptomGroup title="Pain" color="orange"
+                symptoms={[
+                  { key: 'cramps_mild', label: 'Mild cramps' },
+                  { key: 'cramps_moderate', label: 'Moderate cramps' },
+                  { key: 'cramps_severe', label: 'Severe cramps' },
+                  { key: 'back_pain', label: 'Back pain' },
+                  { key: 'headache', label: 'Headache' },
+                  { key: 'migraine', label: 'Migraine' },
+                ]}
+                selected={local.symptoms} onToggle={toggleSymptom} />
 
-            <SymptomGroup title="Skin & Hair" color="pink"
-              symptoms={[
-                { key: 'acne', label: 'Acne' },
-                { key: 'acne_hormonal', label: 'Hormonal acne (jaw/chin)' },
-                { key: 'hair_shedding', label: 'Hair shedding' },
-              ]}
-              selected={local.symptoms} onToggle={toggleSymptom} />
+              <SymptomGroup title="Digestive" color="amber"
+                symptoms={[
+                  { key: 'bloating', label: 'Bloating' },
+                  { key: 'nausea', label: 'Nausea' },
+                  { key: 'diarrhea_period', label: 'Diarrhea with period' },
+                ]}
+                selected={local.symptoms} onToggle={toggleSymptom} />
 
-            <SymptomGroup title="Hormonal / Cyclical" color="purple"
-              symptoms={[
-                { key: 'breast_tenderness', label: 'Breast tenderness' },
-                { key: 'fatigue', label: 'Fatigue' },
-                { key: 'fatigue_severe', label: 'Severe fatigue' },
-                { key: 'night_sweats', label: 'Night sweats' },
-                { key: 'insomnia', label: 'Insomnia / waking at night' },
-              ]}
-              selected={local.symptoms} onToggle={toggleSymptom} />
+              <SymptomGroup title="Skin & Hair" color="pink"
+                symptoms={[
+                  { key: 'acne', label: 'Acne' },
+                  { key: 'acne_hormonal', label: 'Hormonal acne (jaw/chin)' },
+                  { key: 'hair_shedding', label: 'Hair shedding' },
+                ]}
+                selected={local.symptoms} onToggle={toggleSymptom} />
 
-            <SymptomGroup title="PMS / Premenstrual" color="red"
-              symptoms={[
-                { key: 'pms_anxiety', label: 'PMS anxiety / overwhelm' },
-                { key: 'pms_rage', label: 'PMS rage / irritability' },
-                { key: 'pms_weeping', label: 'Tearfulness / low mood' },
-              ]}
-              selected={local.symptoms} onToggle={toggleSymptom} />
+              <SymptomGroup title="Hormonal / Cyclical" color="purple"
+                symptoms={[
+                  { key: 'breast_tenderness', label: 'Breast tenderness' },
+                  { key: 'fatigue', label: 'Fatigue' },
+                  { key: 'fatigue_severe', label: 'Severe fatigue' },
+                  { key: 'night_sweats', label: 'Night sweats' },
+                  { key: 'insomnia', label: 'Insomnia / waking at night' },
+                ]}
+                selected={local.symptoms} onToggle={toggleSymptom} />
 
-            {(local.symptoms.includes('pms_anxiety') || local.symptoms.includes('pms_rage') || local.symptoms.includes('pms_weeping')) && (
-              <InfoBox color="amber">
-                <strong>Tracking PMS over 3 cycles</strong> is the first step in understanding your pattern. Note the day it starts relative to your period — if it's consistently 7–10 days before, this is a luteal phase hormonal pattern worth investigating with a practitioner.
+              <SymptomGroup title="PMS / Premenstrual" color="red"
+                symptoms={[
+                  { key: 'pms_anxiety', label: 'PMS anxiety / overwhelm' },
+                  { key: 'pms_rage', label: 'PMS rage / irritability' },
+                  { key: 'pms_weeping', label: 'Tearfulness / low mood' },
+                ]}
+                selected={local.symptoms} onToggle={toggleSymptom} />
+
+              {(local.symptoms.includes('pms_anxiety') || local.symptoms.includes('pms_rage') || local.symptoms.includes('pms_weeping')) && (
+                <InfoBox color="amber">
+                  <strong>Tracking PMS over 3 cycles</strong> is the first step in understanding your pattern. Note the day it starts relative to your period — if it&apos;s consistently 7–10 days before, this is a luteal phase hormonal pattern worth investigating with a practitioner.
                 </InfoBox>
-            )}
-          </Section>
+              )}
+            </Section>
 
-          {/* ── Mood ── */}
-          <Section title="Mood" icon="💭">
-            <div className="flex flex-wrap gap-2">
-              {([
-                { key: 'happy', label: 'Happy' },
-                { key: 'calm', label: 'Calm' },
-                { key: 'anxious', label: 'Anxious' },
-                { key: 'irritable', label: 'Irritable' },
-                { key: 'low', label: 'Low' },
-                { key: 'weepy', label: 'Weepy' },
-              ] as { key: Mood; label: string }[]).map(({ key, label }) => (
-                <Chip key={key} label={label} selected={local.mood === key} onClick={() => pick('mood', key)} color="purple" />
-              ))}
-            </div>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Oestrogen boosts serotonin (mood up in follicular phase). Progesterone calms via GABA (relaxed in early luteal phase). When both drop before your period, mood drops too. Tracking mood across your cycle reveals your unique hormonal pattern.
-            </p>
-          </Section>
+            <Section title="Mood" icon="💭">
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { key: 'happy', label: 'Happy' },
+                  { key: 'calm', label: 'Calm' },
+                  { key: 'anxious', label: 'Anxious' },
+                  { key: 'irritable', label: 'Irritable' },
+                  { key: 'low', label: 'Low' },
+                  { key: 'weepy', label: 'Weepy' },
+                ] as { key: Mood; label: string }[]).map(({ key, label }) => (
+                  <Chip key={key} label={label} selected={local.mood === key} onClick={() => pick('mood', key)} color="purple" />
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Oestrogen boosts serotonin (mood up in follicular phase). Progesterone calms via GABA (relaxed in early luteal phase). When both drop before your period, mood drops too. Tracking mood across your cycle reveals your unique hormonal pattern.
+              </p>
+            </Section>
 
-          {/* ── Energy ── */}
-          <Section title="Energy" icon="⚡">
-            <div className="flex flex-wrap gap-2">
-              {([
-                { key: 'exhausted', label: 'Exhausted' },
-                { key: 'low', label: 'Low' },
-                { key: 'medium', label: 'Medium' },
-                { key: 'high', label: 'High' },
-              ] as { key: Energy; label: string }[]).map(({ key, label }) => (
-                <Chip key={key} label={label} selected={local.energy === key} onClick={() => pick('energy', key)} color="amber" />
-              ))}
-            </div>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Energy should peak in the follicular phase (after your period, before ovulation) as oestrogen rises. Consistently low energy at all phases may indicate thyroid issues or low iron.
-            </p>
-          </Section>
+            <Section title="Energy" icon="⚡">
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { key: 'exhausted', label: 'Exhausted' },
+                  { key: 'low', label: 'Low' },
+                  { key: 'medium', label: 'Medium' },
+                  { key: 'high', label: 'High' },
+                ] as { key: Energy; label: string }[]).map(({ key, label }) => (
+                  <Chip key={key} label={label} selected={local.energy === key} onClick={() => pick('energy', key)} color="amber" />
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Energy should peak in the follicular phase (after your period, before ovulation) as oestrogen rises. Consistently low energy at all phases may indicate thyroid issues or low iron.
+              </p>
+            </Section>
 
-          {/* ── Sleep ── */}
-          <Section title="Sleep" icon="🌙">
-            <div className="flex flex-wrap gap-2">
-              {(['poor', 'okay', 'great'] as Sleep[]).map((s) => (
-                <Chip key={s} label={s.charAt(0).toUpperCase() + s.slice(1)} selected={local.sleep === s} onClick={() => pick('sleep', s)} color="indigo" />
-              ))}
-            </div>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Progesterone has a sedating effect — it helps you fall and stay asleep. Poor sleep is most common in the premenstrual week when progesterone drops. Waking at 3–4am may indicate blood sugar dysregulation or high cortisol.
-            </p>
-          </Section>
+            <Section title="Sleep" icon="🌙">
+              <div className="flex flex-wrap gap-2">
+                {(['poor', 'okay', 'great'] as Sleep[]).map((s) => (
+                  <Chip key={s} label={s.charAt(0).toUpperCase() + s.slice(1)} selected={local.sleep === s} onClick={() => pick('sleep', s)} color="indigo" />
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Progesterone has a sedating effect — it helps you fall and stay asleep. Poor sleep is most common in the premenstrual week when progesterone drops. Waking at 3–4am may indicate blood sugar dysregulation or high cortisol.
+              </p>
+            </Section>
 
-          {/* ── Libido ── */}
-          <Section title="Libido" icon="❤️">
-            <div className="flex flex-wrap gap-2">
-              {(['low', 'medium', 'high'] as Libido[]).map((l) => (
-                <Chip key={l} label={l.charAt(0).toUpperCase() + l.slice(1)} selected={local.libido === l} onClick={() => pick('libido', l)} color="pink" />
-              ))}
-            </div>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Libido naturally peaks around ovulation — driven by rising oestrogen and a brief testosterone surge. Consistently low libido throughout the cycle may indicate low testosterone, high prolactin, or being on hormonal contraception.
-            </p>
-          </Section>
+            <Section title="Libido" icon="❤️">
+              <div className="flex flex-wrap gap-2">
+                {(['low', 'medium', 'high'] as Libido[]).map((l) => (
+                  <Chip key={l} label={l.charAt(0).toUpperCase() + l.slice(1)} selected={local.libido === l} onClick={() => pick('libido', l)} color="pink" />
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Libido naturally peaks around ovulation — driven by rising oestrogen and a brief testosterone surge. Consistently low libido throughout the cycle may indicate low testosterone, high prolactin, or being on hormonal contraception.
+              </p>
+            </Section>
 
-          {/* ── Digestion ── */}
-          <Section title="Digestion" icon="🌿">
-            <div className="flex flex-wrap gap-2">
-              {([
-                { key: 'bloated', label: 'Bloated' },
-                { key: 'normal', label: 'Normal' },
-                { key: 'constipated', label: 'Constipated' },
-                { key: 'diarrhea', label: 'Loose / Diarrhea' },
-              ] as { key: Digestion; label: string }[]).map(({ key, label }) => (
-                <Chip key={key} label={label} selected={local.digestion === key} onClick={() => pick('digestion', key)} color="teal" />
-              ))}
-            </div>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Progesterone slows gut motility — constipation is common in the luteal phase. Prostaglandins at your period speed things up — diarrhoea at period onset is prostaglandin-driven. The gut microbiome also regulates oestrogen via the estrobolome.
-            </p>
-          </Section>
+            <Section title="Digestion" icon="🌿">
+              <div className="flex flex-wrap gap-2">
+                {([
+                  { key: 'bloated', label: 'Bloated' },
+                  { key: 'normal', label: 'Normal' },
+                  { key: 'constipated', label: 'Constipated' },
+                  { key: 'diarrhea', label: 'Loose / Diarrhea' },
+                ] as { key: Digestion; label: string }[]).map(({ key, label }) => (
+                  <Chip key={key} label={label} selected={local.digestion === key} onClick={() => pick('digestion', key)} color="teal" />
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Progesterone slows gut motility — constipation is common in the luteal phase. Prostaglandins at your period speed things up — diarrhoea at period onset is prostaglandin-driven. The gut microbiome also regulates oestrogen via the estrobolome.
+              </p>
+            </Section>
 
-          {/* ── Notes ── */}
-          <Section title="Notes" icon="📝">
-            <textarea rows={3} placeholder="How are you feeling today? Anything unusual to note?"
-              value={local.notes}
-              onChange={(e) => {
-                const val = e.target.value
-                setLocal((l) => ({ ...l, notes: val }))
-                if (notesTimer.current) clearTimeout(notesTimer.current)
-                notesTimer.current = setTimeout(() => onUpdate({ ...local, notes: val }), 800)
-              }}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50 focus:bg-white resize-none"
-            />
-          </Section>
+            <Section title="Notes" icon="📝">
+              <textarea rows={3} placeholder="How are you feeling today? Anything unusual to note?"
+                value={local.notes}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setLocal((l) => ({ ...l, notes: val }))
+                  if (notesTimer.current) clearTimeout(notesTimer.current)
+                  notesTimer.current = setTimeout(() => onUpdate({ ...local, notes: val }), 800)
+                }}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 bg-gray-50 focus:bg-white resize-none"
+              />
+            </Section>
+          </>}
 
           <div className="h-2" />
         </div>
@@ -780,7 +785,7 @@ function CycleModal({ log, saving, onUpdate, onClose }: {
 }
 
 // ── Main Calendar ──────────────────────────────────────────────────────────
-export default function CycleTracker() {
+export default function CycleTracker({ advancedAccess = true }: { advancedAccess?: boolean }) {
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
@@ -1030,7 +1035,7 @@ export default function CycleTracker() {
       </Card>
 
       {selectedDate && selectedLog && (
-        <CycleModal log={selectedLog} saving={saving} onUpdate={saveLog} onClose={() => setSelectedDate(null)} />
+        <CycleModal log={selectedLog} saving={saving} onUpdate={saveLog} onClose={() => setSelectedDate(null)} advancedAccess={advancedAccess} />
       )}
     </>
   )

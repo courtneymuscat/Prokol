@@ -275,7 +275,7 @@ function CheckInCard({
   )
 }
 
-export default function DailyCheckIn() {
+export default function DailyCheckIn({ fullAccess = true }: { fullAccess?: boolean }) {
   const [checkIns, setCheckIns] = useState<CheckIn[]>([])
   const [expanded, setExpanded] = useState(false)
   const [historyLoaded, setHistoryLoaded] = useState(false)
@@ -403,37 +403,46 @@ export default function DailyCheckIn() {
             <input name="sleep_hours" type="number" min={0} max={24} step="0.5" placeholder="e.g. 7.5" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Sleep quality</label>
-            <select name="sleep_quality" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-              <option value="">Select quality...</option>
-              {SLEEP_QUALITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
-          </div>
-          <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Energy level</label>
             <select name="energy_level" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
               <option value="">Select energy...</option>
               {ENERGY_LEVEL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Resting Heart Rate <span className="font-normal text-gray-400">(bpm, optional)</span>
-            </label>
-            <input name="rhr" type="number" min={30} max={220} step="1" placeholder="e.g. 58" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <p className="text-xs text-gray-400 mt-1">A lower RHR over time often indicates improved cardiovascular fitness.</p>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
-              Heart Rate Variability <span className="font-normal text-gray-400">(ms, optional)</span>
-            </label>
-            <input name="hrv" type="number" min={0} step="1" placeholder="e.g. 65" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <p className="text-xs text-gray-400 mt-1">Monitors your body's readiness for stress and recovery.</p>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Notes (optional)</label>
-            <textarea name="notes" rows={2} placeholder="How are you feeling today? Recovery, soreness, motivation..." className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
-          </div>
+          {fullAccess ? (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Sleep quality</label>
+                <select name="sleep_quality" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                  <option value="">Select quality...</option>
+                  {SLEEP_QUALITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Resting Heart Rate <span className="font-normal text-gray-400">(bpm, optional)</span>
+                </label>
+                <input name="rhr" type="number" min={30} max={220} step="1" placeholder="e.g. 58" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <p className="text-xs text-gray-400 mt-1">A lower RHR over time often indicates improved cardiovascular fitness.</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Heart Rate Variability <span className="font-normal text-gray-400">(ms, optional)</span>
+                </label>
+                <input name="hrv" type="number" min={0} step="1" placeholder="e.g. 65" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <p className="text-xs text-gray-400 mt-1">Monitors your body&apos;s readiness for stress and recovery.</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Notes (optional)</label>
+                <textarea name="notes" rows={2} placeholder="How are you feeling today? Recovery, soreness, motivation..." className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+              </div>
+            </>
+          ) : (
+            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 flex items-center justify-between">
+              <p className="text-xs text-gray-400">Sleep quality, HRV, RHR &amp; notes available on Optimiser</p>
+              <a href="/pricing" className="text-xs font-semibold px-3 py-1.5 rounded-lg text-gray-900 hover:opacity-90" style={{ backgroundColor: '#FFD885' }}>Upgrade</a>
+            </div>
+          )}
           {error && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{error}</p>}
           {success && <p className="text-sm text-green-600 bg-green-50 rounded px-3 py-2">Check-in saved!</p>}
           <button type="submit" disabled={pending} className="w-full bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
