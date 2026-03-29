@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
  * Accept a coach invite by token.
@@ -6,9 +7,10 @@ import { createClient } from '@/lib/supabase/server'
  * Safe to call multiple times — does nothing if already accepted.
  */
 export async function acceptInvite(token: string, clientId: string): Promise<void> {
-  const supabase = await createClient()
+  // Use admin client for invite lookup — RLS blocks the signing-up user from reading coach_invites
+  const admin = createAdminClient()
 
-  const { data: invite } = await supabase
+  const { data: invite } = await admin
     .from('coach_invites')
     .select('id, coach_id, status, expires_at, service_id')
     .eq('token', token)
@@ -18,15 +20,15 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
   if (invite.status !== 'pending') return
   if (new Date(invite.expires_at) < new Date()) return
 
-  // Link client to coach and switch them to coached tier (no individual plan)
-  await supabase.from('coach_clients').upsert(
+  // Link client to coach and switch them to coached tier
+  await admin.from('coach_clients').upsert(
     { coach_id: invite.coach_id, client_id: clientId, accepted_at: new Date().toISOString(), status: 'active', service_id: invite.service_id ?? null },
     { onConflict: 'coach_id,client_id' }
   )
-  await supabase.from('profiles').update({ subscription_tier: 'coached' }).eq('id', clientId)
+  await admin.from('profiles').update({ subscription_tier: 'coached' }).eq('id', clientId)
 
   // Mark invite accepted
-  await supabase.from('coach_invites').update({ status: 'accepted' }).eq('id', invite.id)
+  await admin.from('coach_invites').update({ status: 'accepted' }).eq('id', invite.id)
 }
 
 /**
