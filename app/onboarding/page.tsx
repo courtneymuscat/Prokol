@@ -329,7 +329,7 @@ export default function OnboardingPage() {
               <div className="bg-white rounded-2xl border p-6 space-y-5">
                 {/* Name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">First name <span className="text-gray-400 font-normal">(optional)</span></label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">First name</label>
                   <input
                     type="text"
                     value={form.first_name}
@@ -420,7 +420,7 @@ export default function OnboardingPage() {
                 <button onClick={() => setStep(1)} className="flex-1 border border-gray-200 text-gray-700 py-3 rounded-2xl text-sm font-semibold hover:bg-gray-50 transition-colors">Back</button>
                 <button
                   onClick={() => setStep(3)}
-                  disabled={!form.sex || !form.age || !form.height_cm || !form.weight_kg}
+                  disabled={!form.first_name.trim() || !form.sex || !form.age || !form.height_cm || !form.weight_kg}
                   className="flex-[2] py-3 rounded-2xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-900"
                   style={{ backgroundColor: '#FFD885' }}
                 >
