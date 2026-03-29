@@ -69,7 +69,7 @@ export async function GET(
 
   const workouts = (workoutsRaw.data ?? []).map((w) => ({
     ...w,
-    exercises: ((workoutExercises.data ?? []) as Array<{
+    exercises: ((workoutExercises.data ?? []) as unknown as Array<{
       workout_id: string
       order_index: number
       notes: string | null
