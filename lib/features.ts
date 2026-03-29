@@ -181,6 +181,7 @@ export const INDIVIDUAL_PLANS: PricingPlan[] = [
       'Cycle intelligence + predictions',
       'Personalised cycle insights based on your data',
       'Predict period, ovulation & phase windows',
+      'Upload training videos to exercises for form review',
     ],
     highlighted: false,
   },
