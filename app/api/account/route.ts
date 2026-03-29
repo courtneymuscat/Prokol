@@ -15,8 +15,9 @@ export async function DELETE() {
   await service.from('check_ins').delete().eq('user_id', userId)
   await service.from('cycle_logs').delete().eq('user_id', userId)
   await service.from('progress_photos').delete().eq('user_id', userId)
+  await service.from('workouts').delete().eq('user_id', userId)
+  await service.from('exercises').delete().eq('created_by', userId)
   await service.from('messages').delete().eq('sender_id', userId)
-  await service.from('workout_logs').delete().eq('user_id', userId)
   await service.from('coach_clients').delete().or(`coach_id.eq.${userId},client_id.eq.${userId}`)
   await service.from('form_responses').delete().eq('user_id', userId)
 
