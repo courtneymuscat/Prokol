@@ -1,6 +1,63 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
+import { getStripe } from '@/lib/stripe'
+import { createServiceClient } from '@/lib/supabase/service'
+import { createClient } from '@/lib/supabase/server'
 
-export default function SubscribeSuccessPage() {
+const PLAN_KEY_TO_TIER: Record<string, string> = {
+  individual_tier_1: 'tier_1',
+  individual_tier_2: 'tier_2',
+  individual_tier_3: 'tier_3',
+  coach_starter: 'tier_1',
+  coach_growth: 'tier_2',
+}
+
+const PLAN_KEY_TO_USER_TYPE: Record<string, string> = {
+  individual_tier_1: 'individual',
+  individual_tier_2: 'individual',
+  individual_tier_3: 'individual',
+  coach_starter: 'coach',
+  coach_growth: 'coach',
+}
+
+export default async function SubscribeSuccessPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ session_id?: string }>
+}) {
+  const { session_id } = await searchParams
+
+  if (session_id) {
+    try {
+      const stripe = getStripe()
+      const session = await stripe.checkout.sessions.retrieve(session_id)
+      const { userId, planKey, userType } = session.metadata ?? {}
+
+      // If webhook already ran with a userId, skip. Otherwise use the logged-in user.
+      let resolvedUserId = userId || ''
+
+      if (!resolvedUserId) {
+        const supabase = await createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        resolvedUserId = user?.id ?? ''
+      }
+
+      if (resolvedUserId && planKey) {
+        const tier = PLAN_KEY_TO_TIER[planKey] ?? 'tier_2'
+        const resolvedUserType = userType ?? PLAN_KEY_TO_USER_TYPE[planKey] ?? 'individual'
+        const service = createServiceClient()
+        await service.from('profiles').update({
+          subscription_tier: tier,
+          user_type: resolvedUserType,
+          stripe_customer_id: session.customer as string,
+          stripe_subscription_id: session.subscription as string,
+        }).eq('id', resolvedUserId)
+      }
+    } catch (err) {
+      console.error('Success page sync error:', err)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       <div className="bg-white rounded-2xl border p-10 max-w-md w-full text-center space-y-6">
