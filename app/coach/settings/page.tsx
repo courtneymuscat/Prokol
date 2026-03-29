@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 export default function CoachSettingsPage() {
   const [firstName, setFirstName] = useState('')
   const [email, setEmail] = useState('')
+  const [paymentLink, setPaymentLink] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -16,6 +17,7 @@ export default function CoachSettingsPage() {
       .then((d) => {
         setFirstName(d.first_name ?? '')
         setEmail(d.email ?? '')
+        setPaymentLink(d.payment_link ?? '')
         setLoading(false)
       })
   }, [])
@@ -27,7 +29,7 @@ export default function CoachSettingsPage() {
     const res = await fetch('/api/coach/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ first_name: firstName }),
+      body: JSON.stringify({ first_name: firstName, payment_link: paymentLink }),
     })
     const json = await res.json()
     setSaving(false)
@@ -72,6 +74,25 @@ export default function CoachSettingsPage() {
                   className={`${inputClass} bg-gray-50 text-gray-400 cursor-not-allowed`}
                 />
                 <p className="text-xs text-gray-400 mt-1">Email cannot be changed here.</p>
+              </div>
+            </div>
+
+            {/* Payment */}
+            <div className="bg-white rounded-2xl border p-6 space-y-4">
+              <h2 className="text-sm font-semibold text-gray-900">Payment</h2>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Client payment link</label>
+                <input
+                  type="url"
+                  value={paymentLink}
+                  onChange={(e) => setPaymentLink(e.target.value)}
+                  placeholder="https://buy.stripe.com/..."
+                  className={inputClass}
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Clients will be shown this link when they accept your invite. Use any payment provider — Stripe, PayPal, direct bank, etc.
+                </p>
               </div>
             </div>
 

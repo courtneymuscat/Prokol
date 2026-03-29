@@ -42,7 +42,7 @@ export default async function InvitePage({
   const { data: { session } } = await supabase.auth.getSession()
   if (session && session.user.id !== invite.coach_id) {
     await acceptInvite(token, session.user.id)
-    redirect('/dashboard?joined=1')
+    redirect('/onboarding/coached')
   }
 
   const coachEmail = coachProfile?.email ?? 'your coach'

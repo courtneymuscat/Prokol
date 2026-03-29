@@ -35,6 +35,10 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
     redirect(`/checkout?plan=${planKey}&billing=${billing}&type=${userType}`)
   }
 
+  if (invite) {
+    redirect('/onboarding/coached')
+  }
+
   redirect('/onboarding')
 }
 
@@ -49,6 +53,7 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
 
   if (invite && data.session?.user) {
     await acceptInvite(invite, data.session.user.id)
+    redirect('/onboarding/coached')
   }
 
   // Check if onboarding has been completed
