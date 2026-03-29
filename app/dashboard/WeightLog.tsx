@@ -10,6 +10,8 @@ function todayLocal() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+type WeightEntry = { id: string; weight_lbs: number; weight_unit: string; logged_at: string }
+
 export default function WeightLog() {
   const router = useRouter()
   const [unit, setUnit] = useState<'lbs' | 'kg'>('lbs')
@@ -18,10 +20,30 @@ export default function WeightLog() {
   const [pending, setPending] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [history, setHistory] = useState<WeightEntry[]>([])
 
   useEffect(() => {
     const saved = localStorage.getItem('checkin_weight_unit')
     if (saved === 'kg' || saved === 'lbs') setUnit(saved)
+  }, [])
+
+  useEffect(() => {
+    async function fetchHistory() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase
+        .from('weight_logs')
+        .select('id, weight_lbs, weight_unit, logged_at')
+        .eq('user_id', user.id)
+        .order('logged_at', { ascending: false })
+        .limit(10)
+      if (data) setHistory(data)
+    }
+    fetchHistory()
+    const handler = () => fetchHistory()
+    window.addEventListener('weight-logged', handler)
+    return () => window.removeEventListener('weight-logged', handler)
   }, [])
 
   function toggleUnit() {
@@ -116,6 +138,27 @@ export default function WeightLog() {
           {pending ? 'Saving...' : 'Log Weight'}
         </button>
       </form>
+
+      {history.length > 0 && (
+        <div className="mt-4 border-t pt-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Recent entries</p>
+          <div className="space-y-1.5">
+            {history.map((entry) => {
+              const display = entry.weight_unit === 'kg'
+                ? `${(entry.weight_lbs / 2.20462).toFixed(1)} kg`
+                : `${entry.weight_lbs.toFixed(1)} lbs`
+              const d = new Date(entry.logged_at)
+              const label = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+              return (
+                <div key={entry.id} className="flex items-center justify-between text-xs">
+                  <span className="text-gray-400">{label}</span>
+                  <span className="font-semibold text-gray-700">{display}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </Card>
   )
 }
