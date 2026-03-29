@@ -47,15 +47,16 @@ export async function POST(req: NextRequest) {
         const tier = PLAN_KEY_TO_TIER[planKey] ?? 'tier_1'
         const resolvedUserType = userType ?? PLAN_KEY_TO_USER_TYPE[planKey] ?? 'individual'
 
-        const { error } = await supabase.from('profiles').update({
+        const { error } = await supabase.from('profiles').upsert({
+          id: userId,
           subscription_tier: tier,
           user_type: resolvedUserType,
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
-        }).eq('id', userId)
+        }, { onConflict: 'id' })
 
-        if (error) console.error('Webhook profile update error:', error.message)
-        else console.log('Webhook: updated profile to tier', tier)
+        if (error) console.error('Webhook profile upsert error:', error.message)
+        else console.log('Webhook: upserted profile to tier', tier)
       } else {
         console.warn('Webhook: missing userId or planKey in metadata', session.metadata)
       }

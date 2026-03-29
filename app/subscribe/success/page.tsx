@@ -46,12 +46,13 @@ export default async function SubscribeSuccessPage({
         const tier = PLAN_KEY_TO_TIER[planKey] ?? 'tier_2'
         const resolvedUserType = userType ?? PLAN_KEY_TO_USER_TYPE[planKey] ?? 'individual'
         const service = createServiceClient()
-        await service.from('profiles').update({
+        await service.from('profiles').upsert({
+          id: resolvedUserId,
           subscription_tier: tier,
           user_type: resolvedUserType,
           stripe_customer_id: session.customer as string,
           stripe_subscription_id: session.subscription as string,
-        }).eq('id', resolvedUserId)
+        }, { onConflict: 'id' })
       }
     } catch (err) {
       console.error('Success page sync error:', err)
