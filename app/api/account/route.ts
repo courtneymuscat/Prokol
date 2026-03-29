@@ -9,21 +9,21 @@ export async function DELETE() {
   const userId = user.id
   const service = createServiceClient()
 
-  // Delete user data rows explicitly before deleting auth user
+  // Delete all user data rows first
   await service.from('food_logs').delete().eq('user_id', userId)
   await service.from('weight_logs').delete().eq('user_id', userId)
   await service.from('check_ins').delete().eq('user_id', userId)
   await service.from('cycle_logs').delete().eq('user_id', userId)
+  await service.from('progress_photos').delete().eq('user_id', userId)
+  await service.from('messages').delete().eq('sender_id', userId)
+  await service.from('workout_logs').delete().eq('user_id', userId)
   await service.from('coach_clients').delete().or(`coach_id.eq.${userId},client_id.eq.${userId}`)
+  await service.from('form_responses').delete().eq('user_id', userId)
 
-  // Delete profile last (foreign key references auth.users)
-  const { error: profileError } = await service.from('profiles').delete().eq('id', userId)
-  if (profileError) {
-    console.error('Error deleting profile:', profileError.message)
-    return Response.json({ error: profileError.message }, { status: 500 })
-  }
+  // Delete profile (FK to auth.users — must go before auth user deletion)
+  await service.from('profiles').delete().eq('id', userId)
 
-  // Delete auth user
+  // Delete auth user — cascades any remaining references
   const { error } = await service.auth.admin.deleteUser(userId)
   if (error) {
     console.error('Error deleting auth user:', error.message)
