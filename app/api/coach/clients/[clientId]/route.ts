@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
 import type { NextRequest } from 'next/server'
 
-/** Verify the coach actually owns this client relationship */
+/** Verify the coach actually owns this client relationship (active or archived) */
 async function verifyAccess(coachId: string, clientId: string): Promise<boolean> {
   const supabase = await createClient()
   const { data } = await supabase
@@ -11,7 +11,7 @@ async function verifyAccess(coachId: string, clientId: string): Promise<boolean>
     .select('id')
     .eq('coach_id', coachId)
     .eq('client_id', clientId)
-    .eq('status', 'active')
+    .in('status', ['active', 'archived'])
     .single()
   return !!data
 }
@@ -100,6 +100,31 @@ export async function GET(
     foodLogs: foodLogs.data ?? [],
     mealNotes: mealNotesRaw.data ?? [],
   })
+}
+
+/** Archive client — reverts to free tier, coach can still view history */
+export async function PATCH(
+  _req: NextRequest,
+  { params }: { params: Promise<{ clientId: string }> }
+) {
+  const { clientId } = await params
+  const coachId = await requireCoach()
+  if (!coachId) return Response.json({ error: 'Unauthorised' }, { status: 401 })
+
+  const supabase = await createClient()
+  await supabase
+    .from('coach_clients')
+    .update({ status: 'archived' })
+    .eq('coach_id', coachId)
+    .eq('client_id', clientId)
+
+  const admin = createAdminClient()
+  await admin
+    .from('profiles')
+    .update({ subscription_tier: 'tier_1' })
+    .eq('id', clientId)
+
+  return Response.json({ ok: true })
 }
 
 /** Remove client from coach's roster */

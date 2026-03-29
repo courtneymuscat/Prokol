@@ -19,10 +19,10 @@ export default async function ClientProfilePage({
 
   const { data: rel } = await supabase
     .from('coach_clients')
-    .select('accepted_at')
+    .select('accepted_at, status')
     .eq('coach_id', coachId)
     .eq('client_id', clientId)
-    .eq('status', 'active')
+    .in('status', ['active', 'archived'])
     .single()
 
   if (!rel) redirect('/coach/clients')
@@ -65,6 +65,11 @@ export default async function ClientProfilePage({
               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${tierColor[tier]}`}>
                 {tierLabel[tier]}
               </span>
+              {rel.status === 'archived' && (
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">
+                  Archived
+                </span>
+              )}
             </div>
             {rel.accepted_at && (
               <p className="text-xs text-gray-400 mt-0.5">
@@ -72,10 +77,12 @@ export default async function ClientProfilePage({
               </p>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <RemoveClientButton clientId={clientId} />
-            <MessageButton coachId={coachId} clientId={clientId} />
-          </div>
+          {rel.status === 'active' && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <RemoveClientButton clientId={clientId} />
+              <MessageButton coachId={coachId} clientId={clientId} />
+            </div>
+          )}
         </div>
       </div>
 

@@ -4,9 +4,15 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function RemoveClientButton({ clientId }: { clientId: string }) {
-  const [confirm, setConfirm] = useState(false)
+  const [state, setState] = useState<'idle' | 'confirm'>('idle')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+
+  async function handleArchive() {
+    setLoading(true)
+    await fetch(`/api/coach/clients/${clientId}`, { method: 'PATCH' })
+    router.refresh()
+  }
 
   async function handleRemove() {
     setLoading(true)
@@ -14,19 +20,26 @@ export default function RemoveClientButton({ clientId }: { clientId: string }) {
     router.push('/coach/clients')
   }
 
-  if (confirm) {
+  if (state === 'confirm') {
     return (
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-gray-500">Remove this client?</span>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-gray-500">Choose action:</span>
+        <button
+          onClick={handleArchive}
+          disabled={loading}
+          className="text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+        >
+          {loading ? '…' : 'Archive'}
+        </button>
         <button
           onClick={handleRemove}
           disabled={loading}
           className="text-xs font-semibold text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
         >
-          {loading ? 'Removing…' : 'Yes, remove'}
+          {loading ? '…' : 'Remove'}
         </button>
         <button
-          onClick={() => setConfirm(false)}
+          onClick={() => setState('idle')}
           className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1.5 rounded-lg transition-colors"
         >
           Cancel
@@ -37,10 +50,10 @@ export default function RemoveClientButton({ clientId }: { clientId: string }) {
 
   return (
     <button
-      onClick={() => setConfirm(true)}
+      onClick={() => setState('confirm')}
       className="text-xs font-medium text-gray-400 hover:text-red-500 border border-gray-200 hover:border-red-200 px-3 py-1.5 rounded-lg transition-colors"
     >
-      Remove client
+      Archive / Remove
     </button>
   )
 }

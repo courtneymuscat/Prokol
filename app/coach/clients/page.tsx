@@ -9,30 +9,32 @@ export default async function CoachClientsPage() {
 
   const supabase = await createClient()
 
-  const { data: clientRows } = await supabase
+  const { data: allRows } = await supabase
     .from('coach_clients')
     .select('client_id, accepted_at, status')
     .eq('coach_id', coachId)
-    .eq('status', 'active')
+    .in('status', ['active', 'archived'])
     .order('accepted_at', { ascending: false })
 
-  const clientIds = (clientRows ?? []).map((r) => r.client_id)
+  const allIds = (allRows ?? []).map((r) => r.client_id)
 
-  let clients: { id: string; email: string; tier: string; joinedAt: string | null }[] = []
+  type ClientRow = { id: string; email: string; tier: string; joinedAt: string | null; lastCheckIn: string | null }
+  let active: ClientRow[] = []
+  let archived: ClientRow[] = []
 
-  if (clientIds.length) {
-    const { data: profiles } = await supabase
+  if (allIds.length) {
+    const admin = (await import('@/lib/supabase/admin')).createAdminClient()
+    const { data: profiles } = await admin
       .from('profiles')
       .select('id, email, subscription_tier')
-      .in('id', clientIds)
+      .in('id', allIds)
 
     const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]))
 
-    // Get last check-in per client
     const { data: latestCheckIns } = await supabase
       .from('check_ins')
       .select('user_id, created_at')
-      .in('user_id', clientIds)
+      .in('user_id', allIds)
       .order('created_at', { ascending: false })
 
     const lastCheckIn: Record<string, string> = {}
@@ -40,13 +42,17 @@ export default async function CoachClientsPage() {
       if (!lastCheckIn[c.user_id]) lastCheckIn[c.user_id] = c.created_at
     }
 
-    clients = (clientRows ?? []).map((r) => ({
-      id: r.client_id,
-      email: profileMap[r.client_id]?.email ?? 'Unknown',
-      tier: profileMap[r.client_id]?.subscription_tier ?? 'tier_1',
-      joinedAt: r.accepted_at,
-      lastCheckIn: lastCheckIn[r.client_id] ?? null,
-    }))
+    for (const r of allRows ?? []) {
+      const row: ClientRow = {
+        id: r.client_id,
+        email: profileMap[r.client_id]?.email ?? 'Unknown',
+        tier: profileMap[r.client_id]?.subscription_tier ?? 'tier_1',
+        joinedAt: r.accepted_at,
+        lastCheckIn: lastCheckIn[r.client_id] ?? null,
+      }
+      if (r.status === 'archived') archived.push(row)
+      else active.push(row)
+    }
   }
 
   return (
@@ -54,7 +60,7 @@ export default async function CoachClientsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
-          <p className="text-sm text-gray-500 mt-1">{clients.length} active</p>
+          <p className="text-sm text-gray-500 mt-1">{active.length} active{archived.length > 0 ? ` · ${archived.length} archived` : ''}</p>
         </div>
         <a
           href="/coach/dashboard"
@@ -64,7 +70,7 @@ export default async function CoachClientsPage() {
         </a>
       </div>
 
-      <ClientSearch clients={clients as Parameters<typeof ClientSearch>[0]['clients']} />
+      <ClientSearch clients={active as Parameters<typeof ClientSearch>[0]['clients']} archivedClients={archived as Parameters<typeof ClientSearch>[0]['clients']} />
     </main>
   )
 }
