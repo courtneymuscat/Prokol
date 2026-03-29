@@ -23,6 +23,7 @@ export const FEATURES = {
   MEAL_SCANNER:         'meal_scanner',         // AI photo → detect + log foods
   ADVANCED_ANALYTICS:   'advanced_analytics',   // trends: nutrition/training/recovery
   CYCLE_INTELLIGENCE:   'cycle_intelligence',   // predictions + personalised insights
+  EXERCISE_VIDEO_UPLOAD: 'exercise_video_upload', // upload form-check videos to exercises
 
   // ── Coach features ────────────────────────────────────────────────────────
   CLIENT_MANAGEMENT:      'client_management',
@@ -69,6 +70,7 @@ const TIER_3_FEATURES: Feature[] = [
   FEATURES.MEAL_SCANNER,
   FEATURES.ADVANCED_ANALYTICS,
   FEATURES.CYCLE_INTELLIGENCE,
+  FEATURES.EXERCISE_VIDEO_UPLOAD,
 ]
 
 // ─── Coach tier → feature mapping ────────────────────────────────────────────

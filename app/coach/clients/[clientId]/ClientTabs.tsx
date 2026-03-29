@@ -18,11 +18,19 @@ type CheckIn = {
   reviewed_by_coach: boolean
 }
 
+type WorkoutExercise = {
+  name: string
+  category: string
+  notes: string | null
+  video_url: string | null
+}
+
 type Workout = {
   id: string
   name: string
   started_at: string
   ended_at: string
+  exercises: WorkoutExercise[]
 }
 
 type WeightLog = {
@@ -470,12 +478,40 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
         <div className="space-y-3">
           {data.workouts.length === 0 && <Empty label="No workouts recorded." />}
           {data.workouts.map((w) => (
-            <div key={w.id} className="bg-white rounded-2xl border p-5">
+            <div key={w.id} className="bg-white rounded-2xl border p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-gray-900">{w.name}</p>
                 <span className="text-xs text-gray-400">{duration(w.started_at, w.ended_at)}</span>
               </div>
               <p className="text-xs text-gray-400 mt-1">{fmt(w.started_at)}</p>
+              {w.exercises.length > 0 && (
+                <div className="border-t border-gray-100 pt-3 space-y-2">
+                  {w.exercises.map((ex, i) => (
+                    <div key={i} className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-gray-800">{ex.name}</p>
+                        <span className="text-xs text-gray-400 capitalize">{ex.category}</span>
+                        {ex.video_url && (
+                          <a
+                            href={ex.video_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1 ml-auto flex-shrink-0"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            View form video
+                          </a>
+                        )}
+                      </div>
+                      {ex.notes && (
+                        <p className="text-xs text-gray-500 italic">"{ex.notes}"</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

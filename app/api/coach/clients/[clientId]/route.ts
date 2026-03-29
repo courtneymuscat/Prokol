@@ -26,7 +26,7 @@ export async function GET(
 
   const supabase = await createClient()
 
-  const [checkIns, workouts, weightLogs, foodLogs] = await Promise.all([
+  const [checkIns, workoutsRaw, weightLogs, foodLogs] = await Promise.all([
     supabase
       .from('check_ins')
       .select('id, created_at, sleep_hours, sleep_quality, energy_level, rhr, hrv, notes, coach_feedback, reviewed_by_coach')
@@ -57,9 +57,37 @@ export async function GET(
       .limit(50),
   ])
 
+  // Fetch exercise details for workouts
+  const workoutIds = (workoutsRaw.data ?? []).map((w) => w.id)
+  const workoutExercises = workoutIds.length
+    ? await supabase
+        .from('workout_exercises')
+        .select('workout_id, order_index, notes, video_url, exercises(id, name, category)')
+        .in('workout_id', workoutIds)
+        .order('order_index')
+    : { data: [] }
+
+  const workouts = (workoutsRaw.data ?? []).map((w) => ({
+    ...w,
+    exercises: ((workoutExercises.data ?? []) as Array<{
+      workout_id: string
+      order_index: number
+      notes: string | null
+      video_url: string | null
+      exercises: { id: string; name: string; category: string } | null
+    }>)
+      .filter((we) => we.workout_id === w.id)
+      .map((we) => ({
+        name: we.exercises?.name ?? '',
+        category: we.exercises?.category ?? '',
+        notes: we.notes ?? null,
+        video_url: we.video_url ?? null,
+      })),
+  }))
+
   return Response.json({
     checkIns: checkIns.data ?? [],
-    workouts: workouts.data ?? [],
+    workouts,
     weightLogs: weightLogs.data ?? [],
     foodLogs: foodLogs.data ?? [],
   })

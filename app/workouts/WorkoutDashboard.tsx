@@ -15,7 +15,7 @@ type WorkoutSummary = {
   duration_min: number | null
 }
 
-export default function WorkoutDashboard() {
+export default function WorkoutDashboard({ canUploadVideo = false }: { canUploadVideo?: boolean }) {
   const [view, setView] = useState<'dashboard' | 'active' | 'edit'>('dashboard')
   const [workouts, setWorkouts] = useState<WorkoutSummary[]>([])
   const [loading, setLoading] = useState(true)
@@ -101,6 +101,7 @@ export default function WorkoutDashboard() {
         onFinish={handleFinish}
         onBack={() => { setCloneTemplate(null); setView('dashboard') }}
         template={cloneTemplate ?? undefined}
+        canUploadVideo={canUploadVideo}
       />
     )
   }

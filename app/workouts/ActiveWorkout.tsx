@@ -51,6 +51,7 @@ type WorkoutExercise = {
   metrics: Metrics
   showRest: boolean
   note: string
+  formVideoUrl: string | null
 }
 
 export type ScoreType = 'time' | 'reps' | 'rounds' | 'weight' | 'distance' | 'calories' | 'custom'
@@ -403,19 +404,45 @@ function ExerciseHistory({ exerciseId, metrics }: { exerciseId: string; metrics:
 
 // ─── Exercise notes ───────────────────────────────────────────────────────────
 
-function ExerciseNotes({ weId, note, onNoteChange }: { weId: string; note: string; onNoteChange: (v: string) => void }) {
+function ExerciseNotes({
+  weId, note, onNoteChange,
+  canUploadVideo, formVideoUrl, onFormVideoChange,
+}: {
+  weId: string
+  note: string
+  onNoteChange: (v: string) => void
+  canUploadVideo: boolean
+  formVideoUrl: string | null
+  onFormVideoChange: (url: string | null) => void
+}) {
   const [open, setOpen] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const supabase = createClient()
 
-  // Load existing note from DB on mount
   useEffect(() => {
     Promise.resolve(
-      supabase.from('workout_exercises').select('notes').eq('id', weId).single()
+      supabase.from('workout_exercises').select('notes, video_url').eq('id', weId).single()
     ).then(({ data }) => {
       const existing = (data as Record<string, unknown>)?.notes as string | null
+      const existingVideo = (data as Record<string, unknown>)?.video_url as string | null
       if (existing) { onNoteChange(existing); setOpen(true) }
-    }).catch(() => {/* notes column missing */})
+      if (existingVideo) { onFormVideoChange(existingVideo); setOpen(true) }
+    }).catch(() => {})
   }, [weId])
+
+  async function handleVideoUpload(file: File) {
+    setUploading(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setUploading(false); return }
+    const ext = file.name.split('.').pop() ?? 'mp4'
+    const path = `${user.id}/${weId}-${Date.now()}.${ext}`
+    const { error } = await supabase.storage.from('exercise-videos').upload(path, file, { upsert: true })
+    if (!error) {
+      const { data: signed } = await supabase.storage.from('exercise-videos').createSignedUrl(path, 315360000)
+      if (signed?.signedUrl) onFormVideoChange(signed.signedUrl)
+    }
+    setUploading(false)
+  }
 
   if (!open) {
     return (
@@ -429,20 +456,57 @@ function ExerciseNotes({ weId, note, onNoteChange }: { weId: string; note: strin
   }
 
   return (
-    <textarea
-      autoFocus={!note}
-      value={note}
-      onChange={(e) => onNoteChange(e.target.value)}
-      placeholder="e.g. Weight felt heavy today, rest 90s between sets..."
-      rows={2}
-      className="w-full text-xs text-gray-600 border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-blue-300 placeholder:text-gray-300"
-    />
+    <div className="space-y-2">
+      <textarea
+        autoFocus={!note && !formVideoUrl}
+        value={note}
+        onChange={(e) => onNoteChange(e.target.value)}
+        placeholder="e.g. Weight felt heavy today, rest 90s between sets..."
+        rows={2}
+        className="w-full text-xs text-gray-600 border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-blue-300 placeholder:text-gray-300"
+      />
+      {canUploadVideo ? (
+        formVideoUrl ? (
+          <div className="flex items-center gap-3 bg-purple-50 rounded-lg px-3 py-2">
+            <svg className="w-4 h-4 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <a href={formVideoUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-purple-700 font-medium flex-1 truncate">
+              View form video
+            </a>
+            <button onClick={() => onFormVideoChange(null)} className="text-xs text-gray-400 hover:text-red-500 transition-colors flex-shrink-0">
+              Remove
+            </button>
+          </div>
+        ) : (
+          <label className="cursor-pointer flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-800 transition-colors">
+            <input
+              type="file"
+              accept="video/*"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleVideoUpload(f) }}
+            />
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            {uploading ? 'Uploading…' : 'Add form video'}
+          </label>
+        )
+      ) : (
+        <a href="/pricing" className="text-xs text-purple-400 hover:text-purple-600 flex items-center gap-1">
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          Upload form videos with Elite →
+        </a>
+      )}
+    </div>
   )
 }
 
 // ─── Exercise block ───────────────────────────────────────────────────────────
 
-function ExerciseBlock({ we, canUp, canDown, onMoveUp, onMoveDown, onAddSet, onRemove, onUpdateSet, onToggleComplete, onSetMetrics, onToggleRest, onNoteChange, onVideoChange }: {
+function ExerciseBlock({ we, canUp, canDown, onMoveUp, onMoveDown, onAddSet, onRemove, onUpdateSet, onToggleComplete, onSetMetrics, onToggleRest, onNoteChange, onVideoChange, canUploadVideo, onFormVideoChange }: {
   we: WorkoutExercise
   canUp: boolean
   canDown: boolean
@@ -456,6 +520,8 @@ function ExerciseBlock({ we, canUp, canDown, onMoveUp, onMoveDown, onAddSet, onR
   onToggleRest: () => void
   onNoteChange: (note: string) => void
   onVideoChange: (url: string | null) => void
+  canUploadVideo: boolean
+  onFormVideoChange: (url: string | null) => void
 }) {
   const [showVideo, setShowVideo] = useState(false)
   const [editingVideo, setEditingVideo] = useState(false)
@@ -592,7 +658,14 @@ function ExerciseBlock({ we, canUp, canDown, onMoveUp, onMoveDown, onAddSet, onR
 
       <button onClick={onAddSet} className="text-sm text-blue-600 hover:text-blue-700 font-medium">+ Add Set</button>
       <ExerciseHistory exerciseId={we.exercise.id} metrics={we.metrics} />
-      <ExerciseNotes weId={we.weId} note={we.note} onNoteChange={onNoteChange} />
+      <ExerciseNotes
+        weId={we.weId}
+        note={we.note}
+        onNoteChange={onNoteChange}
+        canUploadVideo={canUploadVideo}
+        formVideoUrl={we.formVideoUrl}
+        onFormVideoChange={onFormVideoChange}
+      />
     </div>
   )
 }
@@ -603,9 +676,10 @@ type Props = {
   onFinish: () => void
   onBack: () => void
   template?: { name: string; exercises: Exercise[]; sections: FreestyleSection[] }
+  canUploadVideo?: boolean
 }
 
-export default function ActiveWorkout({ onFinish, onBack, template }: Props) {
+export default function ActiveWorkout({ onFinish, onBack, template, canUploadVideo = false }: Props) {
   const supabase = createClient()
   const [workoutId, setWorkoutId] = useState<string | null>(null)
   const [creating, setCreating] = useState(true)
@@ -640,7 +714,7 @@ export default function ActiveWorkout({ onFinish, onBack, template }: Props) {
               .insert({ workout_id: data.id, exercise_id: exercise.id, order_index: i })
               .select('id').single()
             if (we) {
-              templateItems.push({ type: 'exercise', weId: we.id, exercise, sets: [newSet(1)], metrics: defaultMetrics(exercise.category), showRest: false, note: '' })
+              templateItems.push({ type: 'exercise', weId: we.id, exercise, sets: [newSet(1)], metrics: defaultMetrics(exercise.category), showRest: false, note: '', formVideoUrl: null })
             }
           }
           // Restore freestyle sections with fresh IDs
@@ -682,7 +756,7 @@ export default function ActiveWorkout({ onFinish, onBack, template }: Props) {
       .insert({ workout_id: workoutId, exercise_id: exercise.id, order_index: exerciseCount })
       .select('id').single()
     if (!data) return
-    setItems((prev) => [...prev, { type: 'exercise', weId: data.id, exercise, sets: [newSet(1)], metrics: defaultMetrics(exercise.category), showRest: false, note: '' }])
+    setItems((prev) => [...prev, { type: 'exercise', weId: data.id, exercise, sets: [newSet(1)], metrics: defaultMetrics(exercise.category), showRest: false, note: '', formVideoUrl: null }])
   }
 
   function addFreestyleSection() {
@@ -718,6 +792,12 @@ export default function ActiveWorkout({ onFinish, onBack, template }: Props) {
   function setExerciseNote(weId: string, note: string) {
     setItems((prev) => prev.map((item) =>
       item.type === 'exercise' && item.weId === weId ? { ...item, note } : item
+    ))
+  }
+
+  function setFormVideoUrl(weId: string, url: string | null) {
+    setItems((prev) => prev.map((item) =>
+      item.type === 'exercise' && item.weId === weId ? { ...item, formVideoUrl: url } : item
     ))
   }
 
@@ -779,14 +859,14 @@ export default function ActiveWorkout({ onFinish, onBack, template }: Props) {
     if (!workoutId) return
     setFinishing(true)
 
-    // Save exercise notes
+    // Save exercise notes and form videos
     for (const item of items) {
       if (item.type !== 'exercise') continue
       try {
         await supabase.from('workout_exercises')
-          .update({ notes: item.note || null })
+          .update({ notes: item.note || null, video_url: item.formVideoUrl || null })
           .eq('id', item.weId)
-      } catch { /* notes column missing — skip */ }
+      } catch { /* column missing — skip */ }
     }
 
     // Save any sets that have values but were never checked off
@@ -904,6 +984,8 @@ export default function ActiveWorkout({ onFinish, onBack, template }: Props) {
                 ? { ...i, exercise: { ...i.exercise, video_url: url } }
                 : i
             ))}
+            canUploadVideo={canUploadVideo}
+            onFormVideoChange={(url) => setFormVideoUrl(item.weId, url)}
           />
         ) : (
           <FreestyleBlock

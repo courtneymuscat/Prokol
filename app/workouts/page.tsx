@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getSubscription } from '@/lib/subscription'
+import { FEATURES } from '@/lib/features'
 import { logout } from '@/app/actions/auth'
 import WorkoutDashboard from './WorkoutDashboard'
 
@@ -10,6 +12,9 @@ export default async function WorkoutsPage() {
   } = await supabase.auth.getSession()
 
   if (!session?.user) redirect('/login')
+
+  const sub = await getSubscription()
+  const canUploadVideo = sub.canAccess(FEATURES.EXERCISE_VIDEO_UPLOAD)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -29,7 +34,7 @@ export default async function WorkoutsPage() {
       </nav>
 
       <main className="max-w-2xl mx-auto p-6">
-        <WorkoutDashboard />
+        <WorkoutDashboard canUploadVideo={canUploadVideo} />
       </main>
     </div>
   )
