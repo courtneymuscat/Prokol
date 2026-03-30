@@ -206,14 +206,173 @@ function UploadModal({ onClose, onUploaded }: {
   )
 }
 
+// ── Edit Modal ─────────────────────────────────────────────────────────────
+function EditModal({ photo, onClose, onUpdated }: {
+  photo: ProgressPhoto
+  onClose: () => void
+  onUpdated: (photo: ProgressPhoto) => void
+}) {
+  const [file, setFile] = useState<File | null>(null)
+  const [preview, setPreview] = useState<string>(photo.url)
+  const [date, setDate] = useState(photo.taken_at)
+  const [category, setCategory] = useState<Category>(photo.category)
+  const [weightKg, setWeightKg] = useState(photo.weight_kg?.toString() ?? '')
+  const [notes, setNotes] = useState(photo.notes ?? '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (!f) return
+    setFile(f)
+    setPreview(URL.createObjectURL(f))
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    setError(null)
+
+    const supabase = createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { setError('Not signed in'); setSaving(false); return }
+
+    let storagePath = photo.storage_path
+    let newUrl = photo.url
+
+    // If a new file was chosen, upload it and remove the old one
+    if (file) {
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+      const newPath = `${session.user.id}/${crypto.randomUUID()}.${ext}`
+
+      const { error: uploadErr } = await supabase.storage
+        .from('progress-photos')
+        .upload(newPath, file, { contentType: file.type })
+
+      if (uploadErr) { setError(uploadErr.message); setSaving(false); return }
+
+      // Remove old file (best-effort)
+      await supabase.storage.from('progress-photos').remove([photo.storage_path])
+
+      storagePath = newPath
+      const { data: signed } = await supabase.storage.from('progress-photos').createSignedUrl(newPath, 3600)
+      newUrl = signed?.signedUrl ?? preview
+    }
+
+    const { data: row, error: updateErr } = await supabase
+      .from('progress_photos')
+      .update({
+        storage_path: storagePath,
+        taken_at: date,
+        category,
+        notes: notes.trim() || null,
+        weight_kg: weightKg ? parseFloat(weightKg) : null,
+      })
+      .eq('id', photo.id)
+      .select('id, storage_path, taken_at, category, notes, weight_kg')
+      .single()
+
+    if (updateErr) { setError(updateErr.message); setSaving(false); return }
+
+    onUpdated({ ...row, url: newUrl })
+    setSaving(false)
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md max-h-[92vh] flex flex-col shadow-2xl">
+
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+          <p className="text-base font-bold text-gray-900">Edit photo</p>
+          <CloseBtn onClick={onClose} />
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {/* Photo — shows current, tap to replace */}
+          <div className="relative">
+            <img src={preview} alt="Preview" className="w-full max-h-72 object-cover rounded-2xl" />
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="absolute bottom-2 right-2 flex items-center gap-1.5 bg-black/60 hover:bg-black/80 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Change photo
+            </button>
+          </div>
+          <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
+
+          {/* Date */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Date</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
+          </div>
+
+          {/* Position */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Position</label>
+            <div className="grid grid-cols-4 gap-2">
+              {CATEGORIES.map(c => (
+                <button key={c.value} type="button" onClick={() => setCategory(c.value)}
+                  className={`py-2 rounded-xl text-xs font-semibold border transition-all ${
+                    category === c.value ? 'bg-gray-900 border-gray-900 text-white' : 'border-gray-200 text-gray-600 hover:border-gray-400'
+                  }`}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Weight */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+              Weight (kg) <span className="font-normal text-gray-400 normal-case">— optional</span>
+            </label>
+            <input type="number" step="0.1" min="30" max="300" value={weightKg}
+              onChange={e => setWeightKg(e.target.value)} placeholder="e.g. 72.5"
+              className="w-32 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+              Notes <span className="font-normal text-gray-400 normal-case">— optional</span>
+            </label>
+            <textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)}
+              placeholder="e.g. Week 8 of cut, feeling lean"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 resize-none" />
+          </div>
+
+          {error && <p className="text-sm text-red-600 bg-red-50 rounded-xl px-4 py-3">{error}</p>}
+        </div>
+
+        <div className="flex-shrink-0 p-4 border-t border-gray-100">
+          <button onClick={handleSave} disabled={saving}
+            className="w-full py-3 rounded-2xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-900"
+            style={{ backgroundColor: '#FFD885' }}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Photo detail modal ────────────────────────────────────────────────────
-function PhotoDetailModal({ photo, onClose, onDelete }: {
+function PhotoDetailModal({ photo, onClose, onDelete, onEdit }: {
   photo: ProgressPhoto
   onClose: () => void
   onDelete: (id: string) => void
+  onEdit: (photo: ProgressPhoto) => void
 }) {
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [editing, setEditing] = useState(false)
 
   async function handleDelete() {
     setDeleting(true)
@@ -222,6 +381,16 @@ function PhotoDetailModal({ photo, onClose, onDelete }: {
     await supabase.from('progress_photos').delete().eq('id', photo.id)
     onDelete(photo.id)
     onClose()
+  }
+
+  if (editing) {
+    return (
+      <EditModal
+        photo={photo}
+        onClose={() => setEditing(false)}
+        onUpdated={(updated) => { onEdit(updated); onClose() }}
+      />
+    )
   }
 
   return (
@@ -242,23 +411,29 @@ function PhotoDetailModal({ photo, onClose, onDelete }: {
               {photo.notes && <p className="text-white/60 text-xs mt-1">{photo.notes}</p>}
             </div>
 
-            {!confirming ? (
-              <button onClick={() => setConfirming(true)}
-                className="flex-shrink-0 text-xs text-red-400 hover:text-red-300 font-medium bg-black/40 px-3 py-1.5 rounded-lg transition-colors">
-                Delete
+            <div className="flex flex-col items-end gap-2 flex-shrink-0">
+              <button onClick={() => setEditing(true)}
+                className="text-xs text-white/80 hover:text-white font-medium bg-black/40 px-3 py-1.5 rounded-lg transition-colors">
+                Edit
               </button>
-            ) : (
-              <div className="flex gap-2 flex-shrink-0">
-                <button onClick={() => setConfirming(false)}
-                  className="text-xs text-white/70 hover:text-white font-medium bg-black/40 px-3 py-1.5 rounded-lg transition-colors">
-                  Cancel
+              {!confirming ? (
+                <button onClick={() => setConfirming(true)}
+                  className="text-xs text-red-400 hover:text-red-300 font-medium bg-black/40 px-3 py-1.5 rounded-lg transition-colors">
+                  Delete
                 </button>
-                <button onClick={handleDelete} disabled={deleting}
-                  className="text-xs text-white font-semibold bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">
-                  {deleting ? '…' : 'Confirm'}
-                </button>
-              </div>
-            )}
+              ) : (
+                <div className="flex gap-2">
+                  <button onClick={() => setConfirming(false)}
+                    className="text-xs text-white/70 hover:text-white font-medium bg-black/40 px-3 py-1.5 rounded-lg transition-colors">
+                    Cancel
+                  </button>
+                  <button onClick={handleDelete} disabled={deleting}
+                    className="text-xs text-white font-semibold bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">
+                    {deleting ? '…' : 'Confirm'}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -420,6 +595,12 @@ export default function ProgressPhotos({ canCompare = false }: { canCompare?: bo
     setPhotos(prev => prev.filter(p => p.id !== id))
     if (compareLeft?.id === id) setCompareLeft(null)
     if (compareRight?.id === id) setCompareRight(null)
+  }
+
+  function handleEdited(updated: ProgressPhoto) {
+    setPhotos(prev => prev.map(p => p.id === updated.id ? updated : p))
+    if (compareLeft?.id === updated.id) setCompareLeft(updated)
+    if (compareRight?.id === updated.id) setCompareRight(updated)
   }
 
   const filtered = filterCat === 'all' ? photos : photos.filter(p => p.category === filterCat)
@@ -591,7 +772,7 @@ export default function ProgressPhotos({ canCompare = false }: { canCompare?: bo
         <UploadModal onClose={() => setShowUpload(false)} onUploaded={handleUploaded} />
       )}
       {selectedPhoto && (
-        <PhotoDetailModal photo={selectedPhoto} onClose={() => setSelectedPhoto(null)} onDelete={handleDeleted} />
+        <PhotoDetailModal photo={selectedPhoto} onClose={() => setSelectedPhoto(null)} onDelete={handleDeleted} onEdit={handleEdited} />
       )}
       {pickingFor && (
         <PickPhotoModal
