@@ -199,8 +199,7 @@ export default function FoodSearch({ onSelect }: Props) {
           </label>
 
           {/* Input row */}
-          <div className="flex gap-2 items-center">
-            <div ref={containerRef} className="relative flex-1">
+          <div ref={containerRef} className="relative w-full">
               <div className="relative flex items-center">
                 <svg className="absolute left-3 h-4 w-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
@@ -320,20 +319,18 @@ export default function FoodSearch({ onSelect }: Props) {
               )}
             </div>
 
-            {/* Scan button */}
-            <button
-              type="button"
-              onClick={() => setScannerOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2.5 bg-gray-900 hover:bg-gray-700 text-white text-sm font-medium rounded-xl transition-colors whitespace-nowrap flex-shrink-0"
-              title="Scan barcode"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8H3a2 2 0 00-2 2v8a2 2 0 002 2h3m0-12V4a2 2 0 012-2h8a2 2 0 012 2v4m0 0h2" />
-              </svg>
-              <span>Scan Barcode</span>
-            </button>
-
-          </div>
+          {/* Scan button — full width below search */}
+          <button
+            type="button"
+            onClick={() => setScannerOpen(true)}
+            className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2.5 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-xl transition-colors"
+            title="Scan barcode"
+          >
+            <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8H3a2 2 0 00-2 2v8a2 2 0 002 2h3m0-12V4a2 2 0 012-2h8a2 2 0 012 2v4m0 0h2" />
+            </svg>
+            <span>Scan Barcode</span>
+          </button>
         </div>
 
         {/* Barcode not found — add food form */}
