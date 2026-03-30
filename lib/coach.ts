@@ -12,7 +12,7 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
 
   const { data: invite } = await admin
     .from('coach_invites')
-    .select('id, coach_id, status, expires_at, service_id')
+    .select('id, coach_id, status, expires_at, service_id, form_id')
     .eq('token', token)
     .single()
 
@@ -22,7 +22,7 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
 
   // Link client to coach and switch them to coached tier
   await admin.from('coach_clients').upsert(
-    { coach_id: invite.coach_id, client_id: clientId, accepted_at: new Date().toISOString(), status: 'active', service_id: invite.service_id ?? null },
+    { coach_id: invite.coach_id, client_id: clientId, accepted_at: new Date().toISOString(), status: 'active', service_id: invite.service_id ?? null, form_id: invite.form_id ?? null },
     { onConflict: 'coach_id,client_id' }
   )
   await admin.from('profiles').update({ subscription_tier: 'coached' }).eq('id', clientId)

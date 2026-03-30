@@ -14,7 +14,7 @@ export default async function CoachedOnboardingPage() {
   // Look up their coach via coach_clients table
   const { data: coachClientRow } = await supabase
     .from('coach_clients')
-    .select('coach_id, service_id')
+    .select('coach_id, service_id, form_id')
     .eq('client_id', user.id)
     .eq('status', 'active')
     .single()
@@ -50,7 +50,8 @@ export default async function CoachedOnboardingPage() {
     service = data ?? null
   }
 
-  const afterPayUrl = clientProfile?.onboarding_completed ? '/dashboard' : '/onboarding'
+  const formUrl = coachClientRow.form_id ? `/forms/${coachClientRow.form_id}` : null
+  const afterPayUrl = formUrl ?? (clientProfile?.onboarding_completed ? '/dashboard' : '/onboarding')
   const coachName = coachProfile?.first_name || coachProfile?.email || 'your coach'
   const paymentLink = service?.payment_link ?? null
   const serviceName = service?.name ?? null
@@ -92,12 +93,16 @@ export default async function CoachedOnboardingPage() {
           <PayNowButton paymentLink={paymentLink} afterPayUrl={afterPayUrl} />
         </div>
 
-        {/* Step 2 — Profile setup preview (muted) */}
+        {/* Step 2 — next step preview (muted) */}
         <div className="border border-gray-100 bg-gray-50 rounded-xl p-4 space-y-2">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Step 2</p>
-          <p className="text-sm font-semibold text-gray-400">Set up your profile</p>
+          <p className="text-sm font-semibold text-gray-400">
+            {formUrl ? 'Complete your onboarding form' : 'Set up your profile'}
+          </p>
           <p className="text-xs text-gray-400">
-            Answer a few questions so we can calculate your personalised nutrition targets.
+            {formUrl
+              ? 'Your coach has a short form for you to fill in.'
+              : 'Answer a few questions so we can calculate your personalised nutrition targets.'}
           </p>
         </div>
       </div>

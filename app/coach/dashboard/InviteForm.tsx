@@ -8,10 +8,17 @@ type Service = {
   price_label: string | null
 }
 
+type Form = {
+  id: string
+  title: string
+}
+
 export default function InviteForm() {
   const [email, setEmail] = useState('')
   const [serviceId, setServiceId] = useState('')
+  const [formId, setFormId] = useState('')
   const [services, setServices] = useState<Service[]>([])
+  const [forms, setForms] = useState<Form[]>([])
   const [servicesLoaded, setServicesLoaded] = useState(false)
   const [link, setLink] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -26,6 +33,11 @@ export default function InviteForm() {
         setServicesLoaded(true)
       })
       .catch(() => setServicesLoaded(true))
+
+    fetch('/api/forms')
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: Form[]) => setForms(data))
+      .catch(() => {})
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -38,7 +50,7 @@ export default function InviteForm() {
     const res = await fetch('/api/coach/invite', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, service_id: serviceId }),
+      body: JSON.stringify({ email, service_id: serviceId, form_id: formId || null }),
     })
     const json = await res.json()
 
@@ -48,6 +60,7 @@ export default function InviteForm() {
       setLink(json.url)
       setEmail('')
       setServiceId('')
+      setFormId('')
     }
     setPending(false)
   }
@@ -83,6 +96,22 @@ export default function InviteForm() {
             </select>
           </div>
         )}
+        {forms.length > 0 && (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Onboarding form (optional)</label>
+            <select
+              value={formId}
+              onChange={(e) => setFormId(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="">No form</option>
+              {forms.map((f) => (
+                <option key={f.id} value={f.id}>{f.title}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {servicesLoaded && services.length === 0 && (
           <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
             You need to add at least one service before inviting clients.{' '}
