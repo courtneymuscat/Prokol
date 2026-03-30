@@ -95,7 +95,7 @@ export const TIER_FEATURES: Record<SubscriptionTier, Feature[]> = {
   tier_1: TIER_1_FEATURES,
   tier_2: TIER_2_FEATURES,
   tier_3: TIER_3_FEATURES,
-  coached: TIER_2_FEATURES, // coached clients get Optimiser-level access
+  coached: TIER_3_FEATURES, // coached clients get full Elite-level access
 }
 
 export const COACH_TIER_FEATURES: Record<string, Feature[]> = {
