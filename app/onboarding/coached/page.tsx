@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import PayNowButton from './PayNowButton'
 
 export default async function CoachedOnboardingPage() {
   const supabase = await createClient()
@@ -89,15 +89,7 @@ export default async function CoachedOnboardingPage() {
           <p className="text-xs text-gray-500">
             Click below to pay {coachName}. Once done, come back here to continue.
           </p>
-          <a
-            href={paymentLink}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full text-center py-2.5 rounded-xl text-sm font-semibold text-gray-900 transition-colors"
-            style={{ backgroundColor: '#FFD885' }}
-          >
-            Pay now →
-          </a>
+          <PayNowButton paymentLink={paymentLink} afterPayUrl={afterPayUrl} />
         </div>
 
         {/* Step 2 — Profile setup preview (muted) */}
