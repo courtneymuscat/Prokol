@@ -26,7 +26,7 @@ export default async function DashboardPage() {
   // Check onboarding status + fetch targets
   const { data: profile } = await supabase
     .from('profiles')
-    .select('onboarding_completed, goal, target_calories, target_protein, target_carbs, target_fat, tdee, sex')
+    .select('onboarding_completed, goal, target_calories, target_protein, target_carbs, target_fat, tdee, sex, full_name')
     .eq('id', user.id)
     .single()
   if (!profile?.onboarding_completed) redirect('/onboarding')
@@ -97,7 +97,9 @@ export default async function DashboardPage() {
               {label}
             </a>
           ))}
-          <span className="text-[13px] text-gray-400 px-2 hidden sm:block">{user.email}</span>
+          <span className="text-[13px] text-gray-400 px-2 hidden sm:block">
+            {(profile as Record<string, unknown>)?.full_name as string || user.email}
+          </span>
           <form action={logout}>
             <button type="submit" className="text-[13px] font-medium text-gray-500 hover:text-red-500 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
               Log out
@@ -110,7 +112,9 @@ export default async function DashboardPage() {
         {/* Welcome */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-semibold text-gray-900">Welcome back!</h2>
+            <h2 className="text-2xl font-semibold text-gray-900">
+              Welcome back{(profile as Record<string, unknown>)?.full_name ? `, ${(profile as Record<string, unknown>).full_name}` : ''}!
+            </h2>
             <p className="text-gray-500 mt-1 text-sm">{user.email}</p>
           </div>
           {/* Tier badge */}
