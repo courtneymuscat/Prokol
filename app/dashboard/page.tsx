@@ -81,23 +81,22 @@ export default async function DashboardPage() {
       <nav className="bg-white px-6 py-3.5 flex justify-between items-center border-b border-gray-100 sticky top-0 z-20">
         <span className="text-[15px] font-bold tracking-tight text-gray-900">NutriCoach</span>
         <div className="flex items-center gap-1">
-          {[
-            { href: '/workouts', label: 'Workouts' },
-            { href: '/progress', label: 'Progress Photos' },
-            ...(isCoach ? [
-              { href: '/coach/dashboard', label: 'Coach Dashboard' },
-            ] : []),
-            ...(isCoached ? [
-              { href: '/messages', label: 'Messages' },
-            ] : []),
-            ...(!isCoach ? [{ href: '/pricing', label: 'Upgrade' }] : []),
-            { href: '/settings', label: 'Settings' },
-          ].map(({ href, label }) => (
-            <a key={href} href={href} className="text-[13px] font-medium text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
-              {label}
-            </a>
-          ))}
-          <span className="text-[13px] text-gray-400 px-2 hidden sm:block">
+          {/* Desktop-only nav links — bottom tab bar handles mobile */}
+          <div className="hidden md:flex items-center gap-1">
+            {[
+              { href: '/workouts', label: 'Workouts' },
+              { href: '/progress', label: 'Progress Photos' },
+              ...(isCoach ? [{ href: '/coach/dashboard', label: 'Coach Dashboard' }] : []),
+              ...(isCoached ? [{ href: '/messages', label: 'Messages' }] : []),
+              ...(!isCoach ? [{ href: '/pricing', label: 'Upgrade' }] : []),
+              { href: '/settings', label: 'Settings' },
+            ].map(({ href, label }) => (
+              <a key={href} href={href} className="text-[13px] font-medium text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+                {label}
+              </a>
+            ))}
+          </div>
+          <span className="text-[13px] text-gray-400 px-2 hidden md:block">
             {(profile as Record<string, unknown>)?.full_name as string || user.email}
           </span>
           <form action={logout}>

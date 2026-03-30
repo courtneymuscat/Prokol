@@ -4,6 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import InstallPrompt from "@/app/components/InstallPrompt";
 import ServiceWorkerRegistration from "@/app/components/ServiceWorkerRegistration";
+import ClientBottomNav from "@/app/components/ClientBottomNav";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -56,6 +57,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         {children}
+        <ClientBottomNav />
         <InstallPrompt />
         <ServiceWorkerRegistration />
       </body>

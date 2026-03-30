@@ -126,33 +126,64 @@ export default function CoachSidebar({ unreadCount }: { unreadCount: number }) {
         </div>
       </aside>
 
-      {/* Mobile top nav */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white px-4 py-3 flex items-center justify-between border-b border-gray-100">
-        <div className="flex items-center gap-2">
+      {/* Mobile top bar (branding only) */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white px-4 border-b border-gray-100"
+           style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
+        <div className="flex items-center gap-2 py-3">
           <span className="text-[15px] font-bold tracking-tight text-gray-900">NutriCoach</span>
           <span className="text-[10px] bg-blue-100 text-blue-700 font-semibold px-1.5 py-0.5 rounded-md leading-none">Coach</span>
         </div>
-        <div className="flex items-center gap-0.5">
-          {NAV.map((item) => {
+      </div>
+
+      {/* Mobile top spacer */}
+      <div className="md:hidden h-14" />
+
+      {/* Mobile bottom tab bar */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-100"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        <div className="flex items-stretch">
+          {[
+            NAV[0], // Dashboard
+            NAV[1], // Clients
+            NAV[3], // Check-ins
+            NAV[4], // Forms (with badge)
+          ].map((item) => {
             const active = path === item.href || (item.href !== '/coach/dashboard' && path.startsWith(item.href))
             return (
               <a
                 key={item.href}
                 href={item.href}
-                className={`relative p-2 rounded-lg transition-colors ${active ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-600'}`}
+                className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 relative"
               >
-                {item.icon}
+                <span className={active ? 'text-blue-600' : 'text-gray-400'}>{item.icon}</span>
+                <span className={`text-[10px] font-semibold tracking-tight ${active ? 'text-blue-600' : 'text-gray-400'}`}>
+                  {item.label}
+                </span>
                 {item.badge && unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full" />
+                  <span className="absolute top-2 right-[calc(50%-14px)] w-2 h-2 bg-blue-500 rounded-full" />
                 )}
               </a>
             )
           })}
+          {/* Settings */}
+          <a
+            href="/coach/settings"
+            className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5"
+          >
+            <svg className={`w-6 h-6 ${path === '/coach/settings' ? 'text-blue-600' : 'text-gray-400'}`} fill={path === '/coach/settings' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={path === '/coach/settings' ? 0 : 1.75} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            <span className={`text-[10px] font-semibold tracking-tight ${path === '/coach/settings' ? 'text-blue-600' : 'text-gray-400'}`}>
+              Profile
+            </span>
+          </a>
         </div>
-      </div>
+      </nav>
 
-      {/* Mobile spacer */}
-      <div className="md:hidden h-14" />
+      {/* Mobile bottom spacer */}
+      <div className="md:hidden" style={{ height: 'calc(64px + env(safe-area-inset-bottom, 0px))' }} />
     </>
   )
 }
