@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { logout } from '@/app/actions/auth'
 import DeleteAccount from './DeleteAccount'
 import TimezoneSelector from '@/app/components/TimezoneSelector'
+import ProfileDetails from '@/app/components/ProfileDetails'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -87,6 +88,15 @@ export default async function SettingsPage() {
             </a>
           </div>
         )}
+
+        {/* Profile details */}
+        <div className="bg-white rounded-2xl border p-5 space-y-3">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Profile details</p>
+            <p className="text-xs text-gray-400 mt-0.5">Your name and contact info — visible to your coach.</p>
+          </div>
+          <ProfileDetails />
+        </div>
 
         {/* Timezone */}
         <div className="bg-white rounded-2xl border p-5 space-y-3">

@@ -18,7 +18,7 @@ export default async function CoachClientsPage() {
 
   const allIds = (allRows ?? []).map((r) => r.client_id)
 
-  type ClientRow = { id: string; email: string; tier: string; joinedAt: string | null; lastCheckIn: string | null }
+  type ClientRow = { id: string; email: string; name: string | null; tier: string; joinedAt: string | null; lastCheckIn: string | null }
   let active: ClientRow[] = []
   let archived: ClientRow[] = []
 
@@ -26,7 +26,7 @@ export default async function CoachClientsPage() {
     const admin = (await import('@/lib/supabase/admin')).createAdminClient()
     const { data: profiles } = await admin
       .from('profiles')
-      .select('id, email, subscription_tier')
+      .select('id, email, subscription_tier, full_name')
       .in('id', allIds)
 
     const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]))
@@ -43,10 +43,12 @@ export default async function CoachClientsPage() {
     }
 
     for (const r of allRows ?? []) {
+      const p = profileMap[r.client_id]
       const row: ClientRow = {
         id: r.client_id,
-        email: profileMap[r.client_id]?.email ?? 'Unknown',
-        tier: profileMap[r.client_id]?.subscription_tier ?? 'tier_1',
+        email: p?.email ?? 'Unknown',
+        name: (p as Record<string, unknown>)?.full_name as string | null ?? null,
+        tier: p?.subscription_tier ?? 'tier_1',
         joinedAt: r.accepted_at,
         lastCheckIn: lastCheckIn[r.client_id] ?? null,
       }

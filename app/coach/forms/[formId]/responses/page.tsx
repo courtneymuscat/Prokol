@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { requireCoach } from '@/lib/coach'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 type Ctx = { params: Promise<{ formId: string }> }
 
@@ -10,6 +11,7 @@ export default async function FormResponsesPage({ params }: Ctx) {
   if (!coachId) redirect('/dashboard')
 
   const supabase = await createClient()
+  const admin = createAdminClient()
 
   const { data: form } = await supabase
     .from('forms')
@@ -20,14 +22,16 @@ export default async function FormResponsesPage({ params }: Ctx) {
 
   if (!form) redirect('/coach/forms')
 
-  const { data: submissions } = await supabase
+  // Admin client — RLS blocks coach from reading another user's form_submissions
+  const { data: submissions } = await admin
     .from('form_submissions')
     .select('id, client_id, submitted_at, viewed_by_coach')
     .eq('form_id', formId)
+    .eq('coach_id', coachId)
     .order('submitted_at', { ascending: false })
 
   const clientIds = [...new Set((submissions ?? []).map((s) => s.client_id))]
-  const { data: profiles } = await supabase.from('profiles').select('id, email').in('id', clientIds.length ? clientIds : ['none'])
+  const { data: profiles } = await admin.from('profiles').select('id, email').in('id', clientIds.length ? clientIds : ['none'])
   const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p.email]))
 
   return (

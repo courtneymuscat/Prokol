@@ -6,6 +6,7 @@ import Link from 'next/link'
 type Client = {
   id: string
   email: string
+  name: string | null
   tier: string
   joinedAt: string | null
   lastCheckIn: string | null
@@ -40,11 +41,14 @@ function ClientCard({ client, muted = false }: { client: Client; muted?: boolean
       className={`flex items-center gap-4 bg-white rounded-2xl border p-4 hover:bg-gray-50 transition-colors group ${muted ? 'opacity-60' : ''}`}
     >
       <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${muted ? 'bg-gray-100' : 'bg-blue-100'}`}>
-        <span className={`text-sm font-bold ${muted ? 'text-gray-400' : 'text-blue-600'}`}>{client.email[0].toUpperCase()}</span>
+        <span className={`text-sm font-bold ${muted ? 'text-gray-400' : 'text-blue-600'}`}>
+          {(client.name ?? client.email)[0].toUpperCase()}
+        </span>
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-sm font-semibold text-gray-900 truncate">{client.email}</p>
+          <p className="text-sm font-semibold text-gray-900 truncate">{client.name ?? client.email}</p>
+          {client.name && <p className="text-xs text-gray-400 truncate">{client.email}</p>}
           {!muted && (
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TIER_COLORS[client.tier] ?? 'bg-gray-100 text-gray-500'}`}>
               {TIER_LABELS[client.tier] ?? client.tier}
@@ -72,8 +76,12 @@ export default function ClientSearch({ clients, archivedClients = [] }: { client
   const [query, setQuery] = useState('')
   const [showArchived, setShowArchived] = useState(false)
 
-  const filtered = clients.filter((c) => c.email.toLowerCase().includes(query.toLowerCase()))
-  const filteredArchived = archivedClients.filter((c) => c.email.toLowerCase().includes(query.toLowerCase()))
+  const matches = (c: Client) => {
+    const q = query.toLowerCase()
+    return c.email.toLowerCase().includes(q) || (c.name ?? '').toLowerCase().includes(q)
+  }
+  const filtered = clients.filter(matches)
+  const filteredArchived = archivedClients.filter(matches)
 
   return (
     <div className="space-y-3">

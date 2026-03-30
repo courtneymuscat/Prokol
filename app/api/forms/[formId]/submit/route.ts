@@ -37,7 +37,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   // Create submission
   const { data: submission, error: subError } = await admin
     .from('form_submissions')
-    .insert({ form_id: formId, client_id: session.user.id, coach_id: form.coach_id })
+    .insert({ form_id: formId, client_id: session.user.id, coach_id: form.coach_id, submitted_at: new Date().toISOString() })
     .select('id')
     .single()
 

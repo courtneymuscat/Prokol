@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, lazy, Suspense } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
+import { createClient } from '@/lib/supabase/client'
 const CheckInFeedback = lazy(() => import('./CheckInFeedback'))
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -285,24 +286,92 @@ function NotesTab({ clientId }: { clientId: string }) {
 
 // ── Files tab ─────────────────────────────────────────────────────────────────
 
-type ClientFile = { url: string; label: string; formTitle: string; submittedAt: string }
+type ClientFile = { url: string; label: string; formTitle: string; submittedAt: string; source?: string }
 
 function FilesTab({ clientId }: { clientId: string }) {
   const [files, setFiles] = useState<ClientFile[]>([])
   const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    fetch(`/api/coach/clients/${clientId}/files`)
+  function loadFiles() {
+    return fetch(`/api/coach/clients/${clientId}/files`)
       .then((r) => r.json())
       .then((d) => setFiles(Array.isArray(d) ? d : []))
-      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadFiles().finally(() => setLoading(false))
   }, [clientId])
 
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    setUploadError(null)
+
+    const supabase = createClient()
+    const ext = file.name.split('.').pop() ?? 'bin'
+    const path = `coach-uploads/${clientId}/${Date.now()}.${ext}`
+
+    const { data: storageData, error: storageError } = await supabase.storage
+      .from('client-uploads')
+      .upload(path, file, { upsert: false })
+
+    if (storageError || !storageData) {
+      setUploadError(storageError?.message ?? 'Upload failed')
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+
+    const { data: urlData } = supabase.storage.from('client-uploads').getPublicUrl(storageData.path)
+    const publicUrl = urlData.publicUrl
+
+    const res = await fetch(`/api/coach/clients/${clientId}/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: publicUrl, name: file.name }),
+    })
+
+    if (!res.ok) {
+      const d = await res.json()
+      setUploadError(d.error ?? 'Failed to save file record')
+    } else {
+      await loadFiles()
+    }
+
+    setUploading(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   if (loading) return <p className="text-sm text-gray-400 py-10 text-center">Loading files…</p>
-  if (files.length === 0) return <Empty label="No files uploaded yet." />
 
   return (
     <div className="space-y-3">
+      {/* Upload section */}
+      <div className="bg-white rounded-2xl border p-5">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Upload file for client</p>
+        <div className="flex items-center gap-3">
+          <label className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer transition-colors ${uploading ? 'bg-gray-100 text-gray-400 pointer-events-none' : 'bg-blue-600 text-white hover:bg-blue-700'}`}>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            {uploading ? 'Uploading…' : 'Choose file'}
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              disabled={uploading}
+              onChange={handleUpload}
+            />
+          </label>
+          {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
+        </div>
+      </div>
+
+      {files.length === 0 && <Empty label="No files uploaded yet." />}
       {files.map((f, i) => {
         const filename = decodeURIComponent(f.url.split('/').pop()?.split('?')[0] ?? 'file')
         const ext = filename.split('.').pop()?.toLowerCase() ?? ''
@@ -321,7 +390,12 @@ function FilesTab({ clientId }: { clientId: string }) {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{f.label}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium text-gray-900 truncate">{f.label}</p>
+                {f.source === 'coach' && (
+                  <span className="text-[10px] bg-purple-50 text-purple-500 font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0">Coach</span>
+                )}
+              </div>
               <p className="text-xs text-gray-400">{f.formTitle} · {fmtFull(f.submittedAt)}</p>
             </div>
             <a

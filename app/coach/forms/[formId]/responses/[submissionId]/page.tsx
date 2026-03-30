@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { requireCoach } from '@/lib/coach'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 type Ctx = { params: Promise<{ formId: string; submissionId: string }> }
 
@@ -10,8 +11,10 @@ export default async function SubmissionDetailPage({ params }: Ctx) {
   if (!coachId) redirect('/dashboard')
 
   const supabase = await createClient()
+  const admin = createAdminClient()
 
-  const { data: sub } = await supabase
+  // Admin client — RLS blocks coach from reading client's submission
+  const { data: sub } = await admin
     .from('form_submissions')
     .select('id, client_id, submitted_at, form_id')
     .eq('id', submissionId)
@@ -21,15 +24,15 @@ export default async function SubmissionDetailPage({ params }: Ctx) {
   if (!sub) redirect(`/coach/forms/${formId}/responses`)
 
   // Mark viewed
-  await supabase.from('form_submissions').update({ viewed_by_coach: true }).eq('id', submissionId)
+  await admin.from('form_submissions').update({ viewed_by_coach: true }).eq('id', submissionId)
 
   const [{ data: answers }, { data: profile }, { data: form }] = await Promise.all([
-    supabase
+    admin
       .from('form_answers')
       .select('question_id, value, form_questions(label, type, order_index)')
       .eq('submission_id', submissionId),
-    supabase.from('profiles').select('email').eq('id', sub.client_id).single(),
-    supabase.from('forms').select('title').eq('id', sub.form_id).single(),
+    admin.from('profiles').select('email').eq('id', sub.client_id).single(),
+    admin.from('forms').select('title').eq('id', sub.form_id).single(),
   ])
 
   const sorted = (answers ?? []).sort((a, b) => {
