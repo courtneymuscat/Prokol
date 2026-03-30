@@ -30,7 +30,7 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json()
 
   // Allow patching timezone OR profile details (full_name, date_of_birth, phone)
-  const allowed = ['timezone', 'full_name', 'date_of_birth', 'phone']
+  const allowed = ['timezone', 'full_name', 'date_of_birth', 'phone', 'sex']
   const update: Record<string, string> = {}
   for (const key of allowed) {
     if (key in body) update[key] = body[key]
