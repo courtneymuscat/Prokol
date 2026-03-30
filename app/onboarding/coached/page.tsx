@@ -98,14 +98,6 @@ export default async function CoachedOnboardingPage() {
           >
             Pay now →
           </a>
-          <div className="pt-1">
-            <Link
-              href={afterPayUrl}
-              className="block w-full text-center py-2.5 rounded-xl text-sm font-semibold text-gray-700 border border-gray-200 hover:bg-gray-50 transition-colors"
-            >
-              I&apos;ve paid — continue →
-            </Link>
-          </div>
         </div>
 
         {/* Step 2 — Profile setup preview (muted) */}
