@@ -1,13 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-
-// BarcodeDetector is available in Chrome/Android and Safari 17.4+
-declare class BarcodeDetector {
-  constructor(options?: { formats: string[] })
-  detect(source: HTMLVideoElement): Promise<Array<{ rawValue: string }>>
-  static getSupportedFormats(): Promise<string[]>
-}
+import { BrowserMultiFormatReader } from '@zxing/browser'
+import { NotFoundException } from '@zxing/library'
 
 type Props = {
   onScan: (barcode: string) => void
@@ -18,59 +13,58 @@ export default function BarcodeScanner({ onScan, onClose }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [status, setStatus] = useState<'starting' | 'scanning' | 'error'>('starting')
   const [errorMsg, setErrorMsg] = useState('')
-  const activeRef = useRef(true)
+  const readerRef = useRef<BrowserMultiFormatReader | null>(null)
+  const scannedRef = useRef(false)
 
   useEffect(() => {
-    if (!('BarcodeDetector' in window)) {
+    if (!navigator.mediaDevices?.getUserMedia) {
       setStatus('error')
-      setErrorMsg('Barcode scanning is not supported in this browser. Use Chrome on Android or Safari 17.4+.')
+      setErrorMsg('Camera access is not available in this browser.')
       return
     }
 
-    let stream: MediaStream | null = null
+    const reader = new BrowserMultiFormatReader()
+    readerRef.current = reader
 
-    const detector = new BarcodeDetector({
-      formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'],
-    })
-
-    async function scan() {
-      if (!activeRef.current || !videoRef.current) return
-      try {
-        const barcodes = await detector.detect(videoRef.current)
-        if (barcodes.length > 0 && activeRef.current) {
-          activeRef.current = false
-          onScan(barcodes[0].rawValue)
-          return
-        }
-      } catch {
-        // detection frame failed — continue
-      }
-      if (activeRef.current) requestAnimationFrame(scan)
-    }
+    let controlsRef: { stop: () => void } | null = null
 
     async function start() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        // Get back camera stream
+        const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } },
         })
-        if (!activeRef.current) { stream.getTracks().forEach(t => t.stop()); return }
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream
-          await videoRef.current.play()
-          setStatus('scanning')
-          scan()
-        }
-      } catch {
+
+        if (!videoRef.current) { stream.getTracks().forEach(t => t.stop()); return }
+
+        const controls = await reader.decodeFromStream(stream, videoRef.current, (result, err) => {
+          if (result && !scannedRef.current) {
+            scannedRef.current = true
+            onScan(result.getText())
+          }
+          // NotFoundException is thrown on every frame with no barcode — ignore it
+          if (err && !(err instanceof NotFoundException)) {
+            console.warn('ZXing decode error', err)
+          }
+        })
+        controlsRef = controls
+        setStatus('scanning')
+      } catch (err) {
         setStatus('error')
-        setErrorMsg('Camera access denied. Please allow camera permission and try again.')
+        const msg = err instanceof Error ? err.message : String(err)
+        if (msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('denied') || msg.toLowerCase().includes('notallowed')) {
+          setErrorMsg('Camera access denied. Please allow camera permission and try again.')
+        } else {
+          setErrorMsg('Could not start camera. Please try again.')
+        }
       }
     }
 
     start()
 
     return () => {
-      activeRef.current = false
-      stream?.getTracks().forEach(t => t.stop())
+      controlsRef?.stop()
+      readerRef.current = null
     }
   }, [onScan])
 
