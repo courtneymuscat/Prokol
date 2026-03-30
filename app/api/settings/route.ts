@@ -8,7 +8,7 @@ export async function GET() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('timezone, full_name, date_of_birth, phone')
+    .select('timezone, full_name, date_of_birth, phone, sex, subscription_tier')
     .eq('id', session.user.id)
     .single()
 
@@ -17,6 +17,8 @@ export async function GET() {
     full_name: (profile as Record<string, unknown>)?.full_name ?? null,
     date_of_birth: (profile as Record<string, unknown>)?.date_of_birth ?? null,
     phone: (profile as Record<string, unknown>)?.phone ?? null,
+    sex: profile?.sex ?? null,
+    subscription_tier: profile?.subscription_tier ?? null,
   })
 }
 
