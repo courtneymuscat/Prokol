@@ -52,8 +52,9 @@ export default function TimezoneSelector({ apiUrl, getApiUrl, fieldName = 'timez
     const url = getApiUrl ?? apiUrl
     fetch(url)
       .then((r) => r.ok ? r.json() : {})
-      .then((d) => {
-        if (d[fieldName]) setTimezone(d[fieldName])
+      .then((d: Record<string, unknown>) => {
+        const val = d[fieldName]
+        if (typeof val === 'string') setTimezone(val)
       })
       .catch(() => {})
   }, [apiUrl, getApiUrl, fieldName])
