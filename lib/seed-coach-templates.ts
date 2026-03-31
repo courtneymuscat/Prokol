@@ -258,7 +258,7 @@ const PROGRAMS = [
 
 const MEAL_PLANS = [
   {
-    name: '1,800 kcal — Fat Loss',
+    name: '1,800 kcal — Omnivore',
     goal: 'omnivore',
     total_calories: 1800,
     content: [
@@ -287,7 +287,7 @@ const MEAL_PLANS = [
   },
 
   {
-    name: '2,200 kcal — Maintenance',
+    name: '2,200 kcal — Omnivore',
     goal: 'omnivore',
     total_calories: 2200,
     content: [
@@ -318,7 +318,7 @@ const MEAL_PLANS = [
   },
 
   {
-    name: '2,800 kcal — Muscle Building',
+    name: '2,800 kcal — Omnivore',
     goal: 'omnivore',
     total_calories: 2800,
     content: [
@@ -354,7 +354,7 @@ const MEAL_PLANS = [
   },
 
   {
-    name: 'High Protein — 2,000 kcal',
+    name: '2,000 kcal — Omnivore',
     goal: 'omnivore',
     total_calories: 2000,
     content: [
@@ -385,7 +385,7 @@ const MEAL_PLANS = [
   },
 
   {
-    name: 'Vegan — 1,900 kcal',
+    name: '1,900 kcal — Vegan',
     goal: 'vegan',
     total_calories: 1900,
     content: [
@@ -425,7 +425,7 @@ const MEAL_PLANS = [
 
 // Sentinel names — if these don't exist the starter templates haven't been seeded yet
 const SENTINEL_PROGRAM = 'Full Body — Beginner 3 Day'
-const SENTINEL_PLAN = '1,800 kcal — Fat Loss'
+const SENTINEL_PLAN = '1,800 kcal — Omnivore'
 
 export async function seedCoachTemplates(coachId: string): Promise<void> {
   const admin = createAdminClient()
