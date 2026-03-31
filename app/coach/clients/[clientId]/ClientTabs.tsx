@@ -286,7 +286,7 @@ function NotesTab({ clientId }: { clientId: string }) {
 
 // ── Files tab ─────────────────────────────────────────────────────────────────
 
-type ClientFile = { url: string; label: string; formTitle: string; submittedAt: string; source?: string }
+type ClientFile = { id?: string; url: string; label: string; formTitle: string; submittedAt: string; source?: string }
 
 function FilesTab({ clientId }: { clientId: string }) {
   const [files, setFiles] = useState<ClientFile[]>([])
@@ -294,6 +294,9 @@ function FilesTab({ clientId }: { clientId: string }) {
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   function loadFiles() {
     return fetch(`/api/coach/clients/${clientId}/files`)
@@ -346,6 +349,34 @@ function FilesTab({ clientId }: { clientId: string }) {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
+  function startRename(file: ClientFile) {
+    setRenamingId(file.id!)
+    setRenameValue(file.label)
+  }
+
+  async function handleRename(id: string) {
+    if (!renameValue.trim()) return
+    const res = await fetch(`/api/coach/clients/${clientId}/files/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: renameValue.trim() }),
+    })
+    if (res.ok) {
+      setFiles((prev) => prev.map((f) => f.id === id ? { ...f, label: renameValue.trim() } : f))
+    }
+    setRenamingId(null)
+  }
+
+  async function handleDelete(file: ClientFile) {
+    if (!confirm(`Delete "${file.label}"? This cannot be undone.`)) return
+    setDeletingId(file.id!)
+    const res = await fetch(`/api/coach/clients/${clientId}/files/${file.id}`, { method: 'DELETE' })
+    if (res.ok) {
+      setFiles((prev) => prev.filter((f) => f.id !== file.id))
+    }
+    setDeletingId(null)
+  }
+
   if (loading) return <p className="text-sm text-gray-400 py-10 text-center">Loading files…</p>
 
   return (
@@ -390,22 +421,55 @@ function FilesTab({ clientId }: { clientId: string }) {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-medium text-gray-900 truncate">{f.label}</p>
-                {f.source === 'coach' && (
-                  <span className="text-[10px] bg-purple-50 text-purple-500 font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0">Coach</span>
-                )}
-              </div>
+              {renamingId === f.id ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    autoFocus
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleRename(f.id!); if (e.key === 'Escape') setRenamingId(null) }}
+                    className="text-sm border border-blue-300 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 min-w-0"
+                  />
+                  <button onClick={() => handleRename(f.id!)} className="text-xs font-semibold text-blue-600 hover:text-blue-800">Save</button>
+                  <button onClick={() => setRenamingId(null)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-gray-900 truncate">{f.label}</p>
+                  {f.source === 'coach' && (
+                    <span className="text-[10px] bg-purple-50 text-purple-500 font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0">Coach</span>
+                  )}
+                </div>
+              )}
               <p className="text-xs text-gray-400">{f.formTitle} · {fmtFull(f.submittedAt)}</p>
             </div>
-            <a
-              href={f.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex-shrink-0"
-            >
-              View
-            </a>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <a
+                href={f.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+              >
+                View
+              </a>
+              {f.source === 'coach' && f.id && renamingId !== f.id && (
+                <>
+                  <button
+                    onClick={() => startRename(f)}
+                    className="text-xs font-semibold text-gray-500 hover:text-gray-700"
+                  >
+                    Rename
+                  </button>
+                  <button
+                    onClick={() => handleDelete(f)}
+                    disabled={deletingId === f.id}
+                    className="text-xs font-semibold text-red-400 hover:text-red-600 disabled:opacity-50"
+                  >
+                    {deletingId === f.id ? '…' : 'Delete'}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         )
       })}

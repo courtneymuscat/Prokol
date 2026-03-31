@@ -33,13 +33,13 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       .order('submitted_at', { ascending: false }),
     admin
       .from('client_files')
-      .select('url, name, created_at, uploaded_by')
+      .select('id, url, name, created_at, uploaded_by')
       .eq('client_id', clientId)
       .eq('coach_id', coachId)
       .order('created_at', { ascending: false }),
   ])
 
-  const files: { url: string; label: string; formTitle: string; submittedAt: string; source: string }[] = []
+  const files: { id?: string; url: string; label: string; formTitle: string; submittedAt: string; source: string }[] = []
 
   // Files from form submissions (client-uploaded via file_upload questions)
   for (const submission of submissionsRes.data ?? []) {
@@ -56,7 +56,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
   // Files uploaded directly by coach
   for (const f of coachFilesRes.data ?? []) {
-    files.push({ url: f.url, label: f.name, formTitle: 'Coach upload', submittedAt: f.created_at, source: 'coach' })
+    files.push({ id: f.id, url: f.url, label: f.name, formTitle: 'Coach upload', submittedAt: f.created_at, source: 'coach' })
   }
 
   files.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
