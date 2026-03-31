@@ -313,6 +313,94 @@ export default function LandingContent() {
         </section>
       )}
 
+      {/* ── Comparison (coach view only) ────────────────────────────────────── */}
+      {isCoach && (
+        <section className="py-24 px-6 bg-white">
+          <div className="max-w-5xl mx-auto space-y-12">
+            <div className="text-center space-y-3">
+              <h2 className="text-3xl font-bold text-gray-900">Why coaches are switching to NutriCoach</h2>
+              <p className="text-gray-500 text-lg max-w-2xl mx-auto">
+                Most coaches patch together 3–4 tools. NutriCoach replaces all of them.
+              </p>
+            </div>
+
+            {/* Problem cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {[
+                {
+                  label: 'Training apps (Trainerize, Everfit)',
+                  pain: 'Great for programs — but nutrition is bolted on. Clients still open MyFitnessPal to log food, then manually report back. Two apps, double the friction.',
+                  icon: '📅',
+                },
+                {
+                  label: 'Nutrition apps (MyFitnessPal, Cronometer)',
+                  pain: 'Solid food tracking — but zero coaching layer. No programs, no check-ins, no habit tracking. You can\'t see client data without screen-sharing.',
+                  icon: '🥗',
+                },
+                {
+                  label: 'Spreadsheets & Google Docs',
+                  pain: 'Flexible but manual. Check-ins arrive in email, food logs come as screenshots, and progress photos live in WhatsApp. Nothing connects.',
+                  icon: '📊',
+                },
+              ].map((item) => (
+                <div key={item.label} className="rounded-2xl border border-red-100 bg-red-50 p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">{item.icon}</span>
+                    <p className="text-sm font-bold text-gray-800">{item.label}</p>
+                  </div>
+                  <p className="text-xs text-gray-600 leading-relaxed">{item.pain}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Comparison table */}
+            <div className="overflow-x-auto rounded-2xl border border-gray-100">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ backgroundColor: '#FFF5D0' }}>
+                    <th className="text-left px-5 py-3.5 font-semibold text-gray-700 w-1/3">Feature</th>
+                    <th className="px-5 py-3.5 font-semibold text-gray-500 text-center">Trainerize / Everfit</th>
+                    <th className="px-5 py-3.5 font-semibold text-gray-500 text-center">MyFitnessPal</th>
+                    <th className="px-5 py-3.5 font-bold text-gray-900 text-center">NutriCoach</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {[
+                    ['Training programs & calendars',     true,  false, true ],
+                    ['Built-in nutrition tracking',       false, true,  true ],
+                    ['Meal plan library & food swaps',    false, false, true ],
+                    ['Daily habit tracking per client',   false, false, true ],
+                    ['Automated check-in forms',          true,  false, true ],
+                    ['Progress photos in-app',            true,  false, true ],
+                    ['Direct client messaging',           true,  false, true ],
+                    ['Clients keep app after coaching',   false, true,  true ],
+                    ['Cycle & hormonal health tracking',  false, false, true ],
+                    ['AI meal photo scanning',            false, false, true ],
+                  ].map(([feature, trainerize, mfp, nutricoach]) => (
+                    <tr key={feature as string} className="bg-white hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-3 font-medium text-gray-700">{feature as string}</td>
+                      <td className="px-5 py-3 text-center">{trainerize ? '✓' : <span className="text-gray-300">—</span>}</td>
+                      <td className="px-5 py-3 text-center">{mfp ? '✓' : <span className="text-gray-300">—</span>}</td>
+                      <td className="px-5 py-3 text-center">
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold" style={{ backgroundColor: '#FFD885', color: '#78520A' }}>✓</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Summary callout */}
+            <div className="rounded-2xl p-7 text-center space-y-3" style={{ backgroundColor: '#FFFBF0' }}>
+              <p className="text-xl font-bold text-gray-900">One platform. Everything connected.</p>
+              <p className="text-sm text-gray-500 max-w-2xl mx-auto leading-relaxed">
+                Your clients log food, complete workouts, track habits, and submit check-ins — all in the same app you use to coach them. No tool-switching, no data gaps, no chasing screenshots on WhatsApp.
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── How it works ────────────────────────────────────────────────────── */}
       <section className={`py-24 px-6 ${isCoach ? 'bg-white' : ''}`} style={isCoach ? {} : { backgroundColor: '#FFFBF0' }}>
         <div className="max-w-4xl mx-auto space-y-12">
