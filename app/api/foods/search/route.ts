@@ -17,9 +17,18 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q')?.trim()
   if (!q || q.length < 2) return Response.json([])
 
+  const expanded = req.nextUrl.searchParams.get('expanded') === '1'
+  const page = Math.max(1, parseInt(req.nextUrl.searchParams.get('page') ?? '1', 10))
+
   const supabase = await createClient()
 
-  // Run local DB + Open Food Facts search in parallel
+  if (expanded) {
+    // Expanded mode: fetch more OFF results for the full search modal
+    const offResults = await fetchOpenFoodFacts(q, 30, page)
+    return Response.json({ results: offResults, hasMore: offResults.length === 30 })
+  }
+
+  // Standard dropdown: local DB + first page of OFF in parallel
   const [
     { data: dbStarts },
     { data: dbContains },
@@ -44,11 +53,9 @@ export async function GET(req: NextRequest) {
       .ilike('name', `%${q}%`)
       .order('name')
       .limit(5),
-    fetchOpenFoodFacts(q),
+    fetchOpenFoodFacts(q, 8, 1),
   ])
 
-  // Merge: personal foods → local starts-with → local contains → OFF
-  // Deduplicate by id, cap at 15 results
   const custom = (customFoods ?? []).map((f) => ({ ...f, custom: true }))
   const seen = new Set<string>()
   const merged: FoodRow[] = []
@@ -61,19 +68,16 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // Fill remaining slots with OFF results not already in local DB by name
   const localNames = new Set(merged.map((f) => f.name.toLowerCase()))
   for (const food of offResults) {
     if (merged.length >= 15) break
-    if (!localNames.has(food.name.toLowerCase())) {
-      merged.push(food)
-    }
+    if (!localNames.has(food.name.toLowerCase())) merged.push(food)
   }
 
   return Response.json(merged)
 }
 
-async function fetchOpenFoodFacts(q: string): Promise<FoodRow[]> {
+async function fetchOpenFoodFacts(q: string, pageSize = 8, page = 1): Promise<FoodRow[]> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 4000)
 
@@ -83,7 +87,8 @@ async function fetchOpenFoodFacts(q: string): Promise<FoodRow[]> {
     url.searchParams.set('search_terms', q)
     url.searchParams.set('json', '1')
     url.searchParams.set('fields', 'product_name,product_name_en,brands,nutriments')
-    url.searchParams.set('page_size', '10')
+    url.searchParams.set('page_size', String(pageSize))
+    url.searchParams.set('page', String(page))
     url.searchParams.set('sort_by', 'unique_scans_n')
 
     const res = await fetch(url.toString(), {
