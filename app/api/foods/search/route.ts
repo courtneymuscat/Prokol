@@ -139,7 +139,8 @@ async function fetchOpenFoodFacts(q: string, pageSize = 8, page = 1): Promise<Fo
         : base
 
       const n = p.nutriments ?? {}
-      const kcal = n['energy-kcal_100g'] ?? (n['energy_100g'] ? n['energy_100g'] / 4.184 : 0)
+      const kcal = n['energy-kcal_100g'] ?? (n['energy_100g'] ? n['energy_100g'] / 4.184 : null)
+      if (kcal == null) continue // skip products with no calorie data
 
       results.push({
         id: `off:${encodeURIComponent(name)}`,

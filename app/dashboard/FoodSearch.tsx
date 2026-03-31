@@ -84,31 +84,40 @@ function ExpandedSearchModal({ initialQuery, onSelect, onClose }: {
   const [hasMore, setHasMore] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const activeQuery = useRef(initialQuery)
 
-  useEffect(() => { inputRef.current?.focus() }, [])
-
-  useEffect(() => {
-    if (q.length < 2) { setResults([]); return }
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      setPage(1)
-      fetchPage(q, 1, true)
-    }, 300)
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [q])
-
-  async function fetchPage(query: string, p: number, reset: boolean) {
+  const fetchPage = useCallback(async (query: string, p: number, reset: boolean) => {
+    activeQuery.current = query
     setLoading(true)
     try {
       const res = await fetch(`/api/foods/search?q=${encodeURIComponent(query)}&expanded=1&page=${p}`)
       const data = await res.json()
-      setResults((prev) => reset ? data.results : [...prev, ...data.results])
-      setHasMore(data.hasMore)
+      // Discard stale responses if query changed while fetching
+      if (activeQuery.current !== query) return
+      setResults((prev) => reset ? (data.results ?? []) : [...prev, ...(data.results ?? [])])
+      setHasMore(!!data.hasMore)
       setPage(p)
+    } catch {
+      // silent
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  // Fire immediately on mount for the initial query
+  useEffect(() => {
+    if (initialQuery.length >= 2) fetchPage(initialQuery, 1, true)
+    inputRef.current?.focus()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Debounce subsequent user-typed changes
+  useEffect(() => {
+    if (q === initialQuery) return // already fetched on mount
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (q.length < 2) { setResults([]); return }
+    debounceRef.current = setTimeout(() => fetchPage(q, 1, true), 400)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [q, fetchPage, initialQuery])
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4">
