@@ -86,11 +86,47 @@ export async function POST(
 
   const admin = createAdminClient()
 
-  // If no form_id provided, create a new blank form
-  if (!form_id) {
+  if (form_id) {
+    // Clone the template form so edits are client-specific and don't affect the original
+    const { data: sourceForm } = await admin
+      .from('forms')
+      .select('title, description, type')
+      .eq('id', form_id)
+      .single()
+
+    const { data: clonedForm, error: cloneErr } = await admin
+      .from('forms')
+      .insert({
+        coach_id: coachId,
+        title: sourceForm?.title ?? title,
+        description: sourceForm?.description ?? null,
+        type: sourceForm?.type ?? 'weekly_checkin',
+        is_client_copy: true,
+        client_id: clientId,
+      })
+      .select('id')
+      .single()
+    if (cloneErr) return Response.json({ error: cloneErr.message }, { status: 500 })
+
+    // Copy all questions from the template to the clone
+    const { data: questions } = await admin
+      .from('form_questions')
+      .select('order_index, label, description, type, options, required')
+      .eq('form_id', form_id)
+      .order('order_index')
+
+    if (questions?.length) {
+      await admin.from('form_questions').insert(
+        questions.map((q) => ({ ...q, form_id: clonedForm.id }))
+      )
+    }
+
+    form_id = clonedForm.id
+  } else {
+    // No template — create a blank client-specific form
     const { data: newForm, error: formError } = await admin
       .from('forms')
-      .insert({ coach_id: coachId, title, type: 'weekly_checkin' })
+      .insert({ coach_id: coachId, title, type: 'weekly_checkin', is_client_copy: true, client_id: clientId })
       .select('id')
       .single()
     if (formError) return Response.json({ error: formError.message }, { status: 500 })

@@ -11,6 +11,7 @@ export async function GET() {
     .from('forms')
     .select('id, title, description, type, is_active, created_at')
     .eq('coach_id', coachId)
+    .eq('is_client_copy', false)
     .order('created_at', { ascending: false })
 
   return Response.json(data ?? [])
