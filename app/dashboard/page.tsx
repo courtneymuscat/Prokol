@@ -13,6 +13,11 @@ import MealSection from './MealSection'
 import FormsSection from './FormsSection'
 import CoachBanner from './CoachBanner'
 import UpgradePrompt from '@/components/UpgradePrompt'
+import dynamic from 'next/dynamic'
+
+const TrainingCalendar = dynamic(() => import('./TrainingCalendar'), { ssr: false })
+const MealPlanView = dynamic(() => import('./MealPlanView'), { ssr: false })
+const HabitsPanel = dynamic(() => import('./HabitsPanel'), { ssr: false })
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -152,6 +157,26 @@ export default async function DashboardPage() {
 
         {/* Coach banner — only shown when actually coached */}
         {coachEmail && <CoachBanner coachEmail={coachEmail} />}
+
+        {/* Coached-only sections: Calendar, Meal Plan, Habits */}
+        {isCoached && (
+          <>
+            <section>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Training Calendar</p>
+              <TrainingCalendar />
+            </section>
+
+            <section>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">My Meal Plan</p>
+              <MealPlanView />
+            </section>
+
+            <section>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Daily Habits</p>
+              <HabitsPanel />
+            </section>
+          </>
+        )}
 
         {/* Daily targets card */}
         {profile?.target_calories ? (
