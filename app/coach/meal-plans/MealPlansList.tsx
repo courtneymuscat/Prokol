@@ -244,7 +244,7 @@ export default function MealPlansList({ plans: initialPlans }: { plans: MealPlan
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Sarah's 2,000 kcal Plan"
+                  placeholder="e.g. 2,000 kcal Plan"
                   autoFocus
                   className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
