@@ -1034,16 +1034,719 @@ function ProgramTab({ clientId }: { clientId: string }) {
   )
 }
 
+// ── Calendar tab ──────────────────────────────────────────────────────────────
+
+type CalendarEvent = {
+  id: string
+  event_date: string
+  type: string
+  title: string
+  content: Record<string, unknown>
+}
+
+type ProgramWeekSummary = {
+  id: string
+  name: string
+  start_date: string
+  content: { days: { name: string; exercises: { name: string }[] }[] }[]
+}
+
+const EVENT_COLORS: Record<string, string> = {
+  workout: 'bg-blue-50 text-blue-700 border-blue-200',
+  steps: 'bg-green-50 text-green-700 border-green-200',
+  note: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+  habit: 'bg-purple-50 text-purple-700 border-purple-200',
+  custom: 'bg-gray-50 text-gray-700 border-gray-200',
+}
+
+function getWeekStart(date: Date) {
+  const d = new Date(date)
+  const day = d.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  d.setDate(d.getDate() + diff)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function addDays(date: Date, days: number) {
+  const d = new Date(date)
+  d.setDate(d.getDate() + days)
+  return d
+}
+
+function toDateStr(date: Date) {
+  return date.toISOString().slice(0, 10)
+}
+
+function getWorkoutsForDate(programs: ProgramWeekSummary[], date: Date) {
+  const results: { programName: string; dayName: string; exerciseCount: number }[] = []
+  const dateStr = toDateStr(date)
+  for (const prog of programs) {
+    const start = new Date(prog.start_date)
+    start.setHours(0, 0, 0, 0)
+    const targetDate = new Date(dateStr)
+    targetDate.setHours(0, 0, 0, 0)
+    const dayOffset = Math.round((targetDate.getTime() - start.getTime()) / 86400000)
+    if (dayOffset < 0) continue
+    const weekIdx = Math.floor(dayOffset / 7)
+    const dayIdx = dayOffset % 7
+    const week = prog.content[weekIdx]
+    const day = week?.days[dayIdx]
+    if (day && day.exercises.length > 0) {
+      results.push({ programName: prog.name, dayName: day.name || `Day ${dayIdx + 1}`, exerciseCount: day.exercises.length })
+    }
+  }
+  return results
+}
+
+function CalendarTab({ clientId }: { clientId: string }) {
+  const supabase = createClient()
+  const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()))
+  const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [programs, setPrograms] = useState<ProgramWeekSummary[]>([])
+  const [loading, setLoading] = useState(true)
+  const [addingEvent, setAddingEvent] = useState<string | null>(null)
+  const [newEvent, setNewEvent] = useState({ type: 'note', title: '', content: '' })
+  const [saving, setSaving] = useState(false)
+
+  const weekEnd = addDays(weekStart, 6)
+  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+
+  async function loadData(start: Date, end: Date) {
+    setLoading(true)
+    const [{ data: evts }, { data: progs }] = await Promise.all([
+      supabase.from('calendar_events').select('*').eq('client_id', clientId)
+        .gte('event_date', toDateStr(start)).lte('event_date', toDateStr(end)),
+      supabase.from('client_programs').select('id, name, start_date, content, status').eq('client_id', clientId).eq('status', 'active'),
+    ])
+    setEvents(evts ?? [])
+    setPrograms(progs ?? [])
+    setLoading(false)
+  }
+
+  useEffect(() => { loadData(weekStart, weekEnd) }, [weekStart]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function prevWeek() { setWeekStart((d) => addDays(d, -7)) }
+  function nextWeek() { setWeekStart((d) => addDays(d, 7)) }
+  function thisWeek() { setWeekStart(getWeekStart(new Date())) }
+
+  async function saveEvent(date: string) {
+    if (!newEvent.title.trim()) return
+    setSaving(true)
+    const res = await fetch(`/api/coach/clients/${clientId}/calendar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_date: date, type: newEvent.type, title: newEvent.title, content: newEvent.content ? { note: newEvent.content } : {} }),
+    })
+    if (res.ok) {
+      const created = await res.json()
+      setEvents((prev) => [...prev, created])
+    }
+    setAddingEvent(null)
+    setNewEvent({ type: 'note', title: '', content: '' })
+    setSaving(false)
+  }
+
+  async function deleteEvent(id: string) {
+    await fetch(`/api/coach/clients/${clientId}/calendar/${id}`, { method: 'DELETE' })
+    setEvents((prev) => prev.filter((e) => e.id !== id))
+  }
+
+  const today = toDateStr(new Date())
+
+  return (
+    <div className="space-y-4">
+      {/* Week nav */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button onClick={prevWeek} className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button onClick={thisWeek} className="text-xs font-semibold text-blue-600 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors">
+            Today
+          </button>
+          <button onClick={nextWeek} className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
+            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+        <p className="text-sm font-semibold text-gray-700">
+          {weekStart.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })} – {weekEnd.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+        </p>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-gray-400 text-center py-10">Loading calendar…</p>
+      ) : (
+        <div className="grid grid-cols-7 gap-1.5">
+          {weekDays.map((day) => {
+            const dateStr = toDateStr(day)
+            const isToday = dateStr === today
+            const isPast = dateStr < today
+            const dayEvents = events.filter((e) => e.event_date === dateStr)
+            const workouts = getWorkoutsForDate(programs, day)
+
+            return (
+              <div
+                key={dateStr}
+                className={`rounded-xl border p-2 min-h-[120px] flex flex-col gap-1 ${
+                  isToday ? 'border-blue-400 bg-blue-50/40' : isPast ? 'bg-gray-50/50 border-gray-100' : 'bg-white border-gray-100'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <div>
+                    <p className="text-[10px] font-semibold text-gray-400 uppercase">
+                      {day.toLocaleDateString('en-AU', { weekday: 'short' })}
+                    </p>
+                    <p className={`text-sm font-bold leading-none ${isToday ? 'text-blue-600' : 'text-gray-800'}`}>
+                      {day.getDate()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setAddingEvent(dateStr)}
+                    className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-300 hover:text-gray-500 transition-colors"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                </div>
+
+                {workouts.length === 0 && dayEvents.length === 0 && (
+                  <p className="text-[10px] text-gray-300 mt-auto text-center pb-1">Rest</p>
+                )}
+
+                {workouts.map((w, i) => (
+                  <div key={i} className="text-[10px] bg-blue-100 text-blue-700 rounded-md px-1.5 py-0.5 font-medium truncate">
+                    💪 {w.dayName}
+                    {w.exerciseCount > 0 && <span className="opacity-60 ml-0.5">({w.exerciseCount})</span>}
+                  </div>
+                ))}
+
+                {dayEvents.map((evt) => (
+                  <div
+                    key={evt.id}
+                    className={`text-[10px] rounded-md px-1.5 py-0.5 font-medium truncate border flex items-center justify-between gap-0.5 group ${
+                      EVENT_COLORS[evt.type] ?? EVENT_COLORS.custom
+                    }`}
+                  >
+                    <span className="truncate">{evt.title}</span>
+                    <button
+                      onClick={() => deleteEvent(evt.id)}
+                      className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Add event modal */}
+      {addingEvent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900">Add Event — {new Date(addingEvent + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })}</h3>
+              <button onClick={() => setAddingEvent(null)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <select
+              value={newEvent.type}
+              onChange={(e) => setNewEvent((n) => ({ ...n, type: e.target.value }))}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="note">📝 Note</option>
+              <option value="workout">💪 Workout</option>
+              <option value="steps">👟 Steps Goal</option>
+              <option value="habit">✅ Habit</option>
+              <option value="custom">⚡ Custom</option>
+            </select>
+
+            <input
+              type="text"
+              value={newEvent.title}
+              onChange={(e) => setNewEvent((n) => ({ ...n, title: e.target.value }))}
+              placeholder="Title (e.g. 10,000 steps today)"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              autoFocus
+            />
+            <textarea
+              value={newEvent.content}
+              onChange={(e) => setNewEvent((n) => ({ ...n, content: e.target.value }))}
+              placeholder="Notes (optional)"
+              rows={2}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            />
+
+            <div className="flex gap-3">
+              <button onClick={() => setAddingEvent(null)} className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50">
+                Cancel
+              </button>
+              <button
+                onClick={() => saveEvent(addingEvent)}
+                disabled={!newEvent.title.trim() || saving}
+                className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Add'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Meal Plan tab ─────────────────────────────────────────────────────────────
+
+type ClientMealPlan = {
+  id: string
+  meal_plan_id: string | null
+  name: string
+  content: { id: string; label: string; foods: { food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number }[] }[]
+  start_date: string
+  status: string
+}
+
+type MealPlanTemplate = {
+  id: string
+  name: string
+  goal: string
+  total_calories: number
+  content: unknown[]
+}
+
+function MealPlanTab({ clientId }: { clientId: string }) {
+  const [assignments, setAssignments] = useState<ClientMealPlan[]>([])
+  const [templates, setTemplates] = useState<MealPlanTemplate[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAssign, setShowAssign] = useState(false)
+  const [assigning, setAssigning] = useState(false)
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
+  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10))
+  const [expanded, setExpanded] = useState<string | null>(null)
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`/api/coach/clients/${clientId}/meal-plans`).then((r) => r.json()),
+      fetch('/api/coach/meal-plans').then((r) => r.json()),
+    ]).then(([plans, tmpl]) => {
+      setAssignments(Array.isArray(plans) ? plans : [])
+      setTemplates(Array.isArray(tmpl) ? tmpl : [])
+    }).finally(() => setLoading(false))
+  }, [clientId])
+
+  async function handleAssign() {
+    if (!selectedTemplateId) return
+    setAssigning(true)
+    const template = templates.find((t) => t.id === selectedTemplateId)
+    const res = await fetch(`/api/coach/clients/${clientId}/meal-plans`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        meal_plan_id: selectedTemplateId,
+        name: template?.name ?? 'Meal Plan',
+        content: template?.content ?? [],
+        start_date: startDate,
+      }),
+    })
+    if (res.ok) {
+      const created = await res.json()
+      setAssignments((prev) => [created, ...prev])
+      setShowAssign(false)
+    }
+    setAssigning(false)
+  }
+
+  async function handleRemove(id: string) {
+    if (!confirm('Remove this meal plan from client?')) return
+    await fetch(`/api/coach/clients/${clientId}/meal-plans/${id}`, { method: 'DELETE' })
+    setAssignments((prev) => prev.filter((a) => a.id !== id))
+  }
+
+  if (loading) return <p className="text-sm text-gray-400 text-center py-10">Loading meal plans…</p>
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+          {assignments.length === 0 ? 'No meal plans assigned' : `${assignments.length} plan${assignments.length !== 1 ? 's' : ''}`}
+        </p>
+        <button
+          onClick={() => setShowAssign(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
+        >
+          + Assign Plan
+        </button>
+      </div>
+
+      {assignments.length === 0 && (
+        <div className="text-center py-14 bg-white rounded-2xl border">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center mx-auto mb-3">
+            <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+          </div>
+          <p className="text-sm text-gray-500 mb-1">No meal plan assigned</p>
+          <p className="text-xs text-gray-400 mb-4">Assign a nutrition plan template to this client.</p>
+          <button onClick={() => setShowAssign(true)} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">
+            + Assign Plan
+          </button>
+        </div>
+      )}
+
+      {assignments.map((plan) => {
+        const totalCals = plan.content.reduce((a, slot) => a + slot.foods.reduce((b, f) => b + f.calories, 0), 0)
+        return (
+          <div key={plan.id} className="bg-white rounded-2xl border overflow-hidden">
+            <div className="flex items-center justify-between p-4">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">{plan.name}</p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  From {new Date(plan.start_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  {' · '}{Math.round(totalCals)} kcal/day
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setExpanded(expanded === plan.id ? null : plan.id)}
+                  className="text-xs font-semibold text-blue-600 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors"
+                >
+                  {expanded === plan.id ? 'Hide' : 'View'}
+                </button>
+                <button onClick={() => handleRemove(plan.id)} className="text-gray-300 hover:text-red-400 transition-colors">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            {expanded === plan.id && (
+              <div className="border-t border-gray-100 divide-y divide-gray-50">
+                {plan.content.map((slot) => (
+                  <div key={slot.id} className="px-4 py-3">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{slot.label}</p>
+                    <div className="space-y-1.5">
+                      {slot.foods.map((f, fi) => (
+                        <div key={fi} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-800">{f.food_name}</span>
+                          <div className="flex items-center gap-2 text-xs text-gray-400">
+                            <span>{f.grams}g</span>
+                            <span className="font-medium text-gray-600">{f.calories} kcal</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+
+      {/* Assign modal */}
+      {showAssign && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-gray-900">Assign Meal Plan</h2>
+              <button onClick={() => setShowAssign(false)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {templates.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-gray-500 mb-3">No meal plan templates yet.</p>
+                <a href="/coach/meal-plans" className="text-sm font-semibold text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">
+                  Create a plan first →
+                </a>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {templates.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setSelectedTemplateId(t.id)}
+                      className={`w-full text-left rounded-xl border p-3.5 transition-colors ${
+                        selectedTemplateId === t.id ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <p className="text-sm font-semibold text-gray-900">{t.name}</p>
+                      <p className="text-xs text-gray-400 mt-0.5 capitalize">{t.goal} · {t.total_calories.toLocaleString()} kcal</p>
+                    </button>
+                  ))}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Start date</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <button onClick={() => setShowAssign(false)} className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50">
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAssign}
+                    disabled={!selectedTemplateId || assigning}
+                    className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {assigning ? 'Assigning…' : 'Assign'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Habits tab ────────────────────────────────────────────────────────────────
+
+type Habit = {
+  id: string
+  name: string
+  type: string
+  target: number
+  unit: string
+  icon: string
+  active: boolean
+}
+
+const HABIT_PRESETS = [
+  { name: 'Daily Steps', icon: '👟', unit: 'steps', target: 10000 },
+  { name: 'Water Intake', icon: '💧', unit: 'glasses', target: 8 },
+  { name: 'Sleep Hours', icon: '😴', unit: 'hours', target: 8 },
+  { name: 'Protein Target', icon: '🥩', unit: 'g protein', target: 150 },
+  { name: 'No Alcohol', icon: '🚫', unit: 'times', target: 1 },
+  { name: 'Morning Walk', icon: '🌅', unit: 'times', target: 1 },
+]
+
+function HabitsTab({ clientId }: { clientId: string }) {
+  const [habits, setHabits] = useState<Habit[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAdd, setShowAdd] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState({ name: '', icon: '✓', unit: 'times', target: '1' })
+
+  useEffect(() => {
+    fetch(`/api/coach/clients/${clientId}/habits`)
+      .then((r) => r.json())
+      .then((d) => setHabits(Array.isArray(d) ? d : []))
+      .finally(() => setLoading(false))
+  }, [clientId])
+
+  async function handleAdd() {
+    if (!form.name.trim()) return
+    setSaving(true)
+    const res = await fetch(`/api/coach/clients/${clientId}/habits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: form.name, icon: form.icon, unit: form.unit, target: Number(form.target) || 1, type: 'daily' }),
+    })
+    if (res.ok) {
+      const created = await res.json()
+      setHabits((prev) => [created, ...prev])
+      setShowAdd(false)
+      setForm({ name: '', icon: '✓', unit: 'times', target: '1' })
+    }
+    setSaving(false)
+  }
+
+  async function toggleActive(habit: Habit) {
+    await fetch(`/api/coach/clients/${clientId}/habits/${habit.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active: !habit.active }),
+    })
+    setHabits((prev) => prev.map((h) => h.id === habit.id ? { ...h, active: !h.active } : h))
+  }
+
+  async function deleteHabit(id: string) {
+    if (!confirm('Remove this habit from client?')) return
+    await fetch(`/api/coach/clients/${clientId}/habits/${id}`, { method: 'DELETE' })
+    setHabits((prev) => prev.filter((h) => h.id !== id))
+  }
+
+  function usePreset(preset: typeof HABIT_PRESETS[0]) {
+    setForm({ name: preset.name, icon: preset.icon, unit: preset.unit, target: String(preset.target) })
+  }
+
+  if (loading) return <p className="text-sm text-gray-400 text-center py-10">Loading habits…</p>
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+          {habits.length === 0 ? 'No habits assigned' : `${habits.filter((h) => h.active).length} active habits`}
+        </p>
+        <button
+          onClick={() => setShowAdd(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
+        >
+          + Add Habit
+        </button>
+      </div>
+
+      {habits.length === 0 && (
+        <div className="text-center py-14 bg-white rounded-2xl border">
+          <div className="text-4xl mb-3">✅</div>
+          <p className="text-sm text-gray-500 mb-1">No habits assigned</p>
+          <p className="text-xs text-gray-400 mb-4">Add daily habits like steps, water, sleep targets for your client to track.</p>
+          <button onClick={() => setShowAdd(true)} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">
+            Add first habit
+          </button>
+        </div>
+      )}
+
+      {habits.map((habit) => (
+        <div key={habit.id} className={`bg-white rounded-2xl border p-4 flex items-center gap-4 ${!habit.active ? 'opacity-50' : ''}`}>
+          <span className="text-2xl">{habit.icon}</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900">{habit.name}</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Target: {habit.target} {habit.unit} · {habit.type}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => toggleActive(habit)}
+              className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-colors ${
+                habit.active ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              {habit.active ? 'Active' : 'Inactive'}
+            </button>
+            <button onClick={() => deleteHabit(habit.id)} className="text-gray-300 hover:text-red-400 transition-colors">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      ))}
+
+      {/* Add habit modal */}
+      {showAdd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-gray-900">Add Habit</h2>
+              <button onClick={() => setShowAdd(false)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Presets */}
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Quick add</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {HABIT_PRESETS.map((p) => (
+                  <button
+                    key={p.name}
+                    onClick={() => usePreset(p)}
+                    className="text-xs text-left border border-gray-200 rounded-lg p-2 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                  >
+                    <span className="text-base">{p.icon}</span>
+                    <p className="text-[10px] text-gray-600 mt-0.5 leading-tight">{p.name}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={form.icon}
+                  onChange={(e) => setForm((f) => ({ ...f, icon: e.target.value }))}
+                  placeholder="🎯"
+                  className="w-14 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Habit name"
+                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={form.target}
+                  onChange={(e) => setForm((f) => ({ ...f, target: e.target.value }))}
+                  placeholder="Target"
+                  className="w-24 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="text"
+                  value={form.unit}
+                  onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
+                  placeholder="unit (steps, glasses…)"
+                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setShowAdd(false)} className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50">
+                Cancel
+              </button>
+              <button
+                onClick={handleAdd}
+                disabled={!form.name.trim() || saving}
+                className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+              >
+                {saving ? 'Saving…' : 'Add Habit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
-type TabId = 'overview' | 'checkins' | 'nutrition' | 'training' | 'notes' | 'files' | 'program'
+type TabId = 'overview' | 'checkins' | 'nutrition' | 'training' | 'program' | 'calendar' | 'mealplan' | 'habits' | 'notes' | 'files'
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview', label: 'Overview' },
+  { id: 'calendar', label: 'Calendar' },
+  { id: 'program', label: 'Training' },
+  { id: 'mealplan', label: 'Meal Plan' },
+  { id: 'habits', label: 'Habits' },
   { id: 'checkins', label: 'Check-ins' },
   { id: 'nutrition', label: 'Nutrition' },
-  { id: 'training', label: 'Training' },
-  { id: 'program', label: 'Program' },
   { id: 'notes', label: 'Notes' },
   { id: 'files', label: 'Files' },
 ]
@@ -1084,10 +1787,19 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
       {/* Overview */}
       {tab === 'overview' && data && <OverviewTab data={data} />}
 
-      {/* Program */}
+      {/* Calendar */}
+      {tab === 'calendar' && <CalendarTab clientId={clientId} />}
+
+      {/* Training Program */}
       {tab === 'program' && <ProgramTab clientId={clientId} />}
 
-      {/* Notes — always loaded on demand */}
+      {/* Meal Plan */}
+      {tab === 'mealplan' && <MealPlanTab clientId={clientId} />}
+
+      {/* Habits */}
+      {tab === 'habits' && <HabitsTab clientId={clientId} />}
+
+      {/* Notes */}
       {tab === 'notes' && <NotesTab clientId={clientId} />}
 
       {/* Files */}
