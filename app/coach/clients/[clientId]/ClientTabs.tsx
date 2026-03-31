@@ -657,11 +657,17 @@ function AssignedProgramCard({
   clientId,
   onUnassign,
   onUpdated,
+  onSaveAsTemplate,
+  savingTemplateId,
+  savedTemplateId,
 }: {
   assignment: ClientProgram
   clientId: string
   onUnassign: (id: string) => void
   onUpdated: (updated: ClientProgram) => void
+  onSaveAsTemplate?: (id: string) => void
+  savingTemplateId?: string | null
+  savedTemplateId?: string | null
 }) {
   const [expanded, setExpanded] = useState(false)
   const [activeWeek, setActiveWeek] = useState(0)
@@ -809,6 +815,15 @@ function AssignedProgramCard({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
+          {onSaveAsTemplate && (
+            <button
+              onClick={() => onSaveAsTemplate(assignment.id)}
+              disabled={savingTemplateId === assignment.id}
+              className="text-xs font-semibold text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              {savedTemplateId === assignment.id ? 'Saved to library ✓' : savingTemplateId === assignment.id ? 'Saving…' : 'Save as Template'}
+            </button>
+          )}
           <button
             onClick={handleUnassign}
             className="text-gray-300 hover:text-red-400 transition-colors"
@@ -1020,12 +1035,17 @@ function ProgramTab({ clientId }: { clientId: string }) {
   const [assignments, setAssignments] = useState<ClientProgram[]>([])
   const [loading, setLoading] = useState(true)
   const [showAssignModal, setShowAssignModal] = useState(false)
+  const [savingProgTemplateId, setSavingProgTemplateId] = useState<string | null>(null)
+  const [savedProgTemplateId, setSavedProgTemplateId] = useState<string | null>(null)
+
+  async function loadPrograms() {
+    const d = await fetch(`/api/coach/clients/${clientId}/programs`).then((r) => r.json())
+    setAssignments(Array.isArray(d) ? d : [])
+  }
 
   useEffect(() => {
-    fetch(`/api/coach/clients/${clientId}/programs`)
-      .then((r) => r.json())
-      .then((d) => setAssignments(Array.isArray(d) ? d : []))
-      .finally(() => setLoading(false))
+    loadPrograms().finally(() => setLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId])
 
   function handleAssigned(assignment: ClientProgram) {
@@ -1040,6 +1060,39 @@ function ProgramTab({ clientId }: { clientId: string }) {
     setAssignments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)))
   }
 
+  async function handleCreateProgram() {
+    const name = prompt('Program name:')
+    if (!name?.trim()) return
+    const blankContent = [{
+      id: crypto.randomUUID(),
+      label: 'Week 1',
+      days: [
+        { id: crypto.randomUUID(), name: 'Day 1', exercises: [] },
+      ]
+    }]
+    const res = await fetch(`/api/coach/clients/${clientId}/programs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        program_id: null,
+        name: name.trim(),
+        content: blankContent,
+        start_date: new Date().toISOString().split('T')[0],
+      }),
+    })
+    if (res.ok) {
+      await loadPrograms()
+    }
+  }
+
+  async function handleSaveProgAsTemplate(assignmentId: string) {
+    setSavingProgTemplateId(assignmentId)
+    await fetch(`/api/coach/clients/${clientId}/programs/${assignmentId}/save-as-template`, { method: 'POST' })
+    setSavingProgTemplateId(null)
+    setSavedProgTemplateId(assignmentId)
+    setTimeout(() => setSavedProgTemplateId(null), 3000)
+  }
+
   if (loading) {
     return <p className="text-sm text-gray-400 text-center py-10">Loading programs…</p>
   }
@@ -1051,12 +1104,20 @@ function ProgramTab({ clientId }: { clientId: string }) {
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
           {assignments.length === 0 ? 'No programs assigned' : `${assignments.length} program${assignments.length !== 1 ? 's' : ''}`}
         </p>
-        <button
-          onClick={() => setShowAssignModal(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
-        >
-          + Assign Program
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleCreateProgram}
+            className="text-xs font-semibold text-white bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            + Create New
+          </button>
+          <button
+            onClick={() => setShowAssignModal(true)}
+            className="text-xs font-semibold text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Assign Program
+          </button>
+        </div>
       </div>
 
       {assignments.length === 0 && (
@@ -1084,6 +1145,9 @@ function ProgramTab({ clientId }: { clientId: string }) {
           clientId={clientId}
           onUnassign={handleUnassign}
           onUpdated={handleUpdated}
+          onSaveAsTemplate={handleSaveProgAsTemplate}
+          savingTemplateId={savingProgTemplateId}
+          savedTemplateId={savedProgTemplateId}
         />
       ))}
 
@@ -1402,16 +1466,57 @@ function MealPlanTab({ clientId }: { clientId: string }) {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10))
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [createName, setCreateName] = useState('')
+  const [createCalories, setCreateCalories] = useState('')
+  const [savingTemplateId, setSavingTemplateId] = useState<string | null>(null)
+  const [savedTemplateId, setSavedTemplateId] = useState<string | null>(null)
 
-  useEffect(() => {
-    Promise.all([
+  async function loadPlans() {
+    const [plans, tmpl] = await Promise.all([
       fetch(`/api/coach/clients/${clientId}/meal-plans`).then((r) => r.json()),
       fetch('/api/coach/meal-plans').then((r) => r.json()),
-    ]).then(([plans, tmpl]) => {
-      setAssignments(Array.isArray(plans) ? plans : [])
-      setTemplates(Array.isArray(tmpl) ? tmpl : [])
-    }).finally(() => setLoading(false))
+    ])
+    setAssignments(Array.isArray(plans) ? plans : [])
+    setTemplates(Array.isArray(tmpl) ? tmpl : [])
+  }
+
+  useEffect(() => {
+    loadPlans().finally(() => setLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId])
+
+  async function handleCreateNew(e: React.FormEvent) {
+    e.preventDefault()
+    if (!createName.trim()) return
+    setCreating(true)
+    const res = await fetch(`/api/coach/clients/${clientId}/meal-plans`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: createName.trim(),
+        content: [],
+        total_calories: parseInt(createCalories) || 0,
+        start_date: new Date().toISOString().split('T')[0],
+      }),
+    })
+    if (res.ok) {
+      setShowCreateModal(false)
+      setCreateName('')
+      setCreateCalories('')
+      await loadPlans()
+    }
+    setCreating(false)
+  }
+
+  async function handleSaveAsTemplate(planId: string) {
+    setSavingTemplateId(planId)
+    await fetch(`/api/coach/clients/${clientId}/meal-plans/${planId}/save-as-template`, { method: 'POST' })
+    setSavingTemplateId(null)
+    setSavedTemplateId(planId)
+    setTimeout(() => setSavedTemplateId(null), 3000)
+  }
 
   async function handleAssign() {
     if (!selectedTemplateId) return
@@ -1449,12 +1554,20 @@ function MealPlanTab({ clientId }: { clientId: string }) {
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
           {assignments.length === 0 ? 'No meal plans assigned' : `${assignments.length} plan${assignments.length !== 1 ? 's' : ''}`}
         </p>
-        <button
-          onClick={() => setShowAssign(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
-        >
-          + Assign Plan
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="text-xs font-semibold text-white bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            + Create New
+          </button>
+          <button
+            onClick={() => setShowAssign(true)}
+            className="text-xs font-semibold text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Assign Template
+          </button>
+        </div>
       </div>
 
       {assignments.length === 0 && (
@@ -1518,6 +1631,23 @@ function MealPlanTab({ clientId }: { clientId: string }) {
                 ))}
               </div>
             )}
+            {/* Action buttons */}
+            <div className="flex items-center gap-2 px-4 pb-4 pt-2 border-t border-gray-50">
+              <a
+                href={`/coach/clients/${clientId}/meal-plans/${plan.id}`}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                Edit Plan →
+              </a>
+              <span className="text-gray-200">|</span>
+              <button
+                onClick={() => handleSaveAsTemplate(plan.id)}
+                disabled={savingTemplateId === plan.id}
+                className="text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50"
+              >
+                {savedTemplateId === plan.id ? 'Saved ✓' : savingTemplateId === plan.id ? 'Saving…' : 'Save as Template'}
+              </button>
+            </div>
           </div>
         )
       })}
@@ -1583,6 +1713,69 @@ function MealPlanTab({ clientId }: { clientId: string }) {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Create New modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-bold text-gray-900">Create New Meal Plan</h2>
+              <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleCreateNew} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  Plan name <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={createName}
+                  onChange={(e) => setCreateName(e.target.value)}
+                  placeholder="e.g. Cut Phase Week 1"
+                  required
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  Calorie target
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={createCalories}
+                    onChange={(e) => setCreateCalories(e.target.value)}
+                    placeholder="2000"
+                    min={0}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-12"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">kcal</span>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1 border border-gray-200 text-gray-600 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating || !createName.trim()}
+                  className="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {creating ? 'Creating…' : 'Create'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

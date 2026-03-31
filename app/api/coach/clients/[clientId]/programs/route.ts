@@ -50,30 +50,49 @@ export async function POST(
   }
 
   const body = await req.json()
-  const { program_id, start_date } = body as { program_id: string; start_date?: string }
-  if (!program_id) return Response.json({ error: 'program_id is required' }, { status: 400 })
+  const { program_id, name: directName, content: directContent, start_date } = body as {
+    program_id?: string | null
+    name?: string
+    content?: unknown
+    start_date?: string
+  }
 
-  // Fetch the source program to snapshot name + content
   const supabase = await createClient()
-  const { data: program, error: progError } = await supabase
-    .from('programs')
-    .select('name, content')
-    .eq('id', program_id)
-    .eq('coach_id', coachId)
-    .single()
 
-  if (progError || !program) {
-    return Response.json({ error: 'Program not found' }, { status: 404 })
+  let insertName: string
+  let insertContent: unknown
+
+  if (program_id) {
+    // Fetch the source program to snapshot name + content
+    const { data: program, error: progError } = await supabase
+      .from('programs')
+      .select('name, content')
+      .eq('id', program_id)
+      .eq('coach_id', coachId)
+      .single()
+
+    if (progError || !program) {
+      return Response.json({ error: 'Program not found' }, { status: 404 })
+    }
+    insertName = program.name
+    insertContent = program.content
+  } else {
+    // Direct creation — name and content provided in body
+    if (!directName?.trim()) {
+      return Response.json({ error: 'name is required when program_id is not provided' }, { status: 400 })
+    }
+    insertName = directName.trim()
+    insertContent = directContent ?? []
   }
 
   const { data, error } = await supabase
     .from('client_programs')
     .insert({
-      program_id,
+      program_id: program_id ?? null,
       client_id: clientId,
       coach_id: coachId,
-      name: program.name,
-      content: program.content,
+      name: insertName,
+      content: insertContent,
       start_date: start_date ?? new Date().toISOString().slice(0, 10),
       status: 'active',
     })
