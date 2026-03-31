@@ -423,25 +423,26 @@ const MEAL_PLANS = [
 
 // ── Seed function ─────────────────────────────────────────────────────────────
 
+// Sentinel names — if these don't exist the starter templates haven't been seeded yet
+const SENTINEL_PROGRAM = 'Full Body — Beginner 3 Day'
+const SENTINEL_PLAN = '1,800 kcal — Fat Loss'
+
 export async function seedCoachTemplates(coachId: string): Promise<void> {
   const admin = createAdminClient()
 
-  // Check if coach already has templates — don't re-seed
-  const [{ count: progCount }, { count: planCount }] = await Promise.all([
-    admin.from('programs').select('id', { count: 'exact', head: true }).eq('coach_id', coachId),
-    admin.from('meal_plans').select('id', { count: 'exact', head: true }).eq('coach_id', coachId),
+  // Check by sentinel name so existing coaches with custom content also get templates
+  const [{ data: existingProg }, { data: existingPlan }] = await Promise.all([
+    admin.from('programs').select('id').eq('coach_id', coachId).eq('name', SENTINEL_PROGRAM).maybeSingle(),
+    admin.from('meal_plans').select('id').eq('coach_id', coachId).eq('name', SENTINEL_PLAN).maybeSingle(),
   ])
 
-  const seedPrograms = (progCount ?? 0) === 0
-  const seedPlans = (planCount ?? 0) === 0
-
-  if (seedPrograms) {
+  if (!existingProg) {
     await admin.from('programs').insert(
       PROGRAMS.map((p) => ({ coach_id: coachId, name: p.name, description: p.description, content: p.content }))
     )
   }
 
-  if (seedPlans) {
+  if (!existingPlan) {
     await admin.from('meal_plans').insert(
       MEAL_PLANS.map((p) => ({ coach_id: coachId, name: p.name, goal: p.goal, total_calories: p.total_calories, content: p.content }))
     )
