@@ -15,6 +15,7 @@ import UpgradePrompt from '@/components/UpgradePrompt'
 import TrainingCalendar from './TrainingCalendar'
 import MealPlanView from './MealPlanView'
 import HabitsPanel from './HabitsPanel'
+import ScheduledCheckIns from './ScheduledCheckIns'
 
 export const dynamic = 'force-dynamic'
 
@@ -168,6 +169,10 @@ export default async function DashboardPage() {
             <section>
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">My Meal Plan</p>
               <MealPlanView />
+            </section>
+
+            <section>
+              <ScheduledCheckIns />
             </section>
 
             <section>

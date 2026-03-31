@@ -1611,6 +1611,339 @@ const HABIT_PRESETS = [
   { name: 'Morning Walk', icon: '🌅', unit: 'times', target: 1 },
 ]
 
+// ── CheckinSchedulesPanel ─────────────────────────────────────────────────────
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+type CheckinSchedule = {
+  id: string
+  title: string
+  form_id: string | null
+  form_title: string | null
+  day_of_week: number
+  repeat_type: string
+  start_date: string
+  is_active: boolean
+  created_at: string
+}
+
+type ScheduleForm = {
+  id: string
+  title: string
+  type: string
+}
+
+type ScheduleModalState = {
+  open: boolean
+  editing: CheckinSchedule | null
+}
+
+const REPEAT_OPTIONS = [
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'biweekly', label: 'Bi-weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'once', label: 'One-time' },
+]
+
+function CheckinSchedulesPanel({ clientId }: { clientId: string }) {
+  const [schedules, setSchedules] = useState<CheckinSchedule[]>([])
+  const [coachForms, setCoachForms] = useState<ScheduleForm[]>([])
+  const [loading, setLoading] = useState(true)
+  const [modal, setModal] = useState<ScheduleModalState>({ open: false, editing: null })
+
+  // Form state
+  const [title, setTitle] = useState('')
+  const [formId, setFormId] = useState<string>('new')
+  const [dayOfWeek, setDayOfWeek] = useState(1)
+  const [repeatType, setRepeatType] = useState('weekly')
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
+  const [isActive, setIsActive] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [modalError, setModalError] = useState<string | null>(null)
+
+  async function loadSchedules() {
+    const res = await fetch(`/api/coach/clients/${clientId}/checkin-schedules`)
+    if (res.ok) {
+      const data: CheckinSchedule[] = await res.json()
+      setSchedules(data)
+    }
+  }
+
+  async function loadForms() {
+    const res = await fetch('/api/forms')
+    if (res.ok) {
+      const data: ScheduleForm[] = await res.json()
+      setCoachForms(data.filter((f) => f.type === 'weekly_checkin'))
+    }
+  }
+
+  useEffect(() => {
+    Promise.all([loadSchedules(), loadForms()]).finally(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId])
+
+  function openAddModal() {
+    setModal({ open: true, editing: null })
+    setTitle('')
+    setFormId('new')
+    setDayOfWeek(1)
+    setRepeatType('weekly')
+    setStartDate(new Date().toISOString().split('T')[0])
+    setIsActive(true)
+    setModalError(null)
+  }
+
+  function openEditModal(s: CheckinSchedule) {
+    setModal({ open: true, editing: s })
+    setTitle(s.title)
+    setFormId(s.form_id ?? 'new')
+    setDayOfWeek(s.day_of_week)
+    setRepeatType(s.repeat_type)
+    setStartDate(s.start_date)
+    setIsActive(s.is_active)
+    setModalError(null)
+  }
+
+  function closeModal() {
+    setModal({ open: false, editing: null })
+    setModalError(null)
+  }
+
+  async function handleSave() {
+    if (!title.trim()) { setModalError('Title is required'); return }
+    setSaving(true)
+    setModalError(null)
+
+    try {
+      const body: Record<string, unknown> = {
+        title: title.trim(),
+        day_of_week: dayOfWeek,
+        repeat_type: repeatType,
+        start_date: startDate,
+        is_active: isActive,
+      }
+      if (formId !== 'new') body.form_id = formId
+
+      let res: Response
+      if (modal.editing) {
+        res = await fetch(`/api/coach/clients/${clientId}/checkin-schedules/${modal.editing.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+      } else {
+        res = await fetch(`/api/coach/clients/${clientId}/checkin-schedules`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+      }
+
+      if (!res.ok) {
+        const d = await res.json()
+        setModalError(d.error ?? 'Something went wrong')
+        return
+      }
+
+      await loadSchedules()
+      closeModal()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleToggleActive(s: CheckinSchedule) {
+    await fetch(`/api/coach/clients/${clientId}/checkin-schedules/${s.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: !s.is_active }),
+    })
+    await loadSchedules()
+  }
+
+  async function handleDelete(s: CheckinSchedule) {
+    if (!confirm(`Delete schedule "${s.title}"?`)) return
+    await fetch(`/api/coach/clients/${clientId}/checkin-schedules/${s.id}`, { method: 'DELETE' })
+    await loadSchedules()
+  }
+
+  if (loading) return <p className="text-sm text-gray-400 py-4">Loading schedules…</p>
+
+  return (
+    <div className="bg-white rounded-2xl border p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Scheduled Check-ins</p>
+        <button
+          onClick={openAddModal}
+          className="text-xs font-semibold px-3 py-1.5 rounded-lg text-gray-900 hover:opacity-90 transition-colors"
+          style={{ backgroundColor: '#FFD885' }}
+        >
+          + Add Schedule
+        </button>
+      </div>
+
+      {schedules.length === 0 && (
+        <p className="text-sm text-gray-400">No check-in schedules yet. Add one to prompt the client automatically.</p>
+      )}
+
+      <div className="space-y-3">
+        {schedules.map((s) => (
+          <div key={s.id} className="flex items-start justify-between gap-3 p-3 rounded-xl border border-gray-100 bg-gray-50">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-sm font-semibold text-gray-900 truncate">{s.title}</p>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${s.is_active ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                  {s.is_active ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {DAY_NAMES[s.day_of_week]} · {REPEAT_OPTIONS.find((r) => r.value === s.repeat_type)?.label ?? s.repeat_type}
+                {s.form_title ? ` · ${s.form_title}` : ' · No form'}
+              </p>
+            </div>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button
+                onClick={() => openEditModal(s)}
+                className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 rounded-lg hover:bg-white transition-colors"
+              >
+                Edit
+              </button>
+              {s.form_id && (
+                <a
+                  href={`/coach/forms/${s.form_id}/edit`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-blue-500 hover:text-blue-700 px-2 py-1 rounded-lg hover:bg-white transition-colors"
+                >
+                  Edit Form
+                </a>
+              )}
+              <button
+                onClick={() => handleToggleActive(s)}
+                className="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 rounded-lg hover:bg-white transition-colors"
+              >
+                {s.is_active ? 'Deactivate' : 'Activate'}
+              </button>
+              <button
+                onClick={() => handleDelete(s)}
+                className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-white transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Modal */}
+      {modal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={closeModal}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-gray-900">
+              {modal.editing ? 'Edit Schedule' : 'Add Check-in Schedule'}
+            </h3>
+
+            {modalError && (
+              <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{modalError}</p>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-gray-500 block mb-1">Title</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Weekly Check-in"
+                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-500 block mb-1">Day of Week</label>
+                <select
+                  value={dayOfWeek}
+                  onChange={(e) => setDayOfWeek(Number(e.target.value))}
+                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                >
+                  {DAY_NAMES.map((d, i) => (
+                    <option key={d} value={i}>{d}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-500 block mb-1">Repeat</label>
+                <select
+                  value={repeatType}
+                  onChange={(e) => setRepeatType(e.target.value)}
+                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                >
+                  {REPEAT_OPTIONS.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-500 block mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-gray-500 block mb-1">Form</label>
+                <select
+                  value={formId}
+                  onChange={(e) => setFormId(e.target.value)}
+                  className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-300"
+                >
+                  <option value="new">Create new form</option>
+                  {coachForms.map((f) => (
+                    <option key={f.id} value={f.id}>{f.title}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="schedule-active"
+                  checked={isActive}
+                  onChange={(e) => setIsActive(e.target.checked)}
+                  className="rounded"
+                />
+                <label htmlFor="schedule-active" className="text-sm text-gray-700">Active</label>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={closeModal}
+                className="flex-1 text-sm font-semibold px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex-1 text-sm font-semibold px-4 py-2.5 rounded-xl text-gray-900 hover:opacity-90 transition-colors disabled:opacity-50"
+                style={{ backgroundColor: '#FFD885' }}
+              >
+                {saving ? 'Saving…' : modal.editing ? 'Save Changes' : 'Add Schedule'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function HabitsTab({ clientId }: { clientId: string }) {
   const [habits, setHabits] = useState<Habit[]>([])
   const [loading, setLoading] = useState(true)
@@ -1870,41 +2203,47 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
       {tab === 'files' && <FilesTab clientId={clientId} />}
 
       {/* Check-ins */}
-      {tab === 'checkins' && data && (
-        <div className="space-y-3">
-          {data.checkIns.length === 0 && <Empty label="No check-ins recorded." />}
-          {data.checkIns.map((c) => (
-            <div key={c.id} className="bg-white rounded-2xl border p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-medium text-gray-400">{fmt(c.created_at)}</p>
-                {c.reviewed_by_coach ? (
-                  <span className="text-xs bg-green-50 text-green-600 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Reviewed
-                  </span>
-                ) : (
-                  <span className="text-xs bg-amber-50 text-amber-500 font-semibold px-2 py-0.5 rounded-full">Pending review</span>
-                )}
-              </div>
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-                <Stat label="Sleep" value={c.sleep_hours != null ? `${c.sleep_hours}h` : '—'} />
-                <Stat label="Quality" value={SLEEP_LABELS[c.sleep_quality ?? ''] ?? c.sleep_quality ?? '—'} />
-                <Stat label="Energy" value={ENERGY_LABELS[c.energy_level ?? ''] ?? c.energy_level ?? '—'} />
-                <Stat label="RHR" value={c.rhr != null ? `${c.rhr} bpm` : '—'} />
-                <Stat label="HRV" value={c.hrv != null ? `${c.hrv} ms` : '—'} />
-              </div>
-              {c.notes && <p className="text-xs text-gray-500 italic border-t border-gray-50 pt-2">"{c.notes}"</p>}
-              <Suspense fallback={null}>
-                <CheckInFeedback
-                  checkInId={c.id}
-                  initialFeedback={c.coach_feedback}
-                  initialReviewed={c.reviewed_by_coach}
-                />
-              </Suspense>
+      {tab === 'checkins' && (
+        <div className="space-y-4">
+          <CheckinSchedulesPanel clientId={clientId} />
+          {data && (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Submitted Check-ins</p>
+              {data.checkIns.length === 0 && <Empty label="No check-ins submitted yet." />}
+              {data.checkIns.map((c) => (
+                <div key={c.id} className="bg-white rounded-2xl border p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-gray-400">{fmt(c.created_at)}</p>
+                    {c.reviewed_by_coach ? (
+                      <span className="text-xs bg-green-50 text-green-600 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Reviewed
+                      </span>
+                    ) : (
+                      <span className="text-xs bg-amber-50 text-amber-500 font-semibold px-2 py-0.5 rounded-full">Pending review</span>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                    <Stat label="Sleep" value={c.sleep_hours != null ? `${c.sleep_hours}h` : '—'} />
+                    <Stat label="Quality" value={SLEEP_LABELS[c.sleep_quality ?? ''] ?? c.sleep_quality ?? '—'} />
+                    <Stat label="Energy" value={ENERGY_LABELS[c.energy_level ?? ''] ?? c.energy_level ?? '—'} />
+                    <Stat label="RHR" value={c.rhr != null ? `${c.rhr} bpm` : '—'} />
+                    <Stat label="HRV" value={c.hrv != null ? `${c.hrv} ms` : '—'} />
+                  </div>
+                  {c.notes && <p className="text-xs text-gray-500 italic border-t border-gray-50 pt-2">"{c.notes}"</p>}
+                  <Suspense fallback={null}>
+                    <CheckInFeedback
+                      checkInId={c.id}
+                      initialFeedback={c.coach_feedback}
+                      initialReviewed={c.reviewed_by_coach}
+                    />
+                  </Suspense>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
 
