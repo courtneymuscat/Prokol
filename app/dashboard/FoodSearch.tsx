@@ -5,6 +5,8 @@ import dynamic from 'next/dynamic'
 
 // Called directly from the browser — avoids server-side rate limiting by OFF
 async function searchOpenFoodFacts(q: string, pageSize = 8, page = 1): Promise<FoodResult[]> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 8000)
   try {
     const url = new URL('https://world.openfoodfacts.org/cgi/search.pl')
     url.searchParams.set('search_terms', q)
@@ -14,7 +16,7 @@ async function searchOpenFoodFacts(q: string, pageSize = 8, page = 1): Promise<F
     url.searchParams.set('page', String(page))
     url.searchParams.set('sort_by', 'unique_scans_n')
 
-    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(8000) })
+    const res = await fetch(url.toString(), { signal: controller.signal })
     if (!res.ok) return []
     const data = await res.json()
 
@@ -39,6 +41,8 @@ async function searchOpenFoodFacts(q: string, pageSize = 8, page = 1): Promise<F
     })
   } catch {
     return []
+  } finally {
+    clearTimeout(timer)
   }
 }
 
