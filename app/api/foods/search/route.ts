@@ -74,17 +74,20 @@ export async function GET(req: NextRequest) {
 }
 
 async function fetchOpenFoodFacts(q: string): Promise<FoodRow[]> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 4000)
+
   try {
-    const url = new URL('https://world.openfoodfacts.org/cgi/search.pl')
+    // Use v2 search API — searches product name AND brand fields
+    const url = new URL('https://world.openfoodfacts.org/api/v2/search')
     url.searchParams.set('search_terms', q)
-    url.searchParams.set('json', '1')
-    url.searchParams.set('page_size', '8')
-    url.searchParams.set('fields', 'product_name,product_name_en,nutriments')
+    url.searchParams.set('fields', 'product_name,product_name_en,brands,nutriments')
+    url.searchParams.set('page_size', '10')
     url.searchParams.set('sort_by', 'unique_scans_n')
 
     const res = await fetch(url.toString(), {
       headers: { 'User-Agent': 'NutriCoach/1.0 (nutricoach.app)' },
-      signal: AbortSignal.timeout(3000), // 3s max — don't block local results
+      signal: controller.signal,
     })
 
     if (!res.ok) return []
@@ -92,12 +95,17 @@ async function fetchOpenFoodFacts(q: string): Promise<FoodRow[]> {
 
     const results: FoodRow[] = []
     for (const p of (data.products ?? [])) {
-      const name = (p.product_name_en || p.product_name || '').trim()
-      if (!name) continue
+      // Build a display name: "Brand — Product Name" when brand is known
+      const base = (p.product_name_en || p.product_name || '').trim()
+      if (!base) continue
+      const brand = (p.brands ?? '').split(',')[0].trim()
+      const name = brand && !base.toLowerCase().includes(brand.toLowerCase())
+        ? `${brand} — ${base}`
+        : base
 
       const n = p.nutriments ?? {}
       const kcal = n['energy-kcal_100g'] ?? (n['energy_100g'] ? n['energy_100g'] / 4.184 : null)
-      if (kcal == null) continue // skip products with no calorie data
+      if (kcal == null) continue
 
       results.push({
         id: `off:${encodeURIComponent(name)}`,
@@ -112,5 +120,7 @@ async function fetchOpenFoodFacts(q: string): Promise<FoodRow[]> {
     return results
   } catch {
     return []
+  } finally {
+    clearTimeout(timer)
   }
 }
