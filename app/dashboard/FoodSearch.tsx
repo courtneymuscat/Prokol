@@ -6,10 +6,12 @@ import dynamic from 'next/dynamic'
 // Called directly from the browser — avoids server-side rate limiting by OFF
 async function searchOpenFoodFacts(q: string, pageSize = 8, page = 1): Promise<FoodResult[]> {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 8000)
+  const timer = setTimeout(() => controller.abort(), 15000)
   try {
     const url = new URL('https://world.openfoodfacts.org/cgi/search.pl')
     url.searchParams.set('search_terms', q)
+    url.searchParams.set('search_simple', '1')
+    url.searchParams.set('action', 'process')
     url.searchParams.set('json', '1')
     url.searchParams.set('fields', 'product_name,product_name_en,brands,nutriments')
     url.searchParams.set('page_size', String(pageSize))
@@ -27,7 +29,7 @@ async function searchOpenFoodFacts(q: string, pageSize = 8, page = 1): Promise<F
       const name = brand && !base.toLowerCase().includes(brand.toLowerCase())
         ? `${brand} — ${base}` : base
       const n = (p.nutriments ?? {}) as Record<string, number>
-      const kcal = n['energy-kcal_100g'] ?? (n['energy_100g'] ? n['energy_100g'] / 4.184 : null)
+      const kcal = n['energy-kcal_100g'] ?? (n['energy_100g'] != null ? n['energy_100g'] / 4.184 : null)
       if (kcal == null) return []
       return [{
         id: `off:${encodeURIComponent(name)}`,
