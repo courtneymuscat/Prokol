@@ -3,49 +3,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 
-// Called directly from the browser — avoids server-side rate limiting by OFF
-// Uses the v2 search API which is more reliable and complete than /cgi/search.pl
+// Proxied through our own API route to avoid browser CORS restrictions.
+// Direct browser→OFF calls fail silently on some endpoints/networks.
 export async function searchOpenFoodFacts(q: string, pageSize = 50, page = 1): Promise<{ results: FoodResult[]; total: number }> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 10000)
   try {
-    const url = new URL('https://world.openfoodfacts.org/api/v2/search')
-    url.searchParams.set('search_terms', q)
-    url.searchParams.set('fields', 'product_name,product_name_en,brands,nutriments')
-    url.searchParams.set('page_size', String(pageSize))
-    url.searchParams.set('page', String(page))
-    url.searchParams.set('sort_by', 'unique_scans_n')
-
-    const res = await fetch(url.toString(), { signal: controller.signal })
-    if (!res.ok) return { results: [], total: 0 }
-    const data = await res.json()
-    const total: number = data.count ?? 0
-
-    const results = (data.products ?? []).flatMap((p: Record<string, unknown>) => {
-      const base = ((p.product_name_en || p.product_name || '') as string).trim()
-      if (!base) return []
-      const brand = ((p.brands as string) ?? '').split(',')[0].trim()
-      const name = brand && !base.toLowerCase().includes(brand.toLowerCase())
-        ? `${brand} — ${base}` : base
-      const n = (p.nutriments ?? {}) as Record<string, number>
-      const kcal = n['energy-kcal_100g'] ?? (n['energy_100g'] != null ? n['energy_100g'] / 4.184 : null)
-      if (kcal == null) return []
-      return [{
-        id: `off:${encodeURIComponent(name)}`,
-        name,
-        calories_per_100g: Math.round(kcal),
-        protein_per_100g: Math.round((n['proteins_100g'] ?? 0) * 10) / 10,
-        carbs_per_100g: Math.round((n['carbohydrates_100g'] ?? 0) * 10) / 10,
-        fat_per_100g: Math.round((n['fat_100g'] ?? 0) * 10) / 10,
-        source: 'off' as const,
-      }]
+    const params = new URLSearchParams({ q, page: String(page), page_size: String(pageSize) })
+    const res = await fetch(`/api/foods/off-search?${params}`, {
+      signal: AbortSignal.timeout(14000),
     })
-
-    return { results, total }
+    if (!res.ok) return { results: [], total: 0 }
+    return await res.json()
   } catch {
     return { results: [], total: 0 }
-  } finally {
-    clearTimeout(timer)
   }
 }
 
