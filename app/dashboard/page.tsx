@@ -91,15 +91,15 @@ export default async function DashboardPage() {
           {/* Desktop-only nav links — bottom tab bar handles mobile */}
           <div className="hidden md:flex items-center gap-1">
             {[
-              { href: '/workouts', label: 'Workouts' },
-              ...(profile?.sex !== 'male' ? [{ href: '/cycle', label: 'Cycle' }] : []),
-              { href: '/progress', label: 'Progress Photos' },
-              ...(isCoach ? [{ href: '/coach/dashboard', label: 'Coach Dashboard' }] : []),
-              ...(isCoached ? [{ href: '/messages', label: 'Messages' }] : []),
-              ...(!isCoach ? [{ href: '/pricing', label: 'Upgrade' }] : []),
-              { href: '/settings', label: 'Settings' },
-            ].map(({ href, label }) => (
-              <a key={href} href={href} className="text-[13px] font-medium text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+              { href: '/workouts', label: 'Workouts', id: undefined },
+              ...(profile?.sex !== 'male' ? [{ href: '/cycle', label: 'Cycle', id: undefined }] : []),
+              { href: '/progress', label: 'Progress Photos', id: undefined },
+              ...(isCoach ? [{ href: '/coach/dashboard', label: 'Coach Dashboard', id: undefined }] : []),
+              ...(isCoached ? [{ href: '/messages', label: 'Messages', id: undefined }] : []),
+              ...(!isCoach ? [{ href: '/pricing', label: 'Upgrade', id: undefined }] : []),
+              { href: '/settings', label: 'Settings', id: 'tour-settings' },
+            ].map(({ href, label, id }) => (
+              <a key={href} href={href} id={id} className="text-[13px] font-medium text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
                 {label}
               </a>
             ))}
@@ -198,7 +198,7 @@ export default async function DashboardPage() {
 
         {/* Daily targets card */}
         {profile?.target_calories ? (
-          <div className="bg-white rounded-2xl border px-5 py-4">
+          <div id="tour-targets" className="bg-white rounded-2xl border px-5 py-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Daily targets</p>
               {!isCoached && <a href="/onboarding" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Recalculate →</a>}
@@ -251,7 +251,7 @@ export default async function DashboardPage() {
         )}
 
         {/* Weight — log + chart */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
+        <section id="tour-weight" className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
           <WeightLog />
           {canWeightChart
             ? <WeightChart />
@@ -260,6 +260,7 @@ export default async function DashboardPage() {
         </section>
 
         {/* Daily Food Log */}
+        <div id="tour-food-log">
         <DailyLog
           canScanMeal={canMealScanner}
           targetCalories={profile?.target_calories ?? null}
@@ -267,6 +268,7 @@ export default async function DashboardPage() {
           targetCarbs={profile?.target_carbs ?? null}
           targetFat={profile?.target_fat ?? null}
         />
+        </div>
 
         {/* Elite teaser — AI meal scanner */}
         {!canMealScanner && (

@@ -1,131 +1,271 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useLayoutEffect } from 'react'
 
 const TOUR_KEY = 'nutricoach_tour_done'
+const PAD = 10 // spotlight padding around target
 
-const STEPS = [
+type Step = {
+  targetId: string | null
+  emoji: string
+  title: string
+  body: string
+  cta: string
+  tooltipSide?: 'above' | 'below' | 'auto'
+}
+
+const STEPS: Step[] = [
   {
+    targetId: null,
     emoji: '👋',
-    title: 'Welcome to your dashboard!',
-    body: "Let's take a quick tour so you know where everything is. It only takes 30 seconds.",
-    cta: 'Show me around →',
+    title: "Welcome to NutriCoach!",
+    body: "Let me show you exactly where everything lives. Tap the highlighted areas as I point them out.",
+    cta: 'Start tour →',
   },
   {
+    targetId: 'tour-targets',
     emoji: '🎯',
-    title: 'Daily targets',
-    body: 'Your personalised calorie and macro targets sit here. These are calculated from your stats and goal — protein first, always.',
-    cta: 'Next →',
+    title: 'Your daily targets',
+    body: 'These are your personalised calorie and macro targets — tap this card to see the breakdown.',
+    cta: 'Got it →',
+    tooltipSide: 'below',
   },
   {
-    emoji: '🍽️',
-    title: 'Food log',
-    body: 'Log everything you eat throughout the day. Search foods, scan barcodes, or build a meal from scratch. Your totals update in real time.',
-    cta: 'Next →',
-  },
-  {
+    targetId: 'tour-weight',
     emoji: '⚖️',
     title: 'Weight tracking',
-    body: 'Log your weight each day and watch your trend over time. Day-to-day fluctuations are normal — the trend over weeks is what matters.',
-    cta: 'Next →',
+    body: 'Log your weight here daily. Day-to-day changes are normal — watch the trend over weeks, not days.',
+    cta: 'Got it →',
+    tooltipSide: 'above',
   },
   {
+    targetId: 'tour-food-log',
+    emoji: '🍽️',
+    title: 'Food log',
+    body: 'Tap here to log everything you eat. Search foods, scan barcodes, or use AI to photograph a meal.',
+    cta: 'Got it →',
+    tooltipSide: 'above',
+  },
+  {
+    targetId: 'daily-checkin',
     emoji: '📋',
     title: 'Daily check-in',
-    body: 'Rate your sleep, energy, stress, and hunger each day. This data helps your coach (or you) spot patterns that affect your progress.',
-    cta: 'Next →',
+    body: 'Rate your sleep, energy, stress and hunger daily. Your coach uses this to track how you\'re really doing.',
+    cta: 'Got it →',
+    tooltipSide: 'above',
   },
   {
+    targetId: 'tour-settings',
     emoji: '⚙️',
-    title: 'Settings',
-    body: 'Find your profile, timezone, progress photos, and account settings in the top-right corner.',
+    title: 'Settings up here',
+    body: 'Tap Settings to update your profile, timezone and progress photos.',
     cta: "Let's go! →",
+    tooltipSide: 'below',
   },
 ]
 
-export default function DashboardTour() {
-  const [tourStep, setTourStep] = useState<number | null>(null)
+type Rect = { top: number; left: number; width: number; height: number }
 
+function getRect(id: string): Rect | null {
+  const el = document.getElementById(id)
+  if (!el) return null
+  const r = el.getBoundingClientRect()
+  return { top: r.top, left: r.left, width: r.width, height: r.height }
+}
+
+export default function DashboardTour() {
+  const [stepIndex, setStepIndex] = useState<number | null>(null)
+  const [rect, setRect] = useState<Rect | null>(null)
+  const [vh, setVh] = useState(0)
+  const [vw, setVw] = useState(0)
+
+  // Check localStorage on mount
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (!localStorage.getItem(TOUR_KEY)) {
-      setTourStep(0)
-    }
+    if (!localStorage.getItem(TOUR_KEY)) setStepIndex(0)
   }, [])
 
+  // Update viewport size
+  useEffect(() => {
+    function onResize() { setVh(window.innerHeight); setVw(window.innerWidth) }
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  const step = stepIndex !== null ? STEPS[stepIndex] : null
+
+  // Scroll target into view, then measure its rect
+  const measureTarget = useCallback((targetId: string | null) => {
+    if (!targetId) { setRect(null); return }
+    const el = document.getElementById(targetId)
+    if (!el) { setRect(null); return }
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    // Wait for scroll to settle before measuring
+    setTimeout(() => {
+      const r = getRect(targetId)
+      setRect(r)
+    }, 400)
+  }, [])
+
+  useEffect(() => {
+    if (step) measureTarget(step.targetId)
+    else setRect(null)
+  }, [step, measureTarget])
+
+  // Re-measure on scroll / resize
+  useLayoutEffect(() => {
+    if (!step?.targetId) return
+    function update() {
+      const r = getRect(step!.targetId!)
+      setRect(r)
+    }
+    window.addEventListener('scroll', update, { passive: true })
+    window.addEventListener('resize', update)
+    return () => {
+      window.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+    }
+  }, [step])
+
   function advance() {
-    if (tourStep === null) return
-    if (tourStep >= STEPS.length - 1) {
+    if (stepIndex === null) return
+    if (stepIndex >= STEPS.length - 1) {
       localStorage.setItem(TOUR_KEY, '1')
-      setTourStep(null)
+      setStepIndex(null)
     } else {
-      setTourStep(tourStep + 1)
+      setStepIndex(stepIndex + 1)
     }
   }
 
   function dismiss() {
     localStorage.setItem(TOUR_KEY, '1')
-    setTourStep(null)
+    setStepIndex(null)
   }
 
-  if (tourStep === null) return null
+  if (stepIndex === null || !step) return null
 
-  const step = STEPS[tourStep]
+  // ── Spotlight geometry ──────────────────────────────────────────────────
+  const hasTarget = !!step.targetId && !!rect
+  const sp = hasTarget && rect ? {
+    top:    rect.top    - PAD,
+    left:   rect.left   - PAD,
+    width:  rect.width  + PAD * 2,
+    height: rect.height + PAD * 2,
+  } : null
+
+  // ── Tooltip positioning ─────────────────────────────────────────────────
+  let tooltipStyle: React.CSSProperties = {}
+  let arrowStyle: React.CSSProperties = {}
+  let arrowClass = ''
+
+  const TOOLTIP_W = Math.min(320, vw - 32)
+  const TOOLTIP_MARGIN = 12
+
+  if (!hasTarget || !sp) {
+    // Centred on screen
+    tooltipStyle = {
+      position: 'fixed',
+      bottom: 24,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      width: TOOLTIP_W,
+    }
+  } else {
+    // Determine side
+    const spaceBelow = vh - (sp.top + sp.height)
+    const spaceAbove = sp.top
+    const preferredSide = step.tooltipSide === 'above' ? 'above'
+      : step.tooltipSide === 'below' ? 'below'
+      : spaceBelow >= 200 ? 'below' : 'above'
+
+    const centreX = sp.left + sp.width / 2
+    const tooltipLeft = Math.max(16, Math.min(centreX - TOOLTIP_W / 2, vw - TOOLTIP_W - 16))
+    const arrowLeft = Math.max(20, Math.min(centreX - tooltipLeft - 10, TOOLTIP_W - 30))
+
+    if (preferredSide === 'below') {
+      tooltipStyle = {
+        position: 'fixed',
+        top: sp.top + sp.height + TOOLTIP_MARGIN,
+        left: tooltipLeft,
+        width: TOOLTIP_W,
+      }
+      arrowStyle = { left: arrowLeft, top: -8, borderWidth: '0 8px 8px 8px', borderColor: 'transparent transparent white transparent' }
+      arrowClass = 'absolute border-solid'
+    } else {
+      tooltipStyle = {
+        position: 'fixed',
+        bottom: vh - sp.top + TOOLTIP_MARGIN,
+        left: tooltipLeft,
+        width: TOOLTIP_W,
+      }
+      arrowStyle = { left: arrowLeft, bottom: -8, borderWidth: '8px 8px 0 8px', borderColor: 'white transparent transparent transparent' }
+      arrowClass = 'absolute border-solid'
+    }
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-4 pb-6 sm:pb-0">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={dismiss}
-      />
+    <>
+      {/* Dark overlay — rendered as 4 rects around the spotlight so the target stays tappable */}
+      {sp ? (
+        <>
+          {/* Top */}
+          <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 49, bottom: vh - sp.top, backgroundColor: 'rgba(0,0,0,0.55)' }} />
+          {/* Bottom */}
+          <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 49, top: sp.top + sp.height, backgroundColor: 'rgba(0,0,0,0.55)' }} />
+          {/* Left */}
+          <div className="fixed pointer-events-none" style={{ zIndex: 49, top: sp.top, left: 0, width: sp.left, height: sp.height, backgroundColor: 'rgba(0,0,0,0.55)' }} />
+          {/* Right */}
+          <div className="fixed pointer-events-none" style={{ zIndex: 49, top: sp.top, left: sp.left + sp.width, right: 0, height: sp.height, backgroundColor: 'rgba(0,0,0,0.55)' }} />
+          {/* Spotlight ring */}
+          <div className="fixed pointer-events-none" style={{ zIndex: 50, top: sp.top, left: sp.left, width: sp.width, height: sp.height, borderRadius: 16, boxShadow: '0 0 0 3px #FFD885', transition: 'all 0.35s ease' }} />
+        </>
+      ) : (
+        // Full backdrop for intro/outro step
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" style={{ zIndex: 49 }} onClick={dismiss} />
+      )}
 
-      {/* Card */}
-      <div className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden">
-        {/* Progress dots */}
-        <div className="flex gap-1.5 justify-center pt-5 pb-1">
-          {STEPS.map((_, i) => (
-            <div
-              key={i}
-              className="h-1.5 rounded-full transition-all duration-300"
-              style={{
-                width: i === tourStep ? '20px' : '6px',
-                backgroundColor: i <= tourStep ? '#FFD885' : '#e5e7eb',
-              }}
-            />
-          ))}
-        </div>
+      {/* Tooltip card */}
+      <div style={{ ...tooltipStyle, zIndex: 51 }} className="pointer-events-auto">
+        {/* Arrow */}
+        {arrowClass && <div className={arrowClass} style={{ ...arrowStyle, width: 0, height: 0 }} />}
 
-        <div className="px-6 py-5 space-y-4">
-          {/* Icon */}
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl" style={{ backgroundColor: '#FFF9E6' }}>
-            {step.emoji}
+        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+          {/* Progress dots */}
+          <div className="flex gap-1.5 justify-center pt-4 pb-0.5">
+            {STEPS.map((_, i) => (
+              <div key={i} className="h-1.5 rounded-full transition-all duration-300" style={{
+                width: i === stepIndex ? '18px' : '6px',
+                backgroundColor: i <= stepIndex ? '#FFD885' : '#e5e7eb',
+              }} />
+            ))}
           </div>
 
-          {/* Content */}
-          <div className="space-y-1.5">
-            <p className="text-base font-bold text-gray-900">{step.title}</p>
-            <p className="text-sm text-gray-500 leading-relaxed">{step.body}</p>
-          </div>
+          <div className="px-5 py-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0" style={{ backgroundColor: '#FFF9E6' }}>
+                {step.emoji}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-gray-900">{step.title}</p>
+                <p className="text-xs text-gray-500 mt-1 leading-relaxed">{step.body}</p>
+              </div>
+            </div>
 
-          {/* Actions */}
-          <div className="flex gap-2 pt-1">
-            <button
-              onClick={dismiss}
-              className="flex-1 py-2.5 rounded-2xl text-sm font-medium text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors"
-            >
-              Skip tour
-            </button>
-            <button
-              onClick={advance}
-              className="flex-[2] py-2.5 rounded-2xl text-sm font-bold text-gray-900 transition-colors"
-              style={{ backgroundColor: '#FFD885' }}
-            >
-              {step.cta}
-            </button>
+            <div className="flex gap-2">
+              <button onClick={dismiss} className="flex-1 py-2 rounded-xl text-xs font-medium text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors">
+                Skip
+              </button>
+              <button
+                onClick={advance}
+                className="flex-[2] py-2 rounded-xl text-sm font-bold text-gray-900 transition-colors"
+                style={{ backgroundColor: '#FFD885' }}
+              >
+                {step.cta}
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }
