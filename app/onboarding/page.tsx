@@ -170,6 +170,7 @@ export default function OnboardingPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [adjustmentPct, setAdjustmentPct] = useState(20)
+  const [activeTooltip, setActiveTooltip] = useState<'bmr' | 'tdee' | null>(null)
 
   const [form, setForm] = useState<FormState>({
     goal: null,
@@ -559,16 +560,68 @@ export default function OnboardingPage() {
               <div className="bg-white rounded-2xl border p-5 space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-gray-50">
                   <div>
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Estimated TDEE</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Estimated TDEE</p>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTooltip(activeTooltip === 'tdee' ? null : 'tdee')}
+                        className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-[10px] font-bold flex items-center justify-center hover:bg-gray-300 transition-colors flex-shrink-0"
+                      >
+                        ?
+                      </button>
+                    </div>
                     <p className="text-3xl font-bold text-gray-900 mt-0.5">{tdeeResult.tdee.toLocaleString()}</p>
                     <p className="text-xs text-gray-400">kcal/day total energy expenditure</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-gray-400">BMR</p>
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTooltip(activeTooltip === 'bmr' ? null : 'bmr')}
+                        className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-[10px] font-bold flex items-center justify-center hover:bg-gray-300 transition-colors flex-shrink-0"
+                      >
+                        ?
+                      </button>
+                      <p className="text-xs text-gray-400">BMR</p>
+                    </div>
                     <p className="text-lg font-semibold text-gray-500">{tdeeResult.bmr.toLocaleString()}</p>
                     <p className="text-xs text-gray-400">kcal base</p>
                   </div>
                 </div>
+
+                {/* BMR tooltip */}
+                {activeTooltip === 'bmr' && (
+                  <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 space-y-1">
+                    <p className="text-xs font-semibold text-blue-800">What is BMR?</p>
+                    <p className="text-xs text-blue-700 leading-relaxed">
+                      Your <strong>Basal Metabolic Rate</strong> is the number of calories your body needs just to stay alive at complete rest — breathing, pumping blood, keeping organs running. Think of it as your engine idling. It doesn&apos;t include any movement or exercise.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTooltip('tdee')}
+                      className="text-xs font-semibold text-blue-600 underline mt-1"
+                    >
+                      Next: what is TDEE? →
+                    </button>
+                  </div>
+                )}
+
+                {/* TDEE tooltip */}
+                {activeTooltip === 'tdee' && (
+                  <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 space-y-1">
+                    <p className="text-xs font-semibold text-amber-800">What is TDEE?</p>
+                    <p className="text-xs text-amber-700 leading-relaxed">
+                      Your <strong>Total Daily Energy Expenditure</strong> is your BMR <em>plus</em> all the calories you burn through movement — walking, workouts, even fidgeting. This is the number your calorie target is built around. Hit it to maintain weight, eat less to lose, or eat more to gain.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTooltip(null)}
+                      className="text-xs font-semibold text-amber-600 underline mt-1"
+                    >
+                      Got it ✓
+                    </button>
+                  </div>
+                )}
 
                 {/* Deficit / surplus adjuster */}
                 {(form.goal === 'fat_loss' || form.goal === 'muscle_gain') && (

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import type { FoodResult } from './FoodSearch'
+import { searchOpenFoodFacts, mergeResults } from './FoodSearch'
 
 export type RowData = {
   food: FoodResult | null
@@ -48,8 +49,12 @@ export default function MealFoodRow({ onChange, onRemove }: Props) {
     debounceRef.current = setTimeout(async () => {
       setLoading(true)
       try {
-        const res = await fetch(`/api/foods/search?q=${encodeURIComponent(query)}`)
-        setResults(await res.json())
+        const [localRes, { results: offResults }] = await Promise.all([
+          fetch(`/api/foods/search?q=${encodeURIComponent(query)}`).then(r => r.json()).catch(() => []),
+          searchOpenFoodFacts(query, 30, 1),
+        ])
+        const local: FoodResult[] = Array.isArray(localRes) ? localRes : []
+        setResults(mergeResults(local, offResults, query))
         setOpen(true)
       } finally {
         setLoading(false)

@@ -4,25 +4,24 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 
 // Called directly from the browser — avoids server-side rate limiting by OFF
-async function searchOpenFoodFacts(q: string, pageSize = 8, page = 1): Promise<FoodResult[]> {
+// Uses the v2 search API which is more reliable and complete than /cgi/search.pl
+export async function searchOpenFoodFacts(q: string, pageSize = 50, page = 1): Promise<{ results: FoodResult[]; total: number }> {
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 15000)
+  const timer = setTimeout(() => controller.abort(), 10000)
   try {
-    const url = new URL('https://world.openfoodfacts.org/cgi/search.pl')
+    const url = new URL('https://world.openfoodfacts.org/api/v2/search')
     url.searchParams.set('search_terms', q)
-    url.searchParams.set('search_simple', '1')
-    url.searchParams.set('action', 'process')
-    url.searchParams.set('json', '1')
     url.searchParams.set('fields', 'product_name,product_name_en,brands,nutriments')
     url.searchParams.set('page_size', String(pageSize))
     url.searchParams.set('page', String(page))
     url.searchParams.set('sort_by', 'unique_scans_n')
 
     const res = await fetch(url.toString(), { signal: controller.signal })
-    if (!res.ok) return []
+    if (!res.ok) return { results: [], total: 0 }
     const data = await res.json()
+    const total: number = data.count ?? 0
 
-    return (data.products ?? []).flatMap((p: Record<string, unknown>) => {
+    const results = (data.products ?? []).flatMap((p: Record<string, unknown>) => {
       const base = ((p.product_name_en || p.product_name || '') as string).trim()
       if (!base) return []
       const brand = ((p.brands as string) ?? '').split(',')[0].trim()
@@ -41,11 +40,38 @@ async function searchOpenFoodFacts(q: string, pageSize = 8, page = 1): Promise<F
         source: 'off' as const,
       }]
     })
+
+    return { results, total }
   } catch {
-    return []
+    return { results: [], total: 0 }
   } finally {
     clearTimeout(timer)
   }
+}
+
+// Rank results by how closely the name matches the query
+function getRelevanceScore(name: string, q: string): number {
+  const n = name.toLowerCase()
+  if (n === q) return 5
+  if (n.startsWith(q + ' ') || n.startsWith(q + ',') || n === q) return 4
+  if (n.startsWith(q)) return 3
+  const words = n.split(/[\s,\-—]+/)
+  if (words.some(w => w.startsWith(q))) return 2
+  if (n.includes(q)) return 1
+  return 0
+}
+
+function sortByRelevance<T extends { name: string }>(items: T[], query: string): T[] {
+  const q = query.toLowerCase().trim()
+  if (!q) return items
+  return [...items].sort((a, b) => getRelevanceScore(b.name, q) - getRelevanceScore(a.name, q))
+}
+
+// Merge local + OFF results, deduplicate by name, sort by relevance
+export function mergeResults(local: FoodResult[], off: FoodResult[], query: string): FoodResult[] {
+  const localNames = new Set(local.map(f => f.name.toLowerCase()))
+  const combined = [...local, ...off.filter(f => !localNames.has(f.name.toLowerCase()))]
+  return sortByRelevance(combined, query)
 }
 
 const BarcodeScanner = dynamic(() => import('./BarcodeScanner'), { ssr: false })
@@ -126,27 +152,37 @@ function ExpandedSearchModal({ initialQuery, onSelect, onClose }: {
   const [results, setResults] = useState<FoodResult[]>([])
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(false)
+  const [totalOff, setTotalOff] = useState(0)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const activeQuery = useRef(initialQuery)
+
+  const hasMore = results.filter(r => r.source === 'off').length < totalOff
 
   const fetchPage = useCallback(async (query: string, p: number, reset: boolean) => {
     activeQuery.current = query
     setLoading(true)
     try {
       // Local DB + OFF called in parallel directly from browser
-      const [localRes, offResults] = await Promise.all([
-        fetch(`/api/foods/search?q=${encodeURIComponent(query)}`).then(r => r.json()).catch(() => []),
-        searchOpenFoodFacts(query, 30, p),
+      const [localRes, { results: offResults, total }] = await Promise.all([
+        p === 1
+          ? fetch(`/api/foods/search?q=${encodeURIComponent(query)}`).then(r => r.json()).catch(() => [])
+          : Promise.resolve([]),
+        searchOpenFoodFacts(query, 50, p),
       ])
       if (activeQuery.current !== query) return
       const local: FoodResult[] = Array.isArray(localRes) ? localRes : []
-      const localNames = new Set(local.map((f) => f.name.toLowerCase()))
-      const merged = [...local, ...offResults.filter(f => !localNames.has(f.name.toLowerCase()))]
-      const hasMoreResults = offResults.length === 30
-      setResults((prev) => reset ? merged : [...prev, ...offResults.filter(f => !new Set(prev.map(p => p.name.toLowerCase())).has(f.name.toLowerCase()))])
-      setHasMore(hasMoreResults)
+
+      if (reset) {
+        setResults(mergeResults(local, offResults, query))
+        setTotalOff(total)
+      } else {
+        setResults(prev => {
+          const prevNames = new Set(prev.map(r => r.name.toLowerCase()))
+          return [...prev, ...offResults.filter(f => !prevNames.has(f.name.toLowerCase()))]
+        })
+        setTotalOff(total)
+      }
       setPage(p)
     } catch {
       // silent
@@ -194,6 +230,13 @@ function ExpandedSearchModal({ initialQuery, onSelect, onClose }: {
             </svg>
           </button>
         </div>
+        {totalOff > 0 && (
+          <div className="px-4 py-1.5 bg-gray-50 border-b border-gray-100">
+            <p className="text-xs text-gray-400">
+              {results.length} shown · {totalOff.toLocaleString()} total matches on Open Food Facts
+            </p>
+          </div>
+        )}
 
         {/* Results */}
         <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
@@ -218,7 +261,7 @@ function ExpandedSearchModal({ initialQuery, onSelect, onClose }: {
               disabled={loading}
               className="w-full py-3 text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {loading ? <><Spinner /> Loading…</> : 'Load more results'}
+              {loading ? <><Spinner /> Loading…</> : `Load more (${(totalOff - results.filter(r => r.source === 'off').length).toLocaleString()} remaining from Open Food Facts)`}
             </button>
           )}
         </div>
@@ -262,8 +305,13 @@ export default function FoodSearch({ onSelect }: Props) {
     debounceRef.current = setTimeout(async () => {
       setLoading(true)
       try {
-        const res = await fetch(`/api/foods/search?q=${encodeURIComponent(query)}`)
-        setResults(await res.json())
+        // Call local DB and Open Food Facts in parallel so inline results include global foods
+        const [localRes, { results: offResults }] = await Promise.all([
+          fetch(`/api/foods/search?q=${encodeURIComponent(query)}`).then(r => r.json()).catch(() => []),
+          searchOpenFoodFacts(query, 30, 1),
+        ])
+        const local: FoodResult[] = Array.isArray(localRes) ? localRes : []
+        setResults(mergeResults(local, offResults, query))
         setOpen(true)
       } finally {
         setLoading(false)

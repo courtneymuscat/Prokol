@@ -54,5 +54,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     await admin.from('form_answers').insert(answerRows)
   }
 
+  // Mark coached client's onboarding as complete after form submission
+  await admin
+    .from('profiles')
+    .update({ onboarding_completed: true })
+    .eq('id', session.user.id)
+    .eq('subscription_tier', 'coached')
+
   return Response.json({ id: submission.id })
 }

@@ -64,13 +64,18 @@ export default async function CoachedOnboardingPage() {
   }
 
   const formUrl = coachClientFormId ? `/forms/${coachClientFormId}` : null
-  const afterPayUrl = formUrl ?? (clientProfile?.onboarding_completed ? '/dashboard' : '/onboarding')
+  const afterPayUrl = formUrl ?? (clientProfile?.onboarding_completed ? '/dashboard' : '/onboarding/coached')
   const coachName = coachProfile?.first_name || coachProfile?.email || 'your coach'
   const paymentLink = service?.payment_link ?? null
   const serviceName = service?.name ?? null
 
   // No payment link configured — skip straight to the next step
   if (!paymentLink) {
+    // If there's no form either, mark onboarding complete and send to dashboard
+    if (!formUrl && !clientProfile?.onboarding_completed) {
+      await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', user.id)
+      redirect('/dashboard')
+    }
     redirect(afterPayUrl)
   }
 

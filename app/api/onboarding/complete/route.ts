@@ -18,10 +18,10 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient()
 
-  // Preserve existing subscription_tier — coached clients must not be downgraded to tier_1
+  // Preserve existing subscription_tier and full_name
   const { data: existing } = await admin
     .from('profiles')
-    .select('subscription_tier')
+    .select('subscription_tier, full_name')
     .eq('id', session.user.id)
     .single()
 
@@ -31,6 +31,8 @@ export async function POST(req: NextRequest) {
       id:                   session.user.id,
       goal,
       first_name:           first_name ?? null,
+      // Seed full_name from first_name if not already set (coach display uses full_name)
+      full_name:            (existing as Record<string, unknown>)?.full_name ?? (first_name ? first_name.trim() : null),
       age:                  age ?? null,
       sex:                  sex ?? null,
       height_cm:            height_cm ?? null,

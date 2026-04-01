@@ -39,18 +39,23 @@ export default async function CoachDashboard() {
 
     supabase
       .from('profiles')
-      .select('id, email, subscription_tier')
+      .select('id, email, subscription_tier, full_name, first_name')
       .in('id', clientIds.length ? clientIds : ['none']),
   ])
 
   const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]))
 
-  const clients = (clientRows ?? []).map((r) => ({
-    id: r.client_id,
-    email: profileMap[r.client_id]?.email ?? 'Unknown',
-    tier: profileMap[r.client_id]?.subscription_tier ?? 'tier_1',
-    joinedAt: r.accepted_at,
-  }))
+  const clients = (clientRows ?? []).map((r) => {
+    const p = profileMap[r.client_id] as Record<string, unknown> | undefined
+    const displayName = (p?.full_name as string | null) ?? (p?.first_name as string | null) ?? null
+    return {
+      id: r.client_id,
+      email: (p?.email as string) ?? 'Unknown',
+      name: displayName,
+      tier: (p?.subscription_tier as string) ?? 'tier_1',
+      joinedAt: r.accepted_at,
+    }
+  })
 
   const stats = [
     { label: 'Active clients', value: activeClients, href: '/coach/clients' },
@@ -115,10 +120,11 @@ export default async function CoachDashboard() {
                 className="flex items-center gap-3 bg-white rounded-2xl border p-4 hover:bg-gray-50 transition-colors group"
               >
                 <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <span className="text-sm font-bold text-blue-600">{client.email[0].toUpperCase()}</span>
+                  <span className="text-sm font-bold text-blue-600">{(client.name ?? client.email)[0].toUpperCase()}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{client.email}</p>
+                  <p className="text-sm font-semibold text-gray-900 truncate">{client.name ?? client.email}</p>
+                  {client.name && <p className="text-xs text-gray-400 truncate">{client.email}</p>}
                   <p className="text-xs text-gray-400">
                     {TIER_LABEL[client.tier] ?? client.tier}
                     {client.joinedAt && ` · Joined ${new Date(client.joinedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`}

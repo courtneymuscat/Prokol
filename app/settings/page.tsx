@@ -66,26 +66,36 @@ export default async function SettingsPage() {
             {profile.tdee && (
               <p className="text-xs text-gray-400">TDEE estimate: {profile.tdee} kcal/day</p>
             )}
-            <a
-              href="/onboarding"
-              className="inline-block text-xs font-semibold px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:border-gray-400 transition-colors"
-            >
-              Recalculate targets
-            </a>
+            {profile.subscription_tier === 'coached' ? (
+              <p className="text-xs text-gray-400 italic">Your targets are managed by your coach.</p>
+            ) : (
+              <a
+                href="/onboarding"
+                className="inline-block text-xs font-semibold px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:border-gray-400 transition-colors"
+              >
+                Recalculate targets
+              </a>
+            )}
           </div>
         )}
 
         {!hasMacros && (
           <div className="bg-white rounded-2xl border border-dashed p-5 text-center space-y-3">
             <p className="text-sm font-semibold text-gray-700">No targets set yet</p>
-            <p className="text-xs text-gray-400">Complete onboarding to get personalised calorie and macro targets.</p>
-            <a
-              href="/onboarding"
-              className="inline-block text-xs font-semibold px-4 py-2 rounded-xl text-gray-900"
-              style={{ backgroundColor: '#FFD885' }}
-            >
-              Set my targets →
-            </a>
+            {profile?.subscription_tier === 'coached' ? (
+              <p className="text-xs text-gray-400">Your coach will set your nutrition targets for you.</p>
+            ) : (
+              <>
+                <p className="text-xs text-gray-400">Complete onboarding to get personalised calorie and macro targets.</p>
+                <a
+                  href="/onboarding"
+                  className="inline-block text-xs font-semibold px-4 py-2 rounded-xl text-gray-900"
+                  style={{ backgroundColor: '#FFD885' }}
+                >
+                  Set my targets →
+                </a>
+              </>
+            )}
           </div>
         )}
 

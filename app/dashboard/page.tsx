@@ -16,6 +16,8 @@ import TrainingCalendar from './TrainingCalendar'
 import MealPlanView from './MealPlanView'
 import HabitsPanel from './HabitsPanel'
 import ScheduledCheckIns from './ScheduledCheckIns'
+import DashboardTour from './DashboardTour'
+import ProfileCompletionPrompt from './ProfileCompletionPrompt'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,10 +31,13 @@ export default async function DashboardPage() {
   // Check onboarding status + fetch targets
   const { data: profile } = await supabase
     .from('profiles')
-    .select('onboarding_completed, goal, target_calories, target_protein, target_carbs, target_fat, tdee, sex, full_name')
+    .select('onboarding_completed, goal, target_calories, target_protein, target_carbs, target_fat, tdee, sex, full_name, subscription_tier, phone')
     .eq('id', user.id)
     .single()
-  if (!profile?.onboarding_completed) redirect('/onboarding')
+  if (!profile?.onboarding_completed) {
+    if (profile?.subscription_tier === 'coached') redirect('/onboarding/coached')
+    redirect('/onboarding')
+  }
 
   // Subscription feature access
   const sub = await getSubscription()
@@ -78,6 +83,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <DashboardTour />
       {/* Nav */}
       <nav className="bg-white px-6 py-3.5 flex justify-between items-center border-b border-gray-100 sticky top-0 z-20">
         <span className="text-[15px] font-bold tracking-tight text-gray-900">NutriCoach</span>
@@ -158,6 +164,14 @@ export default async function DashboardPage() {
         {/* Coach banner — only shown when actually coached */}
         {coachEmail && <CoachBanner coachEmail={coachEmail} />}
 
+        {/* Profile completion prompt — coached clients who haven't set their name */}
+        {isCoached && !(profile as Record<string, unknown>)?.full_name && (
+          <ProfileCompletionPrompt
+            initialName=""
+            initialPhone={(profile as Record<string, unknown>)?.phone as string ?? ''}
+          />
+        )}
+
         {/* Coached-only sections: Calendar, Meal Plan, Habits */}
         {isCoached && (
           <>
@@ -187,7 +201,7 @@ export default async function DashboardPage() {
           <div className="bg-white rounded-2xl border px-5 py-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Daily targets</p>
-              <a href="/onboarding" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Recalculate →</a>
+              {!isCoached && <a href="/onboarding" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Recalculate →</a>}
             </div>
             <div className="grid grid-cols-4 gap-3 text-center">
               <div>
