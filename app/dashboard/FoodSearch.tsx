@@ -3,64 +3,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 
-// Uses the Meilisearch-based search endpoint that powers the OFF website.
-// The legacy cgi/search.pl endpoint returns 503 for many queries — this one is reliable.
+// Calls our server proxy which forwards to search.openfoodfacts.org (Meilisearch).
+// Direct browser calls fail: search.openfoodfacts.org blocks CORS, cgi/search.pl returns 503.
+// Server-to-server calls to search.openfoodfacts.org work reliably.
 export async function searchOpenFoodFacts(q: string, pageSize = 50, page = 1): Promise<{ results: FoodResult[]; total: number }> {
   try {
-    const url = new URL('https://search.openfoodfacts.org/search')
-    url.searchParams.set('q', q)
-    url.searchParams.set('page_size', String(pageSize))
-    url.searchParams.set('page', String(page))
-
-    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(12000) })
-    if (!res.ok) return { results: [], total: 0 }
-
-    const data = await res.json()
-    const total: number = data.count ?? 0
-
-    const results = (data.hits ?? []).flatMap((p: Record<string, unknown>) => {
-      const base = ((p.product_name_en || p.product_name || '') as string).trim()
-      if (!base) return []
-
-      // brands is an array in this endpoint e.g. ['VPA'], not a string
-      const brandsRaw = p.brands
-      const brand = Array.isArray(brandsRaw)
-        ? (brandsRaw[0] as string ?? '').trim()
-        : ((brandsRaw as string) ?? '').split(',')[0].trim()
-
-      const name = brand && !base.toLowerCase().includes(brand.toLowerCase())
-        ? `${brand} — ${base}` : base
-
-      const n = (p.nutriments ?? {}) as Record<string, number>
-
-      // Try every calorie field OFF uses
-      let kcal: number | null =
-        n['energy-kcal_100g'] ??
-        n['energy-kcal'] ??
-        (n['energy-kj_100g'] != null ? n['energy-kj_100g'] / 4.184 : null) ??
-        (n['energy_100g']    != null ? n['energy_100g']    / 4.184 : null) ??
-        null
-
-      // Estimate from macros as last resort
-      if (kcal == null) {
-        const pro = n['proteins_100g'] ?? 0
-        const carb = n['carbohydrates_100g'] ?? 0
-        const fat = n['fat_100g'] ?? 0
-        if (pro > 0 || carb > 0 || fat > 0) kcal = pro * 4 + carb * 4 + fat * 9
-      }
-
-      return [{
-        id: `off:${encodeURIComponent(name)}`,
-        name,
-        calories_per_100g: kcal != null ? Math.round(kcal) : 0,
-        protein_per_100g:  Math.round((n['proteins_100g']      ?? 0) * 10) / 10,
-        carbs_per_100g:    Math.round((n['carbohydrates_100g'] ?? 0) * 10) / 10,
-        fat_per_100g:      Math.round((n['fat_100g']           ?? 0) * 10) / 10,
-        source: 'off' as const,
-      }]
+    const params = new URLSearchParams({ q, page: String(page), page_size: String(pageSize) })
+    const res = await fetch(`/api/foods/off-search?${params}`, {
+      signal: AbortSignal.timeout(14000),
     })
-
-    return { results, total }
+    if (!res.ok) return { results: [], total: 0 }
+    return await res.json()
   } catch {
     return { results: [], total: 0 }
   }
