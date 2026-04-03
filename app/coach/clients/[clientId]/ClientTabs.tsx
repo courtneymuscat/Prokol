@@ -917,6 +917,7 @@ function AssignedProgramCard({
   const [dragOver, setDragOver] = useState<[number, number] | null>(null)
   const [renamingDay, setRenamingDay] = useState<[number, number] | null>(null)
   const [renameValue, setRenameValue] = useState('')
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Compute end date from start + weeks
   const numWeeks = localContent.length
@@ -927,12 +928,13 @@ function AssignedProgramCard({
 
   function updateContent(next: PWeek[]) { setLocalContent(next); setDirty(true); setSaveStatus('idle') }
 
-  async function handleSave() {
+  async function handleSave(contentOverride?: PWeek[], startDateOverride?: string) {
+    if (saving) return
     setSaving(true)
     const res = await fetch(`/api/coach/clients/${clientId}/programs/${assignment.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: localContent, start_date: localStartDate }),
+      body: JSON.stringify({ content: contentOverride ?? localContent, start_date: startDateOverride ?? localStartDate }),
     })
     setSaving(false)
     if (res.ok) {
@@ -945,6 +947,16 @@ function AssignedProgramCard({
       setSaveStatus('error')
     }
   }
+
+  // Auto-save 1.5 s after last change
+  useEffect(() => {
+    if (!dirty) return
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+    const snap = { content: localContent, startDate: localStartDate }
+    autoSaveTimer.current = setTimeout(() => handleSave(snap.content, snap.startDate), 1500)
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dirty, localContent, localStartDate])
 
   async function handleStartDateChange(newDate: string) {
     setLocalStartDate(newDate)
@@ -1068,16 +1080,9 @@ function AssignedProgramCard({
             <option value="completed">Completed</option>
             <option value="paused">Paused</option>
           </select>
-          {saveStatus === 'saved' && <span className="text-xs text-green-500">Saved</span>}
-          {saveStatus === 'error' && <span className="text-xs text-red-500">Save failed</span>}
-          {dirty && saveStatus === 'idle' && <span className="text-xs text-amber-500">Unsaved</span>}
-          <button
-            onClick={handleSave}
-            disabled={saving || !dirty}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 ${dirty ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-500'}`}
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </button>
+          {saving && <span className="text-xs text-gray-400">Saving…</span>}
+          {!saving && saveStatus === 'saved' && <span className="text-xs text-green-500">Saved</span>}
+          {!saving && saveStatus === 'error' && <span className="text-xs text-red-500">Save failed</span>}
           <button
             onClick={() => setExpanded((v) => !v)}
             className="text-gray-400 hover:text-gray-700 transition-colors"
