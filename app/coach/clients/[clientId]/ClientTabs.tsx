@@ -909,10 +909,19 @@ function AssignedProgramCard({
   const [localContent, setLocalContent] = useState<PWeek[]>(() =>
     migratePContent(Array.isArray(assignment.content) ? assignment.content : [])
   )
+  const [editingStartDate, setEditingStartDate] = useState(false)
+  const [localStartDate, setLocalStartDate] = useState(assignment.start_date)
   // selectedDay: [weekIndex, dayIndex] | null
   const [selectedDay, setSelectedDay] = useState<[number, number] | null>(null)
   const [dragFrom, setDragFrom] = useState<[number, number] | null>(null)
   const [dragOver, setDragOver] = useState<[number, number] | null>(null)
+
+  // Compute end date from start + weeks
+  const numWeeks = localContent.length
+  const startDateObj = new Date(localStartDate + 'T00:00:00')
+  const endDateObj = new Date(startDateObj)
+  endDateObj.setDate(startDateObj.getDate() + numWeeks * 7 - 1)
+  const fmtDate = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
   function updateContent(next: PWeek[]) { setLocalContent(next); setDirty(true); setSaveStatus('idle') }
 
@@ -921,7 +930,7 @@ function AssignedProgramCard({
     const res = await fetch(`/api/coach/clients/${clientId}/programs/${assignment.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: localContent }),
+      body: JSON.stringify({ content: localContent, start_date: localStartDate }),
     })
     setSaving(false)
     if (res.ok) {
@@ -933,6 +942,13 @@ function AssignedProgramCard({
     } else {
       setSaveStatus('error')
     }
+  }
+
+  async function handleStartDateChange(newDate: string) {
+    setLocalStartDate(newDate)
+    setEditingStartDate(false)
+    setDirty(true)
+    setSaveStatus('idle')
   }
 
   async function handleStatusChange(status: string) {
@@ -1012,10 +1028,32 @@ function AssignedProgramCard({
             <p className="text-sm font-semibold text-gray-900">{assignment.name}</p>
             <StatusBadge status={assignment.status} />
           </div>
-          <p className="text-xs text-gray-400">
-            Started {new Date(assignment.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-            {' · '}{localContent.length} week{localContent.length !== 1 ? 's' : ''}
-          </p>
+          {/* Editable start date + computed date range */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {editingStartDate ? (
+              <input
+                type="date"
+                autoFocus
+                defaultValue={localStartDate}
+                onBlur={(e) => handleStartDateChange(e.target.value || localStartDate)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleStartDateChange((e.target as HTMLInputElement).value || localStartDate); if (e.key === 'Escape') setEditingStartDate(false) }}
+                className="text-xs border border-blue-300 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            ) : (
+              <button
+                onClick={() => setEditingStartDate(true)}
+                className="text-xs text-gray-400 hover:text-blue-600 hover:underline transition-colors"
+                title="Edit start date"
+              >
+                {fmtDate(startDateObj)}
+              </button>
+            )}
+            {numWeeks > 0 && (
+              <span className="text-xs text-gray-400">
+                → {fmtDate(endDateObj)} · {numWeeks} week{numWeeks !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0 ml-3 flex-wrap justify-end">
@@ -1313,7 +1351,32 @@ function ProgramTab({ clientId }: { clientId: string }) {
 
   async function loadPrograms() {
     const d = await fetch(`/api/coach/clients/${clientId}/programs`).then((r) => r.json())
-    setAssignments(Array.isArray(d) ? d : [])
+    const list: ClientProgram[] = Array.isArray(d) ? d : []
+
+    // Sort by start_date ascending
+    list.sort((a, b) => a.start_date.localeCompare(b.start_date))
+
+    // Auto-complete expired programs
+    const today = new Date().toISOString().slice(0, 10)
+    const toComplete = list.filter((a) => {
+      if (a.status !== 'active') return false
+      const numWeeks = Array.isArray(a.content) ? a.content.length : 0
+      if (numWeeks === 0) return false
+      const end = new Date(a.start_date + 'T00:00:00')
+      end.setDate(end.getDate() + numWeeks * 7 - 1)
+      return end.toISOString().slice(0, 10) < today
+    })
+    await Promise.all(
+      toComplete.map((a) =>
+        fetch(`/api/coach/clients/${clientId}/programs/${a.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'completed' }),
+        }).then((r) => r.ok ? r.json() : null)
+          .then((updated) => { if (updated) { const idx = list.findIndex((x) => x.id === updated.id); if (idx >= 0) list[idx] = updated } })
+      )
+    )
+    setAssignments([...list])
   }
 
   useEffect(() => {
@@ -1322,7 +1385,7 @@ function ProgramTab({ clientId }: { clientId: string }) {
   }, [clientId])
 
   function handleAssigned(assignment: ClientProgram) {
-    setAssignments((prev) => [assignment, ...prev])
+    setAssignments((prev) => [...prev, assignment].sort((a, b) => a.start_date.localeCompare(b.start_date)))
   }
 
   function handleUnassign(id: string) {
@@ -1330,7 +1393,10 @@ function ProgramTab({ clientId }: { clientId: string }) {
   }
 
   function handleUpdated(updated: ClientProgram) {
-    setAssignments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)))
+    setAssignments((prev) =>
+      prev.map((a) => (a.id === updated.id ? updated : a))
+          .sort((a, b) => a.start_date.localeCompare(b.start_date))
+    )
   }
 
   async function handleCreateProgram() {
