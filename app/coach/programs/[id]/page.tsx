@@ -587,8 +587,16 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
   // inline day rename
   const [renamingDay, setRenamingDay] = useState<[number, number] | null>(null)
   const [renameValue, setRenameValue] = useState('')
+  const dayEditorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { params.then(({ id }) => setProgramId(id)) }, [params])
+
+  // Scroll to day editor when a day is selected
+  useEffect(() => {
+    if (selectedDay && dayEditorRef.current) {
+      dayEditorRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [selectedDay])
 
   // Warn before leaving with unsaved changes
   useEffect(() => {
@@ -868,7 +876,7 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
               const day = program.content[wi]?.days[di]
               if (!day) return null
               return (
-                <div className="border-t border-blue-100 bg-blue-50/30">
+                <div ref={dayEditorRef} className="border-t border-blue-100 bg-blue-50/30">
                   <div className="max-w-2xl mx-auto p-5">
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-sm font-bold text-gray-800">

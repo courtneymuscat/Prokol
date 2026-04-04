@@ -918,6 +918,14 @@ function AssignedProgramCard({
   const [renamingDay, setRenamingDay] = useState<[number, number] | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dayEditorRef = useRef<HTMLDivElement>(null)
+
+  // Scroll to day editor when a day is selected
+  useEffect(() => {
+    if (selectedDay && dayEditorRef.current) {
+      dayEditorRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [selectedDay])
 
   // Compute end date from start + weeks
   const numWeeks = localContent.length
@@ -1241,11 +1249,13 @@ function AssignedProgramCard({
             const day = localContent[wi]?.days[di]
             if (!day) return null
             return (
-              <PDayEditor
-                day={day}
-                onChange={(d) => updateDay(wi, di, d)}
-                onClose={() => setSelectedDay(null)}
-              />
+              <div ref={dayEditorRef}>
+                <PDayEditor
+                  day={day}
+                  onChange={(d) => updateDay(wi, di, d)}
+                  onClose={() => setSelectedDay(null)}
+                />
+              </div>
             )
           })()}
         </div>
