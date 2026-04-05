@@ -499,7 +499,8 @@ type PExercise = {
   name: string; category: string; equipment: string; video_url: string
   metrics: PMetrics; showRest: boolean; sets: PSet[]; notes: string
 }
-type PSection = { type: 'section'; id: string; title: string; notes: string }
+type PScoreType = 'time' | 'reps' | 'rounds' | 'weight' | 'distance' | 'calories' | 'custom'
+type PSection = { type: 'section'; id: string; title: string; notes: string; scoreType: PScoreType | 'none'; scoreValue: string }
 type PDayItem = PExercise | PSection
 type PDay = { id: string; name: string; items: PDayItem[] }
 type PWeek = { id: string; label: string; days: PDay[] }
@@ -530,7 +531,7 @@ function pNewSet(num: number, prev?: PSet): PSet {
 function pNewEx(lib?: PLibEx): PExercise {
   return { type: 'exercise', id: crypto.randomUUID(), exercise_id: lib?.id ?? null, name: lib?.name ?? '', category: lib?.category ?? '', equipment: lib?.equipment ?? '', video_url: lib?.video_url ?? '', metrics: lib?.category === 'cardio' ? 'calories' : 'weight+reps', showRest: false, sets: [pNewSet(1)], notes: '' }
 }
-function pNewSection(): PSection { return { type: 'section', id: crypto.randomUUID(), title: '', notes: '' } }
+function pNewSection(): PSection { return { type: 'section', id: crypto.randomUUID(), title: '', notes: '', scoreType: 'none', scoreValue: '' } }
 function pNewDay(n: number): PDay { return { id: crypto.randomUUID(), name: `Day ${n}`, items: [] } }
 function pNewWeek(n: number): PWeek { return { id: crypto.randomUUID(), label: `Week ${n}`, days: [] } }
 function pCloneWeek(src: PWeek, label: string): PWeek {
@@ -549,11 +550,19 @@ function migrateOldPEx(ex: Record<string, unknown>): PExercise {
   }
 }
 function migratePDay(raw: Record<string, unknown>): PDay {
-  if (Array.isArray(raw.items)) return raw as unknown as PDay
+  if (Array.isArray(raw.items)) {
+    const items = (raw.items as PDayItem[]).map((item) => {
+      if (item.type === 'section') {
+        return { ...item, scoreType: (item as PSection).scoreType ?? 'none', scoreValue: (item as PSection).scoreValue ?? '' } as PSection
+      }
+      return item
+    })
+    return { ...(raw as unknown as PDay), items }
+  }
   const items: PDayItem[] = []
   if (Array.isArray(raw.sections)) {
     for (const sec of raw.sections as Record<string, unknown>[]) {
-      if ((sec.title as string)?.trim()) items.push({ type: 'section', id: crypto.randomUUID(), title: sec.title as string, notes: '' })
+      if ((sec.title as string)?.trim()) items.push({ type: 'section', id: crypto.randomUUID(), title: sec.title as string, notes: '', scoreType: 'none', scoreValue: '' })
       for (const ex of (sec.exercises as Record<string, unknown>[]) || []) items.push(migrateOldPEx(ex))
     }
   } else {
@@ -678,6 +687,51 @@ function PExercisePicker({ onSelect, onClose }: { onSelect: (ex: PLibEx) => void
   )
 }
 
+const P_SCORE_TYPES: Array<PScoreType | 'none'> = ['none', 'time', 'rounds', 'reps', 'weight', 'distance', 'calories', 'custom']
+const P_SCORE_LABEL: Record<PScoreType | 'none', string> = {
+  none: 'No score', time: 'Time', rounds: 'Rounds+Reps', reps: 'Reps', weight: 'Weight', distance: 'Distance', calories: 'Calories', custom: 'Custom',
+}
+
+function PSectionScoreInput({ scoreType, value, onChange }: { scoreType: PScoreType | 'none'; value: string; onChange: (v: string) => void }) {
+  if (scoreType === 'none') return null
+  if (scoreType === 'time') {
+    const [mm, ss] = value.split(':')
+    return (
+      <div className="flex items-center gap-1.5">
+        <input type="number" min={0} placeholder="00" value={mm ?? ''} onChange={(e) => onChange(`${e.target.value}:${ss ?? '00'}`)}
+          className="w-16 border rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-purple-300" />
+        <span className="text-gray-400 font-medium">:</span>
+        <input type="number" min={0} max={59} placeholder="00" value={ss ?? ''} onChange={(e) => onChange(`${mm ?? '0'}:${e.target.value}`)}
+          className="w-16 border rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-purple-300" />
+        <span className="text-xs text-gray-400">min : sec (target / cap)</span>
+      </div>
+    )
+  }
+  if (scoreType === 'rounds') {
+    const [r, rp] = value.split('+')
+    return (
+      <div className="flex items-center gap-1.5">
+        <input type="number" min={0} placeholder="0" value={r ?? ''} onChange={(e) => onChange(`${e.target.value}+${rp ?? '0'}`)}
+          className="w-16 border rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-purple-300" />
+        <span className="text-gray-400 font-medium">+</span>
+        <input type="number" min={0} placeholder="0" value={rp ?? ''} onChange={(e) => onChange(`${r ?? '0'}+${e.target.value}`)}
+          className="w-16 border rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-1 focus:ring-purple-300" />
+        <span className="text-xs text-gray-400">rounds + reps (target)</span>
+      </div>
+    )
+  }
+  const units: Partial<Record<PScoreType, string>> = { reps: 'reps', weight: 'kg / lbs', distance: 'm', calories: 'cals' }
+  return (
+    <div className="flex items-center gap-2">
+      <input type={scoreType === 'custom' ? 'text' : 'number'} min={0} value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={scoreType === 'custom' ? 'e.g. Rx, scaled, 21-15-9…' : '0'}
+        className="w-36 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-purple-300" />
+      {units[scoreType] && <span className="text-xs text-gray-400">{units[scoreType]} (target)</span>}
+    </div>
+  )
+}
+
 function PSectionBlock({ section, canUp, canDown, onChange, onRemove, onMoveUp, onMoveDown }: {
   section: PSection; canUp: boolean; canDown: boolean
   onChange: (s: PSection) => void; onRemove: () => void; onMoveUp: () => void; onMoveDown: () => void
@@ -688,14 +742,28 @@ function PSectionBlock({ section, canUp, canDown, onChange, onRemove, onMoveUp, 
         <PMoveButtons onUp={onMoveUp} onDown={onMoveDown} canUp={canUp} canDown={canDown} />
         <span className="text-xs font-semibold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0">Section</span>
         <input value={section.title} onChange={(e) => onChange({ ...section, title: e.target.value })}
-          placeholder="Section title (e.g. Warm Up, Metcon)"
+          placeholder="Section title (e.g. Warm Up, Metcon, WOD)"
           className="flex-1 text-sm font-semibold text-gray-900 bg-transparent outline-none border-b border-transparent focus:border-gray-300 min-w-0" />
         <button onClick={onRemove} className="text-gray-300 hover:text-red-400 text-xl leading-none flex-shrink-0">×</button>
       </div>
       <textarea value={section.notes} onChange={(e) => onChange({ ...section, notes: e.target.value })}
-        placeholder="Notes, instructions, or reminders…"
-        rows={2}
+        placeholder="Add notes, WOD description, or instructions…"
+        rows={3}
         className="w-full text-sm text-gray-700 border rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-purple-300 placeholder:text-gray-300" />
+      {/* Score type */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Score type</p>
+        <div className="flex gap-1.5 flex-wrap">
+          {P_SCORE_TYPES.map((t) => (
+            <button key={t} onClick={() => onChange({ ...section, scoreType: t, scoreValue: '' })}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${section.scoreType === t ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+              {P_SCORE_LABEL[t]}
+            </button>
+          ))}
+        </div>
+        <PSectionScoreInput scoreType={section.scoreType} value={section.scoreValue}
+          onChange={(v) => onChange({ ...section, scoreValue: v })} />
+      </div>
     </div>
   )
 }
