@@ -22,7 +22,7 @@ export async function GET(
     .from('calendar_events')
     .select('*')
     .eq('client_id', clientId)
-    .eq('coach_id', coachId)
+    .or(`coach_id.eq.${coachId},and(type.eq.program_workout_result,coach_id.is.null)`)
 
   if (start_date) eventsQuery = eventsQuery.gte('event_date', start_date)
   if (end_date) eventsQuery = eventsQuery.lte('event_date', end_date)
@@ -43,7 +43,7 @@ export async function GET(
       .select('id, name, start_date, content, status')
       .eq('client_id', clientId)
       .eq('coach_id', coachId)
-      .eq('status', 'active'),
+      .in('status', ['active', 'completed']),
     foodQuery,
     supabase
       .from('habits')
