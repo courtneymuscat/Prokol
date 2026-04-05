@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import MealPlanFoodSearch from '@/app/components/MealPlanFoodSearch'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,17 +32,6 @@ type ClientPlanRecord = {
   end_date?: string | null
 }
 
-type FoodSearchResult = {
-  id: string
-  name: string
-  calories_per_100g: number
-  protein_per_100g: number
-  carbs_per_100g: number
-  fat_per_100g: number
-  unit?: string
-  custom?: boolean
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function computeMacros(content: MealSlot[]) {
@@ -55,112 +45,6 @@ function computeMacros(content: MealSlot[]) {
     }
   }
   return { calories, protein, carbs, fat }
-}
-
-function macroFromSearch(result: FoodSearchResult, grams: number): MealFood {
-  const factor = grams / 100
-  return {
-    food_id: result.id,
-    food_name: result.name,
-    grams,
-    calories: Math.round(result.calories_per_100g * factor),
-    protein: Math.round(result.protein_per_100g * factor * 10) / 10,
-    carbs: Math.round(result.carbs_per_100g * factor * 10) / 10,
-    fat: Math.round(result.fat_per_100g * factor * 10) / 10,
-  }
-}
-
-// ── FoodSearch ────────────────────────────────────────────────────────────────
-
-function FoodSearchInline({ onAdd }: { onAdd: (food: MealFood) => void }) {
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<FoodSearchResult[]>([])
-  const [searching, setSearching] = useState(false)
-  const [open, setOpen] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  function handleQueryChange(q: string) {
-    setQuery(q)
-    if (timerRef.current) clearTimeout(timerRef.current)
-    if (q.trim().length < 2) {
-      setResults([])
-      setOpen(false)
-      return
-    }
-    timerRef.current = setTimeout(async () => {
-      setSearching(true)
-      try {
-        const res = await fetch(`/api/foods/search?q=${encodeURIComponent(q.trim())}`)
-        const data = await res.json()
-        setResults(Array.isArray(data) ? data : [])
-        setOpen(true)
-      } finally {
-        setSearching(false)
-      }
-    }, 300)
-  }
-
-  function handleSelect(result: FoodSearchResult) {
-    const food = macroFromSearch(result, 100)
-    onAdd(food)
-    setQuery('')
-    setResults([])
-    setOpen(false)
-  }
-
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  return (
-    <div ref={containerRef} className="relative mt-2">
-      <div className="relative">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => handleQueryChange(e.target.value)}
-          placeholder="Search foods to add…"
-          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-8"
-        />
-        {searching && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 text-xs">...</span>
-        )}
-      </div>
-      {open && results.length > 0 && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 max-h-52 overflow-y-auto">
-          {results.map((r) => (
-            <button
-              key={r.id}
-              onMouseDown={() => handleSelect(r)}
-              className="w-full text-left px-3.5 py-2.5 text-sm hover:bg-blue-50 transition-colors flex items-center justify-between group"
-            >
-              <div>
-                <span className="font-medium text-gray-900 group-hover:text-blue-700">{r.name}</span>
-                {r.custom && (
-                  <span className="ml-1.5 text-[10px] bg-purple-50 text-purple-500 font-semibold px-1.5 py-0.5 rounded-full">Custom</span>
-                )}
-              </div>
-              <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
-                {Math.round(r.calories_per_100g)} kcal / 100g
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-      {open && !searching && results.length === 0 && query.trim().length >= 2 && (
-        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 px-3.5 py-3">
-          <p className="text-sm text-gray-400">No foods found for &quot;{query}&quot;</p>
-        </div>
-      )}
-    </div>
-  )
 }
 
 // ── FoodRow ───────────────────────────────────────────────────────────────────
@@ -360,7 +244,7 @@ function MealSlotCard({
       )}
 
       {/* Food search */}
-      <FoodSearchInline onAdd={addFood} />
+      <MealPlanFoodSearch onAdd={addFood} />
     </div>
   )
 }
