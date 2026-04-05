@@ -201,7 +201,7 @@ function VideoUploadButton({ videoPath, onUploaded }: {
 
   return (
     <div className="mt-2">
-      <input ref={fileRef} type="file" accept="video/*" capture="environment" className="hidden" onChange={handleFile} />
+      <input ref={fileRef} type="file" accept="video/*" className="hidden" onChange={handleFile} />
       <button
         type="button"
         onClick={() => fileRef.current?.click()}
