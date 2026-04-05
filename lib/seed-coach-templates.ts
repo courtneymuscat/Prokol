@@ -9,81 +9,20 @@ function uid() {
 type LibEx = { id: string; name: string; category: string; equipment: string; video_url: string | null }
 type ExResolver = (displayName: string) => LibEx | null
 
-// Map from program display names → exact exercise library names
+// Map from friendly display names → exact exercise library names (only where they differ)
 const NAME_TO_LIBRARY: Record<string, string> = {
-  'Barbell Back Squat': 'Squat',
-  'Flat Barbell Bench Press': 'Bench Press',
-  'Bench Press': 'Bench Press',
-  'Bent Over Barbell Row': 'Bent Over Row',
-  'Barbell Bent Over Row': 'Bent Over Row',
-  'Barbell Row': 'Bent Over Row',
-  'Overhead Press': 'Overhead Press',
-  'Romanian Deadlift': 'Romanian Deadlift',
-  'DB Romanian Deadlift': 'Romanian Deadlift',
-  'Plank': 'Plank',
-  'Conventional Deadlift': 'Deadlift',
-  'Deadlift': 'Deadlift',
-  'Incline Dumbbell Press': 'Incline Bench Press',
-  'Incline DB Press': 'Incline Bench Press',
-  'Lat Pulldown': 'Lat Pulldown',
-  'Dumbbell Lateral Raise': 'Lateral Raise',
-  'Cable Lateral Raise': 'Lateral Raise',
-  'Leg Press': 'Leg Press',
-  'Goblet Squat': 'Squat',
-  'Front Squat': 'Squat',
-  'Dumbbell Bench Press': 'Bench Press',
-  'Cable Seated Row': 'Seated Cable Row',
-  'Bicep Curl': 'Dumbbell Curl',
-  'EZ Bar Curl': 'Barbell Curl',
-  'Tricep Pushdown': 'Tricep Pushdown',
-  'Tricep Pushdown (Rope)': 'Tricep Pushdown',
-  'Overhead Tricep Extension': 'Overhead Tricep Extension',
-  'Pull-up / Assisted Pull-up': 'Pull-Up',
-  'Pull-up': 'Pull-Up',
-  'Weighted Pull-up': 'Pull-Up',
-  'Face Pull': 'Face Pull',
-  'Hammer Curl': 'Hammer Curl',
-  'Reverse Curl': 'Barbell Curl',
-  'Lying Leg Curl': 'Leg Curl',
-  'Leg Curl': 'Leg Curl',
-  'Leg Extension': 'Leg Extension',
-  'Standing Calf Raise': 'Calf Raise',
-  'Seated Calf Raise': 'Calf Raise',
-  'Incline DB Curl': 'Dumbbell Curl',
-  'DB Shoulder Press': 'Dumbbell Shoulder Press',
-  'Bulgarian Split Squat': 'Bulgarian Split Squat',
-  'Cable Crunch': 'Cable Crunch',
-  'Ab Rollout': 'Hanging Leg Raise',
-  'Hollow Body Hold': 'Plank',
-  'Tricep Dip': 'Skull Crusher',
-  'Dip': 'Skull Crusher',
-}
-
-// Fallback metadata for exercises not in the library
-const FALLBACK_META: Record<string, { category: string; equipment: string }> = {
-  'Hollow Body Hold': { category: 'core', equipment: 'bodyweight' },
-  'Ab Rollout': { category: 'core', equipment: 'other' },
-  'Reverse Curl': { category: 'arms', equipment: 'barbell' },
-  'Tricep Dip': { category: 'arms', equipment: 'bodyweight' },
-  'Dip': { category: 'arms', equipment: 'bodyweight' },
-  'Goblet Squat': { category: 'legs', equipment: 'dumbbell' },
-  'Front Squat': { category: 'legs', equipment: 'barbell' },
-  'Weighted Pull-up': { category: 'back', equipment: 'bodyweight' },
-  'Pull-up / Assisted Pull-up': { category: 'back', equipment: 'bodyweight' },
-  'DB Romanian Deadlift': { category: 'legs', equipment: 'dumbbell' },
-  'Incline DB Curl': { category: 'arms', equipment: 'dumbbell' },
+  'Barbell Bench Press': 'Barbell Bench Press - Medium Grip',
 }
 
 function makeEx(resolve: ExResolver, displayName: string, sets: number, reps: string, rest = 90, notes = '') {
   const lib = resolve(displayName)
-  const fallback = FALLBACK_META[displayName]
   return {
     type: 'exercise' as const,
     id: uid(),
     exercise_id: lib?.id ?? null,
     name: displayName,
-    category: lib?.category ?? fallback?.category ?? 'other',
-    equipment: lib?.equipment ?? fallback?.equipment ?? 'other',
+    category: lib?.category ?? 'other',
+    equipment: lib?.equipment ?? 'other',
     video_url: lib?.video_url ?? '',
     metrics: 'weight+reps' as const,
     showRest: rest > 0,
@@ -100,7 +39,13 @@ function makeEx(resolve: ExResolver, displayName: string, sets: number, reps: st
   }
 }
 
-function day(name: string, items: ReturnType<typeof makeEx>[]) {
+function section(title: string, notes = '') {
+  return { type: 'section' as const, id: uid(), title, notes }
+}
+
+type DayItem = ReturnType<typeof makeEx> | ReturnType<typeof section>
+
+function day(name: string, items: DayItem[]) {
   return { id: uid(), name, items }
 }
 
@@ -113,38 +58,40 @@ function week(label: string, days: ReturnType<typeof day>[]) {
 function buildPrograms(resolve: ExResolver) {
   const ex = (name: string, sets: number, reps: string, rest = 90, notes = '') =>
     makeEx(resolve, name, sets, reps, rest, notes)
+  const sec = (title: string, notes = '') => section(title, notes)
 
   return [
+    // ── 1. Full Body — Beginner 3 Day ────────────────────────────────────────
     {
       name: 'Full Body — Beginner 3 Day',
       description: 'A balanced full-body program for beginners. 3 sessions per week with rest days in between.',
       content: [
         week('Week 1', [
           day('Day 1 — Full Body A', [
-            ex('Barbell Back Squat', 3, '8–10', 120, 'Focus on depth and keeping chest up'),
-            ex('Flat Barbell Bench Press', 3, '8–10', 90),
+            ex('Barbell Squat', 3, '8–10', 120, 'Focus on depth and keeping chest up'),
+            ex('Barbell Bench Press', 3, '8–10', 90),
             ex('Bent Over Barbell Row', 3, '8–10', 90, 'Neutral spine, pull to lower chest'),
-            ex('Overhead Press', 3, '8–10', 90),
-            ex('Romanian Deadlift', 3, '10–12', 90, 'Hinge at hips, slight knee bend'),
+            ex('Barbell Shoulder Press', 3, '8–10', 90),
+            ex('Romanian Deadlift', 3, '10–12', 90, 'Hinge at hips, soft knee bend'),
             ex('Plank', 3, '30–45 sec', 60),
           ]),
           day('Day 2 — Rest', []),
           day('Day 3 — Full Body B', [
-            ex('Conventional Deadlift', 3, '6–8', 180, 'Brace core, push floor away'),
+            ex('Barbell Deadlift', 3, '5', 180, 'Brace core, push the floor away'),
             ex('Incline Dumbbell Press', 3, '10–12', 90),
-            ex('Lat Pulldown', 3, '10–12', 90, 'Full stretch at top, pull to upper chest'),
-            ex('Dumbbell Lateral Raise', 3, '12–15', 60),
+            ex('Wide-Grip Lat Pulldown', 3, '10–12', 90, 'Full stretch at top, pull to upper chest'),
+            ex('Side Lateral Raise', 3, '12–15', 60),
             ex('Leg Press', 3, '12–15', 90),
-            ex('Hollow Body Hold', 3, '20–30 sec', 60),
+            ex('Dead Bug', 3, '10 each side', 60),
           ]),
           day('Day 4 — Rest', []),
           day('Day 5 — Full Body C', [
             ex('Goblet Squat', 3, '12–15', 90, 'Great for learning squat pattern'),
             ex('Dumbbell Bench Press', 3, '10–12', 90),
-            ex('Cable Seated Row', 3, '10–12', 90),
-            ex('DB Romanian Deadlift', 3, '12', 90),
-            ex('Bicep Curl', 3, '10–12', 60),
-            ex('Tricep Pushdown', 3, '10–12', 60),
+            ex('Seated Cable Rows', 3, '10–12', 90),
+            ex('Romanian Deadlift', 3, '12', 90),
+            ex('Barbell Curl', 3, '10–12', 60),
+            ex('Triceps Pushdown', 3, '10–12', 60),
           ]),
           day('Day 6 — Rest', []),
           day('Day 7 — Rest', []),
@@ -152,100 +99,144 @@ function buildPrograms(resolve: ExResolver) {
       ],
     },
 
+    // ── 2. Push Pull Legs — 6 Day (with sections) ────────────────────────────
     {
       name: 'Push Pull Legs — 6 Day',
-      description: '6-day PPL split for intermediate lifters. High frequency and volume for hypertrophy.',
+      description: '6-day PPL split for intermediate lifters. High frequency and volume for hypertrophy. Each session is divided into muscle group sections.',
       content: [
         week('Week 1', [
           day('Day 1 — Push', [
-            ex('Flat Barbell Bench Press', 4, '6–8', 120, 'Primary chest movement'),
-            ex('Overhead Press', 3, '8–10', 90),
+            sec('Chest', 'Prioritise full range of motion and a strong chest stretch at the bottom'),
+            ex('Barbell Bench Press', 4, '6–8', 120, 'Primary chest movement — control the descent'),
             ex('Incline Dumbbell Press', 3, '10–12', 90),
-            ex('Cable Lateral Raise', 3, '15–20', 60),
-            ex('Tricep Pushdown (Rope)', 3, '12–15', 60),
-            ex('Overhead Tricep Extension', 3, '12–15', 60),
+            ex('Dumbbell Flyes', 3, '12–15', 60, 'Light weight, emphasise the stretch'),
+            sec('Shoulders'),
+            ex('Barbell Shoulder Press', 3, '8–10', 90),
+            ex('Side Lateral Raise', 3, '15–20', 60),
+            ex('Front Dumbbell Raise', 2, '12–15', 45),
+            sec('Triceps'),
+            ex('Triceps Pushdown', 3, '12–15', 60),
+            ex('Cable Rope Overhead Triceps Extension', 3, '12–15', 60),
           ]),
           day('Day 2 — Pull', [
-            ex('Deadlift', 4, '4–6', 180, 'Full reset each rep'),
-            ex('Pull-up / Assisted Pull-up', 3, '6–10', 90, 'Full range of motion'),
-            ex('Barbell Bent Over Row', 3, '8–10', 90),
-            ex('Face Pull', 3, '15–20', 60, 'Essential for shoulder health'),
-            ex('Hammer Curl', 3, '10–12', 60),
-            ex('Reverse Curl', 2, '12–15', 60),
+            sec('Back', 'Focus on scapular retraction and keeping elbows close to your sides'),
+            ex('Barbell Deadlift', 4, '4–6', 180, 'Full reset each rep'),
+            ex('Bent Over Barbell Row', 3, '8–10', 90, 'Brace core, pull to lower chest'),
+            ex('Wide-Grip Lat Pulldown', 3, '10–12', 90),
+            ex('Seated Cable Rows', 3, '10–12', 90),
+            sec('Rear Delts', 'Essential for shoulder health and posture'),
+            ex('Face Pull', 3, '15–20', 60),
+            ex('Seated Bent-Over Rear Delt Raise', 3, '12–15', 45),
+            sec('Biceps'),
+            ex('Barbell Curl', 3, '10–12', 60),
+            ex('Hammer Curls', 3, '10–12', 60),
           ]),
           day('Day 3 — Legs', [
-            ex('Barbell Back Squat', 4, '6–8', 180),
-            ex('Romanian Deadlift', 3, '10–12', 90),
+            sec('Quads & Glutes'),
+            ex('Barbell Squat', 4, '6–8', 180, 'Drive knees out and stay tall through the lift'),
             ex('Leg Press', 3, '12–15', 90),
-            ex('Lying Leg Curl', 3, '12–15', 60),
-            ex('Standing Calf Raise', 4, '15–20', 60),
-            ex('Ab Rollout', 3, '8–10', 60),
+            ex('Leg Extensions', 3, '15–20', 60),
+            sec('Hamstrings & Glutes'),
+            ex('Romanian Deadlift', 3, '10–12', 90, 'Push hips back, keep bar close'),
+            ex('Lying Leg Curls', 3, '12–15', 60),
+            ex('Barbell Hip Thrust', 3, '12–15', 90, 'Full hip extension at top, squeeze glutes'),
+            sec('Calves & Core'),
+            ex('Standing Calf Raises', 4, '15–20', 60, 'Pause at top for 1 sec'),
+            ex('Cable Crunch', 3, '15–20', 45),
           ]),
           day('Day 4 — Push (repeat)', [
-            ex('Flat Barbell Bench Press', 4, '6–8', 120),
-            ex('Overhead Press', 3, '8–10', 90),
+            sec('Chest'),
+            ex('Barbell Bench Press', 4, '6–8', 120),
             ex('Incline Dumbbell Press', 3, '10–12', 90),
-            ex('Cable Lateral Raise', 3, '15–20', 60),
-            ex('Tricep Pushdown (Rope)', 3, '12–15', 60),
-            ex('Overhead Tricep Extension', 3, '12–15', 60),
+            ex('Dumbbell Flyes', 3, '12–15', 60),
+            sec('Shoulders'),
+            ex('Barbell Shoulder Press', 3, '8–10', 90),
+            ex('Side Lateral Raise', 3, '15–20', 60),
+            ex('Front Dumbbell Raise', 2, '12–15', 45),
+            sec('Triceps'),
+            ex('Triceps Pushdown', 3, '12–15', 60),
+            ex('Cable Rope Overhead Triceps Extension', 3, '12–15', 60),
           ]),
           day('Day 5 — Pull (repeat)', [
-            ex('Deadlift', 4, '4–6', 180),
-            ex('Pull-up / Assisted Pull-up', 3, '6–10', 90),
-            ex('Barbell Bent Over Row', 3, '8–10', 90),
+            sec('Back'),
+            ex('Barbell Deadlift', 4, '4–6', 180),
+            ex('Bent Over Barbell Row', 3, '8–10', 90),
+            ex('Wide-Grip Lat Pulldown', 3, '10–12', 90),
+            ex('Seated Cable Rows', 3, '10–12', 90),
+            sec('Rear Delts'),
             ex('Face Pull', 3, '15–20', 60),
-            ex('Hammer Curl', 3, '10–12', 60),
-            ex('Reverse Curl', 2, '12–15', 60),
+            ex('Seated Bent-Over Rear Delt Raise', 3, '12–15', 45),
+            sec('Biceps'),
+            ex('Barbell Curl', 3, '10–12', 60),
+            ex('Hammer Curls', 3, '10–12', 60),
           ]),
           day('Day 6 — Legs (repeat)', [
-            ex('Barbell Back Squat', 4, '6–8', 180),
-            ex('Romanian Deadlift', 3, '10–12', 90),
+            sec('Quads & Glutes'),
+            ex('Barbell Squat', 4, '6–8', 180),
             ex('Leg Press', 3, '12–15', 90),
-            ex('Lying Leg Curl', 3, '12–15', 60),
-            ex('Standing Calf Raise', 4, '15–20', 60),
-            ex('Ab Rollout', 3, '8–10', 60),
+            ex('Leg Extensions', 3, '15–20', 60),
+            sec('Hamstrings & Glutes'),
+            ex('Romanian Deadlift', 3, '10–12', 90),
+            ex('Lying Leg Curls', 3, '12–15', 60),
+            ex('Barbell Hip Thrust', 3, '12–15', 90),
+            sec('Calves & Core'),
+            ex('Standing Calf Raises', 4, '15–20', 60),
+            ex('Cable Crunch', 3, '15–20', 45),
           ]),
           day('Day 7 — Rest', []),
         ]),
       ],
     },
 
+    // ── 3. Upper Lower — 4 Day (with sections) ───────────────────────────────
     {
       name: 'Upper Lower — 4 Day',
-      description: '4-day upper/lower split. Great balance of frequency, volume, and recovery for intermediate lifters.',
+      description: '4-day upper/lower split. Great balance of frequency, volume, and recovery for intermediate lifters. Days are grouped by movement pattern.',
       content: [
         week('Week 1', [
           day('Day 1 — Upper A (Strength)', [
-            ex('Flat Barbell Bench Press', 4, '4–6', 120, 'Heavier, lower reps'),
-            ex('Barbell Bent Over Row', 4, '4–6', 120),
-            ex('Overhead Press', 3, '6–8', 90),
-            ex('Weighted Pull-up', 3, '6–8', 90),
-            ex('Incline DB Curl', 3, '10–12', 60),
-            ex('Tricep Dip', 3, '10–12', 60),
+            sec('Horizontal Push & Pull', 'Heavy compound work — aim for progressive overload each week'),
+            ex('Barbell Bench Press', 4, '4–6', 120, 'Heavier, lower reps — pause at chest'),
+            ex('Bent Over Barbell Row', 4, '4–6', 120, 'Match bench sets/reps for balance'),
+            sec('Vertical Push & Pull'),
+            ex('Barbell Shoulder Press', 3, '6–8', 90),
+            ex('Pullups', 3, '6–10', 90, 'Full range — dead hang to chin over bar'),
+            sec('Arms'),
+            ex('EZ-Bar Curl', 3, '10–12', 60),
+            ex('Close-Grip Barbell Bench Press', 3, '10–12', 60),
           ]),
           day('Day 2 — Lower A (Strength)', [
-            ex('Barbell Back Squat', 4, '4–6', 180),
-            ex('Romanian Deadlift', 3, '8–10', 90),
+            sec('Compound Lifts', 'Prioritise depth and bracing — progressive overload weekly'),
+            ex('Barbell Squat', 4, '4–6', 180, 'Competition-depth squat'),
+            ex('Romanian Deadlift', 3, '8–10', 90, 'Controlled descent, feel the hamstring stretch'),
+            sec('Isolation'),
             ex('Leg Press', 3, '10–12', 90),
-            ex('Lying Leg Curl', 3, '10–12', 60),
-            ex('Standing Calf Raise', 3, '15', 60),
+            ex('Seated Leg Curl', 3, '10–12', 60),
+            ex('Standing Calf Raises', 3, '15', 60),
           ]),
           day('Day 3 — Rest', []),
           day('Day 4 — Upper B (Hypertrophy)', [
+            sec('Chest & Back', 'Higher reps and shorter rest — focus on the muscle, not the weight'),
             ex('Incline Dumbbell Press', 4, '10–12', 90),
-            ex('Cable Seated Row', 4, '10–12', 90),
-            ex('DB Shoulder Press', 3, '12–15', 60),
-            ex('Lat Pulldown', 3, '10–12', 90),
-            ex('Cable Lateral Raise', 3, '15–20', 45),
-            ex('Face Pull', 3, '15–20', 45),
-            ex('EZ Bar Curl', 3, '12', 60),
+            ex('One-Arm Dumbbell Row', 4, '10–12 each', 90),
+            ex('Dumbbell Flyes', 3, '12–15', 60),
+            ex('Wide-Grip Lat Pulldown', 3, '10–12', 90),
+            sec('Shoulders'),
+            ex('Dumbbell Shoulder Press', 3, '12–15', 60),
+            ex('Side Lateral Raise', 3, '15–20', 45),
+            ex('Face Pull', 3, '15–20', 45, 'Essential for shoulder health'),
+            sec('Arms'),
+            ex('Hammer Curls', 3, '12', 60),
+            ex('Triceps Pushdown - Rope Attachment', 3, '12–15', 60),
           ]),
           day('Day 5 — Lower B (Hypertrophy)', [
-            ex('Conventional Deadlift', 4, '4–6', 180, 'Primary hinge pattern'),
-            ex('Bulgarian Split Squat', 3, '10–12 each', 90),
-            ex('Leg Extension', 3, '12–15', 60),
-            ex('Leg Curl', 3, '12–15', 60),
-            ex('Seated Calf Raise', 3, '15–20', 45),
+            sec('Compound', 'Primary hinge and lunge patterns'),
+            ex('Barbell Deadlift', 4, '4–6', 180, 'Drive through the floor — lock out hard'),
+            ex('Barbell Lunge', 3, '10–12 each', 90),
+            sec('Isolation'),
+            ex('Leg Extensions', 3, '12–15', 60),
+            ex('Lying Leg Curls', 3, '12–15', 60),
+            ex('Standing Calf Raises', 3, '15–20', 45),
             ex('Cable Crunch', 3, '15–20', 45),
           ]),
           day('Day 6 — Rest', []),
@@ -254,33 +245,34 @@ function buildPrograms(resolve: ExResolver) {
       ],
     },
 
+    // ── 4. Strength Foundation — 3 Day (linear progression, 4 weeks) ─────────
     {
       name: 'Strength Foundation — 3 Day',
-      description: '4-week linear progression program focused on the big 3 lifts. Ideal for strength-focused clients.',
+      description: '4-week linear progression program focused on the big compound lifts. Add weight each week. Ideal for strength-focused clients.',
       content: ['Week 1', 'Week 2', 'Week 3', 'Week 4'].map((label, wi) =>
         week(label, [
-          day('Day 1 — Squat / Press', [
-            ex('Barbell Back Squat', 5, '5', 180, `Week ${wi + 1} — add 2.5 kg from last week`),
-            ex('Overhead Press', 5, '5', 120),
-            ex('Barbell Row', 3, '8', 90),
-            ex('Dumbbell Lateral Raise', 3, '12–15', 60),
+          day('Day 1 — Squat & Press', [
+            ex('Barbell Squat', 5, '5', 180, `Week ${wi + 1} — add 2.5 kg from last week`),
+            ex('Barbell Shoulder Press', 5, '5', 120, `Week ${wi + 1} — add 2.5 kg from last week`),
+            ex('Bent Over Barbell Row', 3, '8', 90),
+            ex('Side Lateral Raise', 3, '12–15', 60),
             ex('Plank', 3, '45 sec', 45),
           ]),
           day('Day 2 — Rest', []),
-          day('Day 3 — Deadlift / Bench', [
-            ex('Conventional Deadlift', 1, '5', 180, `Week ${wi + 1} — add 5 kg from last week`),
-            ex('Flat Barbell Bench Press', 5, '5', 120),
-            ex('Pull-up', 3, 'max', 90),
-            ex('Tricep Dip', 3, 'max', 90),
-            ex('Ab Rollout', 3, '8–10', 60),
+          day('Day 3 — Deadlift & Bench', [
+            ex('Barbell Deadlift', 1, '5', 180, `Week ${wi + 1} — add 5 kg from last week`),
+            ex('Barbell Bench Press', 5, '5', 120, `Week ${wi + 1} — add 2.5 kg from last week`),
+            ex('Pullups', 3, 'max', 90, 'Full range of motion every rep'),
+            ex('Dips - Triceps Version', 3, 'max', 90),
+            ex('Hanging Leg Raise', 3, '10–15', 60),
           ]),
           day('Day 4 — Rest', []),
-          day('Day 5 — Squat / Press (variation)', [
-            ex('Front Squat', 3, '5', 120, 'Lighter variation — focus on technique'),
-            ex('Bench Press', 5, '5', 120),
-            ex('Barbell Row', 3, '8', 90),
-            ex('Face Pull', 3, '15–20', 45),
-            ex('Hollow Body Hold', 3, '30 sec', 45),
+          day('Day 5 — Variation Day', [
+            ex('Front Squat', 3, '5', 120, 'Lighter technique work — stay upright'),
+            ex('Barbell Bench Press', 5, '5', 120),
+            ex('Bent Over Barbell Row', 3, '8', 90),
+            ex('Face Pull', 3, '15–20', 45, 'Shoulder health — never skip this'),
+            ex('Russian Twist', 3, '20', 45),
           ]),
           day('Day 6 — Rest', []),
           day('Day 7 — Rest', []),
@@ -472,6 +464,29 @@ const MEAL_PLANS = [
 const SENTINEL_PROGRAM = 'Full Body — Beginner 3 Day'
 const SENTINEL_PLAN = '1,800 kcal — Omnivore'
 
+const SEEDED_NAMES = [
+  'Full Body — Beginner 3 Day',
+  'Push Pull Legs — 6 Day',
+  'Upper Lower — 4 Day',
+  'Strength Foundation — 3 Day',
+]
+
+// Returns true if programs need to be (re)seeded.
+// Triggers on: missing sentinel, old format (exercises array), or missing sections.
+function needsReseed(prog: { content: unknown } | null): boolean {
+  if (!prog) return true
+  const weeks = prog.content as { days?: Record<string, unknown>[] }[] | null
+  const firstDay = weeks?.[0]?.days?.[0]
+  if (!firstDay) return true
+  // Old format used an 'exercises' array; new format uses 'items'
+  if (Array.isArray((firstDay as { exercises?: unknown[] }).exercises)) return true
+  // Programs should now contain sections — reseed if none found
+  const allItems = (weeks ?? []).flatMap(w =>
+    ((w.days ?? []) as { items?: unknown[] }[]).flatMap(d => d.items ?? [])
+  )
+  return !allItems.some((item: unknown) => (item as { type?: string })?.type === 'section')
+}
+
 export async function seedCoachTemplates(coachId: string): Promise<void> {
   const admin = createAdminClient()
 
@@ -492,37 +507,19 @@ export async function seedCoachTemplates(coachId: string): Promise<void> {
     return byName[libName.toLowerCase()] ?? null
   }
 
-  // Detect old-format programs (exercises stored as flat {name,sets,reps,...} without exercise_id)
-  function isOldFormat(prog: { content: unknown } | null): boolean {
-    if (!prog) return false
-    const weeks = prog.content as { days?: { exercises?: unknown[]; items?: unknown[] }[] }[] | null
-    const firstDay = weeks?.[0]?.days?.[0]
-    if (!firstDay) return false
-    // Old format has `exercises` array; new format has `items` array
-    return Array.isArray((firstDay as { exercises?: unknown[] }).exercises)
-  }
-
-  const needsReseed = !existingProg || isOldFormat(existingProg)
-
-  if (needsReseed) {
-    // Delete all seeded program templates for this coach so we can re-insert with linked exercises
-    const SEEDED_NAMES = [
-      'Full Body — Beginner 3 Day',
-      'Push Pull Legs — 6 Day',
-      'Upper Lower — 4 Day',
-      'Strength Foundation — 3 Day',
-    ]
+  if (needsReseed(existingProg)) {
+    // Delete all seeded program templates for this coach and re-insert fresh
     await admin.from('programs').delete().eq('coach_id', coachId).in('name', SEEDED_NAMES)
 
     const programs = buildPrograms(resolve)
     await admin.from('programs').insert(
-      programs.map((p) => ({ coach_id: coachId, name: p.name, description: p.description, content: p.content }))
+      programs.map(p => ({ coach_id: coachId, name: p.name, description: p.description, content: p.content }))
     )
   }
 
   if (!existingPlan) {
     await admin.from('meal_plans').insert(
-      MEAL_PLANS.map((p) => ({ coach_id: coachId, name: p.name, goal: p.goal, total_calories: p.total_calories, content: p.content }))
+      MEAL_PLANS.map(p => ({ coach_id: coachId, name: p.name, goal: p.goal, total_calories: p.total_calories, content: p.content }))
     )
   }
 }
