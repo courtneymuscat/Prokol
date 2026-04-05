@@ -264,6 +264,7 @@ export default function ClientMealPlanEditor({
     content: Array.isArray(initialPlan.content) ? initialPlan.content : [],
   })
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [editingName, setEditingName] = useState(false)
   const [templateToast, setTemplateToast] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -288,8 +289,15 @@ export default function ClientMealPlanEditor({
           end_date: updated.end_date ?? null,
         }),
       })
-      setSaveStatus(res.ok ? 'saved' : 'error')
-      if (res.ok) setTimeout(() => setSaveStatus('idle'), 2500)
+      if (res.ok) {
+        setSaveStatus('saved')
+        setSaveError(null)
+        setTimeout(() => setSaveStatus('idle'), 2500)
+      } else {
+        const body = await res.json().catch(() => ({}))
+        setSaveError(body?.error ?? `HTTP ${res.status}`)
+        setSaveStatus('error')
+      }
     }, 1000)
   }, [clientId, totals.calories])
 
@@ -344,8 +352,15 @@ export default function ClientMealPlanEditor({
         end_date: plan.end_date ?? null,
       }),
     })
-    setSaveStatus(res.ok ? 'saved' : 'error')
-    if (res.ok) setTimeout(() => setSaveStatus('idle'), 2500)
+    if (res.ok) {
+      setSaveStatus('saved')
+      setSaveError(null)
+      setTimeout(() => setSaveStatus('idle'), 2500)
+    } else {
+      const body = await res.json().catch(() => ({}))
+      setSaveError(body?.error ?? `HTTP ${res.status}`)
+      setSaveStatus('error')
+    }
   }
 
   async function saveAsTemplate() {
@@ -417,7 +432,9 @@ export default function ClientMealPlanEditor({
             </span>
           )}
           {saveStatus === 'error' && (
-            <span className="text-xs text-red-500">Save failed</span>
+            <span className="text-xs text-red-500" title={saveError ?? undefined}>
+              Save failed{saveError ? `: ${saveError}` : ''}
+            </span>
           )}
           {saveStatus === 'idle' && (
             <span className="text-xs text-gray-300">Unsaved changes</span>
