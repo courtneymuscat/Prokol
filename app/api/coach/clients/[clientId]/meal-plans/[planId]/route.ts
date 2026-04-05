@@ -64,7 +64,7 @@ export async function PATCH(
   if (start_date !== undefined) updates.start_date = start_date
   if (end_date !== undefined) updates.end_date = end_date ?? null
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('client_meal_plans')
     .update(updates)
     .eq('id', planId)
@@ -72,6 +72,22 @@ export async function PATCH(
     .eq('coach_id', coachId)
     .select()
     .single()
+
+  // Graceful fallback: if end_date column doesn't exist yet (migration not run),
+  // retry without it so the rest of the save still succeeds.
+  if (error && error.message?.includes('end_date')) {
+    const { end_date: _removed, ...updatesWithoutEndDate } = updates
+    const retry = await supabase
+      .from('client_meal_plans')
+      .update(updatesWithoutEndDate)
+      .eq('id', planId)
+      .eq('client_id', clientId)
+      .eq('coach_id', coachId)
+      .select()
+      .single()
+    data = retry.data
+    error = retry.error
+  }
 
   if (error || !data) return Response.json({ error: error?.message ?? 'Not found' }, { status: 400 })
 

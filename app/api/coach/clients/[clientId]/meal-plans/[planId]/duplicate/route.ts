@@ -56,11 +56,23 @@ export async function POST(
     status: 'active',
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('client_meal_plans')
     .insert(duplicate)
     .select()
     .single()
+
+  // Fallback: if end_date column doesn't exist yet, retry without it
+  if (error && error.message?.includes('end_date')) {
+    const { end_date: _removed, ...duplicateWithoutEndDate } = duplicate
+    const retry = await supabase
+      .from('client_meal_plans')
+      .insert(duplicateWithoutEndDate)
+      .select()
+      .single()
+    data = retry.data
+    error = retry.error
+  }
 
   if (error) return Response.json({ error: error.message }, { status: 400 })
 
