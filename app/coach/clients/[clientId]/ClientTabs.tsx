@@ -1909,6 +1909,181 @@ function getMonthGridDays(monthStart: Date): Date[] {
   return days
 }
 
+// ── Food Logs tab ─────────────────────────────────────────────────────────────
+
+type FoodLogEntry = {
+  id: string
+  log_date: string
+  meal_type: string
+  food_name: string | null
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+  scan_image_url: string | null
+  meal_notes: string | null
+  meal_photo_url: string | null
+}
+
+type MealNoteEntry = {
+  log_date: string
+  meal_type: string
+  note: string | null
+  photo_url: string | null
+}
+
+function FoodLogsTab({ clientId }: { clientId: string }) {
+  const today = new Date().toISOString().slice(0, 10)
+  const weekAgo = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10)
+
+  const [startDate, setStartDate] = useState(weekAgo)
+  const [endDate, setEndDate] = useState(today)
+  const [foodLogs, setFoodLogs] = useState<FoodLogEntry[]>([])
+  const [mealNotes, setMealNotes] = useState<MealNoteEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true); setError(null)
+    fetch(`/api/coach/clients/${clientId}/food-logs?start_date=${startDate}&end_date=${endDate}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.error) setError(d.error); else { setFoodLogs(d.foodLogs ?? []); setMealNotes(d.mealNotes ?? []) } })
+      .catch(() => setError('Failed to load food logs'))
+      .finally(() => setLoading(false))
+  }, [clientId, startDate, endDate])
+
+  // Group by date
+  const byDate = foodLogs.reduce<Record<string, FoodLogEntry[]>>((acc, f) => {
+    acc[f.log_date] = acc[f.log_date] ?? []; acc[f.log_date].push(f); return acc
+  }, {})
+
+  const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a))
+
+  return (
+    <div className="space-y-4">
+      {/* Date range picker */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-semibold text-gray-500">From</label>
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-xs font-semibold text-gray-500">To</label>
+          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+        {/* Quick range buttons */}
+        <div className="flex items-center gap-1.5 ml-auto">
+          {([['7d', 7], ['14d', 14], ['30d', 30]] as [string, number][]).map(([label, days]) => (
+            <button key={label} onClick={() => {
+              setEndDate(today)
+              setStartDate(new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10))
+            }} className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 font-medium">
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-gray-400 text-center py-10">Loading…</p>
+      ) : error ? (
+        <p className="text-sm text-red-500 text-center py-10">{error}</p>
+      ) : dates.length === 0 ? (
+        <div className="bg-white rounded-2xl border p-10 text-center">
+          <p className="text-sm text-gray-400">No food logs in this date range.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {dates.map((date) => {
+            const logs = byDate[date]
+            const totals = logs.reduce((a, l) => ({
+              cal: a.cal + l.calories, p: a.p + l.protein, c: a.c + l.carbs, f: a.f + l.fat,
+            }), { cal: 0, p: 0, c: 0, f: 0 })
+            const byMeal = logs.reduce<Record<string, FoodLogEntry[]>>((acc, l) => {
+              acc[l.meal_type] = acc[l.meal_type] ?? []; acc[l.meal_type].push(l); return acc
+            }, {})
+            const dayNotes = mealNotes.filter((n) => n.log_date === date)
+            const allMealTypes = Array.from(new Set([...Object.keys(byMeal), ...dayNotes.map((n) => n.meal_type)]))
+
+            return (
+              <div key={date} className="bg-white rounded-2xl border overflow-hidden">
+                {/* Day header */}
+                <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                  <p className="text-xs font-semibold text-gray-700">
+                    {new Date(date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {Math.round(totals.cal)} kcal · {Math.round(totals.p)}g P · {Math.round(totals.c)}g C · {Math.round(totals.f)}g F
+                  </p>
+                </div>
+
+                {allMealTypes.map((mealType) => {
+                  const mealLogs = byMeal[mealType] ?? []
+                  const mealNote = dayNotes.find((n) => n.meal_type === mealType)
+                  return (
+                    <div key={mealType}>
+                      {/* Meal label row */}
+                      <div className="px-5 pt-3 pb-1">
+                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wide capitalize">{mealType}</p>
+                      </div>
+
+                      {/* Meal-level note / photo */}
+                      {(mealNote?.note || mealNote?.photo_url) && (
+                        <div className="px-5 py-2 mx-5 mb-1 rounded-xl bg-blue-50 flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            {mealNote.note && <p className="text-xs text-blue-700 italic">"{mealNote.note}"</p>}
+                          </div>
+                          {mealNote.photo_url && (
+                            <a href={mealNote.photo_url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                              <img src={mealNote.photo_url} alt="Meal photo" className="h-16 w-24 object-cover rounded-lg border border-blue-100 hover:opacity-80 transition-opacity" />
+                            </a>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Food items */}
+                      {mealLogs.map((l) => (
+                        <div key={l.id} className="px-5 py-2.5 border-t border-gray-50">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-gray-800">{l.food_name ?? 'Food entry'}</p>
+                              {l.meal_notes && (
+                                <p className="text-xs text-blue-500 italic mt-0.5">"{l.meal_notes}"</p>
+                              )}
+                              {l.scan_image_url && (
+                                <div className="mt-2">
+                                  <a href={l.scan_image_url} target="_blank" rel="noopener noreferrer">
+                                    <img src={l.scan_image_url} alt="AI meal scan" className="h-20 w-28 object-cover rounded-lg border border-gray-100 hover:opacity-80 transition-opacity" />
+                                  </a>
+                                  <p className="text-[10px] text-gray-400 mt-0.5">AI scanned</p>
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-start gap-2 flex-shrink-0">
+                              {l.meal_photo_url && (
+                                <a href={l.meal_photo_url} target="_blank" rel="noopener noreferrer">
+                                  <img src={l.meal_photo_url} alt="Meal photo" className="h-12 w-16 object-cover rounded-lg border border-gray-100 hover:opacity-80 transition-opacity" />
+                                </a>
+                              )}
+                              <p className="text-xs text-gray-500 mt-0.5">{Math.round(l.calories)} kcal</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function CalendarTab({ clientId }: { clientId: string }) {
   const [calView, setCalView] = useState<'week' | 'month'>('week')
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()))
@@ -3261,7 +3436,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'mealplan', label: 'Meal Plan' },
   { id: 'habits', label: 'Habits' },
   { id: 'checkins', label: 'Check-ins' },
-  { id: 'nutrition', label: 'Nutrition' },
+  { id: 'nutrition', label: 'Food Logs' },
   { id: 'notes', label: 'Notes' },
   { id: 'files', label: 'Files' },
 ]
@@ -3365,93 +3540,9 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
         </div>
       )}
 
-      {/* Nutrition */}
-      {tab === 'nutrition' && data && (
-        <div className="space-y-3">
-          {data.foodLogs.length === 0 && data.mealNotes.length === 0 && <Empty label="No food logs recorded." />}
-          {Object.entries(
-            data.foodLogs.reduce<Record<string, typeof data.foodLogs>>((acc, f) => {
-              acc[f.log_date] = acc[f.log_date] ?? []
-              acc[f.log_date].push(f)
-              return acc
-            }, {})
-          ).map(([date, logs]) => {
-            const totals = logs.reduce((a, l) => ({
-              cal: a.cal + l.calories, p: a.p + l.protein, c: a.c + l.carbs, f: a.f + l.fat,
-            }), { cal: 0, p: 0, c: 0, f: 0 })
-            // Group food items by meal_type for this day
-            const byMeal = logs.reduce<Record<string, typeof logs>>((acc, l) => {
-              acc[l.meal_type] = acc[l.meal_type] ?? []
-              acc[l.meal_type].push(l)
-              return acc
-            }, {})
-            // Meal notes for this day
-            const dayMealNotes = data.mealNotes.filter((n) => n.log_date === date)
-            const allMealTypes = Array.from(new Set([...Object.keys(byMeal), ...dayMealNotes.map((n) => n.meal_type)]))
-            return (
-              <div key={date} className="bg-white rounded-2xl border overflow-hidden">
-                <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                  <p className="text-xs font-semibold text-gray-700">{fmt(date)}</p>
-                  <p className="text-xs text-gray-500">
-                    {Math.round(totals.cal)} kcal · {Math.round(totals.p)}g P · {Math.round(totals.c)}g C · {Math.round(totals.f)}g F
-                  </p>
-                </div>
-                {allMealTypes.map((mealType) => {
-                  const mealLogs = byMeal[mealType] ?? []
-                  const mealNote = dayMealNotes.find((n) => n.meal_type === mealType)
-                  return (
-                    <div key={mealType}>
-                      {/* Meal-level note / photo */}
-                      {(mealNote?.note || mealNote?.photo_url) && (
-                        <div className="px-5 py-2.5 border-t border-gray-50 bg-blue-50/40 flex items-start gap-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[11px] font-semibold text-blue-500 uppercase tracking-wide capitalize">{mealType} note</p>
-                            {mealNote.note && <p className="text-xs text-blue-600 italic mt-0.5">"{mealNote.note}"</p>}
-                          </div>
-                          {mealNote.photo_url && (
-                            <a href={mealNote.photo_url} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
-                              <img src={mealNote.photo_url} alt="Meal photo" className="h-14 w-20 object-cover rounded-lg border border-blue-100 hover:opacity-80 transition-opacity" />
-                            </a>
-                          )}
-                        </div>
-                      )}
-                      {mealLogs.map((l) => (
-                        <div key={l.id} className="px-5 py-3 border-t border-gray-50">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-gray-800">{l.food_name ?? 'Food entry'}</p>
-                              <p className="text-xs text-gray-400 capitalize">{l.meal_type}</p>
-                              {l.meal_notes && (
-                                <p className="text-xs text-blue-500 italic mt-0.5">"{l.meal_notes}"</p>
-                              )}
-                              {l.scan_image_url && (
-                                <div className="mt-2">
-                                  <a href={l.scan_image_url} target="_blank" rel="noopener noreferrer">
-                                    <img src={l.scan_image_url} alt="AI meal scan" className="h-20 w-28 object-cover rounded-lg border border-gray-100 hover:opacity-80 transition-opacity" />
-                                  </a>
-                                  <p className="text-[10px] text-gray-400 mt-0.5">AI scanned meal</p>
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex items-start gap-2 flex-shrink-0">
-                              {l.meal_photo_url && (
-                                <a href={l.meal_photo_url} target="_blank" rel="noopener noreferrer">
-                                  <img src={l.meal_photo_url} alt="Meal photo" className="h-12 w-16 object-cover rounded-lg border border-gray-100 hover:opacity-80 transition-opacity" />
-                                </a>
-                              )}
-                              <p className="text-xs text-gray-500 mt-0.5">{Math.round(l.calories)} kcal</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                })}
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {/* Food Logs */}
+      {tab === 'nutrition' && <FoodLogsTab clientId={clientId} />}
+
 
       {/* Training */}
       {tab === 'training' && data && (
