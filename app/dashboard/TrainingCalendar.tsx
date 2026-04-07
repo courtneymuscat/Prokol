@@ -173,27 +173,253 @@ function ScoreInput({ scoreType, value, onChange }: { scoreType: ScoreType; valu
   )
 }
 
-// ─── Video upload + player ────────────────────────────────────────────────────
+// ─── Video trim + upload ──────────────────────────────────────────────────────
+
+function fmtTime(s: number): string {
+  const m = Math.floor(s / 60)
+  const sec = Math.floor(s % 60)
+  return `${m}:${sec.toString().padStart(2, '0')}`
+}
+
+function VideoTrimModal({ file, onConfirm, onCancel }: {
+  file: File
+  onConfirm: (blob: Blob, ext: string) => void
+  onCancel: () => void
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [duration, setDuration] = useState(0)
+  const [startTime, setStartTime] = useState(0)
+  const [endTime, setEndTime] = useState(0)
+  const [trimming, setTrimming] = useState(false)
+  const [progress, setProgress] = useState(0) // 0-100 during trim
+  const [trimError, setTrimError] = useState<string | null>(null)
+  const objectUrl = useRef(URL.createObjectURL(file))
+
+  useEffect(() => {
+    return () => { URL.revokeObjectURL(objectUrl.current) }
+  }, [])
+
+  function onLoadedMetadata() {
+    const d = videoRef.current!.duration
+    setDuration(d)
+    setEndTime(d)
+  }
+
+  // Check browser support for captureStream
+  const canTrim = typeof MediaRecorder !== 'undefined' &&
+    typeof (document.createElement('video') as HTMLVideoElement & { captureStream?: () => MediaStream }).captureStream === 'function'
+
+  async function handleTrim() {
+    if (!canTrim) { onConfirm(file, 'webm'); return }
+    setTrimming(true)
+    setTrimError(null)
+    setProgress(0)
+
+    try {
+      const videoEl = videoRef.current!
+      videoEl.muted = true
+      videoEl.currentTime = startTime
+
+      await new Promise<void>((res) => {
+        videoEl.onseeked = () => res()
+      })
+
+      const stream = (videoEl as HTMLVideoElement & { captureStream: () => MediaStream }).captureStream()
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9'
+        : MediaRecorder.isTypeSupported('video/webm')
+        ? 'video/webm'
+        : ''
+      if (!mimeType) { setTrimError('Trimming not supported on this browser — uploading original.'); setTrimming(false); onConfirm(file, file.name.split('.').pop()?.toLowerCase() ?? 'mp4'); return }
+
+      const recorder = new MediaRecorder(stream, { mimeType })
+      const chunks: BlobPart[] = []
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
+
+      await new Promise<void>((resolve, reject) => {
+        recorder.onstop = () => resolve()
+        recorder.onerror = () => reject(new Error('Recording failed'))
+        recorder.start(200)
+        videoEl.play()
+
+        function tick() {
+          if (!videoEl.paused) {
+            const elapsed = videoEl.currentTime - startTime
+            const total = endTime - startTime
+            setProgress(Math.min(100, Math.round((elapsed / total) * 100)))
+          }
+          if (videoEl.currentTime >= endTime) {
+            recorder.stop()
+            videoEl.pause()
+          } else {
+            requestAnimationFrame(tick)
+          }
+        }
+        requestAnimationFrame(tick)
+      })
+
+      const blob = new Blob(chunks, { type: mimeType })
+      onConfirm(blob, 'webm')
+    } catch (err) {
+      setTrimError(err instanceof Error ? err.message : 'Trim failed')
+      setTrimming(false)
+    }
+  }
+
+  const trimDuration = endTime - startTime
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
+        <div className="px-5 pt-5 pb-3 border-b border-gray-100 flex items-center justify-between">
+          <p className="text-sm font-semibold text-gray-900">Trim video</p>
+          <button type="button" onClick={onCancel} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Video preview */}
+          <video
+            ref={videoRef}
+            src={objectUrl.current}
+            onLoadedMetadata={onLoadedMetadata}
+            playsInline
+            className="w-full rounded-xl bg-black max-h-48 object-contain"
+          />
+
+          {duration > 0 && (
+            <>
+              {/* Start time */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>Start</span>
+                  <span className="font-mono font-medium text-gray-800">{fmtTime(startTime)}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={duration}
+                  step={0.1}
+                  value={startTime}
+                  onChange={(e) => {
+                    const v = Math.min(Number(e.target.value), endTime - 0.5)
+                    setStartTime(v)
+                    if (videoRef.current) videoRef.current.currentTime = v
+                  }}
+                  className="w-full accent-indigo-600"
+                />
+              </div>
+
+              {/* End time */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-gray-500">
+                  <span>End</span>
+                  <span className="font-mono font-medium text-gray-800">{fmtTime(endTime)}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={duration}
+                  step={0.1}
+                  value={endTime}
+                  onChange={(e) => {
+                    const v = Math.max(Number(e.target.value), startTime + 0.5)
+                    setEndTime(v)
+                    if (videoRef.current) videoRef.current.currentTime = v
+                  }}
+                  className="w-full accent-indigo-600"
+                />
+              </div>
+
+              {/* Duration info */}
+              <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-2 text-xs text-gray-500">
+                <span>Clip length</span>
+                <span className="font-mono font-semibold text-gray-800">{fmtTime(trimDuration)}</span>
+              </div>
+
+              {/* Trim progress */}
+              {trimming && (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Processing…</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                    <div className="bg-indigo-500 h-1.5 rounded-full transition-all" style={{ width: `${progress}%` }} />
+                  </div>
+                </div>
+              )}
+
+              {trimError && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{trimError}</p>}
+            </>
+          )}
+        </div>
+
+        <div className="px-5 pb-5 flex gap-2">
+          {canTrim ? (
+            <>
+              <button
+                type="button"
+                onClick={handleTrim}
+                disabled={trimming || duration === 0}
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-semibold rounded-xl transition-colors"
+              >
+                {trimming ? 'Trimming…' : 'Trim & upload'}
+              </button>
+              <button
+                type="button"
+                onClick={() => onConfirm(file, file.name.split('.').pop()?.toLowerCase() ?? 'mp4')}
+                disabled={trimming}
+                className="px-4 py-2.5 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-40"
+              >
+                Upload as-is
+              </button>
+            </>
+          ) : (
+            // iOS Safari / unsupported browsers — skip trim
+            <button
+              type="button"
+              onClick={() => onConfirm(file, file.name.split('.').pop()?.toLowerCase() ?? 'mp4')}
+              className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors"
+            >
+              Upload video
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function VideoUploadButton({ videoPath, onUploaded }: {
   videoPath?: string
   onUploaded: (path: string) => void
 }) {
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 200 * 1024 * 1024) { setUploadError('Video must be under 200 MB'); return }
-    setUploading(true); setUploadError(null)
+    if (file.size > 500 * 1024 * 1024) { setUploadError('Video must be under 500 MB'); return }
+    setUploadError(null)
+    setPendingFile(file)
+    // Reset input so the same file can be re-selected after cancel
+    e.target.value = ''
+  }
+
+  async function handleConfirm(blob: Blob, ext: string) {
+    setPendingFile(null)
+    setUploading(true)
+    setUploadError(null)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setUploadError('Not signed in'); setUploading(false); return }
-    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'mp4'
     const path = `${user.id}/${crypto.randomUUID()}.${ext}`
-    const { error } = await supabase.storage.from('workout-videos').upload(path, file, { contentType: file.type })
+    const { error } = await supabase.storage.from('workout-videos').upload(path, blob, { contentType: blob instanceof File ? blob.type : `video/${ext}` })
     if (error) { setUploadError(error.message); setUploading(false); return }
     onUploaded(path)
     setUploading(false)
@@ -201,7 +427,14 @@ function VideoUploadButton({ videoPath, onUploaded }: {
 
   return (
     <div className="mt-2">
-      <input ref={fileRef} type="file" accept="video/*" className="hidden" onChange={handleFile} />
+      {pendingFile && (
+        <VideoTrimModal
+          file={pendingFile}
+          onConfirm={handleConfirm}
+          onCancel={() => setPendingFile(null)}
+        />
+      )}
+      <input ref={fileRef} type="file" accept="video/*" className="hidden" onChange={handleFileSelected} />
       <button
         type="button"
         onClick={() => fileRef.current?.click()}
