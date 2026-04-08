@@ -864,10 +864,11 @@ function WorkoutModal({ workout, onClose, onSaved, onMoved }: {
 function AddEventModal({ dateStr, onClose, onCreated }: {
   dateStr: string
   onClose: () => void
-  onCreated: (event: CalendarEvent) => void
+  onCreated: (event: CalendarEvent | CalendarEvent[]) => void
 }) {
   const [type, setType] = useState<ClientEventType>('personal')
   const [title, setTitle] = useState('')
+  const [endDate, setEndDate] = useState(dateStr)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -875,14 +876,31 @@ function AddEventModal({ dateStr, onClose, onCreated }: {
     weekday: 'long', day: 'numeric', month: 'long',
   })
 
+  // Reset end date when switching away from travel
+  function handleTypeChange(t: ClientEventType) {
+    setType(t)
+    if (t !== 'travel') setEndDate(dateStr)
+  }
+
+  const isTravel = type === 'travel'
+  const durationDays = isTravel && endDate >= dateStr
+    ? Math.round((new Date(endDate + 'T00:00:00').getTime() - new Date(dateStr + 'T00:00:00').getTime()) / 86400000) + 1
+    : 1
+
   async function handleSave() {
     if (!title.trim()) { setError('Please add a title'); return }
+    if (isTravel && endDate < dateStr) { setError('End date must be on or after start date'); return }
     setSaving(true); setError(null)
     try {
       const res = await fetch('/api/client/calendar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_date: dateStr, type, title: title.trim() }),
+        body: JSON.stringify({
+          event_date: dateStr,
+          end_date: isTravel && endDate > dateStr ? endDate : undefined,
+          type,
+          title: title.trim(),
+        }),
       })
       if (!res.ok) throw new Error(await res.text())
       onCreated(await res.json())
@@ -914,7 +932,7 @@ function AddEventModal({ dateStr, onClose, onCreated }: {
               <button
                 key={t.value}
                 type="button"
-                onClick={() => setType(t.value)}
+                onClick={() => handleTypeChange(t.value)}
                 className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${
                   type === t.value ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'
                 }`}
@@ -925,6 +943,37 @@ function AddEventModal({ dateStr, onClose, onCreated }: {
               </button>
             ))}
           </div>
+
+          {/* Date range — only for travel */}
+          {isTravel && (
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-gray-500 block">Duration</label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className="text-[10px] text-gray-400 mb-1">Start</p>
+                  <input
+                    type="date"
+                    value={dateStr}
+                    disabled
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50 text-gray-500"
+                  />
+                </div>
+                <div>
+                  <p className="text-[10px] text-gray-400 mb-1">End</p>
+                  <input
+                    type="date"
+                    value={endDate}
+                    min={dateStr}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  />
+                </div>
+              </div>
+              {durationDays > 1 && (
+                <p className="text-xs text-teal-600 font-medium">{durationDays} days away</p>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="text-xs font-semibold text-gray-500 mb-1.5 block">Title</label>
@@ -1142,8 +1191,9 @@ export default function TrainingCalendar() {
     }
   }
 
-  function handleEventCreated(event: CalendarEvent) {
-    setEvents((prev) => [...prev, event])
+  function handleEventCreated(event: CalendarEvent | CalendarEvent[]) {
+    const created = Array.isArray(event) ? event : [event]
+    setEvents((prev) => [...prev, ...created])
     setAddingEventDate(null)
   }
 
