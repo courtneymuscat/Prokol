@@ -195,9 +195,11 @@ function Empty({ label }: { label: string }) {
 
 function TDEESection({ clientId }: { clientId: string }) {
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [savingTdee, setSavingTdee] = useState(false)
+  const [savingTargets, setSavingTargets] = useState(false)
+  const [savedMsg, setSavedMsg] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
+  const [hasActiveMealPlan, setHasActiveMealPlan] = useState(false)
 
   // Form state — mirrors onboarding exactly
   const [sex, setSex] = useState<TDEESex | ''>('')
@@ -217,28 +219,29 @@ function TDEESection({ clientId }: { clientId: string }) {
   const [savedFat, setSavedFat] = useState<number | null>(null)
 
   useEffect(() => {
-    fetch(`/api/coach/clients/${clientId}/tdee`)
-      .then(r => r.json())
-      .then(d => {
-        setSex(d.sex ?? '')
-        setAge(d.age != null ? String(d.age) : '')
-        setHeightCm(d.height_cm != null ? String(d.height_cm) : '')
-        setWeightKg(d.weight_kg != null ? String(d.weight_kg) : '')
-        setStepsPerDay(d.steps_per_day != null ? String(d.steps_per_day) : '8000')
-        setActivities(
-          Array.isArray(d.activities)
-            ? d.activities.map((a: Record<string, unknown>) => ({ ...a, id: crypto.randomUUID() }))
-            : []
-        )
-        setGoal(d.goal ?? null)
-        setAdjustmentPct(d.adjustment_pct ?? defaultAdjPct(d.goal ?? null))
-        setSavedTdee(d.tdee ?? null)
-        setSavedCals(d.target_calories ?? null)
-        setSavedProtein(d.target_protein ?? null)
-        setSavedCarbs(d.target_carbs ?? null)
-        setSavedFat(d.target_fat ?? null)
-      })
-      .finally(() => setLoading(false))
+    Promise.all([
+      fetch(`/api/coach/clients/${clientId}/tdee`).then(r => r.json()),
+      fetch(`/api/coach/clients/${clientId}/meal-plans`).then(r => r.json()),
+    ]).then(([d, plans]) => {
+      setSex(d.sex ?? '')
+      setAge(d.age != null ? String(d.age) : '')
+      setHeightCm(d.height_cm != null ? String(d.height_cm) : '')
+      setWeightKg(d.weight_kg != null ? String(d.weight_kg) : '')
+      setStepsPerDay(d.steps_per_day != null ? String(d.steps_per_day) : '8000')
+      setActivities(
+        Array.isArray(d.activities)
+          ? d.activities.map((a: Record<string, unknown>) => ({ ...a, id: crypto.randomUUID() }))
+          : []
+      )
+      setGoal(d.goal ?? null)
+      setAdjustmentPct(d.adjustment_pct ?? defaultAdjPct(d.goal ?? null))
+      setSavedTdee(d.tdee ?? null)
+      setSavedCals(d.target_calories ?? null)
+      setSavedProtein(d.target_protein ?? null)
+      setSavedCarbs(d.target_carbs ?? null)
+      setSavedFat(d.target_fat ?? null)
+      setHasActiveMealPlan(Array.isArray(plans) && plans.some((p: Record<string, unknown>) => p.status === 'active'))
+    }).finally(() => setLoading(false))
   }, [clientId])
 
   // Live calculation
@@ -260,36 +263,53 @@ function TDEESection({ clientId }: { clientId: string }) {
     setActivities(prev => prev.filter(a => a.id !== id))
   }
 
-  async function handleSave() {
+  function buildPayload(applyTargets: boolean) {
+    return {
+      age: parseFloat(age),
+      sex,
+      height_cm: parseFloat(heightCm),
+      weight_kg: parseFloat(weightKg),
+      steps_per_day: parseFloat(stepsPerDay) || 0,
+      activities: activities.map(({ id: _id, ...a }) => a),
+      goal,
+      adjustment_pct: adjustmentPct,
+      tdee: tdeeResult!.tdee,
+      target_calories: macros!.targetCals,
+      target_protein: macros!.proteinG,
+      target_carbs: macros!.carbG,
+      target_fat: macros!.fatG,
+      apply_targets: applyTargets,
+    }
+  }
+
+  async function handleSaveTdee() {
     if (!tdeeResult || !macros) return
-    setSaving(true)
+    setSavingTdee(true)
     await fetch(`/api/coach/clients/${clientId}/tdee`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        age: parseFloat(age),
-        sex,
-        height_cm: parseFloat(heightCm),
-        weight_kg: parseFloat(weightKg),
-        steps_per_day: parseFloat(stepsPerDay) || 0,
-        activities: activities.map(({ id: _id, ...a }) => a),
-        goal,
-        adjustment_pct: adjustmentPct,
-        tdee: tdeeResult.tdee,
-        target_calories: macros.targetCals,
-        target_protein: macros.proteinG,
-        target_carbs: macros.carbG,
-        target_fat: macros.fatG,
-      }),
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildPayload(false)),
+    })
+    setSavedTdee(tdeeResult.tdee)
+    setSavingTdee(false)
+    setSavedMsg('TDEE saved')
+    setTimeout(() => { setSavedMsg(null); setExpanded(false) }, 1500)
+  }
+
+  async function handleSaveTargets() {
+    if (!tdeeResult || !macros) return
+    setSavingTargets(true)
+    await fetch(`/api/coach/clients/${clientId}/tdee`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildPayload(true)),
     })
     setSavedTdee(tdeeResult.tdee)
     setSavedCals(macros.targetCals)
     setSavedProtein(macros.proteinG)
     setSavedCarbs(macros.carbG)
     setSavedFat(macros.fatG)
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => { setSaved(false); setExpanded(false) }, 1500)
+    setSavingTargets(false)
+    setSavedMsg('Targets saved')
+    setTimeout(() => { setSavedMsg(null); setExpanded(false) }, 1500)
   }
 
   if (loading) return <div className="bg-white rounded-2xl border p-5"><p className="text-sm text-gray-400">Loading…</p></div>
@@ -310,19 +330,22 @@ function TDEESection({ clientId }: { clientId: string }) {
       {/* Collapsed summary */}
       {!expanded && (
         savedTdee ? (
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex gap-4">
               <div>
                 <p className="text-xs text-gray-400">TDEE</p>
                 <p className="text-xl font-bold text-gray-900">{savedTdee.toLocaleString()} <span className="text-xs font-normal text-gray-400">kcal/day</span></p>
               </div>
               <div>
-                <p className="text-xs text-gray-400">Target</p>
+                <p className="text-xs text-gray-400">Daily target</p>
                 <p className="text-xl font-bold text-gray-900">{savedCals?.toLocaleString() ?? '—'} <span className="text-xs font-normal text-gray-400">kcal/day</span></p>
               </div>
             </div>
             {(savedProtein || savedCarbs || savedFat) && (
               <p className="text-xs text-gray-500">{savedProtein}g P · {savedCarbs}g C · {savedFat}g F</p>
+            )}
+            {hasActiveMealPlan && (
+              <p className="text-xs text-blue-500 font-medium">Targets driven by active meal plan</p>
             )}
           </div>
         ) : (
@@ -480,10 +503,33 @@ function TDEESection({ clientId }: { clientId: string }) {
             </div>
           )}
 
-          <button onClick={handleSave} disabled={saving || !tdeeResult || !macros}
-            className="w-full py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 transition-colors">
-            {saving ? 'Saving…' : saved ? 'Saved!' : 'Save targets to client profile'}
-          </button>
+          {savedMsg && (
+            <p className="text-xs text-center font-semibold text-green-600">{savedMsg}</p>
+          )}
+
+          {/* Meal plan notice */}
+          {hasActiveMealPlan && (
+            <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
+              <svg className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-xs text-blue-700">Client has an active meal plan. Daily targets are driven by the meal plan and will override any targets saved here.</p>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            {/* Always available — saves TDEE calculation without touching daily targets */}
+            <button onClick={handleSaveTdee} disabled={savingTdee || !tdeeResult || !macros}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors">
+              {savingTdee ? 'Saving…' : 'Save TDEE data'}
+            </button>
+
+            {/* Writes target_calories/macros — label changes based on whether meal plan is active */}
+            <button onClick={handleSaveTargets} disabled={savingTargets || !tdeeResult || !macros}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 transition-colors">
+              {savingTargets ? 'Saving…' : hasActiveMealPlan ? 'Override daily targets' : 'Set as daily targets'}
+            </button>
+          </div>
         </div>
       )}
     </div>

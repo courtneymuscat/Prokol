@@ -42,24 +42,28 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   const body = await req.json()
   const admin = createAdminClient()
 
-  const { error } = await admin
-    .from('profiles')
-    .update({
-      age:             body.age ?? null,
-      sex:             body.sex ?? null,
-      height_cm:       body.height_cm ?? null,
-      weight_kg:       body.weight_kg ?? null,
-      steps_per_day:   body.steps_per_day ?? null,
-      activities:      body.activities ?? [],
-      goal:            body.goal ?? null,
-      adjustment_pct:  body.adjustment_pct ?? null,
-      tdee:            body.tdee ?? null,
-      target_calories: body.target_calories ?? null,
-      target_protein:  body.target_protein ?? null,
-      target_carbs:    body.target_carbs ?? null,
-      target_fat:      body.target_fat ?? null,
-    })
-    .eq('id', clientId)
+  // Always save the TDEE calculation data
+  const calcFields: Record<string, unknown> = {
+    age:            body.age ?? null,
+    sex:            body.sex ?? null,
+    height_cm:      body.height_cm ?? null,
+    weight_kg:      body.weight_kg ?? null,
+    steps_per_day:  body.steps_per_day ?? null,
+    activities:     body.activities ?? [],
+    goal:           body.goal ?? null,
+    adjustment_pct: body.adjustment_pct ?? null,
+    tdee:           body.tdee ?? null,
+  }
+
+  // Only overwrite daily targets when explicitly requested (no active meal plan)
+  if (body.apply_targets) {
+    calcFields.target_calories = body.target_calories ?? null
+    calcFields.target_protein  = body.target_protein  ?? null
+    calcFields.target_carbs    = body.target_carbs    ?? null
+    calcFields.target_fat      = body.target_fat      ?? null
+  }
+
+  const { error } = await admin.from('profiles').update(calcFields).eq('id', clientId)
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json({ ok: true })
