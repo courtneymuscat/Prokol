@@ -540,43 +540,60 @@ function TDEESection({ clientId }: { clientId: string }) {
 
 function GoalsSection({ clientId }: { clientId: string }) {
   const [mainGoal, setMainGoal] = useState('')
+  const [savedMainGoal, setSavedMainGoal] = useState('')
   const [miniGoals, setMiniGoals] = useState<string[]>([])
   const [newMini, setNewMini] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [miniSaving, setMiniSaving] = useState(false)
 
   useEffect(() => {
     fetch(`/api/coach/clients/${clientId}/goals`)
       .then((r) => r.json())
       .then((d) => {
-        setMainGoal(d.main_goal ?? '')
+        const mg = d.main_goal ?? ''
+        setMainGoal(mg)
+        setSavedMainGoal(mg)
         setMiniGoals(Array.isArray(d.mini_goals) ? d.mini_goals : [])
       })
       .finally(() => setLoading(false))
   }, [clientId])
 
-  async function save() {
-    setSaving(true)
-    await fetch(`/api/coach/clients/${clientId}/goals`, {
+  const mainGoalDirty = mainGoal !== savedMainGoal
+
+  async function putGoals(main: string, minis: string[]) {
+    return fetch(`/api/coach/clients/${clientId}/goals`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ main_goal: mainGoal || null, mini_goals: miniGoals }),
+      body: JSON.stringify({ main_goal: main || null, mini_goals: minis }),
     })
+  }
+
+  async function saveMainGoal() {
+    setSaving(true)
+    await putGoals(mainGoal, miniGoals)
+    setSavedMainGoal(mainGoal)
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
 
-  function addMini() {
+  async function addMini() {
     const val = newMini.trim()
     if (!val) return
-    setMiniGoals((prev) => [...prev, val])
+    const next = [...miniGoals, val]
+    setMiniGoals(next)
     setNewMini('')
+    setMiniSaving(true)
+    await putGoals(mainGoal, next)
+    setMiniSaving(false)
   }
 
-  function removeMini(i: number) {
-    setMiniGoals((prev) => prev.filter((_, j) => j !== i))
+  async function removeMini(i: number) {
+    const next = miniGoals.filter((_, j) => j !== i)
+    setMiniGoals(next)
+    await putGoals(mainGoal, next)
   }
 
   if (loading) return <div className="bg-white rounded-2xl border p-5"><p className="text-sm text-gray-400">Loading…</p></div>
@@ -586,9 +603,9 @@ function GoalsSection({ clientId }: { clientId: string }) {
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Client Goals</h3>
         <button
-          onClick={save}
-          disabled={saving}
-          className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50 transition-colors"
+          onClick={saveMainGoal}
+          disabled={saving || !mainGoalDirty}
+          className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-40 transition-colors"
         >
           {saving ? 'Saving…' : saved ? 'Saved!' : 'Save'}
         </button>
@@ -602,13 +619,21 @@ function GoalsSection({ clientId }: { clientId: string }) {
           onChange={(e) => setMainGoal(e.target.value)}
           placeholder="e.g. Lose 5 kg by summer, build consistent training habit…"
           rows={2}
-          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+          className={`w-full border rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 focus:outline-none focus:ring-2 resize-none transition-colors ${
+            mainGoalDirty ? 'border-amber-300 focus:ring-amber-300' : 'border-gray-200 focus:ring-blue-400'
+          }`}
         />
+        {mainGoalDirty && (
+          <p className="text-xs text-amber-500 mt-1">Unsaved — click Save to apply changes</p>
+        )}
       </div>
 
       {/* Mini goals */}
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-2">Mini goals <span className="text-gray-400 font-normal">(this week / before next check-in)</span></label>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-xs font-medium text-gray-500">Mini goals <span className="text-gray-400 font-normal">(this week / before next check-in)</span></label>
+          {miniSaving && <span className="text-xs text-gray-400">Saving…</span>}
+        </div>
         <div className="space-y-1.5 mb-2">
           {miniGoals.length === 0 && <p className="text-xs text-gray-400">No mini goals yet.</p>}
           {miniGoals.map((g, i) => (
@@ -628,7 +653,7 @@ function GoalsSection({ clientId }: { clientId: string }) {
             placeholder="Add a mini goal…"
             className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
-          <button onClick={addMini} className="text-xs font-semibold text-blue-600 hover:text-blue-800 px-2">Add</button>
+          <button onClick={addMini} disabled={!newMini.trim()} className="text-xs font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-40 px-2">Add</button>
         </div>
       </div>
     </div>
