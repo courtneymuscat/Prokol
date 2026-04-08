@@ -725,12 +725,16 @@ function NotesTab({ clientId }: { clientId: string }) {
   const [body, setBody] = useState('')
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [templates, setTemplates] = useState<{ id: string; name: string; body: string }[]>([])
 
   useEffect(() => {
-    fetch(`/api/coach/notes/${clientId}`)
-      .then((r) => r.json())
-      .then((d) => setNotes(Array.isArray(d) ? d : []))
-      .finally(() => setLoading(false))
+    Promise.all([
+      fetch(`/api/coach/notes/${clientId}`).then((r) => r.json()),
+      fetch('/api/coach/note-templates').then((r) => r.json()),
+    ]).then(([notesData, tmplData]) => {
+      setNotes(Array.isArray(notesData) ? notesData : [])
+      setTemplates(Array.isArray(tmplData) ? tmplData : [])
+    }).finally(() => setLoading(false))
   }, [clientId])
 
   async function addNote() {
@@ -764,13 +768,34 @@ function NotesTab({ clientId }: { clientId: string }) {
     <div className="space-y-4">
       {/* Add note */}
       <div className="bg-white rounded-2xl border p-5 space-y-3">
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Add note</label>
+        <div className="flex items-center justify-between">
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">Add note</label>
+          {templates.length > 0 && (
+            <select
+              defaultValue=""
+              onChange={(e) => {
+                const t = templates.find((t) => t.id === e.target.value)
+                if (t) setBody(t.body)
+                e.target.value = ''
+              }}
+              className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+            >
+              <option value="" disabled>Use template…</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          )}
+          {templates.length === 0 && (
+            <a href="/coach/note-templates" className="text-xs text-blue-500 hover:underline">+ Create templates</a>
+          )}
+        </div>
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          rows={3}
-          placeholder="Write a note about this client…"
-          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          rows={body ? 10 : 3}
+          placeholder="Write a note about this client… or pick a template above"
+          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y font-mono"
         />
         <button
           onClick={addNote}
