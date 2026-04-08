@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import InviteForm from './InviteForm'
 import CoachActivityFeed from './CoachActivityFeed'
+import ClientSummaries from './ClientSummaries'
 
 const TIER_LABEL: Record<string, string> = { tier_1: 'Free', tier_2: 'Pro', tier_3: 'Elite' }
 
@@ -143,6 +144,9 @@ export default async function CoachDashboard() {
           </div>
         )}
       </section>
+
+      {/* Client summaries — goals, targets, upcoming events */}
+      <ClientSummaries coachId={coachId} clients={clients} />
 
       {/* Invite */}
       <InviteForm />
