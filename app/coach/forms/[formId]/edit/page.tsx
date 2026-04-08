@@ -48,7 +48,6 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
   const [loading, setLoading] = useState(!isNew)
   const [savedId, setSavedId] = useState<string | null>(isNew ? null : formId)
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
   const [isClientCopy, setIsClientCopy] = useState(false)
   const [clientName, setClientName] = useState<string | null>(null)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
@@ -142,16 +141,19 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
       })
     }
 
-    // 2. Save questions
+    // 2. Save questions — always persist all questions so order is never stale
     for (const [i, q] of questions.entries()) {
-      if (!q._dirty) continue
       if (!q.id) {
         // New question
-        await fetch(`/api/forms/${fId}/questions`, {
+        const res = await fetch(`/api/forms/${fId}/questions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...q, order_index: i }),
         })
+        const created = await res.json()
+        if (created?.id) {
+          setQuestions((prev) => prev.map((pq, pi) => pi === i ? { ...pq, id: created.id, _dirty: false } : pq))
+        }
       } else {
         await fetch(`/api/forms/questions/${q.id}`, {
           method: 'PUT',
@@ -161,11 +163,8 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
       }
     }
 
-    // 3. Delete removed questions (handled inline via removeQuestion + API)
     setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
-    if (isNew && fId) router.replace(`/coach/forms/${fId}/edit`)
+    router.push(clientId ? `/coach/clients/${clientId}` : '/coach/forms')
   }
 
   async function handleDeleteQuestion(idx: number) {
@@ -204,7 +203,7 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
           disabled={saving}
           className="bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
         >
-          {saving ? 'Saving…' : saved ? 'Saved!' : 'Save form'}
+          {saving ? 'Saving…' : 'Save form'}
         </button>
       </div>
 
@@ -301,7 +300,7 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
           disabled={saving}
           className="w-full bg-blue-600 text-white py-3 rounded-2xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
         >
-          {saving ? 'Saving…' : saved ? 'Saved!' : 'Save form'}
+          {saving ? 'Saving…' : 'Save form'}
         </button>
       </main>
     </div>

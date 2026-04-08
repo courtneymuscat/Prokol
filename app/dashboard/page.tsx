@@ -159,16 +159,15 @@ export default async function DashboardPage() {
           />
         )}
 
+        {/* Check-ins — top of page for coached clients */}
+        {isCoached && <ScheduledCheckIns />}
+
         {/* Coached-only sections: Meal Plan, Habits */}
         {isCoached && (
           <>
             <section>
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">My Meal Plan</p>
               <MealPlanView />
-            </section>
-
-            <section>
-              <ScheduledCheckIns />
             </section>
 
             <section>

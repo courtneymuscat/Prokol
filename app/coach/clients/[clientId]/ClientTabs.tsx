@@ -3455,9 +3455,9 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'calendar', label: 'Calendar' },
   { id: 'program', label: 'Training' },
   { id: 'mealplan', label: 'Meal Plan' },
+  { id: 'nutrition', label: 'Food Logs' },
   { id: 'habits', label: 'Habits' },
   { id: 'checkins', label: 'Check-ins' },
-  { id: 'nutrition', label: 'Food Logs' },
   { id: 'notes', label: 'Notes' },
   { id: 'files', label: 'Files' },
 ]
@@ -3506,6 +3506,9 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
 
       {/* Meal Plan */}
       {tab === 'mealplan' && <MealPlanTab clientId={clientId} />}
+
+      {/* Food Logs */}
+      {tab === 'nutrition' && <FoodLogsTab clientId={clientId} />}
 
       {/* Habits */}
       {tab === 'habits' && <HabitsTab clientId={clientId} />}
@@ -3560,10 +3563,6 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
           )}
         </div>
       )}
-
-      {/* Food Logs */}
-      {tab === 'nutrition' && <FoodLogsTab clientId={clientId} />}
-
 
       {/* Training */}
       {tab === 'training' && data && (
