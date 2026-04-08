@@ -140,6 +140,46 @@ const STARTER_TEMPLATES = [
 ### Notes
 `,
   },
+  {
+    name: 'Client Check-In Summary',
+    body: `## Client Check-In Summary
+
+**Date:**
+**Client:**
+**Week:**
+
+### Training
+- Sessions completed:
+- Performance notes:
+- PRs / highlights:
+- Struggles:
+
+### Nutrition Summary
+- Adherence to plan:
+- Average calories:
+- Average protein:
+- Highlights:
+- Challenges:
+
+### Wins This Week
+
+
+### Barriers & Strategies
+- Barriers:
+- Strategies for next time:
+
+### Updates
+- Life changes / schedule shifts:
+- Injuries or limitations:
+
+### Actions for Next Week
+1.
+2.
+3.
+
+### Coach Notes
+`,
+  },
 ]
 
 export default function NoteTemplatesPage() {
