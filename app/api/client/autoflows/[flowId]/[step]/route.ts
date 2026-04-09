@@ -39,7 +39,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       .maybeSingle(),
   ])
 
-  const tpl = flow.autoflow_templates as { core_questions: unknown[]; total_steps: number; type: string } | null
+  const tpl = flow.autoflow_templates as unknown as { core_questions: unknown[]; total_steps: number; type: string } | null
 
   return Response.json({
     flow_id: flowId,
