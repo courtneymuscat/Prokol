@@ -17,7 +17,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     .eq('client_id', clientId)
     .maybeSingle()
 
-  return Response.json(data ?? { main_goal: null, mini_goals: [], key_notes: null })
+  return Response.json(data ?? { main_goal: null, mini_goals: [], key_notes: [] })
 }
 
 export async function PUT(req: NextRequest, { params }: Ctx) {
@@ -31,7 +31,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   const { data, error } = await supabase
     .from('client_goals')
     .upsert(
-      { coach_id: coachId, client_id: clientId, main_goal: main_goal ?? null, mini_goals: mini_goals ?? [], key_notes: key_notes ?? null, updated_at: new Date().toISOString() },
+      { coach_id: coachId, client_id: clientId, main_goal: main_goal ?? null, mini_goals: mini_goals ?? [], key_notes: key_notes ?? [], updated_at: new Date().toISOString() },
       { onConflict: 'coach_id,client_id' }
     )
     .select('main_goal, mini_goals, key_notes, updated_at')
