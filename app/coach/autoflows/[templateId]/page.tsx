@@ -15,12 +15,17 @@ type Question = {
   options?: string[]
 }
 
+type Task = { id: string; label: string }
+
 type Step = {
   step_number: number
   title: string
   description: string
   questions: Question[]
   day_offset: number
+  resource_ids: string[]
+  form_id: string | null
+  tasks: Task[]
 }
 
 type Template = {
@@ -31,6 +36,19 @@ type Template = {
   total_steps: number
   core_questions: Question[]
   steps: Step[]
+}
+
+type CoachResource = {
+  id: string
+  name: string
+  type: string
+  coach_resource_folders: { name: string; icon: string } | null
+}
+
+type CoachForm = {
+  id: string
+  title: string
+  type: string
 }
 
 const TYPE_LABELS: Record<QuestionType, string> = {
@@ -177,6 +195,8 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(!isNew)
+  const [resources, setResources] = useState<CoachResource[]>([])
+  const [forms, setForms] = useState<CoachForm[]>([])
 
   // New template state
   const [newName, setNewName] = useState('')
@@ -185,13 +205,30 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
   const [creating, setCreating] = useState(false)
 
   useEffect(() => {
-    if (isNew) return
-    fetch(`/api/coach/autoflows/${templateId}`)
-      .then(r => r.json())
-      .then(d => {
-        if (!d.error) setTemplate(d)
+    if (!isNew) {
+      fetch(`/api/coach/autoflows/${templateId}`)
+        .then(r => r.json())
+        .then(d => {
+        if (!d.error) setTemplate({
+          ...d,
+          steps: (d.steps ?? []).map((s: Step) => ({
+            resource_ids: [],
+            form_id: null,
+            tasks: [],
+            ...s,
+          })),
+        })
       })
-      .finally(() => setLoading(false))
+        .finally(() => setLoading(false))
+    }
+    // Load resources + forms for step linking
+    Promise.all([
+      fetch('/api/coach/resources').then(r => r.json()),
+      fetch('/api/forms').then(r => r.json()),
+    ]).then(([res, frm]) => {
+      setResources(Array.isArray(res) ? res : [])
+      setForms(Array.isArray(frm) ? frm : [])
+    })
   }, [templateId, isNew])
 
   async function createTemplate() {
@@ -236,7 +273,11 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
     if (!template) return
     setTemplate({
       ...template,
-      steps: template.steps.map(s => s.step_number === stepNum ? { ...s, ...patch } : s),
+      steps: template.steps.map(s =>
+        s.step_number === stepNum
+          ? { resource_ids: [], form_id: null, tasks: [], ...s, ...patch }
+          : s
+      ),
     })
   }
 
@@ -454,6 +495,91 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                   onChange={qs => updateStep(activeStep, { questions: qs })}
                   emptyText="No step-specific questions. Core questions will still appear."
                 />
+              </div>
+
+              {/* Tasks checklist */}
+              <div className="border border-gray-200 rounded-2xl p-4 space-y-3 bg-white">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900">Tasks</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Checklist items the client ticks off as part of this step.</p>
+                </div>
+                <div className="space-y-2">
+                  {(currentStep.tasks ?? []).map((task, i) => (
+                    <div key={task.id} className="flex items-center gap-2">
+                      <span className="text-gray-400 text-sm">☐</span>
+                      <input
+                        value={task.label}
+                        onChange={e => {
+                          const tasks = [...(currentStep.tasks ?? [])]
+                          tasks[i] = { ...task, label: e.target.value }
+                          updateStep(activeStep, { tasks })
+                        }}
+                        placeholder="Task description…"
+                        className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none"
+                      />
+                      <button
+                        onClick={() => updateStep(activeStep, { tasks: (currentStep.tasks ?? []).filter((_, j) => j !== i) })}
+                        className="text-gray-300 hover:text-red-400 transition-colors">
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => updateStep(activeStep, { tasks: [...(currentStep.tasks ?? []), { id: crypto.randomUUID(), label: '' }] })}
+                    className="text-xs text-gray-500 hover:text-gray-800 border border-dashed border-gray-200 rounded-xl py-2 px-3 w-full transition-colors">
+                    + Add task
+                  </button>
+                </div>
+              </div>
+
+              {/* Resources */}
+              <div className="border border-gray-200 rounded-2xl p-4 space-y-3 bg-white">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900">Resources</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Resources from your library to share with the client in this step.</p>
+                </div>
+                {resources.length === 0 ? (
+                  <p className="text-xs text-gray-400">No resources in your library yet. <a href="/coach/resources" target="_blank" className="text-blue-500 underline">Add resources →</a></p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {resources.map(r => {
+                      const selected = (currentStep.resource_ids ?? []).includes(r.id)
+                      return (
+                        <label key={r.id} className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 cursor-pointer transition-colors ${selected ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                          <input type="checkbox" checked={selected} onChange={e => {
+                            const ids = currentStep.resource_ids ?? []
+                            updateStep(activeStep, { resource_ids: e.target.checked ? [...ids, r.id] : ids.filter(id => id !== r.id) })
+                          }} className="rounded accent-blue-600" />
+                          <span className="text-sm">{r.type === 'link' ? '🔗' : r.type === 'video' ? '🎬' : r.type === 'pdf' ? '📄' : '📝'}</span>
+                          <span className="text-sm font-medium text-gray-900 flex-1 truncate">{r.name}</span>
+                          {r.coach_resource_folders && (
+                            <span className="text-xs text-gray-400 flex-shrink-0">{r.coach_resource_folders.icon} {r.coach_resource_folders.name}</span>
+                          )}
+                        </label>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Linked form */}
+              <div className="border border-gray-200 rounded-2xl p-4 space-y-3 bg-white">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900">Linked form</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">Attach a form for the client to fill out as part of this step.</p>
+                </div>
+                {forms.length === 0 ? (
+                  <p className="text-xs text-gray-400">No forms yet. <a href="/coach/forms" target="_blank" className="text-blue-500 underline">Create a form →</a></p>
+                ) : (
+                  <select
+                    value={currentStep.form_id ?? ''}
+                    onChange={e => updateStep(activeStep, { form_id: e.target.value || null })}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none bg-white"
+                  >
+                    <option value="">No form linked</option>
+                    {forms.map(f => <option key={f.id} value={f.id}>{f.title}</option>)}
+                  </select>
+                )}
               </div>
             </div>
           )}

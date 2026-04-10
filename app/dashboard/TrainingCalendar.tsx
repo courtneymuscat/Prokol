@@ -1189,6 +1189,13 @@ export default function TrainingCalendar() {
   const goToNextWeek = () => setWeekStart((d) => addDays(d, 7))
   const goToThisWeek = () => setWeekStart(startOfWeek(new Date()))
 
+  const datePickerRef = useRef<HTMLInputElement>(null)
+  function handleDatePickerChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!e.target.value) return
+    const [y, m, d] = e.target.value.split('-').map(Number)
+    setWeekStart(startOfWeek(new Date(y, m - 1, d)))
+  }
+
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -1226,7 +1233,20 @@ export default function TrainingCalendar() {
       <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
         <div className="flex items-center gap-3">
           <h2 className="text-base font-semibold text-gray-900">Training Calendar</h2>
-          <span className="text-sm text-gray-400">{monthLabel}</span>
+          <button
+            onClick={() => datePickerRef.current?.showPicker()}
+            className="text-sm text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
+            title="Jump to date"
+          >
+            {monthLabel}
+          </button>
+          <input
+            ref={datePickerRef}
+            type="date"
+            className="sr-only"
+            value={toDateStr(weekStart)}
+            onChange={handleDatePickerChange}
+          />
         </div>
         <div className="flex items-center gap-1">
           {!isCurrentWeek && (

@@ -16,6 +16,7 @@ import MealPlanView from './MealPlanView'
 import HabitsPanel from './HabitsPanel'
 import ScheduledCheckIns from './ScheduledCheckIns'
 import GoalsPanel from './GoalsPanel'
+import ResourcesPanel from './ResourcesPanel'
 import DashboardTour from './DashboardTour'
 import ProfileCompletionPrompt from './ProfileCompletionPrompt'
 
@@ -201,6 +202,9 @@ export default async function DashboardPage() {
             <HabitsPanel />
           </section>
         )}
+
+        {/* Resources — shown when coach has assigned any */}
+        {isCoached && <ResourcesPanel />}
 
         {/* Daily targets card */}
         {(!isCoached || showDailyTargets) && profile?.target_calories ? (

@@ -55,6 +55,26 @@ export async function POST(
   const body = await req.json()
   const { meal_plan_id, name, content, start_date, end_date, total_calories } = body
 
+  // Block if any existing plan has an end_date that overlaps with the new plan's start_date
+  if (start_date) {
+    const { data: conflicting, error: conflictErr } = await supabase
+      .from('client_meal_plans')
+      .select('id, name, end_date')
+      .eq('client_id', clientId)
+      .eq('coach_id', coachId)
+      .not('end_date', 'is', null)
+      .gte('end_date', start_date)
+      .limit(1)
+      .maybeSingle()
+
+    if (!conflictErr && conflicting) {
+      return Response.json(
+        { error: `"${conflicting.name}" runs until ${conflicting.end_date}. Set its end date before ${start_date}, or choose a later start date.` },
+        { status: 409 }
+      )
+    }
+  }
+
   let { data, error } = await supabase
     .from('client_meal_plans')
     .insert({

@@ -13,6 +13,16 @@ type Question = {
   options?: string[]
 }
 
+type Resource = {
+  id: string
+  name: string
+  description: string | null
+  type: 'link' | 'video' | 'pdf' | 'document'
+  url: string | null
+}
+
+type Task = { id: string; label: string }
+
 type StepData = {
   flow_id: string
   flow_name: string
@@ -23,7 +33,17 @@ type StepData = {
   description: string | null
   core_questions: Question[]
   questions: Question[]
+  resources: Resource[]
+  tasks: Task[]
+  linked_form: { id: string; title: string } | null
   existing_submission: { id: string; answers: Record<string, string>; submitted_at: string } | null
+}
+
+const RESOURCE_TYPE_META: Record<string, { icon: string; label: string; color: string }> = {
+  link:     { icon: '🔗', label: 'Link',     color: 'bg-blue-50 border-blue-200 text-blue-800' },
+  video:    { icon: '🎬', label: 'Video',    color: 'bg-purple-50 border-purple-200 text-purple-800' },
+  pdf:      { icon: '📄', label: 'PDF',      color: 'bg-red-50 border-red-200 text-red-800' },
+  document: { icon: '📝', label: 'Document', color: 'bg-gray-50 border-gray-200 text-gray-800' },
 }
 
 function ScaleInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -110,6 +130,7 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
 
   const [data, setData] = useState<StepData | null>(null)
   const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [checkedTasks, setCheckedTasks] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -122,7 +143,14 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
         if (d.error) { setError(d.error); return }
         setData(d)
         if (d.existing_submission) {
-          setAnswers(d.existing_submission.answers ?? {})
+          const saved = d.existing_submission.answers ?? {}
+          setAnswers(saved)
+          // Restore checked tasks from saved answers
+          const checked = new Set<string>()
+          for (const [k, v] of Object.entries(saved)) {
+            if (k.startsWith('task_') && v === 'done') checked.add(k.slice(5))
+          }
+          setCheckedTasks(checked)
         }
       })
       .finally(() => setLoading(false))
@@ -138,10 +166,15 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
     }
     setError(null)
     setSubmitting(true)
+    // Merge task completion into answers
+    const taskAnswers: Record<string, string> = {}
+    for (const task of (data.tasks ?? [])) {
+      taskAnswers[`task_${task.id}`] = checkedTasks.has(task.id) ? 'done' : 'skipped'
+    }
     const res = await fetch(`/api/client/autoflows/${flowId}/${step}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ answers }),
+      body: JSON.stringify({ answers: { ...answers, ...taskAnswers } }),
     })
     setSubmitting(false)
     if (res.ok) {
@@ -240,6 +273,77 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
           </p>
         )}
 
+        {/* Resources */}
+        {data.resources && data.resources.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1">Resources</p>
+            {data.resources.map(r => {
+              const meta = RESOURCE_TYPE_META[r.type] ?? RESOURCE_TYPE_META.document
+              return (
+                <div key={r.id} className={`bg-white rounded-xl border p-3.5 flex items-start gap-3 ${meta.color}`}>
+                  <span className="text-xl flex-shrink-0">{meta.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold">{r.name}</p>
+                    {r.description && <p className="text-xs mt-0.5 opacity-75">{r.description}</p>}
+                    {r.url && (
+                      <a href={r.url} target="_blank" rel="noopener noreferrer"
+                        className="inline-block mt-2 text-xs font-semibold underline opacity-90 hover:opacity-100">
+                        Open {meta.label} →
+                      </a>
+                    )}
+                    {!r.url && <p className="text-xs mt-1 opacity-50 italic">No link provided — ask your coach.</p>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Linked form */}
+        {data.linked_form && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+            <span className="text-xl flex-shrink-0">📋</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">Form to complete</p>
+              <p className="text-sm font-semibold text-amber-900">{data.linked_form.title}</p>
+              <a href={`/forms/${data.linked_form.id}`}
+                className="inline-block mt-2 text-xs font-semibold text-amber-800 underline hover:text-amber-900">
+                Fill out form →
+              </a>
+            </div>
+          </div>
+        )}
+
+        {/* Tasks */}
+        {data.tasks && data.tasks.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tasks</p>
+            <div className="space-y-2">
+              {data.tasks.map(task => (
+                <label key={task.id} className="flex items-center gap-3 cursor-pointer group">
+                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checkedTasks.has(task.id) ? 'bg-gray-900 border-gray-900' : 'border-gray-300 group-hover:border-gray-500'}`}>
+                    {checkedTasks.has(task.id) && (
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                  <input type="checkbox" checked={checkedTasks.has(task.id)} className="sr-only"
+                    onChange={e => {
+                      const next = new Set(checkedTasks)
+                      if (e.target.checked) next.add(task.id); else next.delete(task.id)
+                      setCheckedTasks(next)
+                    }} />
+                  <span className={`text-sm transition-colors ${checkedTasks.has(task.id) ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+                    {task.label}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Questions */}
         {allQuestions.map((q, i) => (
           <div key={q.id} className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
             <label className="block text-sm font-medium text-gray-900">
@@ -254,9 +358,9 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
           </div>
         ))}
 
-        {allQuestions.length === 0 && (
+        {allQuestions.length === 0 && !data.tasks?.length && !data.resources?.length && !data.linked_form && (
           <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
-            <p className="text-sm text-gray-400">No questions for this step.</p>
+            <p className="text-sm text-gray-400">No content for this step yet.</p>
           </div>
         )}
 
@@ -264,7 +368,7 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
           <p className="text-xs text-red-500 px-1">{error}</p>
         )}
 
-        {allQuestions.length > 0 && (
+        {(allQuestions.length > 0 || (data.tasks ?? []).length > 0) && (
           <button
             onClick={submit}
             disabled={submitting}

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ flowId: string; step: string }> }
@@ -21,7 +22,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const [{ data: templateStep }, { data: override }, { data: existing }] = await Promise.all([
     supabase
       .from('autoflow_template_steps')
-      .select('title, description, questions, day_offset')
+      .select('title, description, questions, day_offset, resource_ids, form_id, tasks')
       .eq('template_id', flow.template_id)
       .eq('step_number', stepNum)
       .single(),
@@ -41,6 +42,30 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
   const tpl = flow.autoflow_templates as unknown as { core_questions: unknown[]; total_steps: number; type: string } | null
 
+  // Resolve resource details (admin client — resources are coach-owned)
+  const resourceIds: string[] = Array.isArray(templateStep?.resource_ids) ? templateStep.resource_ids as string[] : []
+  let resources: unknown[] = []
+  if (resourceIds.length > 0) {
+    const admin = createAdminClient()
+    const { data: res } = await admin
+      .from('coach_resources')
+      .select('id, name, description, type, url')
+      .in('id', resourceIds)
+    resources = res ?? []
+  }
+
+  // Resolve linked form title
+  let linkedForm: { id: string; title: string } | null = null
+  if (templateStep?.form_id) {
+    const admin = createAdminClient()
+    const { data: form } = await admin
+      .from('forms')
+      .select('id, title')
+      .eq('id', templateStep.form_id)
+      .single()
+    linkedForm = form ?? null
+  }
+
   return Response.json({
     flow_id: flowId,
     flow_name: flow.name,
@@ -51,6 +76,9 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     description: templateStep?.description ?? null,
     core_questions: tpl?.core_questions ?? [],
     questions: override?.questions ?? templateStep?.questions ?? [],
+    resources,
+    tasks: templateStep?.tasks ?? [],
+    linked_form: linkedForm,
     existing_submission: existing ?? null,
   })
 }
