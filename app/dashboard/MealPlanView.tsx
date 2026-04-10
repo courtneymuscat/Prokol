@@ -455,21 +455,26 @@ export default function MealPlanView() {
 
         {/* Tab list — only shown when multiple plans */}
         {plans.length > 1 && (
-          <div className="flex gap-1 overflow-x-auto">
-            {plans.map((plan, i) => (
-              <button
-                key={plan.id}
-                onClick={() => setActiveTab(i)}
-                className={[
-                  'shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
-                  i === activeTab
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-500 hover:bg-gray-100',
-                ].join(' ')}
-              >
-                {plan.name}
-              </button>
-            ))}
+          <div className="space-y-2.5">
+            <div className="flex gap-1 overflow-x-auto pb-0.5">
+              {plans.map((plan, i) => (
+                <button
+                  key={plan.id}
+                  onClick={() => setActiveTab(i)}
+                  className={[
+                    'shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+                    i === activeTab
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-500 hover:bg-gray-100',
+                  ].join(' ')}
+                >
+                  {plan.name}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400">
+              You have {plans.length} meal plans — tap the tabs above to switch between them. Plans without an end date are ongoing and will stay here alongside any others (e.g. a training day and a rest day plan).
+            </p>
           </div>
         )}
       </div>

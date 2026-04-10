@@ -5,15 +5,12 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Return only the single most-current active plan (latest start_date wins)
   const { data } = await supabase
     .from('client_meal_plans')
     .select('*')
     .eq('client_id', user.id)
     .eq('status', 'active')
-    .order('start_date', { ascending: false })
     .order('created_at', { ascending: false })
-    .limit(1)
 
   return Response.json(data ?? [])
 }
