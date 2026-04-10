@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type QuestionType = 'text' | 'textarea' | 'scale' | 'yesno' | 'choice' | 'note'
+type QuestionType = 'text' | 'textarea' | 'scale' | 'yesno' | 'choice' | 'note' | 'section'
 
 type Question = {
   id: string
@@ -112,6 +112,34 @@ function QuestionCard({
     )
   }
 
+  if (q.type === 'section') {
+    return (
+      <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
+        <div className="flex items-start gap-3">
+          <DragHandle />
+          <div className="flex-1 space-y-2">
+            <p className="text-xs font-medium text-gray-500">Section heading</p>
+            <input
+              value={q.label}
+              onChange={e => onChange({ ...q, label: e.target.value })}
+              placeholder="Section title…"
+              className="w-full text-sm font-semibold border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none"
+            />
+            <input
+              value={q.description ?? ''}
+              onChange={e => onChange({ ...q, description: e.target.value || undefined })}
+              placeholder="Optional subtitle or instructions…"
+              className="w-full text-xs border border-gray-200 rounded-xl px-3 py-2 focus:outline-none text-gray-500"
+            />
+          </div>
+          <button onClick={onDelete} className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
       <div className="flex items-start gap-3">
@@ -147,8 +175,8 @@ function QuestionCard({
           <input
             value={q.description ?? ''}
             onChange={e => onChange({ ...q, description: e.target.value || undefined })}
-            placeholder="Add a description or helper text (optional)…"
-            className="w-full text-xs border border-gray-100 rounded-lg px-3 py-1.5 focus:outline-none text-gray-500 bg-gray-50"
+            placeholder="Description (optional) — shown below the question…"
+            className="w-full text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none text-gray-500"
           />
           {q.type === 'choice' && (
             <div className="space-y-1.5 pl-1">
@@ -206,6 +234,9 @@ function QuestionList({
   }
   const addNote = () => {
     onChange([...questions, { id: crypto.randomUUID(), type: 'note', label: '', required: false }])
+  }
+  const addSection = () => {
+    onChange([...questions, { id: crypto.randomUUID(), type: 'section', label: '', required: false }])
   }
 
   function handleDragStart(i: number) {
@@ -271,6 +302,12 @@ function QuestionList({
           className="flex-1 text-xs text-gray-500 border border-dashed border-gray-200 rounded-xl py-2.5 hover:border-gray-400 hover:text-gray-700 transition-colors"
         >
           + Add note
+        </button>
+        <button
+          onClick={addSection}
+          className="flex-1 text-xs text-gray-500 border border-dashed border-gray-200 rounded-xl py-2.5 hover:border-gray-400 hover:text-gray-700 transition-colors"
+        >
+          + Add section
         </button>
       </div>
     </div>

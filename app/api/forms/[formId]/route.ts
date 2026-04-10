@@ -67,7 +67,23 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
   if (!coachId || !(await ownsForm(coachId, formId)))
     return Response.json({ error: 'Unauthorised' }, { status: 401 })
 
-  const supabase = await createClient()
-  await supabase.from('forms').delete().eq('id', formId)
+  // Use admin client to bypass RLS for cascading deletes
+  const admin = createAdminClient()
+
+  // Delete child records first to avoid FK constraint failures
+  const submissionIds = await admin
+    .from('form_submissions')
+    .select('id')
+    .eq('form_id', formId)
+  const ids = (submissionIds.data ?? []).map(s => s.id)
+  if (ids.length > 0) {
+    await admin.from('form_answers').delete().in('submission_id', ids)
+  }
+  await admin.from('form_submissions').delete().eq('form_id', formId)
+  await admin.from('form_questions').delete().eq('form_id', formId)
+
+  const { error } = await admin.from('forms').delete().eq('id', formId)
+  if (error) return Response.json({ error: error.message }, { status: 500 })
+
   return Response.json({ ok: true })
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 
-type QuestionType = 'text' | 'textarea' | 'scale' | 'yesno' | 'choice' | 'note'
+type QuestionType = 'text' | 'textarea' | 'scale' | 'yesno' | 'choice' | 'note' | 'section'
 
 type Question = {
   id: string
@@ -198,7 +198,7 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
   async function submit() {
     if (!data) return
     const allQuestions = [...data.core_questions, ...data.questions]
-    const missing = allQuestions.filter(q => q.type !== 'note' && q.required && !answers[q.id]?.trim())
+    const missing = allQuestions.filter(q => q.type !== 'note' && q.type !== 'section' && q.required && !answers[q.id]?.trim())
     if (missing.length > 0) {
       setError(`Please answer all required questions (${missing.length} remaining).`)
       return
@@ -409,6 +409,15 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
                 </div>
               )
             }
+            if (q.type === 'section') {
+              return (
+                <div key={q.id} className="pt-2 pb-1">
+                  {q.label && <p className="text-base font-semibold text-gray-900">{q.label}</p>}
+                  {q.description && <p className="text-sm text-gray-500 mt-0.5">{q.description}</p>}
+                  <div className="border-b border-gray-200 mt-2" />
+                </div>
+              )
+            }
             questionIndex++
             const idx = questionIndex
             return (
@@ -440,7 +449,7 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
           <p className="text-xs text-red-500 px-1">{error}</p>
         )}
 
-        {(allQuestions.some(q => q.type !== 'note') || (data.tasks ?? []).length > 0) && (
+        {(allQuestions.some(q => q.type !== 'note' && q.type !== 'section') || (data.tasks ?? []).length > 0) && (
           <button
             onClick={submit}
             disabled={submitting}

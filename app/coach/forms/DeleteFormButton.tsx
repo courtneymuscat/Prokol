@@ -7,30 +7,49 @@ export default function DeleteFormButton({ formId }: { formId: string }) {
   const router = useRouter()
   const [confirming, setConfirming] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleDelete() {
     setDeleting(true)
-    await fetch(`/api/forms/${formId}`, { method: 'DELETE' })
-    router.refresh()
+    setError(null)
+    try {
+      const res = await fetch(`/api/forms/${formId}`, { method: 'DELETE' })
+      if (res.ok) {
+        router.push('/coach/forms')
+      } else {
+        const d = await res.json()
+        setError(d.error ?? 'Delete failed')
+        setDeleting(false)
+        setConfirming(false)
+      }
+    } catch {
+      setError('Network error')
+      setDeleting(false)
+      setConfirming(false)
+    }
   }
 
   if (confirming) {
     return (
-      <div className="flex gap-1.5 items-center">
-        <span className="text-xs text-gray-500">Delete?</span>
-        <button
-          onClick={handleDelete}
-          disabled={deleting}
-          className="text-xs font-semibold text-red-600 border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
-        >
-          {deleting ? '…' : 'Yes'}
-        </button>
-        <button
-          onClick={() => setConfirming(false)}
-          className="text-xs font-medium text-gray-500 border border-gray-200 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
-        >
-          No
-        </button>
+      <div className="flex flex-col gap-1">
+        <div className="flex gap-1.5 items-center">
+          <span className="text-xs text-gray-500">Delete?</span>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="text-xs font-semibold text-red-600 border border-red-200 px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
+          >
+            {deleting ? '…' : 'Yes'}
+          </button>
+          <button
+            onClick={() => { setConfirming(false); setError(null) }}
+            disabled={deleting}
+            className="text-xs font-medium text-gray-500 border border-gray-200 px-2.5 py-1.5 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            No
+          </button>
+        </div>
+        {error && <p className="text-xs text-red-500">{error}</p>}
       </div>
     )
   }
