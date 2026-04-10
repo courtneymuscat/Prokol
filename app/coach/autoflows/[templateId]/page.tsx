@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, useRef, use } from 'react'
 import { useRouter } from 'next/navigation'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -68,6 +68,16 @@ const TYPE_LABELS: Record<Exclude<QuestionType, 'note'>, string> = {
 
 // ── Question builder ───────────────────────────────────────────────────────────
 
+const DragHandle = () => (
+  <div className="cursor-grab active:cursor-grabbing flex-shrink-0 text-gray-300 hover:text-gray-500 mt-0.5 px-0.5" title="Drag to reorder">
+    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+      <circle cx="9" cy="6" r="1.5" /><circle cx="15" cy="6" r="1.5" />
+      <circle cx="9" cy="12" r="1.5" /><circle cx="15" cy="12" r="1.5" />
+      <circle cx="9" cy="18" r="1.5" /><circle cx="15" cy="18" r="1.5" />
+    </svg>
+  </div>
+)
+
 function QuestionCard({
   q,
   onChange,
@@ -83,6 +93,7 @@ function QuestionCard({
     return (
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
         <div className="flex items-start gap-3">
+          <DragHandle />
           <div className="flex-1 space-y-2">
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold uppercase tracking-wide text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">Note</span>
@@ -107,6 +118,7 @@ function QuestionCard({
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
       <div className="flex items-start gap-3">
+        <DragHandle />
         <div className="flex-1 space-y-2">
           <input
             value={q.label}
@@ -189,11 +201,39 @@ function QuestionList({
   onChange: (qs: Question[]) => void
   emptyText: string
 }) {
+  const dragIndex = useRef<number | null>(null)
+  const [dropTarget, setDropTarget] = useState<number | null>(null)
+
   const addQuestion = () => {
     onChange([...questions, { id: crypto.randomUUID(), type: 'text', label: '', required: false }])
   }
   const addNote = () => {
     onChange([...questions, { id: crypto.randomUUID(), type: 'note', label: '', required: false }])
+  }
+
+  function handleDragStart(i: number) {
+    dragIndex.current = i
+  }
+
+  function handleDragOver(e: React.DragEvent, i: number) {
+    e.preventDefault()
+    setDropTarget(i)
+  }
+
+  function handleDrop(i: number) {
+    const from = dragIndex.current
+    if (from === null || from === i) { setDropTarget(null); return }
+    const qs = [...questions]
+    const [moved] = qs.splice(from, 1)
+    qs.splice(i, 0, moved)
+    onChange(qs)
+    dragIndex.current = null
+    setDropTarget(null)
+  }
+
+  function handleDragEnd() {
+    dragIndex.current = null
+    setDropTarget(null)
   }
 
   return (
@@ -202,16 +242,25 @@ function QuestionList({
         <p className="text-xs text-gray-400 py-2">{emptyText}</p>
       )}
       {questions.map((q, i) => (
-        <QuestionCard
+        <div
           key={q.id}
-          q={q}
-          onChange={updated => {
-            const qs = [...questions]
-            qs[i] = updated
-            onChange(qs)
-          }}
-          onDelete={() => onChange(questions.filter((_, j) => j !== i))}
-        />
+          draggable
+          onDragStart={() => handleDragStart(i)}
+          onDragOver={e => handleDragOver(e, i)}
+          onDrop={() => handleDrop(i)}
+          onDragEnd={handleDragEnd}
+          className={`transition-opacity ${dragIndex.current === i ? 'opacity-40' : 'opacity-100'} ${dropTarget === i && dragIndex.current !== i ? 'ring-2 ring-blue-400 ring-offset-1 rounded-xl' : ''}`}
+        >
+          <QuestionCard
+            q={q}
+            onChange={updated => {
+              const qs = [...questions]
+              qs[i] = updated
+              onChange(qs)
+            }}
+            onDelete={() => onChange(questions.filter((_, j) => j !== i))}
+          />
+        </div>
       ))}
       <div className="flex gap-2">
         <button
