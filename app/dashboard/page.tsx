@@ -51,15 +51,21 @@ export default async function DashboardPage() {
   const isCoached = sub.tier === 'coached'
   let coachEmail: string | null = null
 
+  let showDailyTargets = true
+  let hasMealPlan = false
+  let hasHabits = false
+
   if (isCoached) {
     const { data: coachRel } = await supabase
       .from('coach_clients')
-      .select('coach_id')
+      .select('coach_id, show_daily_targets')
       .eq('client_id', user.id)
       .eq('status', 'active')
       .maybeSingle()
 
     if (coachRel) {
+      showDailyTargets = coachRel.show_daily_targets ?? true
+
       const { data: coachProfile } = await supabase
         .from('profiles')
         .select('email')
@@ -67,6 +73,21 @@ export default async function DashboardPage() {
         .single()
       coachEmail = coachProfile?.email ?? null
     }
+
+    const [mealPlanResult, habitsResult] = await Promise.all([
+      supabase
+        .from('client_meal_plans')
+        .select('id', { count: 'exact', head: true })
+        .eq('client_id', user.id)
+        .eq('status', 'active'),
+      supabase
+        .from('habits')
+        .select('id', { count: 'exact', head: true })
+        .eq('client_id', user.id)
+        .eq('active', true),
+    ])
+    hasMealPlan = (mealPlanResult.count ?? 0) > 0
+    hasHabits = (habitsResult.count ?? 0) > 0
   }
 
   return (
@@ -167,22 +188,22 @@ export default async function DashboardPage() {
         {isCoached && <ScheduledCheckIns />}
 
         {/* Coached-only sections: Meal Plan, Habits */}
-        {isCoached && (
-          <>
-            <section>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">My Meal Plan</p>
-              <MealPlanView />
-            </section>
+        {isCoached && hasMealPlan && (
+          <section>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">My Meal Plan</p>
+            <MealPlanView />
+          </section>
+        )}
 
-            <section>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Daily Habits</p>
-              <HabitsPanel />
-            </section>
-          </>
+        {isCoached && hasHabits && (
+          <section>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Daily Habits</p>
+            <HabitsPanel />
+          </section>
         )}
 
         {/* Daily targets card */}
-        {profile?.target_calories ? (
+        {(!isCoached || showDailyTargets) && profile?.target_calories ? (
           <div id="tour-targets" className="bg-white rounded-2xl border px-5 py-4">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Daily targets</p>
@@ -207,7 +228,7 @@ export default async function DashboardPage() {
               </div>
             </div>
           </div>
-        ) : (
+        ) : (!isCoached || showDailyTargets) && (
           <div className="bg-white rounded-2xl border border-dashed px-5 py-5 flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold text-gray-700">No targets set yet</p>

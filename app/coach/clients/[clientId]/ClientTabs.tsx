@@ -758,6 +758,64 @@ function GoalsSection({ clientId }: { clientId: string }) {
   )
 }
 
+// ── Client settings section (inside Overview) ─────────────────────────────────
+
+function ClientSettingsSection({ clientId }: { clientId: string }) {
+  const [showDailyTargets, setShowDailyTargets] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    fetch(`/api/coach/clients/${clientId}/settings`)
+      .then((r) => r.json())
+      .then((d) => { setShowDailyTargets(d.show_daily_targets ?? true) })
+      .finally(() => setLoading(false))
+  }, [clientId])
+
+  async function handleToggle() {
+    const next = !showDailyTargets
+    setShowDailyTargets(next)
+    setSaving(true)
+    await fetch(`/api/coach/clients/${clientId}/settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ show_daily_targets: next }),
+    })
+    setSaving(false)
+  }
+
+  if (loading) return null
+
+  return (
+    <div className="bg-white rounded-2xl border p-5">
+      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Client App Settings</h3>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-900">Show daily targets</p>
+          <p className="text-xs text-gray-400 mt-0.5">Display calorie &amp; macro targets on the client&apos;s home page</p>
+        </div>
+        <button
+          onClick={handleToggle}
+          disabled={saving}
+          aria-checked={showDailyTargets}
+          role="switch"
+          className={[
+            'relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50',
+            showDailyTargets ? 'bg-blue-600' : 'bg-gray-200',
+          ].join(' ')}
+        >
+          <span
+            className={[
+              'inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition-transform duration-200',
+              showDailyTargets ? 'translate-x-5' : 'translate-x-0',
+            ].join(' ')}
+          />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ── Overview tab ──────────────────────────────────────────────────────────────
 
 function OverviewTab({ data, clientId }: { data: ClientData; clientId: string }) {
@@ -813,6 +871,9 @@ function OverviewTab({ data, clientId }: { data: ClientData; clientId: string })
 
       {/* TDEE calculator */}
       <TDEESection clientId={clientId} />
+
+      {/* Client app settings */}
+      <ClientSettingsSection clientId={clientId} />
     </div>
   )
 }
@@ -2323,12 +2384,16 @@ type CalHabit = { id: string; name: string; type: string; target: number | null;
 type MacroDay = { cal: number; protein: number; carbs: number; fat: number }
 
 const EVENT_COLORS: Record<string, string> = {
-  workout: 'bg-blue-50 text-blue-700 border-blue-200',
-  steps: 'bg-green-50 text-green-700 border-green-200',
-  note: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-  habit: 'bg-purple-50 text-purple-700 border-purple-200',
-  autoflow: 'bg-orange-50 text-orange-700 border-orange-200',
-  custom: 'bg-gray-50 text-gray-700 border-gray-200',
+  workout:        'bg-blue-50 text-blue-700 border-blue-200',
+  steps:          'bg-green-50 text-green-700 border-green-200',
+  note:           'bg-yellow-50 text-yellow-700 border-yellow-200',
+  habit:          'bg-purple-50 text-purple-700 border-purple-200',
+  autoflow:       'bg-orange-50 text-orange-700 border-orange-200',
+  personal:       'bg-orange-50 text-orange-700 border-orange-200',
+  travel:         'bg-teal-50 text-teal-700 border-teal-200',
+  extra_activity: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  birthday:       'bg-pink-50 text-pink-700 border-pink-200',
+  custom:         'bg-gray-50 text-gray-700 border-gray-200',
 }
 
 function getWeekStart(date: Date) {
@@ -3159,17 +3224,35 @@ function CalendarTab({ clientId }: { clientId: string }) {
             </div>
             <select value={newEvent.type} onChange={(e) => setNewEvent((n) => ({ ...n, type: e.target.value }))}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-              <option value="note">📝 Note</option>
-              <option value="workout">💪 Workout</option>
-              <option value="steps">👟 Steps Goal</option>
-              <option value="habit">✅ Habit</option>
-              <option value="custom">⚡ Custom</option>
+              <optgroup label="Coach events">
+                <option value="note">📝 Note</option>
+                <option value="workout">💪 Workout</option>
+                <option value="steps">👟 Steps Goal</option>
+                <option value="habit">✅ Habit</option>
+                <option value="custom">⚡ Custom</option>
+              </optgroup>
+              <optgroup label="Client events (on their behalf)">
+                <option value="personal">🎉 Personal / Social</option>
+                <option value="travel">✈️ Travel / Away</option>
+                <option value="extra_activity">🏃 Extra Activity</option>
+              </optgroup>
             </select>
             <input type="text" value={newEvent.title} onChange={(e) => setNewEvent((n) => ({ ...n, title: e.target.value }))}
-              placeholder="Title (e.g. 10,000 steps today)"
+              placeholder={
+                newEvent.type === 'personal' ? 'Birthday dinner, date night…' :
+                newEvent.type === 'travel' ? 'Holiday, trip, going away…' :
+                newEvent.type === 'extra_activity' ? 'Walk, swim, bike ride…' :
+                newEvent.type === 'steps' ? '10,000 steps today' :
+                newEvent.type === 'workout' ? 'Upper body session' :
+                'Title'
+              }
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" autoFocus />
             <textarea value={newEvent.content} onChange={(e) => setNewEvent((n) => ({ ...n, content: e.target.value }))}
-              placeholder="Notes (optional)" rows={2}
+              placeholder={
+                newEvent.type === 'travel' ? 'Where are you going? Any context for the coach…' :
+                newEvent.type === 'personal' ? 'Any notes for the coach…' :
+                'Notes (optional)'
+              } rows={2}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
             <div className="flex gap-3">
               <button onClick={() => setAddingEvent(null)} className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50">Cancel</button>
@@ -4067,6 +4150,9 @@ function HabitsTab({ clientId }: { clientId: string }) {
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ name: '', icon: '✓', unit: 'times', target: '1' })
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null)
+  const [editForm, setEditForm] = useState({ name: '', icon: '', unit: '', target: '' })
+  const [editSaving, setEditSaving] = useState(false)
 
   useEffect(() => {
     fetch(`/api/coach/clients/${clientId}/habits`)
@@ -4101,6 +4187,33 @@ function HabitsTab({ clientId }: { clientId: string }) {
     setHabits((prev) => prev.map((h) => h.id === habit.id ? { ...h, active: !h.active } : h))
   }
 
+  function openEdit(habit: Habit) {
+    setEditingHabit(habit)
+    setEditForm({ name: habit.name, icon: habit.icon, unit: habit.unit, target: String(habit.target) })
+  }
+
+  async function handleEdit() {
+    if (!editingHabit || !editForm.name.trim()) return
+    setEditSaving(true)
+    const res = await fetch(`/api/coach/clients/${clientId}/habits/${editingHabit.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: editForm.name,
+        icon: editForm.icon,
+        unit: editForm.unit,
+        target: Number(editForm.target) || 1,
+        active: editingHabit.active,
+      }),
+    })
+    if (res.ok) {
+      const updated = await res.json()
+      setHabits((prev) => prev.map((h) => h.id === updated.id ? updated : h))
+      setEditingHabit(null)
+    }
+    setEditSaving(false)
+  }
+
   async function deleteHabit(id: string) {
     if (!confirm('Remove this habit from client?')) return
     await fetch(`/api/coach/clients/${clientId}/habits/${id}`, { method: 'DELETE' })
@@ -4116,9 +4229,14 @@ function HabitsTab({ clientId }: { clientId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-          {habits.length === 0 ? 'No habits assigned' : `${habits.filter((h) => h.active).length} active habits`}
-        </p>
+        <div>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+            {habits.length === 0 ? 'No habits assigned' : `${habits.filter((h) => h.active).length} active habits`}
+          </p>
+          {habits.some((h) => h.active) && (
+            <p className="text-xs text-gray-400 mt-0.5">Active habits appear every day in your client&apos;s app.</p>
+          )}
+        </div>
         <button
           onClick={() => setShowAdd(true)}
           className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
@@ -4148,14 +4266,29 @@ function HabitsTab({ clientId }: { clientId: string }) {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {/* Edit */}
+            <button
+              onClick={() => openEdit(habit)}
+              className="text-gray-400 hover:text-gray-700 transition-colors p-1"
+              title="Edit habit"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+            {/* Active/Deactivate toggle */}
             <button
               onClick={() => toggleActive(habit)}
               className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-colors ${
-                habit.active ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                habit.active
+                  ? 'bg-green-50 text-green-600 hover:bg-red-50 hover:text-red-500'
+                  : 'bg-gray-100 text-gray-500 hover:bg-green-50 hover:text-green-600'
               }`}
+              title={habit.active ? 'Click to deactivate' : 'Click to activate'}
             >
               {habit.active ? 'Active' : 'Inactive'}
             </button>
+            {/* Delete */}
             <button onClick={() => deleteHabit(habit.id)} className="text-gray-300 hover:text-red-400 transition-colors">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -4164,6 +4297,80 @@ function HabitsTab({ clientId }: { clientId: string }) {
           </div>
         </div>
       ))}
+
+      {/* Edit habit modal */}
+      {editingHabit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-gray-900">Edit Habit</h2>
+              <button onClick={() => setEditingHabit(null)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={editForm.icon}
+                  onChange={(e) => setEditForm((f) => ({ ...f, icon: e.target.value }))}
+                  placeholder="🎯"
+                  className="w-14 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Habit name"
+                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autoFocus
+                />
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  value={editForm.target}
+                  onChange={(e) => setEditForm((f) => ({ ...f, target: e.target.value }))}
+                  placeholder="Target"
+                  className="w-24 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="text"
+                  value={editForm.unit}
+                  onChange={(e) => setEditForm((f) => ({ ...f, unit: e.target.value }))}
+                  placeholder="unit (steps, glasses…)"
+                  className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              {/* Deactivate toggle inside edit modal */}
+              <button
+                onClick={() => setEditingHabit((h) => h ? { ...h, active: !h.active } : h)}
+                className={`w-full py-2 rounded-xl text-sm font-semibold border transition-colors ${
+                  editingHabit.active
+                    ? 'border-red-200 text-red-500 hover:bg-red-50'
+                    : 'border-green-200 text-green-600 hover:bg-green-50'
+                }`}
+              >
+                {editingHabit.active ? 'Deactivate this habit' : 'Activate this habit'}
+              </button>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setEditingHabit(null)} className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50">
+                Cancel
+              </button>
+              <button
+                onClick={handleEdit}
+                disabled={!editForm.name.trim() || editSaving}
+                className="flex-1 bg-gray-900 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-700 disabled:opacity-50"
+              >
+                {editSaving ? 'Saving…' : 'Save changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add habit modal */}
       {showAdd && (
@@ -4251,6 +4458,69 @@ function HabitsTab({ clientId }: { clientId: string }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+// ── Autoflow check-ins linked section ────────────────────────────────────────
+
+type LinkedAutoflow = {
+  id: string
+  name: string
+  start_date: string
+  status: string
+  autoflow_templates: { type: string; total_steps: number } | null
+  autoflow_responses: { step_number: number }[]
+}
+
+function AutoflowCheckinsLinked({ clientId, onViewFlows }: { clientId: string; onViewFlows: () => void }) {
+  const [flows, setFlows] = useState<LinkedAutoflow[]>([])
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    fetch(`/api/coach/clients/${clientId}/autoflows`)
+      .then(r => r.json())
+      .then(d => {
+        const all: LinkedAutoflow[] = Array.isArray(d) ? d : []
+        setFlows(all.filter(f => f.autoflow_templates?.type === 'weekly_checkin'))
+      })
+      .finally(() => setLoaded(true))
+  }, [clientId])
+
+  if (!loaded || flows.length === 0) return null
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Autoflow Check-ins</p>
+      {flows.map(f => {
+        const completed = f.autoflow_responses?.length ?? 0
+        const total = f.autoflow_templates?.total_steps ?? 0
+        return (
+          <button
+            key={f.id}
+            onClick={onViewFlows}
+            className="w-full text-left bg-orange-50 border border-orange-100 rounded-xl px-4 py-3 flex items-center justify-between gap-3 hover:border-orange-300 transition-colors group"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
+                <svg className="w-3.5 h-3.5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">{f.name}</p>
+                <p className="text-xs text-gray-500">{completed}/{total} steps completed · started {new Date(f.start_date + 'T00:00:00').toLocaleDateString()}</p>
+              </div>
+            </div>
+            <span className="text-xs font-semibold text-orange-600 group-hover:text-orange-800 flex-shrink-0 flex items-center gap-1">
+              View
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 type TabId = 'overview' | 'checkins' | 'nutrition' | 'training' | 'program' | 'calendar' | 'mealplan' | 'habits' | 'notes' | 'files' | 'flows'
 
 const TABS: { id: TabId; label: string }[] = [
@@ -4335,6 +4605,7 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
       {/* Check-ins */}
       {tab === 'checkins' && (
         <div className="space-y-4">
+          <AutoflowCheckinsLinked clientId={clientId} onViewFlows={() => setTab('flows')} />
           <CheckinSchedulesPanel clientId={clientId} />
           {data && (
             <div className="space-y-3">

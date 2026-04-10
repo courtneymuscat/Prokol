@@ -26,7 +26,17 @@ export async function GET() {
 
   // Fetch recent activity in parallel
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-  const [{ data: checkIns }, { data: formSubs }, { data: workouts }] = await Promise.all([
+
+  // Get all client_autoflow IDs for this coach so we can match autoflow responses
+  const { data: clientFlows } = await supabase
+    .from('client_autoflows')
+    .select('id, client_id, name')
+    .eq('coach_id', coachId)
+    .in('client_id', clientIds)
+  const flowMap = Object.fromEntries((clientFlows ?? []).map(f => [f.id, { clientId: f.client_id, name: f.name }]))
+  const flowIds = Object.keys(flowMap)
+
+  const [{ data: checkIns }, { data: formSubs }, { data: workouts }, { data: autoflowResps }] = await Promise.all([
     supabase
       .from('check_ins')
       .select('id, user_id, created_at')
@@ -51,10 +61,20 @@ export async function GET() {
       .not('ended_at', 'is', null)
       .order('started_at', { ascending: false })
       .limit(30),
+
+    flowIds.length
+      ? supabase
+          .from('autoflow_responses')
+          .select('id, client_autoflow_id, step_number, submitted_at')
+          .in('client_autoflow_id', flowIds)
+          .gte('submitted_at', sevenDaysAgo)
+          .order('submitted_at', { ascending: false })
+          .limit(30)
+      : Promise.resolve({ data: [] as { id: string; client_autoflow_id: string; step_number: number; submitted_at: string }[] }),
   ])
 
   type ActivityItem = {
-    type: 'checkin' | 'form_submission' | 'workout'
+    type: 'checkin' | 'form_submission' | 'workout' | 'autoflow_response'
     clientId: string
     clientEmail: string
     timestamp: string
@@ -89,6 +109,18 @@ export async function GET() {
       label: `Logged a workout: ${w.name}`,
       id: w.id,
     })),
+    ...(autoflowResps ?? []).map((r) => {
+      const flow = flowMap[r.client_autoflow_id]
+      return {
+        type: 'autoflow_response' as const,
+        clientId: flow?.clientId ?? '',
+        clientEmail: profileMap[flow?.clientId ?? ''] ?? 'Unknown',
+        timestamp: r.submitted_at,
+        label: `Completed step ${r.step_number} of autoflow: ${flow?.name ?? ''}`,
+        unread: true,
+        id: r.id,
+      }
+    }).filter(r => r.clientId),
   ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 40)
 
   // Clients who haven't checked in within 7 days

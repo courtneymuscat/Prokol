@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 
 type ActivityItem = {
-  type: 'checkin' | 'form_submission' | 'workout'
+  type: 'checkin' | 'form_submission' | 'workout' | 'autoflow_response'
   clientId: string
   clientEmail: string
   timestamp: string
@@ -30,12 +30,18 @@ const TYPE_ICON: Record<string, React.ReactNode> = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
     </svg>
   ),
+  autoflow_response: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+    </svg>
+  ),
 }
 
 const TYPE_COLOR: Record<string, string> = {
   checkin: 'bg-green-50 text-green-600',
   form_submission: 'bg-blue-50 text-blue-600',
   workout: 'bg-orange-50 text-orange-500',
+  autoflow_response: 'bg-purple-50 text-purple-600',
 }
 
 function timeAgo(iso: string) {
