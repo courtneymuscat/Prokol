@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
 const CheckInFeedback = lazy(() => import('./CheckInFeedback'))
 const FlowsTab = lazy(() => import('./FlowsTab'))
+const AppPreviewTab = lazy(() => import('./AppPreviewTab'))
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -4521,10 +4522,11 @@ function AutoflowCheckinsLinked({ clientId, onViewFlows }: { clientId: string; o
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-type TabId = 'overview' | 'checkins' | 'nutrition' | 'training' | 'program' | 'calendar' | 'mealplan' | 'habits' | 'notes' | 'files' | 'flows'
+type TabId = 'overview' | 'checkins' | 'nutrition' | 'training' | 'program' | 'calendar' | 'mealplan' | 'habits' | 'notes' | 'files' | 'flows' | 'preview'
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview', label: 'Overview' },
+  { id: 'preview', label: 'App Preview' },
   { id: 'flows', label: 'Autoflows' },
   { id: 'calendar', label: 'Calendar' },
   { id: 'program', label: 'Training' },
@@ -4571,6 +4573,13 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
 
       {/* Overview */}
       {tab === 'overview' && data && <OverviewTab data={data} clientId={clientId} />}
+
+      {/* App Preview */}
+      {tab === 'preview' && (
+        <Suspense fallback={<p className="text-sm text-gray-400 py-6 text-center">Loading…</p>}>
+          <AppPreviewTab clientId={clientId} />
+        </Suspense>
+      )}
 
       {/* Autoflows */}
       {tab === 'flows' && (
