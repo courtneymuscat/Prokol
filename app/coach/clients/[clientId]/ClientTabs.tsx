@@ -4549,12 +4549,21 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
     const next = !showDailyTargets
     setShowDailyTargets(next)
     setSavingTargets(true)
-    await fetch(`/api/coach/clients/${clientId}/settings`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ show_daily_targets: next }),
-    })
-    setSavingTargets(false)
+    try {
+      const res = await fetch(`/api/coach/clients/${clientId}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ show_daily_targets: next }),
+      })
+      if (!res.ok) {
+        // Revert optimistic update on failure
+        setShowDailyTargets(!next)
+      }
+    } catch {
+      setShowDailyTargets(!next)
+    } finally {
+      setSavingTargets(false)
+    }
   }
 
   if (loading) return <p className="text-sm text-gray-400 py-10 text-center">Loading…</p>
