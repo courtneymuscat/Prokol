@@ -142,6 +142,18 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isDirty, setIsDirty] = useState(false)
+
+  // Warn on tab close / refresh when there are unsaved changes
+  useEffect(() => {
+    if (!isDirty) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [isDirty])
 
   useEffect(() => {
     fetch(`/api/client/autoflows/${flowId}/${step}`)
@@ -162,6 +174,26 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
       })
       .finally(() => setLoading(false))
   }, [flowId, step])
+
+  function setAnswer(id: string, value: string) {
+    setAnswers(prev => ({ ...prev, [id]: value }))
+    setIsDirty(true)
+  }
+
+  function toggleTask(id: string, checked: boolean) {
+    setCheckedTasks(prev => {
+      const next = new Set(prev)
+      if (checked) next.add(id); else next.delete(id)
+      return next
+    })
+    setIsDirty(true)
+  }
+
+  function confirmLeave(href: string) {
+    if (!isDirty || confirm('You have unsaved answers. Leave without submitting?')) {
+      window.location.href = href
+    }
+  }
 
   async function submit() {
     if (!data) return
@@ -185,6 +217,7 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
     })
     setSubmitting(false)
     if (res.ok) {
+      setIsDirty(false)
       setSubmitted(true)
     } else {
       const d = await res.json()
@@ -250,9 +283,12 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
       <div className="bg-white border-b px-4 py-4">
-        <a href="/dashboard" className="text-xs text-gray-400 hover:text-gray-700 transition-colors">
+        <button
+          onClick={() => confirmLeave('/dashboard')}
+          className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
+        >
           ← Dashboard
-        </a>
+        </button>
         <div className="mt-2">
           <p className="text-xs text-gray-500">{data.flow_name}</p>
           <h1 className="text-lg font-bold text-gray-900">{data.title || `Step ${data.step_number}`}</h1>
@@ -337,11 +373,7 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
                       )}
                     </div>
                     <input type="checkbox" checked={checkedTasks.has(task.id)} className="sr-only"
-                      onChange={e => {
-                        const next = new Set(checkedTasks)
-                        if (e.target.checked) next.add(task.id); else next.delete(task.id)
-                        setCheckedTasks(next)
-                      }} />
+                      onChange={e => toggleTask(task.id, e.target.checked)} />
                     <span className={`text-sm transition-colors ${checkedTasks.has(task.id) ? 'line-through text-gray-400' : 'text-gray-800'}`}>
                       {task.label}
                     </span>
@@ -391,7 +423,7 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
                 <QuestionInput
                   q={q}
                   value={answers[q.id] ?? ''}
-                  onChange={v => setAnswers({ ...answers, [q.id]: v })}
+                  onChange={v => setAnswer(q.id, v)}
                 />
               </div>
             )
