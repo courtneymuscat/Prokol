@@ -18,6 +18,14 @@ type Submission = {
   submitted_at: string
 }
 
+type DueAutoflowStep = {
+  flow_id: string
+  flow_name: string
+  step_number: number
+  title: string
+  due_date: string
+}
+
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
 function repeatLabel(repeatType: string): string {
@@ -97,14 +105,25 @@ export default function ScheduledCheckIns() {
   const [due, setDue] = useState<Set<string>>(new Set())
   const [completed, setCompleted] = useState<Record<string, Submission>>({}) // scheduleId → recent submission
   const [nextDates, setNextDates] = useState<Record<string, Date | null>>({})
+  const [dueFlowSteps, setDueFlowSteps] = useState<DueAutoflowStep[]>([])
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch('/api/client/checkin-schedules')
-        if (!res.ok) return
-        const allSchedules: Schedule[] = await res.json()
+        // Fetch form-based schedules and due autoflow steps in parallel
+        const [schedRes, flowRes] = await Promise.all([
+          fetch('/api/client/checkin-schedules'),
+          fetch('/api/client/autoflows/due'),
+        ])
+
+        if (flowRes.ok) {
+          const steps: DueAutoflowStep[] = await flowRes.json()
+          setDueFlowSteps(Array.isArray(steps) ? steps : [])
+        }
+
+        if (!schedRes.ok) { setReady(true); return }
+        const allSchedules: Schedule[] = await schedRes.json()
         if (!allSchedules.length) { setReady(true); return }
 
         const formIds = allSchedules.map((s) => s.form_id)
@@ -158,11 +177,38 @@ export default function ScheduledCheckIns() {
     load()
   }, [])
 
-  if (!ready || schedules.length === 0) return null
+  if (!ready || (schedules.length === 0 && dueFlowSteps.length === 0)) return null
 
   return (
     <section>
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Check-ins</p>
+
+      {/* Due autoflow steps */}
+      {dueFlowSteps.map((step) => (
+        <a
+          key={`${step.flow_id}-${step.step_number}`}
+          href={`/autoflows/${step.flow_id}/${step.step_number}`}
+          className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 hover:bg-amber-100 transition-colors group mb-3"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">
+                {step.title || `Step ${step.step_number}`}
+              </p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                {step.flow_name} · Due today
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-semibold bg-amber-500 text-white px-3 py-1.5 rounded-lg flex-shrink-0">Fill in →</span>
+        </a>
+      ))}
+
       {schedules.map((s) => {
         const isDueToday = due.has(s.id)
         const recentSub = completed[s.id]

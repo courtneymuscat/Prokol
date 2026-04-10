@@ -151,6 +151,7 @@ function eventColour(type: string): string {
     case 'birthday':       return 'bg-pink-100 text-pink-800 border-pink-200'
     case 'travel':         return 'bg-teal-100 text-teal-800 border-teal-200'
     case 'extra_activity': return 'bg-emerald-100 text-emerald-800 border-emerald-200'
+    case 'autoflow':       return 'bg-indigo-100 text-indigo-800 border-indigo-200'
     default:               return 'bg-purple-100 text-purple-800 border-purple-200'
   }
 }
@@ -1090,9 +1091,13 @@ function DayCell({ date, workouts, events, isToday, isPast, compact, onWorkoutTa
         {/* Other events */}
         {events.filter((e) => e.type !== 'program_workout_result').map((ev) => {
           const isClientEvent = ['personal', 'travel', 'extra_activity', 'note'].includes(ev.type)
-          return (
-            <div key={ev.id} className={`rounded-lg border px-2 py-1 text-[10px] font-medium flex items-center gap-1 ${eventColour(ev.type)}`}>
-              <span className="truncate flex-1">{ev.type === 'birthday' ? '🎂 ' : ''}{ev.title}</span>
+          const autoflowLink = ev.type === 'autoflow'
+            ? (ev.content as Record<string, unknown>)?.link as string | undefined
+            : undefined
+
+          const inner = (
+            <>
+              <span className="truncate flex-1">{ev.type === 'birthday' ? '🎂 ' : ev.type === 'autoflow' ? '📋 ' : ''}{ev.title}</span>
               {isClientEvent && onDeleteEvent && (
                 <button
                   type="button"
@@ -1105,6 +1110,18 @@ function DayCell({ date, workouts, events, isToday, isPast, compact, onWorkoutTa
                   </svg>
                 </button>
               )}
+            </>
+          )
+
+          const cls = `rounded-lg border px-2 py-1 text-[10px] font-medium flex items-center gap-1 ${eventColour(ev.type)}`
+
+          return autoflowLink ? (
+            <a key={ev.id} href={autoflowLink} className={`${cls} hover:opacity-80 transition-opacity`}>
+              {inner}
+            </a>
+          ) : (
+            <div key={ev.id} className={cls}>
+              {inner}
             </div>
           )
         })}

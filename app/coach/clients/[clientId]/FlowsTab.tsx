@@ -43,6 +43,7 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
   const [assigning, setAssigning] = useState(false)
   const [assignTemplateId, setAssignTemplateId] = useState('')
   const [assignStartDate, setAssignStartDate] = useState(new Date().toISOString().split('T')[0])
+  const [assignCheckinPrompt, setAssignCheckinPrompt] = useState(false)
   const [viewingResponse, setViewingResponse] = useState<{ step: FlowDetail['steps'][0]; answers: Record<string, string> } | null>(null)
   const [editingStartDate, setEditingStartDate] = useState<string | null>(null)
   const [savingStartDate, setSavingStartDate] = useState(false)
@@ -68,7 +69,7 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
     const res = await fetch(`/api/coach/clients/${clientId}/autoflows`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ template_id: assignTemplateId, start_date: assignStartDate }),
+      body: JSON.stringify({ template_id: assignTemplateId, start_date: assignStartDate, show_as_checkin_prompt: assignCheckinPrompt }),
     })
     const d = await res.json()
     setAssigning(false)
@@ -288,6 +289,31 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
                 className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
               />
             </div>
+
+            <div className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-gray-900">Show as check-in due</p>
+                <p className="text-xs text-gray-400 mt-0.5">Due steps appear as prompts on the client&apos;s home screen</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAssignCheckinPrompt(v => !v)}
+                role="switch"
+                aria-checked={assignCheckinPrompt}
+                className={[
+                  'relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none',
+                  assignCheckinPrompt ? 'bg-blue-600' : 'bg-gray-200',
+                ].join(' ')}
+              >
+                <span
+                  className={[
+                    'inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition-transform duration-200',
+                    assignCheckinPrompt ? 'translate-x-5' : 'translate-x-0',
+                  ].join(' ')}
+                />
+              </button>
+            </div>
+
             <button
               onClick={assignFlow}
               disabled={!assignTemplateId || !assignStartDate || assigning}

@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const coachId = await requireCoach()
   if (!coachId) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { template_id, start_date } = await req.json()
+  const { template_id, start_date, show_as_checkin_prompt } = await req.json()
   if (!template_id || !start_date) return Response.json({ error: 'template_id and start_date required' }, { status: 400 })
 
   const supabase = await createClient()
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   const { data: flow, error } = await supabase
     .from('client_autoflows')
-    .insert({ coach_id: coachId, client_id: clientId, template_id, name: template.name, start_date, status: 'active' })
+    .insert({ coach_id: coachId, client_id: clientId, template_id, name: template.name, start_date, status: 'active', show_as_checkin_prompt: show_as_checkin_prompt === true })
     .select('id')
     .single()
   if (error) return Response.json({ error: error.message }, { status: 500 })
