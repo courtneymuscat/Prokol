@@ -16,7 +16,13 @@ type Question = {
   options?: string[]
 }
 
-type Task = { id: string; label: string }
+type Task = {
+  id: string
+  label: string
+  link_type?: 'resource' | 'form' | 'url' | null
+  link_url?: string | null
+  link_label?: string | null
+}
 
 type Step = {
   step_number: number
@@ -221,6 +227,163 @@ function QuestionList({
           + Add note
         </button>
       </div>
+    </div>
+  )
+}
+
+// ── Task card ─────────────────────────────────────────────────────────────────
+
+const LINK_TYPE_META = {
+  resource: { label: '📚 Resource', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  form:     { label: '📋 Form',     color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  url:      { label: '🔗 Link',     color: 'bg-gray-50 text-gray-600 border-gray-200' },
+} as const
+
+function TaskCard({ task, onChange, onDelete, resources, forms }: {
+  task: Task
+  onChange: (t: Task) => void
+  onDelete: () => void
+  resources: CoachResource[]
+  forms: CoachForm[]
+}) {
+  const [showPicker, setShowPicker] = useState(false)
+  const [linkMode, setLinkMode] = useState<'resource' | 'form' | 'url'>('url')
+  const [urlInput, setUrlInput] = useState(task.link_type === 'url' ? (task.link_url ?? '') : '')
+
+  const hasLink = !!task.link_type
+
+  function removeLink() {
+    onChange({ ...task, link_type: null, link_url: null, link_label: null })
+    setShowPicker(false)
+    setUrlInput('')
+  }
+
+  return (
+    <div className="border border-gray-200 rounded-xl p-3 space-y-2 bg-white">
+      <div className="flex items-center gap-2">
+        <span className="text-gray-400 text-sm flex-shrink-0">☐</span>
+        <input
+          value={task.label}
+          onChange={e => onChange({ ...task, label: e.target.value })}
+          placeholder="Task description…"
+          className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none"
+        />
+        <button onClick={onDelete} className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+
+      {/* Existing link */}
+      {hasLink && !showPicker && (
+        <div className="flex items-center gap-2 pl-5">
+          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${LINK_TYPE_META[task.link_type!].color}`}>
+            {LINK_TYPE_META[task.link_type!].label}
+          </span>
+          <span className="text-xs text-gray-600 truncate flex-1">{task.link_label || task.link_url}</span>
+          <button onClick={removeLink} className="text-gray-300 hover:text-red-400 flex-shrink-0">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      )}
+
+      {/* Attach button */}
+      {!hasLink && !showPicker && (
+        <button
+          onClick={() => setShowPicker(true)}
+          className="pl-5 text-xs text-gray-400 hover:text-blue-500 transition-colors"
+        >
+          + Attach resource, form, or link
+        </button>
+      )}
+
+      {/* Picker */}
+      {showPicker && (
+        <div className="pl-5 space-y-2">
+          <div className="flex gap-1">
+            {(['resource', 'form', 'url'] as const).map(m => (
+              <button
+                key={m}
+                onClick={() => setLinkMode(m)}
+                className={`text-xs px-2.5 py-1 rounded-lg font-medium transition-colors ${linkMode === m ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              >
+                {m === 'resource' ? '📚 Resource' : m === 'form' ? '📋 Form' : '🔗 URL'}
+              </button>
+            ))}
+          </div>
+
+          {linkMode === 'resource' && (
+            resources.length === 0 ? (
+              <p className="text-xs text-gray-400">No resources yet. <a href="/coach/resources" target="_blank" className="text-blue-500 underline">Add some →</a></p>
+            ) : (
+              <select
+                defaultValue=""
+                onChange={e => {
+                  const r = resources.find(r => r.id === e.target.value)
+                  if (!r) return
+                  onChange({ ...task, link_type: 'resource', link_url: null, link_label: r.name })
+                  setShowPicker(false)
+                }}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none bg-white"
+              >
+                <option value="" disabled>Select a resource…</option>
+                {resources.map(r => (
+                  <option key={r.id} value={r.id}>
+                    {r.type === 'link' ? '🔗' : r.type === 'video' ? '🎬' : r.type === 'pdf' ? '📄' : '📝'} {r.name}
+                    {r.coach_resource_folders ? ` · ${r.coach_resource_folders.name}` : ''}
+                  </option>
+                ))}
+              </select>
+            )
+          )}
+
+          {linkMode === 'form' && (
+            forms.length === 0 ? (
+              <p className="text-xs text-gray-400">No forms yet. <a href="/coach/forms" target="_blank" className="text-blue-500 underline">Create one →</a></p>
+            ) : (
+              <select
+                defaultValue=""
+                onChange={e => {
+                  const f = forms.find(f => f.id === e.target.value)
+                  if (!f) return
+                  onChange({ ...task, link_type: 'form', link_url: `/forms/${f.id}`, link_label: f.title })
+                  setShowPicker(false)
+                }}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none bg-white"
+              >
+                <option value="" disabled>Select a form…</option>
+                {forms.map(f => <option key={f.id} value={f.id}>{f.title}</option>)}
+              </select>
+            )
+          )}
+
+          {linkMode === 'url' && (
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={urlInput}
+                onChange={e => setUrlInput(e.target.value)}
+                placeholder="https://…"
+                className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none"
+              />
+              <button
+                onClick={() => {
+                  if (!urlInput.trim()) return
+                  onChange({ ...task, link_type: 'url', link_url: urlInput.trim(), link_label: null })
+                  setShowPicker(false)
+                }}
+                className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50"
+                disabled={!urlInput.trim()}
+              >
+                Attach
+              </button>
+            </div>
+          )}
+
+          <button onClick={() => setShowPicker(false)} className="text-xs text-gray-400 hover:text-gray-600">
+            Cancel
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -563,24 +726,18 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                 </div>
                 <div className="space-y-2">
                   {(currentStep.tasks ?? []).map((task, i) => (
-                    <div key={task.id} className="flex items-center gap-2">
-                      <span className="text-gray-400 text-sm">☐</span>
-                      <input
-                        value={task.label}
-                        onChange={e => {
-                          const tasks = [...(currentStep.tasks ?? [])]
-                          tasks[i] = { ...task, label: e.target.value }
-                          updateStep(activeStep, { tasks })
-                        }}
-                        placeholder="Task description…"
-                        className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none"
-                      />
-                      <button
-                        onClick={() => updateStep(activeStep, { tasks: (currentStep.tasks ?? []).filter((_, j) => j !== i) })}
-                        className="text-gray-300 hover:text-red-400 transition-colors">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                      </button>
-                    </div>
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      resources={resources}
+                      forms={forms}
+                      onChange={updated => {
+                        const tasks = [...(currentStep.tasks ?? [])]
+                        tasks[i] = updated
+                        updateStep(activeStep, { tasks })
+                      }}
+                      onDelete={() => updateStep(activeStep, { tasks: (currentStep.tasks ?? []).filter((_, j) => j !== i) })}
+                    />
                   ))}
                   <button
                     onClick={() => updateStep(activeStep, { tasks: [...(currentStep.tasks ?? []), { id: crypto.randomUUID(), label: '' }] })}

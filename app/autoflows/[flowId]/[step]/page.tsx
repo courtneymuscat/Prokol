@@ -22,7 +22,13 @@ type Resource = {
   url: string | null
 }
 
-type Task = { id: string; label: string }
+type Task = {
+  id: string
+  label: string
+  link_type?: 'resource' | 'form' | 'url' | null
+  link_url?: string | null
+  link_label?: string | null
+}
 
 type StepData = {
   flow_id: string
@@ -321,24 +327,39 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Tasks</p>
             <div className="space-y-2">
               {data.tasks.map(task => (
-                <label key={task.id} className="flex items-center gap-3 cursor-pointer group">
-                  <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checkedTasks.has(task.id) ? 'bg-gray-900 border-gray-900' : 'border-gray-300 group-hover:border-gray-500'}`}>
-                    {checkedTasks.has(task.id) && (
-                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </div>
-                  <input type="checkbox" checked={checkedTasks.has(task.id)} className="sr-only"
-                    onChange={e => {
-                      const next = new Set(checkedTasks)
-                      if (e.target.checked) next.add(task.id); else next.delete(task.id)
-                      setCheckedTasks(next)
-                    }} />
-                  <span className={`text-sm transition-colors ${checkedTasks.has(task.id) ? 'line-through text-gray-400' : 'text-gray-800'}`}>
-                    {task.label}
-                  </span>
-                </label>
+                <div key={task.id} className="space-y-1">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checkedTasks.has(task.id) ? 'bg-gray-900 border-gray-900' : 'border-gray-300 group-hover:border-gray-500'}`}>
+                      {checkedTasks.has(task.id) && (
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </div>
+                    <input type="checkbox" checked={checkedTasks.has(task.id)} className="sr-only"
+                      onChange={e => {
+                        const next = new Set(checkedTasks)
+                        if (e.target.checked) next.add(task.id); else next.delete(task.id)
+                        setCheckedTasks(next)
+                      }} />
+                    <span className={`text-sm transition-colors ${checkedTasks.has(task.id) ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+                      {task.label}
+                    </span>
+                  </label>
+                  {task.link_type && task.link_url && (
+                    <div className="pl-8">
+                      <a
+                        href={task.link_url}
+                        target={task.link_type === 'form' ? '_self' : '_blank'}
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 underline"
+                      >
+                        {task.link_type === 'resource' ? '📚' : task.link_type === 'form' ? '📋' : '🔗'}
+                        {task.link_label || task.link_url}
+                      </a>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           </div>
