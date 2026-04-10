@@ -212,10 +212,10 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
         if (!d.error) setTemplate({
           ...d,
           steps: (d.steps ?? []).map((s: Step) => ({
-            resource_ids: [],
-            form_id: null,
-            tasks: [],
             ...s,
+            resource_ids: s.resource_ids ?? [],
+            form_id: s.form_id ?? null,
+            tasks: s.tasks ?? [],
           })),
         })
       })
@@ -275,7 +275,7 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
       ...template,
       steps: template.steps.map(s =>
         s.step_number === stepNum
-          ? { resource_ids: [], form_id: null, tasks: [], ...s, ...patch }
+          ? { ...s, resource_ids: s.resource_ids ?? [], form_id: s.form_id ?? null, tasks: s.tasks ?? [], ...patch }
           : s
       ),
     })
