@@ -148,6 +148,15 @@ function ResourceModal({ initial, folders, onSave, onClose }: {
     const file = e.target.files?.[0]
     if (!file) return
     setUploadError(null)
+
+    // Client-side size check — Supabase free tier bucket limit is typically 50 MB
+    const MAX_MB = 50
+    if (file.size > MAX_MB * 1024 * 1024) {
+      setUploadError(`File too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum is ${MAX_MB} MB. Try compressing the file, or paste a URL below instead.`)
+      e.target.value = ''
+      return
+    }
+
     setUploading(true)
     try {
       const supabase = createClient()
@@ -158,10 +167,15 @@ function ResourceModal({ initial, folders, onSave, onClose }: {
       const { data, error } = await supabase.storage
         .from('coach-resources')
         .upload(path, file, { upsert: false, contentType: file.type })
-      if (error) throw error
+      if (error) {
+        // Surface a friendlier message for size errors
+        if (error.message?.toLowerCase().includes('size') || error.message?.toLowerCase().includes('exceeded')) {
+          throw new Error(`File too large for storage. Try compressing it, or paste a URL below instead.`)
+        }
+        throw error
+      }
       const { data: { publicUrl } } = supabase.storage.from('coach-resources').getPublicUrl(data.path)
       setUrl(publicUrl)
-      // Auto-fill name from filename if not set
       if (!name.trim()) {
         setName(file.name.replace(`.${ext}`, '').replace(/[_-]/g, ' '))
       }
@@ -249,8 +263,13 @@ function ResourceModal({ initial, folders, onSave, onClose }: {
                   <input ref={fileRef} type="file" accept={ACCEPT_MAP[type]} className="sr-only" onChange={handleFileChange} disabled={uploading} />
                 </label>
               )}
-              {uploadError && <p className="text-xs text-red-500 mt-1">{uploadError}</p>}
-              <p className="text-[11px] text-gray-400 mt-1">Or paste a URL below instead</p>
+              {uploadError && (
+                <div className="mt-1.5 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+                  <p className="text-xs text-red-600">{uploadError}</p>
+                  <p className="text-xs text-red-400 mt-0.5">Tip: upload to Google Drive, Dropbox, or iCloud and paste the share link below.</p>
+                </div>
+              )}
+              {!uploadError && <p className="text-[11px] text-gray-400 mt-1">Max 50 MB · Or paste a URL below instead</p>}
               <input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://…" type="url"
                 className="w-full mt-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
