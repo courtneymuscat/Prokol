@@ -30,12 +30,13 @@ export default async function CoachChatPage({
     .single()
 
   return (
-    <div className="flex-1 flex flex-col h-screen max-h-screen overflow-hidden">
+    <div className="flex flex-col h-full overflow-hidden">
       <ChatView
         conversationId={conversationId}
         currentUserId={coachId}
         otherEmail={profile?.email ?? 'Client'}
         backHref="/coach/messages"
+        showBackOnDesktop={false}
       />
     </div>
   )

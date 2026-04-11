@@ -28,12 +28,13 @@ export default async function ClientChatPage({
     .single()
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
       <ChatView
         conversationId={conversationId}
         currentUserId={session.user.id}
         otherEmail={profile?.email ?? 'Your Coach'}
         backHref="/messages"
+        hasBottomNav={true}
       />
     </div>
   )

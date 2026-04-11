@@ -35,10 +35,10 @@ function dayLabel(iso: string) {
   return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
 }
 
-function AudioPlayer({ url, isMe }: { url: string; isMe: boolean }) {
+function AudioPlayer({ url, isMe, knownDuration = 0 }: { url: string; isMe: boolean; knownDuration?: number }) {
   const [playing, setPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
-  const [duration, setDuration] = useState(0)
+  const [duration, setDuration] = useState(knownDuration)
   const audioRef = useRef<HTMLAudioElement>(null)
 
   function toggle() {
@@ -54,14 +54,23 @@ function AudioPlayer({ url, isMe }: { url: string; isMe: boolean }) {
     return `${m}:${sec.toString().padStart(2, '0')}`
   }
 
+  function onMetadata() {
+    const a = audioRef.current
+    if (!a) return
+    // WebM files often report Infinity — fall back to knownDuration
+    if (isFinite(a.duration) && a.duration > 0) {
+      setDuration(a.duration)
+    }
+  }
+
   return (
     <div className={`flex items-center gap-2.5 px-3 py-2.5 rounded-2xl min-w-[180px] ${isMe ? 'bg-blue-600' : 'bg-white border border-gray-100 shadow-sm'}`}>
       <audio
         ref={audioRef}
         src={url}
         onEnded={() => { setPlaying(false); setProgress(0) }}
-        onTimeUpdate={() => { const a = audioRef.current; if (a) setProgress(a.currentTime / (a.duration || 1)) }}
-        onLoadedMetadata={() => { const a = audioRef.current; if (a) setDuration(a.duration) }}
+        onTimeUpdate={() => { const a = audioRef.current; if (a) setProgress(a.currentTime / (duration || 1)) }}
+        onLoadedMetadata={onMetadata}
       />
       <button onClick={toggle} className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isMe ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-100 hover:bg-gray-200'}`}>
         {playing
@@ -84,11 +93,15 @@ export default function ChatView({
   currentUserId,
   otherEmail,
   backHref,
+  showBackOnDesktop = true,
+  hasBottomNav = false,
 }: {
   conversationId: string
   currentUserId: string
   otherEmail: string
   backHref: string
+  showBackOnDesktop?: boolean
+  hasBottomNav?: boolean
 }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -198,7 +211,7 @@ export default function ChatView({
       mr.onstop = async () => {
         stream.getTracks().forEach(t => t.stop())
         const blob = new Blob(chunksRef.current, { type: mimeType })
-        await uploadAndSendAudio(blob, mimeType)
+        await uploadAndSendAudio(blob, mimeType, recordingSeconds)
       }
       mr.start()
       mediaRecorderRef.current = mr
@@ -228,7 +241,7 @@ export default function ChatView({
     setRecordingSeconds(0)
   }
 
-  async function uploadAndSendAudio(blob: Blob, mimeType: string) {
+  async function uploadAndSendAudio(blob: Blob, mimeType: string, durationSecs: number) {
     setSending(true)
     try {
       const ext = mimeType.includes('mp4') ? 'm4a' : 'webm'
@@ -249,7 +262,8 @@ export default function ChatView({
         .from('message-attachments')
         .getPublicUrl(data.path)
 
-      await sendMessage('', urlData.publicUrl, 'audio')
+      // Store recording duration in body so the player can display it immediately
+      await sendMessage(String(durationSecs), urlData.publicUrl, 'audio')
     } finally {
       setSending(false)
     }
@@ -263,7 +277,7 @@ export default function ChatView({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="bg-white border-b px-4 py-3 flex items-center gap-3 flex-shrink-0">
-        <a href={backHref} className="text-gray-400 hover:text-gray-600">
+        <a href={backHref} className={`text-gray-400 hover:text-gray-600 ${showBackOnDesktop ? '' : 'md:hidden'}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -302,7 +316,7 @@ export default function ChatView({
               <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${showTail ? 'mb-2' : 'mb-0.5'}`}>
                 <div className={`max-w-[75%] ${isMe ? 'items-end' : 'items-start'} flex flex-col gap-0.5`}>
                   {isAudio && msg.attachment_url ? (
-                    <AudioPlayer url={msg.attachment_url} isMe={isMe} />
+                    <AudioPlayer url={msg.attachment_url} isMe={isMe} knownDuration={msg.body ? parseInt(msg.body) || 0 : 0} />
                   ) : (
                     <div
                       className={`px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words ${
@@ -331,7 +345,10 @@ export default function ChatView({
       </div>
 
       {/* Input */}
-      <div className="bg-white border-t px-4 py-3 flex-shrink-0">
+      <div
+        className="bg-white border-t px-4 py-3 flex-shrink-0"
+        style={hasBottomNav ? { paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))' } : undefined}
+      >
         {recording ? (
           <div className="flex items-center gap-3">
             {/* Cancel */}
