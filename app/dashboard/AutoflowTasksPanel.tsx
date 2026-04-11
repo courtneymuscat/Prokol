@@ -113,29 +113,21 @@ export default function AutoflowTasksPanel() {
               </div>
             )}
 
-            {/* Resources */}
+            {/* Resources — link to the resources section */}
             {step.resources.length > 0 && (
-              <div className="space-y-1.5 pt-1 border-t border-gray-50">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Resources</p>
+              <div className="pt-1 border-t border-gray-50">
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Resources</p>
+                  <a href="/resources" className="text-xs font-medium text-blue-600 hover:text-blue-800 underline">
+                    View all →
+                  </a>
+                </div>
                 {step.resources.map(r => (
-                  <div key={r.id} className="flex items-center gap-2">
+                  <a key={r.id} href="/resources" className="flex items-center gap-2 py-0.5 hover:opacity-75 transition-opacity">
                     <span className="text-base flex-shrink-0">{RESOURCE_ICONS[r.type] ?? '📝'}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-800 truncate">{r.name}</p>
-                    </div>
-                    {r.url ? (
-                      <a
-                        href={r.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-shrink-0 text-xs font-semibold text-blue-600 hover:text-blue-800 underline"
-                      >
-                        Open →
-                      </a>
-                    ) : (
-                      <span className="flex-shrink-0 text-xs text-gray-300">No link</span>
-                    )}
-                  </div>
+                    <p className="flex-1 text-sm text-gray-800 truncate">{r.name}</p>
+                    <span className="flex-shrink-0 text-xs text-blue-600">Open →</span>
+                  </a>
                 ))}
               </div>
             )}

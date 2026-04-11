@@ -316,27 +316,26 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
           </p>
         )}
 
-        {/* Resources */}
+        {/* Resources — direct client to the resources section */}
         {data.resources && data.resources.length > 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1">Resources</p>
+            <div className="flex items-center justify-between px-1">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Resources</p>
+              <a href="/resources" className="text-xs font-medium text-blue-600 hover:text-blue-800 underline">
+                View all →
+              </a>
+            </div>
             {data.resources.map(r => {
               const meta = RESOURCE_TYPE_META[r.type] ?? RESOURCE_TYPE_META.document
               return (
-                <div key={r.id} className={`bg-white rounded-xl border p-3.5 flex items-start gap-3 ${meta.color}`}>
+                <a key={r.id} href="/resources" className={`bg-white rounded-xl border p-3.5 flex items-start gap-3 ${meta.color} hover:opacity-90 transition-opacity`}>
                   <span className="text-xl flex-shrink-0">{meta.icon}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold">{r.name}</p>
                     {r.description && <p className="text-xs mt-0.5 opacity-75">{r.description}</p>}
-                    {r.url && (
-                      <a href={r.url} target="_blank" rel="noopener noreferrer"
-                        className="inline-block mt-2 text-xs font-semibold underline opacity-90 hover:opacity-100">
-                        Open {meta.label} →
-                      </a>
-                    )}
-                    {!r.url && <p className="text-xs mt-1 opacity-50 italic">No link provided — ask your coach.</p>}
+                    <p className="text-xs font-semibold mt-1.5 opacity-80">Open in Resources →</p>
                   </div>
-                </div>
+                </a>
               )
             })}
           </div>
