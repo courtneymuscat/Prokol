@@ -90,16 +90,29 @@ function Section({ label, children }: { label: string; children: React.ReactNode
 
 // ── Main Component ───────────────────────────────────────────────────────────
 
+const FOOD_LOG_OPTIONS: { value: 'full' | 'no_scan' | 'note_only' | 'off'; label: string; desc: string }[] = [
+  { value: 'full',      label: 'Full access',  desc: 'Food log, AI scanning, and meal notes' },
+  { value: 'no_scan',   label: 'No AI scan',   desc: 'Food log and meal notes, no camera scanning' },
+  { value: 'note_only', label: 'Notes only',   desc: 'Meal photo & note section only' },
+  { value: 'off',       label: 'Off',          desc: 'Food log hidden entirely' },
+]
+
 export default function AppPreviewTab({
   clientId,
   showDailyTargets,
   onToggleTargets,
   savingTargets,
+  foodLogAccess,
+  onFoodLogAccess,
+  savingFoodLog,
 }: {
   clientId: string
   showDailyTargets: boolean
   onToggleTargets: () => void
   savingTargets: boolean
+  foodLogAccess: 'full' | 'no_scan' | 'note_only' | 'off'
+  onFoodLogAccess: (v: 'full' | 'no_scan' | 'note_only' | 'off') => void
+  savingFoodLog: boolean
 }) {
   const [data, setData] = useState<PreviewData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -164,6 +177,31 @@ export default function AppPreviewTab({
               No targets set for this client yet — targets will show once calculated.
             </p>
           )}
+        </div>
+
+        {/* Food log access */}
+        <div className="bg-white rounded-2xl border p-4 space-y-2.5">
+          <div>
+            <p className="text-sm font-medium text-gray-900">Food log access</p>
+            <p className="text-xs text-gray-400 mt-0.5">Control what the client can use</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {FOOD_LOG_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onFoodLogAccess(opt.value)}
+                disabled={savingFoodLog}
+                className={[
+                  'text-left rounded-xl border p-3 transition-colors disabled:opacity-50',
+                  foodLogAccess === opt.value ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300',
+                ].join(' ')}
+              >
+                <p className={`text-xs font-semibold ${foodLogAccess === opt.value ? 'text-blue-700' : 'text-gray-800'}`}>{opt.label}</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">{opt.desc}</p>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Summary of what's visible */}

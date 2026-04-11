@@ -4851,6 +4851,9 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
             showDailyTargets={showDailyTargets}
             onToggleTargets={handleToggleTargets}
             savingTargets={savingTargets}
+            foodLogAccess={foodLogAccess}
+            onFoodLogAccess={handleFoodLogAccess}
+            savingFoodLog={savingFoodLog}
           />
         </Suspense>
       )}

@@ -1,11 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: flows } = await supabase
+  // Use admin client so RLS on coach-managed tables doesn't block reads
+  const admin = createAdminClient()
+
+  const { data: flows } = await admin
     .from('client_autoflows')
     .select('id, name, start_date, template_id')
     .eq('client_id', user.id)
@@ -22,12 +26,12 @@ export async function GET() {
       const startDate = new Date(flow.start_date + 'T00:00:00')
 
       const [{ data: steps }, { data: responses }] = await Promise.all([
-        supabase
+        admin
           .from('autoflow_template_steps')
           .select('step_number, title, day_offset')
           .eq('template_id', flow.template_id)
           .order('step_number'),
-        supabase
+        admin
           .from('autoflow_responses')
           .select('step_number')
           .eq('client_autoflow_id', flow.id)
