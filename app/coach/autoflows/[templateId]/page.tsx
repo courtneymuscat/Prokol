@@ -22,6 +22,7 @@ type Task = {
   link_type?: 'resource' | 'form' | 'url' | null
   link_url?: string | null
   link_label?: string | null
+  link_save_to_file?: boolean
 }
 
 type Step = {
@@ -34,6 +35,7 @@ type Step = {
   trigger_step_number: number | null
   resource_ids: string[]
   form_id: string | null
+  form_save_to_file: boolean
   tasks: Task[]
 }
 
@@ -360,14 +362,27 @@ function TaskCard({ task, onChange, onDelete, resources, forms }: {
 
       {/* Existing link */}
       {hasLink && !showPicker && (
-        <div className="flex items-center gap-2 pl-5">
-          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${LINK_TYPE_META[task.link_type!].color}`}>
-            {LINK_TYPE_META[task.link_type!].label}
-          </span>
-          <span className="text-xs text-gray-600 truncate flex-1">{task.link_label || task.link_url}</span>
-          <button onClick={removeLink} className="text-gray-300 hover:text-red-400 flex-shrink-0">
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
+        <div className="pl-5 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${LINK_TYPE_META[task.link_type!].color}`}>
+              {LINK_TYPE_META[task.link_type!].label}
+            </span>
+            <span className="text-xs text-gray-600 truncate flex-1">{task.link_label || task.link_url}</span>
+            <button onClick={removeLink} className="text-gray-300 hover:text-red-400 flex-shrink-0">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+          {task.link_type === 'form' && (
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <div
+                onClick={() => onChange({ ...task, link_save_to_file: !task.link_save_to_file })}
+                className={`relative w-7 h-4 rounded-full transition-colors flex-shrink-0 ${task.link_save_to_file ? 'bg-blue-600' : 'bg-gray-200'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${task.link_save_to_file ? 'translate-x-3' : ''}`} />
+              </div>
+              <span className="text-xs text-gray-600">Save to client files on completion</span>
+            </label>
+          )}
         </div>
       )}
 
@@ -506,6 +521,7 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
             ...s,
             resource_ids: s.resource_ids ?? [],
             form_id: s.form_id ?? null,
+            form_save_to_file: s.form_save_to_file ?? false,
             tasks: s.tasks ?? [],
           })),
         })
@@ -915,14 +931,30 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                 {forms.length === 0 ? (
                   <p className="text-xs text-gray-400">No forms yet. <a href="/coach/forms" target="_blank" className="text-blue-500 underline">Create a form →</a></p>
                 ) : (
-                  <select
-                    value={currentStep.form_id ?? ''}
-                    onChange={e => updateStep(activeStep, { form_id: e.target.value || null })}
-                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none bg-white"
-                  >
-                    <option value="">No form linked</option>
-                    {forms.map(f => <option key={f.id} value={f.id}>{f.title}</option>)}
-                  </select>
+                  <>
+                    <select
+                      value={currentStep.form_id ?? ''}
+                      onChange={e => updateStep(activeStep, { form_id: e.target.value || null })}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none bg-white"
+                    >
+                      <option value="">No form linked</option>
+                      {forms.map(f => <option key={f.id} value={f.id}>{f.title}</option>)}
+                    </select>
+                    {currentStep.form_id && (
+                      <label className="flex items-center gap-3 cursor-pointer select-none">
+                        <div
+                          onClick={() => updateStep(activeStep, { form_save_to_file: !currentStep.form_save_to_file })}
+                          className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${currentStep.form_save_to_file ? 'bg-blue-600' : 'bg-gray-200'}`}
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${currentStep.form_save_to_file ? 'translate-x-4' : ''}`} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-800">Save to client files on completion</p>
+                          <p className="text-xs text-gray-500">Completed responses will be saved to the client&apos;s file for the coach to review.</p>
+                        </div>
+                      </label>
+                    )}
+                  </>
                 )}
               </div>
             </div>

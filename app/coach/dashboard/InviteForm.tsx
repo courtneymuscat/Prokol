@@ -13,12 +13,21 @@ type Form = {
   title: string
 }
 
+type Autoflow = {
+  id: string
+  name: string
+  type: string
+}
+
 export default function InviteForm() {
   const [email, setEmail] = useState('')
   const [serviceId, setServiceId] = useState('')
   const [formId, setFormId] = useState('')
+  const [formSaveToFile, setFormSaveToFile] = useState(false)
+  const [autoflowId, setAutoflowId] = useState('')
   const [services, setServices] = useState<Service[]>([])
   const [forms, setForms] = useState<Form[]>([])
+  const [autoflows, setAutoflows] = useState<Autoflow[]>([])
   const [servicesLoaded, setServicesLoaded] = useState(false)
   const [link, setLink] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -38,12 +47,16 @@ export default function InviteForm() {
       .then((r) => r.ok ? r.json() : [])
       .then((data: Form[]) => setForms(Array.isArray(data) ? data : []))
       .catch(() => {})
+
+    fetch('/api/coach/autoflows')
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: Autoflow[]) => setAutoflows(Array.isArray(data) ? data : []))
+      .catch(() => {})
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!serviceId) { setError('Please select a service before sending an invite.'); return }
-    if (!formId) { setError('Please select an onboarding form before sending an invite.'); return }
     setPending(true)
     setError(null)
     setLink(null)
@@ -51,7 +64,13 @@ export default function InviteForm() {
     const res = await fetch('/api/coach/invite', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, service_id: serviceId, form_id: formId || null }),
+      body: JSON.stringify({
+        email,
+        service_id: serviceId,
+        form_id: formId || null,
+        form_save_to_file: formId ? formSaveToFile : false,
+        autoflow_id: autoflowId || null,
+      }),
     })
     const json = await res.json()
 
@@ -62,6 +81,8 @@ export default function InviteForm() {
       setEmail('')
       setServiceId('')
       setFormId('')
+      setFormSaveToFile(false)
+      setAutoflowId('')
     }
     setPending(false)
   }
@@ -97,26 +118,51 @@ export default function InviteForm() {
             </select>
           </div>
         )}
-        {servicesLoaded && forms.length === 0 && (
-          <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
-            You need to create at least one onboarding form before inviting clients.{' '}
-            <a href="/coach/forms" className="underline font-medium">Go to Forms →</a>
-          </p>
-        )}
+
         {forms.length > 0 && (
+          <div className="space-y-2">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Onboarding form <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <select
+                value={formId}
+                onChange={(e) => { setFormId(e.target.value); if (!e.target.value) setFormSaveToFile(false) }}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="">No form</option>
+                {forms.map((f) => (
+                  <option key={f.id} value={f.id}>{f.title}</option>
+                ))}
+              </select>
+            </div>
+            {formId && (
+              <label className="flex items-center gap-3 cursor-pointer select-none px-1">
+                <div
+                  onClick={() => setFormSaveToFile(v => !v)}
+                  className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${formSaveToFile ? 'bg-blue-600' : 'bg-gray-200'}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${formSaveToFile ? 'translate-x-4' : ''}`} />
+                </div>
+                <span className="text-xs text-gray-700">Save to client files on completion</span>
+              </label>
+            )}
+          </div>
+        )}
+
+        {autoflows.length > 0 && (
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
-              Onboarding form <span className="text-red-500">*</span>
+              Autoflow <span className="text-gray-400 font-normal">(optional)</span>
             </label>
             <select
-              value={formId}
-              onChange={(e) => setFormId(e.target.value)}
-              required
+              value={autoflowId}
+              onChange={(e) => setAutoflowId(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
             >
-              <option value="">Select a form…</option>
-              {forms.map((f) => (
-                <option key={f.id} value={f.id}>{f.title}</option>
+              <option value="">No autoflow</option>
+              {autoflows.map((a) => (
+                <option key={a.id} value={a.id}>{a.name}</option>
               ))}
             </select>
           </div>
@@ -139,7 +185,7 @@ export default function InviteForm() {
           />
           <button
             type="submit"
-            disabled={pending || !serviceId || services.length === 0 || !formId || forms.length === 0}
+            disabled={pending || !serviceId || services.length === 0}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap"
           >
             {pending ? 'Generating…' : 'Generate link'}

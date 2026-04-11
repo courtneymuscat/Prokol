@@ -54,13 +54,15 @@ export default async function DashboardPage() {
 
   let showDailyTargets = true
   let foodLogAccess = 'full'
+  let showMealBuilder = true
+  let showSavedMeals = true
   let hasMealPlan = false
   let hasHabits = false
 
   if (isCoached) {
     const { data: coachRel } = await supabase
       .from('coach_clients')
-      .select('coach_id, show_daily_targets, food_log_access')
+      .select('coach_id, show_daily_targets, food_log_access, show_meal_builder, show_saved_meals')
       .eq('client_id', user.id)
       .eq('status', 'active')
       .maybeSingle()
@@ -68,6 +70,8 @@ export default async function DashboardPage() {
     if (coachRel) {
       showDailyTargets = coachRel.show_daily_targets ?? true
       foodLogAccess = (coachRel.food_log_access as string) ?? 'full'
+      showMealBuilder = (coachRel as Record<string, unknown>).show_meal_builder as boolean ?? true
+      showSavedMeals = (coachRel as Record<string, unknown>).show_saved_meals as boolean ?? true
 
       const { data: coachProfile } = await supabase
         .from('profiles')
@@ -282,12 +286,14 @@ export default async function DashboardPage() {
         )}
 
         {/* Meal Builder + Saved Meals */}
-        <section>
-          {canMealBuilder
-            ? <MealSection />
-            : <UpgradePrompt plan="Optimiser" feature="Meal builder & saved meals" />
-          }
-        </section>
+        {(!isCoached || showMealBuilder || showSavedMeals) && (
+          <section>
+            {canMealBuilder
+              ? <MealSection showMealBuilder={!isCoached || showMealBuilder} showSavedMeals={!isCoached || showSavedMeals} />
+              : <UpgradePrompt plan="Optimiser" feature="Meal builder & saved meals" />
+            }
+          </section>
+        )}
 
 
         {/* Advanced Analytics — teaser for non-Elite */}

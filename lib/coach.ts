@@ -21,16 +21,20 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
   if (invite.status !== 'pending') return
   if (new Date(invite.expires_at) < new Date()) return
 
-  // Try to get form_id separately (column may not exist yet)
+  // Try to get optional columns separately (may not exist yet if migration hasn't run)
   let formId: string | null = null
+  let formSaveToFile = false
+  let autoflowId: string | null = null
   try {
     const { data: fi } = await admin
       .from('coach_invites')
-      .select('form_id')
+      .select('form_id, form_save_to_file, autoflow_id')
       .eq('token', token)
       .single()
     formId = (fi as { form_id?: string | null })?.form_id ?? null
-  } catch { /* column doesn't exist yet */ }
+    formSaveToFile = (fi as { form_save_to_file?: boolean })?.form_save_to_file ?? false
+    autoflowId = (fi as { autoflow_id?: string | null })?.autoflow_id ?? null
+  } catch { /* columns don't exist yet */ }
 
   // Link client to coach and switch them to coached tier
   const clientRow: Record<string, unknown> = {
@@ -44,6 +48,56 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
 
   await admin.from('coach_clients').upsert(clientRow, { onConflict: 'coach_id,client_id' })
   await admin.from('profiles').update({ subscription_tier: 'coached' }).eq('id', clientId)
+
+  // Auto-assign autoflow if one was specified in the invite
+  if (autoflowId) {
+    try {
+      // Fetch template to get total_steps
+      const { data: tpl } = await admin
+        .from('autoflow_templates')
+        .select('id, name, total_steps')
+        .eq('id', autoflowId)
+        .single()
+
+      if (tpl) {
+        const startDate = new Date().toISOString().split('T')[0]
+        const { data: flow } = await admin
+          .from('client_autoflows')
+          .insert({
+            coach_id: invite.coach_id,
+            client_id: clientId,
+            template_id: autoflowId,
+            name: tpl.name,
+            start_date: startDate,
+            status: 'active',
+          })
+          .select('id')
+          .single()
+
+        // Generate calendar events for each step
+        if (flow) {
+          const { data: steps } = await admin
+            .from('autoflow_template_steps')
+            .select('step_number, title, day_offset')
+            .eq('template_id', autoflowId)
+            .order('step_number')
+
+          if (steps && steps.length > 0) {
+            const startMs = new Date(startDate).getTime()
+            const events = steps.map((s) => ({
+              coach_id: invite.coach_id,
+              client_id: clientId,
+              event_date: new Date(startMs + s.day_offset * 86400000).toISOString().split('T')[0],
+              type: 'autoflow',
+              title: `${tpl.name} — Step ${s.step_number}${s.title ? `: ${s.title}` : ''}`,
+              content: { flow_id: flow.id, step_number: s.step_number, link: `/autoflows/${flow.id}/${s.step_number}` },
+            }))
+            await admin.from('calendar_events').insert(events)
+          }
+        }
+      }
+    } catch { /* autoflow assignment is non-critical */ }
+  }
 
   // Mark invite accepted
   await admin.from('coach_invites').update({ status: 'accepted' }).eq('id', invite.id)

@@ -4746,6 +4746,10 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
   const [savingTargets, setSavingTargets] = useState(false)
   const [foodLogAccess, setFoodLogAccess] = useState<'full' | 'no_scan' | 'note_only' | 'off'>('full')
   const [savingFoodLog, setSavingFoodLog] = useState(false)
+  const [showMealBuilder, setShowMealBuilder] = useState(true)
+  const [savingMealBuilder, setSavingMealBuilder] = useState(false)
+  const [showSavedMeals, setShowSavedMeals] = useState(true)
+  const [savingSavedMeals, setSavingSavedMeals] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -4755,6 +4759,8 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
       if (clientData.error) setError(clientData.error); else setData(clientData)
       setShowDailyTargets(settings.show_daily_targets ?? true)
       setFoodLogAccess(settings.food_log_access ?? 'full')
+      setShowMealBuilder(settings.show_meal_builder ?? true)
+      setShowSavedMeals(settings.show_saved_meals ?? true)
     }).finally(() => setLoading(false))
   }, [clientId])
 
@@ -4791,6 +4797,42 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
       setFoodLogAccess(prev)
     } finally {
       setSavingFoodLog(false)
+    }
+  }
+
+  async function handleToggleMealBuilder() {
+    const next = !showMealBuilder
+    setShowMealBuilder(next)
+    setSavingMealBuilder(true)
+    try {
+      const res = await fetch(`/api/coach/clients/${clientId}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ show_meal_builder: next }),
+      })
+      if (!res.ok) setShowMealBuilder(!next)
+    } catch {
+      setShowMealBuilder(!next)
+    } finally {
+      setSavingMealBuilder(false)
+    }
+  }
+
+  async function handleToggleSavedMeals() {
+    const next = !showSavedMeals
+    setShowSavedMeals(next)
+    setSavingSavedMeals(true)
+    try {
+      const res = await fetch(`/api/coach/clients/${clientId}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ show_saved_meals: next }),
+      })
+      if (!res.ok) setShowSavedMeals(!next)
+    } catch {
+      setShowSavedMeals(!next)
+    } finally {
+      setSavingSavedMeals(false)
     }
   }
 
@@ -4833,6 +4875,12 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
             foodLogAccess={foodLogAccess}
             onFoodLogAccess={handleFoodLogAccess}
             savingFoodLog={savingFoodLog}
+            showMealBuilder={showMealBuilder}
+            onToggleMealBuilder={handleToggleMealBuilder}
+            savingMealBuilder={savingMealBuilder}
+            showSavedMeals={showSavedMeals}
+            onToggleSavedMeals={handleToggleSavedMeals}
+            savingSavedMeals={savingSavedMeals}
           />
         </Suspense>
       )}

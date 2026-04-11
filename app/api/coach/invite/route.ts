@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   const coachId = await requireCoach()
   if (!coachId) return Response.json({ error: 'Unauthorised' }, { status: 401 })
 
-  const { email, service_id, form_id } = await req.json()
+  const { email, service_id, form_id, form_save_to_file, autoflow_id } = await req.json()
   if (!email) return Response.json({ error: 'Email required' }, { status: 400 })
 
   const supabase = await createClient()
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   const { data: invite, error } = await supabase
     .from('coach_invites')
-    .insert({ coach_id: coachId, email, service_id: service_id || null, form_id: form_id || null })
+    .insert({ coach_id: coachId, email, service_id: service_id || null, form_id: form_id || null, form_save_to_file: form_id ? (form_save_to_file ?? false) : false, autoflow_id: autoflow_id || null })
     .select('token')
     .single()
 

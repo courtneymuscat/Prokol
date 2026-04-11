@@ -26,7 +26,7 @@ export async function GET(
   const supabase = await createClient()
   const { data } = await supabase
     .from('coach_clients')
-    .select('show_daily_targets, food_log_access')
+    .select('show_daily_targets, food_log_access, show_meal_builder, show_saved_meals')
     .eq('coach_id', coachId)
     .eq('client_id', clientId)
     .single()
@@ -34,6 +34,8 @@ export async function GET(
   return Response.json({
     show_daily_targets: data?.show_daily_targets ?? true,
     food_log_access: data?.food_log_access ?? 'full',
+    show_meal_builder: (data as Record<string, unknown> | null)?.show_meal_builder ?? true,
+    show_saved_meals: (data as Record<string, unknown> | null)?.show_saved_meals ?? true,
   })
 }
 
@@ -47,7 +49,7 @@ export async function PUT(
   if (!(await verifyAccess(coachId, clientId))) return Response.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await req.json()
-  const { show_daily_targets, food_log_access } = body
+  const { show_daily_targets, food_log_access, show_meal_builder, show_saved_meals } = body
 
   const validFoodLogAccess = ['full', 'no_scan', 'note_only', 'off']
   if (food_log_access !== undefined && !validFoodLogAccess.includes(food_log_access)) {
@@ -57,6 +59,8 @@ export async function PUT(
   const update: Record<string, unknown> = {}
   if (typeof show_daily_targets === 'boolean') update.show_daily_targets = show_daily_targets
   if (food_log_access !== undefined) update.food_log_access = food_log_access
+  if (typeof show_meal_builder === 'boolean') update.show_meal_builder = show_meal_builder
+  if (typeof show_saved_meals === 'boolean') update.show_saved_meals = show_saved_meals
 
   const supabase = await createClient()
   const { error } = await supabase

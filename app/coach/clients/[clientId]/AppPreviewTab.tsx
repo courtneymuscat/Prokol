@@ -105,6 +105,12 @@ export default function AppPreviewTab({
   foodLogAccess,
   onFoodLogAccess,
   savingFoodLog,
+  showMealBuilder,
+  onToggleMealBuilder,
+  savingMealBuilder,
+  showSavedMeals,
+  onToggleSavedMeals,
+  savingSavedMeals,
 }: {
   clientId: string
   showDailyTargets: boolean
@@ -113,6 +119,12 @@ export default function AppPreviewTab({
   foodLogAccess: 'full' | 'no_scan' | 'note_only' | 'off'
   onFoodLogAccess: (v: 'full' | 'no_scan' | 'note_only' | 'off') => void
   savingFoodLog: boolean
+  showMealBuilder: boolean
+  onToggleMealBuilder: () => void
+  savingMealBuilder: boolean
+  showSavedMeals: boolean
+  onToggleSavedMeals: () => void
+  savingSavedMeals: boolean
 }) {
   const [data, setData] = useState<PreviewData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -204,6 +216,33 @@ export default function AppPreviewTab({
           </div>
         </div>
 
+        {/* Meal builder & saved meals toggles */}
+        <div className="bg-white rounded-2xl border p-4 space-y-3">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Food log features</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-900">Meal builder</p>
+              <p className="text-xs text-gray-400 mt-0.5">Build meals from individual foods</p>
+            </div>
+            <Toggle
+              checked={showMealBuilder}
+              onChange={onToggleMealBuilder}
+              disabled={savingMealBuilder}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-900">Saved meals</p>
+              <p className="text-xs text-gray-400 mt-0.5">Access and log previously saved meals</p>
+            </div>
+            <Toggle
+              checked={showSavedMeals}
+              onChange={onToggleSavedMeals}
+              disabled={savingSavedMeals}
+            />
+          </div>
+        </div>
+
         {/* Summary of what's visible */}
         <div className="bg-white rounded-2xl border p-4 space-y-2">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Visible sections</p>
@@ -213,6 +252,8 @@ export default function AppPreviewTab({
             { label: 'Meal plan', on: meal_plans.length > 0 },
             { label: 'Daily habits', on: habits.length > 0 },
             { label: 'Daily targets', on: showDailyTargets && hasTargets },
+            { label: 'Meal builder', on: showMealBuilder },
+            { label: 'Saved meals', on: showSavedMeals },
           ].map(({ label, on }) => (
             <div key={label} className="flex items-center gap-2">
               <span className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${on ? 'bg-green-100' : 'bg-gray-100'}`}>
