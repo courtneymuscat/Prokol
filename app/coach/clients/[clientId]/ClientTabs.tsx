@@ -839,15 +839,9 @@ function ClientSettingsSection({
 
 // ── Overview tab ──────────────────────────────────────────────────────────────
 
-function OverviewTab({ data, clientId, showDailyTargets, onToggleTargets, savingTargets, foodLogAccess, onFoodLogAccess, savingFoodLog }: {
+function OverviewTab({ data, clientId }: {
   data: ClientData
   clientId: string
-  showDailyTargets: boolean
-  onToggleTargets: () => void
-  savingTargets: boolean
-  foodLogAccess: 'full' | 'no_scan' | 'note_only' | 'off'
-  onFoodLogAccess: (v: 'full' | 'no_scan' | 'note_only' | 'off') => void
-  savingFoodLog: boolean
 }) {
   const latest = data.checkIns[0] ?? null
   const latestWeight = data.weightLogs[0] ?? null
@@ -902,15 +896,6 @@ function OverviewTab({ data, clientId, showDailyTargets, onToggleTargets, saving
       {/* TDEE calculator */}
       <TDEESection clientId={clientId} />
 
-      {/* Client app settings */}
-      <ClientSettingsSection
-        showDailyTargets={showDailyTargets}
-        onToggle={onToggleTargets}
-        saving={savingTargets}
-        foodLogAccess={foodLogAccess}
-        onFoodLogAccess={onFoodLogAccess}
-        savingFoodLog={savingFoodLog}
-      />
     </div>
   )
 }
@@ -4834,12 +4819,6 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
         <OverviewTab
           data={data}
           clientId={clientId}
-          showDailyTargets={showDailyTargets}
-          onToggleTargets={handleToggleTargets}
-          savingTargets={savingTargets}
-          foodLogAccess={foodLogAccess}
-          onFoodLogAccess={handleFoodLogAccess}
-          savingFoodLog={savingFoodLog}
         />
       )}
 
