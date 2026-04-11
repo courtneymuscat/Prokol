@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,7 +40,9 @@ export default async function ResourcesPage() {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) redirect('/login')
 
-  const { data } = await supabase
+  // Use admin client — client_resource_access may not have an RLS policy for client reads
+  const admin = createAdminClient()
+  const { data } = await admin
     .from('client_resource_access')
     .select('id, assigned_at, coach_resources(id, name, description, type, url, coach_resource_folders(id, name, color, icon))')
     .eq('client_id', session.user.id)
