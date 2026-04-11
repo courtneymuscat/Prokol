@@ -53,19 +53,21 @@ export default async function DashboardPage() {
   let coachEmail: string | null = null
 
   let showDailyTargets = true
+  let foodLogAccess = 'full'
   let hasMealPlan = false
   let hasHabits = false
 
   if (isCoached) {
     const { data: coachRel } = await supabase
       .from('coach_clients')
-      .select('coach_id, show_daily_targets')
+      .select('coach_id, show_daily_targets, food_log_access')
       .eq('client_id', user.id)
       .eq('status', 'active')
       .maybeSingle()
 
     if (coachRel) {
       showDailyTargets = coachRel.show_daily_targets ?? true
+      foodLogAccess = (coachRel.food_log_access as string) ?? 'full'
 
       const { data: coachProfile } = await supabase
         .from('profiles')
@@ -256,7 +258,8 @@ export default async function DashboardPage() {
         {/* Daily Food Log */}
         <div id="tour-food-log">
         <DailyLog
-          canScanMeal={canMealScanner}
+          canScanMeal={canMealScanner && foodLogAccess !== 'no_scan' && foodLogAccess !== 'note_only' && foodLogAccess !== 'off'}
+          foodLogAccess={isCoached ? foodLogAccess as 'full' | 'no_scan' | 'note_only' | 'off' : 'full'}
           targetCalories={profile?.target_calories ?? null}
           targetProtein={profile?.target_protein ?? null}
           targetCarbs={profile?.target_carbs ?? null}

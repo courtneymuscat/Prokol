@@ -62,12 +62,14 @@ function parseMealIngredients(notes: string | null): MealIngredient[] | null {
 
 export default function DailyLog({
   canScanMeal = false,
+  foodLogAccess = 'full',
   targetCalories = null,
   targetProtein = null,
   targetCarbs = null,
   targetFat = null,
 }: {
   canScanMeal?: boolean
+  foodLogAccess?: 'full' | 'no_scan' | 'note_only' | 'off'
   targetCalories?: number | null
   targetProtein?: number | null
   targetCarbs?: number | null
@@ -424,6 +426,17 @@ export default function DailyLog({
   const totals = sumMacros(allLogs)
   const isToday = date === todayString()
 
+  if (foodLogAccess === 'off') {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 px-5 py-6 text-center">
+        <p className="text-sm font-medium text-gray-500">Food logging is not enabled for your plan.</p>
+        <p className="text-xs text-gray-400 mt-1">Reach out to your coach if you have questions.</p>
+      </div>
+    )
+  }
+
+  const noteOnly = foodLogAccess === 'note_only'
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -439,18 +452,20 @@ export default function DailyLog({
               Today
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => { setCopyFromOpen((o) => !o); setCopyFromDate(''); setCopyingMeal(null) }}
-            title="Copy from another day into this day"
-            className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-colors ${copyFromOpen ? 'bg-green-100 border-green-300 text-green-700' : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700'}`}
-          >
-            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-            Copy from
-          </button>
-          {allLogs.length > 0 && (
+          {!noteOnly && (
+            <button
+              type="button"
+              onClick={() => { setCopyFromOpen((o) => !o); setCopyFromDate(''); setCopyingMeal(null) }}
+              title="Copy from another day into this day"
+              className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-colors ${copyFromOpen ? 'bg-green-100 border-green-300 text-green-700' : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700'}`}
+            >
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              Copy from
+            </button>
+          )}
+          {!noteOnly && allLogs.length > 0 && (
             <button
               type="button"
               onClick={() => { setCopyingMeal(copyingMeal === 'all' ? null : 'all'); setCopyTargetDate(''); setCopyFromOpen(false) }}
@@ -471,6 +486,13 @@ export default function DailyLog({
           />
         </div>
       </div>
+
+      {/* Hint note — shown for all coached clients (any restricted access) */}
+      {foodLogAccess !== 'full' && (
+        <p className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5">
+          💡 You can log photos of your meals for your coach — tap the <span className="font-semibold">📝 note icon</span> next to any meal name.
+        </p>
+      )}
 
       {/* Copy from panel */}
       {copyFromOpen && (
@@ -539,7 +561,7 @@ export default function DailyLog({
       )}
 
       {/* Daily totals */}
-      {allLogs.length > 0 && (
+      {!noteOnly && allLogs.length > 0 && (
         <div className="bg-gray-900 text-white rounded-xl p-4">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
             {isToday ? "Today's Total" : 'Daily Total'}
@@ -562,7 +584,7 @@ export default function DailyLog({
       )}
 
       {/* Remaining targets */}
-      {allLogs.length > 0 && targetCalories && (
+      {!noteOnly && allLogs.length > 0 && targetCalories && (
         <div className="bg-white border border-gray-100 rounded-xl px-4 py-3">
           <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Remaining</p>
           <div className="grid grid-cols-4 gap-2 text-center">
@@ -643,7 +665,7 @@ export default function DailyLog({
                         </svg>
                       </button>
                     </div>
-                    {logs.length > 0 && (
+                    {!noteOnly && logs.length > 0 && (
                       <p className="text-xs text-gray-400 mt-0.5">
                         {Math.round(mt.calories)} kcal
                         <span className="text-macro-p ml-2">P {fmt1(mt.protein)}g</span>
@@ -663,7 +685,7 @@ export default function DailyLog({
                         <img src={mealNote.photo_url} alt="Meal" className="h-9 w-12 object-cover rounded-lg border border-gray-100 hover:opacity-80 transition-opacity" />
                       </a>
                     )}
-                    {!isAdding ? (
+                    {!noteOnly && (!isAdding ? (
                       <>
                         {canScanMeal && (
                           <button
@@ -709,7 +731,7 @@ export default function DailyLog({
                       >
                         Cancel
                       </button>
-                    )}
+                    ))}
                   </div>
                 </div>
 
@@ -789,7 +811,7 @@ export default function DailyLog({
                 )}
 
                 {/* Food items */}
-                {logs.length > 0 && (
+                {!noteOnly && logs.length > 0 && (
                   <div className="border-t border-gray-50 divide-y divide-gray-50">
                     {logs.map((log) => (
                       <div key={log.id}>
@@ -1001,12 +1023,12 @@ export default function DailyLog({
                 )}
 
                 {/* Empty state */}
-                {logs.length === 0 && !isAdding && (
+                {!noteOnly && logs.length === 0 && !isAdding && (
                   <p className="px-4 pb-3 text-xs text-gray-400">Nothing logged yet</p>
                 )}
 
                 {/* Add food panel */}
-                {isAdding && (
+                {!noteOnly && isAdding && (
                   <div className="border-t border-gray-100 p-4 space-y-3 bg-gray-50/40">
                     <FoodSearch key={searchKey} onSelect={(food, grams) => setPendingEntry({ food, grams })} />
                     {logError && (

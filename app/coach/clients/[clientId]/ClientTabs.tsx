@@ -761,40 +761,77 @@ function GoalsSection({ clientId }: { clientId: string }) {
 
 // ── Client settings section (inside Overview) ─────────────────────────────────
 
+const FOOD_LOG_OPTIONS: { value: 'full' | 'no_scan' | 'note_only' | 'off'; label: string; desc: string }[] = [
+  { value: 'full',      label: 'Full access',   desc: 'Food log, AI scanning, and meal notes' },
+  { value: 'no_scan',   label: 'No AI scan',    desc: 'Food log and meal notes, no camera scanning' },
+  { value: 'note_only', label: 'Notes only',    desc: 'Meal photo & note section only — no food logging' },
+  { value: 'off',       label: 'Off',           desc: 'Food log hidden entirely' },
+]
+
+function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: () => void; disabled?: boolean }) {
+  return (
+    <button
+      onClick={onChange}
+      disabled={disabled}
+      aria-checked={checked}
+      role="switch"
+      className={['relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50', checked ? 'bg-blue-600' : 'bg-gray-200'].join(' ')}
+    >
+      <span className={['inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition-transform duration-200', checked ? 'translate-x-5' : 'translate-x-0'].join(' ')} />
+    </button>
+  )
+}
+
 function ClientSettingsSection({
   showDailyTargets,
   onToggle,
   saving,
+  foodLogAccess,
+  onFoodLogAccess,
+  savingFoodLog,
 }: {
   showDailyTargets: boolean
   onToggle: () => void
   saving: boolean
+  foodLogAccess: 'full' | 'no_scan' | 'note_only' | 'off'
+  onFoodLogAccess: (v: 'full' | 'no_scan' | 'note_only' | 'off') => void
+  savingFoodLog: boolean
 }) {
   return (
-    <div className="bg-white rounded-2xl border p-5">
-      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Client App Settings</h3>
+    <div className="bg-white rounded-2xl border p-5 space-y-5">
+      <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Client App Settings</h3>
+
+      {/* Daily targets toggle */}
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-gray-900">Show daily targets</p>
           <p className="text-xs text-gray-400 mt-0.5">Display calorie &amp; macro targets on the client&apos;s home page</p>
         </div>
-        <button
-          onClick={onToggle}
-          disabled={saving}
-          aria-checked={showDailyTargets}
-          role="switch"
-          className={[
-            'relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50',
-            showDailyTargets ? 'bg-blue-600' : 'bg-gray-200',
-          ].join(' ')}
-        >
-          <span
-            className={[
-              'inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition-transform duration-200',
-              showDailyTargets ? 'translate-x-5' : 'translate-x-0',
-            ].join(' ')}
-          />
-        </button>
+        <Toggle checked={showDailyTargets} onChange={onToggle} disabled={saving} />
+      </div>
+
+      {/* Food log access */}
+      <div className="space-y-2.5">
+        <div>
+          <p className="text-sm font-medium text-gray-900">Food log access</p>
+          <p className="text-xs text-gray-400 mt-0.5">Control what parts of the food log this client can use</p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {FOOD_LOG_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => onFoodLogAccess(opt.value)}
+              disabled={savingFoodLog}
+              className={[
+                'text-left rounded-xl border p-3 transition-colors disabled:opacity-50',
+                foodLogAccess === opt.value ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300',
+              ].join(' ')}
+            >
+              <p className={`text-xs font-semibold ${foodLogAccess === opt.value ? 'text-blue-700' : 'text-gray-800'}`}>{opt.label}</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">{opt.desc}</p>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -802,12 +839,15 @@ function ClientSettingsSection({
 
 // ── Overview tab ──────────────────────────────────────────────────────────────
 
-function OverviewTab({ data, clientId, showDailyTargets, onToggleTargets, savingTargets }: {
+function OverviewTab({ data, clientId, showDailyTargets, onToggleTargets, savingTargets, foodLogAccess, onFoodLogAccess, savingFoodLog }: {
   data: ClientData
   clientId: string
   showDailyTargets: boolean
   onToggleTargets: () => void
   savingTargets: boolean
+  foodLogAccess: 'full' | 'no_scan' | 'note_only' | 'off'
+  onFoodLogAccess: (v: 'full' | 'no_scan' | 'note_only' | 'off') => void
+  savingFoodLog: boolean
 }) {
   const latest = data.checkIns[0] ?? null
   const latestWeight = data.weightLogs[0] ?? null
@@ -863,7 +903,14 @@ function OverviewTab({ data, clientId, showDailyTargets, onToggleTargets, saving
       <TDEESection clientId={clientId} />
 
       {/* Client app settings */}
-      <ClientSettingsSection showDailyTargets={showDailyTargets} onToggle={onToggleTargets} saving={savingTargets} />
+      <ClientSettingsSection
+        showDailyTargets={showDailyTargets}
+        onToggle={onToggleTargets}
+        saving={savingTargets}
+        foodLogAccess={foodLogAccess}
+        onFoodLogAccess={onFoodLogAccess}
+        savingFoodLog={savingFoodLog}
+      />
     </div>
   )
 }
@@ -4712,6 +4759,8 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
   const [error, setError] = useState<string | null>(null)
   const [showDailyTargets, setShowDailyTargets] = useState(true)
   const [savingTargets, setSavingTargets] = useState(false)
+  const [foodLogAccess, setFoodLogAccess] = useState<'full' | 'no_scan' | 'note_only' | 'off'>('full')
+  const [savingFoodLog, setSavingFoodLog] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -4720,6 +4769,7 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
     ]).then(([clientData, settings]) => {
       if (clientData.error) setError(clientData.error); else setData(clientData)
       setShowDailyTargets(settings.show_daily_targets ?? true)
+      setFoodLogAccess(settings.food_log_access ?? 'full')
     }).finally(() => setLoading(false))
   }, [clientId])
 
@@ -4733,14 +4783,29 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ show_daily_targets: next }),
       })
-      if (!res.ok) {
-        // Revert optimistic update on failure
-        setShowDailyTargets(!next)
-      }
+      if (!res.ok) setShowDailyTargets(!next)
     } catch {
       setShowDailyTargets(!next)
     } finally {
       setSavingTargets(false)
+    }
+  }
+
+  async function handleFoodLogAccess(next: typeof foodLogAccess) {
+    const prev = foodLogAccess
+    setFoodLogAccess(next)
+    setSavingFoodLog(true)
+    try {
+      const res = await fetch(`/api/coach/clients/${clientId}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ food_log_access: next }),
+      })
+      if (!res.ok) setFoodLogAccess(prev)
+    } catch {
+      setFoodLogAccess(prev)
+    } finally {
+      setSavingFoodLog(false)
     }
   }
 
@@ -4772,6 +4837,9 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
           showDailyTargets={showDailyTargets}
           onToggleTargets={handleToggleTargets}
           savingTargets={savingTargets}
+          foodLogAccess={foodLogAccess}
+          onFoodLogAccess={handleFoodLogAccess}
+          savingFoodLog={savingFoodLog}
         />
       )}
 
