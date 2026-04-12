@@ -40,7 +40,22 @@ export async function GET(
     .eq('coach_id', coachId)
     .order('created_at', { ascending: false })
 
-  return Response.json(data ?? [])
+  const plans = data ?? []
+
+  // Auto-expire any active plans whose end_date has passed
+  const today = new Date().toISOString().split('T')[0]
+  const toExpire = plans.filter(
+    (p) => p.status === 'active' && p.end_date && p.end_date < today
+  )
+  if (toExpire.length > 0) {
+    await supabase
+      .from('client_meal_plans')
+      .update({ status: 'inactive' })
+      .in('id', toExpire.map((p) => p.id))
+    toExpire.forEach((p) => { p.status = 'inactive' })
+  }
+
+  return Response.json(plans)
 }
 
 export async function POST(

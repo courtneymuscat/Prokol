@@ -59,10 +59,17 @@ export async function PATCH(
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (name !== undefined) updates.name = name
   if (content !== undefined) updates.content = content
-  if (status !== undefined) updates.status = status
   if (total_calories !== undefined) updates.total_calories = total_calories
   if (start_date !== undefined) updates.start_date = start_date
   if (end_date !== undefined) updates.end_date = end_date ?? null
+
+  // Auto-expire: if end_date is being set to a past date, force inactive
+  const today = new Date().toISOString().split('T')[0]
+  if (status !== undefined) {
+    updates.status = status
+  } else if (end_date && end_date < today) {
+    updates.status = 'inactive'
+  }
 
   let { data, error } = await supabase
     .from('client_meal_plans')

@@ -8,7 +8,7 @@ type Resource = {
   id: string
   name: string
   description: string | null
-  type: 'link' | 'video' | 'pdf' | 'document'
+  type: 'link' | 'video' | 'pdf' | 'document' | 'image'
   url: string | null
   coach_resource_folders: { name: string; icon: string; color: string } | null
 }
@@ -24,6 +24,7 @@ const TYPE_META: Record<string, { icon: string; label: string; bg: string; text:
   video:    { icon: '🎬', label: 'Video',    bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-100' },
   pdf:      { icon: '📄', label: 'PDF',      bg: 'bg-red-50',    text: 'text-red-700',    border: 'border-red-100' },
   document: { icon: '📝', label: 'Document', bg: 'bg-gray-50',   text: 'text-gray-700',   border: 'border-gray-200' },
+  image:    { icon: '🖼️', label: 'Image',    bg: 'bg-gray-50',   text: 'text-gray-700',   border: 'border-gray-200' },
 }
 
 const FOLDER_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -122,6 +123,21 @@ export default async function ResourcesPage() {
 
 function ResourceCard({ resource: r }: { resource: Resource }) {
   const meta = TYPE_META[r.type] ?? TYPE_META.document
+
+  // Image type gets a full-bleed preview card
+  if (r.type === 'image' && r.url) {
+    return (
+      <a href={r.url} target="_blank" rel="noopener noreferrer" className="block rounded-2xl border border-gray-200 overflow-hidden hover:opacity-90 active:opacity-80 transition-opacity">
+        <img src={r.url} alt={r.name} className="w-full object-cover max-h-64" />
+        {(r.name || r.description) && (
+          <div className="px-4 py-3 bg-white">
+            <p className="text-sm font-semibold text-gray-800">{r.name}</p>
+            {r.description && <p className="text-xs text-gray-500 mt-0.5">{r.description}</p>}
+          </div>
+        )}
+      </a>
+    )
+  }
 
   const inner = (
     <div className={`rounded-2xl border p-4 flex items-start gap-3.5 transition-colors ${meta.bg} ${meta.border} ${r.url ? 'hover:opacity-90 cursor-pointer active:opacity-80' : ''}`}>

@@ -44,6 +44,13 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   ])
 
   const tpl = flow.autoflow_templates as unknown as { core_questions: unknown[]; total_steps: number; type: string } | null
+  const coachId = (flow as unknown as Record<string, unknown>).coach_id as string | null
+
+  // Use actual step count from DB to guard against stale total_steps
+  const { count: actualTotalSteps } = await admin
+    .from('autoflow_template_steps')
+    .select('step_number', { count: 'exact', head: true })
+    .eq('template_id', flow.template_id)
 
   // Access control: if step not yet submitted, check if it's unlocked
   if (!existing && templateStep) {
@@ -75,7 +82,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
   // Determine if next step will be available after this submission
   let next_step_available = false
-  const totalSteps = tpl?.total_steps ?? 1
+  const totalSteps = actualTotalSteps ?? tpl?.total_steps ?? 1
   if (stepNum < totalSteps) {
     const { data: nextTemplateStep } = await admin
       .from('autoflow_template_steps')
@@ -113,7 +120,6 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
   // Auto-assign this step's resources to the client's resource library (idempotent)
   const resourceIds: string[] = Array.isArray(templateStep?.resource_ids) ? templateStep.resource_ids as string[] : []
-  const coachId = (flow as unknown as Record<string, unknown>).coach_id as string | null
   if (resourceIds.length > 0 && coachId) {
     const rows = resourceIds.map(rid => ({
       resource_id: rid,
@@ -125,13 +131,15 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       .upsert(rows, { onConflict: 'resource_id,client_id' })
   }
 
-  // Resolve resource details
+  // Resolve resource details — scope to the owning coach for data isolation
   let resources: unknown[] = []
   if (resourceIds.length > 0) {
-    const { data: res } = await admin
+    const resourceQuery = admin
       .from('coach_resources')
       .select('id, name, description, type, url')
       .in('id', resourceIds)
+    if (coachId) resourceQuery.eq('coach_id', coachId)
+    const { data: res } = await resourceQuery
     resources = res ?? []
   }
 
@@ -150,7 +158,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     flow_id: flowId,
     flow_name: flow.name,
     step_number: stepNum,
-    total_steps: tpl?.total_steps ?? 1,
+    total_steps: totalSteps,
     type: tpl?.type ?? 'weekly_checkin',
     title: override?.title ?? templateStep?.title ?? `Step ${stepNum}`,
     description: override?.description ?? templateStep?.description ?? null,
@@ -173,7 +181,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   const { data: flow } = await supabase
     .from('client_autoflows')
-    .select('id, coach_id, template_id')
+    .select('id, coach_id, template_id, show_as_checkin_prompt')
     .eq('id', flowId)
     .eq('client_id', user.id)
     .single()
@@ -188,6 +196,25 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     )
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
+
+  // Log a check-in record when this is a check-in prompt flow
+  const isCheckinFlow = (flow as unknown as Record<string, unknown>).show_as_checkin_prompt as boolean ?? false
+  if (isCheckinFlow) {
+    const adminClient = createAdminClient()
+    // Extract common check-in fields from answers if present
+    const a = answers as Record<string, unknown> ?? {}
+    const notes = typeof a.notes === 'string' ? a.notes : null
+    const weight = a.weight !== undefined ? Number(a.weight) || null : null
+    const mood = typeof a.mood === 'string' ? a.mood : null
+    const adherence = a.adherence !== undefined ? Number(a.adherence) || null : null
+    await adminClient.from('check_ins').insert({
+      user_id: user.id,
+      ...(notes !== null ? { notes } : {}),
+      ...(weight !== null ? { weight } : {}),
+      ...(mood !== null ? { mood } : {}),
+      ...(adherence !== null ? { adherence } : {}),
+    })
+  }
 
   // Send automated messages for any steps that unlock because this step just completed
   const coachId = (flow as unknown as Record<string, unknown>).coach_id as string | null

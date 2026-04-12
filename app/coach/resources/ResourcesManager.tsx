@@ -17,7 +17,7 @@ type Resource = {
   id: string
   name: string
   description: string | null
-  type: 'link' | 'video' | 'pdf' | 'document'
+  type: 'link' | 'video' | 'pdf' | 'document' | 'image'
   url: string | null
   folder_id: string | null
   coach_resource_folders: Folder | null
@@ -65,6 +65,7 @@ export const TYPE_META: Record<Resource['type'], { icon: string; label: string }
   video:    { icon: '🎬', label: 'Video' },
   pdf:      { icon: '📄', label: 'PDF' },
   document: { icon: '📝', label: 'Document' },
+  image:    { icon: '🖼️', label: 'Image' },
 }
 
 // ── Resource Card ─────────────────────────────────────────────────────────────
@@ -79,38 +80,47 @@ function ResourceCard({ resource, onEdit, onDelete }: {
   const colors = folder ? (FOLDER_COLORS[folder.color] ?? FOLDER_COLORS.gray) : FOLDER_COLORS.gray
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-col gap-2.5 group hover:border-gray-300 transition-colors">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-lg flex-shrink-0">{meta.icon}</span>
-          <p className="text-sm font-semibold text-gray-900 truncate">{resource.name}</p>
-        </div>
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-          <button onClick={onEdit} className="p-1 text-gray-400 hover:text-gray-700 transition-colors" title="Edit">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-          </button>
-          <button onClick={onDelete} className="p-1 text-gray-400 hover:text-red-500 transition-colors" title="Delete">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-          </button>
-        </div>
-      </div>
-
-      {resource.description && (
-        <p className="text-xs text-gray-500 line-clamp-2">{resource.description}</p>
+    <div className="bg-white rounded-2xl border border-gray-200 flex flex-col group hover:border-gray-300 transition-colors overflow-hidden">
+      {/* Image preview */}
+      {resource.type === 'image' && resource.url && (
+        <a href={resource.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
+          <img src={resource.url} alt={resource.name} className="w-full h-36 object-cover" />
+        </a>
       )}
 
-      <div className="flex items-center gap-2 flex-wrap mt-auto pt-1">
-        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${colors.bg} ${colors.text} ${colors.border}`}>
-          {folder?.icon} {folder?.name ?? 'Unfiled'}
-        </span>
-        <span className="text-[11px] text-gray-400">{meta.label}</span>
-        {resource.url && (
-          <a href={resource.url} target="_blank" rel="noopener noreferrer"
-            onClick={e => e.stopPropagation()}
-            className="text-[11px] text-blue-500 hover:text-blue-700 underline truncate max-w-[140px]">
-            {resource.url.replace(/^https?:\/\//, '')}
-          </a>
+      <div className="p-4 flex flex-col gap-2.5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-lg flex-shrink-0">{meta.icon}</span>
+            <p className="text-sm font-semibold text-gray-900 truncate">{resource.name}</p>
+          </div>
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+            <button onClick={onEdit} className="p-1 text-gray-400 hover:text-gray-700 transition-colors" title="Edit">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+            </button>
+            <button onClick={onDelete} className="p-1 text-gray-400 hover:text-red-500 transition-colors" title="Delete">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            </button>
+          </div>
+        </div>
+
+        {resource.description && (
+          <p className="text-xs text-gray-500 line-clamp-2">{resource.description}</p>
         )}
+
+        <div className="flex items-center gap-2 flex-wrap mt-auto pt-1">
+          <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${colors.bg} ${colors.text} ${colors.border}`}>
+            {folder?.icon} {folder?.name ?? 'Unfiled'}
+          </span>
+          <span className="text-[11px] text-gray-400">{meta.label}</span>
+          {resource.url && resource.type !== 'image' && (
+            <a href={resource.url} target="_blank" rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="text-[11px] text-blue-500 hover:text-blue-700 underline truncate max-w-[140px]">
+              {resource.url.replace(/^https?:\/\//, '')}
+            </a>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -118,12 +128,13 @@ function ResourceCard({ resource, onEdit, onDelete }: {
 
 // ── Resource Modal ─────────────────────────────────────────────────────────────
 
-const FILE_UPLOAD_TYPES: Resource['type'][] = ['document', 'pdf', 'video']
+const FILE_UPLOAD_TYPES: Resource['type'][] = ['document', 'pdf', 'video', 'image']
 
 const ACCEPT_MAP: Record<string, string> = {
   document: '.doc,.docx,.txt,.pages,.odt,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   pdf:      '.pdf,application/pdf',
   video:    '.mp4,.mov,.avi,.webm,video/*',
+  image:    '.jpg,.jpeg,.png,.gif,.webp,.svg,image/*',
 }
 
 function ResourceModal({ initial, folders, onSave, onClose }: {
@@ -224,6 +235,7 @@ function ResourceModal({ initial, folders, onSave, onClose }: {
                 <option value="video">🎬 Video</option>
                 <option value="pdf">📄 PDF</option>
                 <option value="document">📝 Document</option>
+                <option value="image">🖼️ Image</option>
               </select>
             </div>
             <div>
@@ -236,16 +248,30 @@ function ResourceModal({ initial, folders, onSave, onClose }: {
             </div>
           </div>
 
-          {/* File upload — shown for document / pdf / video */}
+          {/* File upload — shown for document / pdf / video / image */}
           {canUploadFile ? (
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">File</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                {type === 'image' ? 'Image' : 'File'}
+              </label>
               {url ? (
-                <div className="flex items-center gap-2 p-2.5 bg-green-50 border border-green-200 rounded-xl">
-                  <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  <span className="text-xs text-green-700 truncate flex-1">File uploaded</span>
-                  <button type="button" onClick={() => { setUrl(''); if (fileRef.current) fileRef.current.value = '' }}
-                    className="text-xs text-green-600 hover:text-red-500 font-medium flex-shrink-0">Remove</button>
+                <div className="space-y-2">
+                  {type === 'image' ? (
+                    <div className="relative rounded-xl overflow-hidden border border-gray-200">
+                      <img src={url} alt="Preview" className="w-full h-40 object-cover" />
+                      <button type="button" onClick={() => { setUrl(''); if (fileRef.current) fileRef.current.value = '' }}
+                        className="absolute top-2 right-2 bg-white/90 text-gray-600 hover:text-red-500 rounded-lg px-2 py-1 text-xs font-medium shadow-sm">
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 p-2.5 bg-green-50 border border-green-200 rounded-xl">
+                      <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                      <span className="text-xs text-green-700 truncate flex-1">File uploaded</span>
+                      <button type="button" onClick={() => { setUrl(''); if (fileRef.current) fileRef.current.value = '' }}
+                        className="text-xs text-green-600 hover:text-red-500 font-medium flex-shrink-0">Remove</button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <label className={`flex items-center gap-3 p-3 border-2 border-dashed rounded-xl cursor-pointer transition-colors ${uploading ? 'border-blue-300 bg-blue-50' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'}`}>
@@ -257,7 +283,9 @@ function ResourceModal({ initial, folders, onSave, onClose }: {
                   ) : (
                     <>
                       <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-                      <span className="text-xs text-gray-500">Click to upload {type}</span>
+                      <span className="text-xs text-gray-500">
+                        {type === 'image' ? 'Click to upload image (JPG, PNG, GIF, WebP…)' : `Click to upload ${type}`}
+                      </span>
                     </>
                   )}
                   <input ref={fileRef} type="file" accept={ACCEPT_MAP[type]} className="sr-only" onChange={handleFileChange} disabled={uploading} />
@@ -269,8 +297,13 @@ function ResourceModal({ initial, folders, onSave, onClose }: {
                   <p className="text-xs text-red-400 mt-0.5">Tip: upload to Google Drive, Dropbox, or iCloud and paste the share link below.</p>
                 </div>
               )}
-              {!uploadError && <p className="text-[11px] text-gray-400 mt-1">Max 50 MB · Or paste a URL below instead</p>}
-              <input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://…" type="url"
+              {!uploadError && (
+                <p className="text-[11px] text-gray-400 mt-1">
+                  {type === 'image' ? 'Max 50 MB · Or paste an image URL below instead' : 'Max 50 MB · Or paste a URL below instead'}
+                </p>
+              )}
+              <input value={url} onChange={e => setUrl(e.target.value)}
+                placeholder={type === 'image' ? 'https://… (image URL)' : 'https://…'} type="url"
                 className="w-full mt-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           ) : (

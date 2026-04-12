@@ -85,5 +85,17 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     .eq('id', session.user.id)
     .eq('subscription_tier', 'coached')
 
+  // Log a check-in record if this form is used in a check-in schedule
+  const { data: schedule } = await admin
+    .from('checkin_schedules')
+    .select('id')
+    .eq('form_id', formId)
+    .eq('client_id', session.user.id)
+    .eq('is_active', true)
+    .maybeSingle()
+  if (schedule) {
+    await admin.from('check_ins').insert({ user_id: session.user.id })
+  }
+
   return Response.json({ id: submissionId })
 }

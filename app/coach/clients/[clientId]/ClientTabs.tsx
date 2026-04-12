@@ -3454,22 +3454,41 @@ function MealPlanTab({ clientId }: { clientId: string }) {
 
   async function handleSaveDates(planId: string) {
     setSavingDatesId(planId)
+    const today = new Date().toISOString().split('T')[0]
+    const newEndDate = editEndDate || null
+    // Auto-expire if end date is in the past
+    const autoStatus = newEndDate && newEndDate < today ? 'inactive' : undefined
     const res = await fetch(`/api/coach/clients/${clientId}/meal-plans/${planId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         start_date: editStartDate,
-        end_date: editEndDate || null,
+        end_date: newEndDate,
+        ...(autoStatus ? { status: autoStatus } : {}),
       }),
     })
     if (res.ok) {
       setAssignments((prev) =>
-        prev.map((a) => a.id === planId ? { ...a, start_date: editStartDate, end_date: editEndDate || null } : a)
-            .sort((a, b) => b.start_date.localeCompare(a.start_date))
+        prev.map((a) => a.id === planId
+          ? { ...a, start_date: editStartDate, end_date: newEndDate, ...(autoStatus ? { status: autoStatus } : {}) }
+          : a
+        ).sort((a, b) => b.start_date.localeCompare(a.start_date))
       )
       setEditingDatesId(null)
     }
     setSavingDatesId(null)
+  }
+
+  async function handleToggleStatus(plan: ClientMealPlan) {
+    const newStatus = plan.status === 'active' ? 'inactive' : 'active'
+    const res = await fetch(`/api/coach/clients/${clientId}/meal-plans/${plan.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    })
+    if (res.ok) {
+      setAssignments((prev) => prev.map((a) => a.id === plan.id ? { ...a, status: newStatus } : a))
+    }
   }
 
   if (loading) return <p className="text-sm text-gray-400 text-center py-10">Loading meal plans…</p>
@@ -3521,11 +3540,25 @@ function MealPlanTab({ clientId }: { clientId: string }) {
         const totalCals = plan.content.reduce((a, slot) => a + slot.foods.reduce((b, f) => b + f.calories, 0), 0)
         const isEditingDates = editingDatesId === plan.id
         return (
-          <div key={plan.id} className="bg-white rounded-2xl border overflow-hidden">
+          <div key={plan.id} className={`bg-white rounded-2xl border overflow-hidden ${plan.status !== 'active' ? 'opacity-75' : ''}`}>
             <div className="flex items-center justify-between p-4">
               <div>
-                <p className="text-sm font-semibold text-gray-900">{plan.name}</p>
-                <div className="flex items-center gap-1.5 mt-0.5">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <p className="text-sm font-semibold text-gray-900">{plan.name}</p>
+                  <button
+                    onClick={() => handleToggleStatus(plan)}
+                    title={plan.status === 'active' ? 'Mark as inactive' : 'Mark as active'}
+                    className={`flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full border transition-colors ${
+                      plan.status === 'active'
+                        ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+                        : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${plan.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`} />
+                    {plan.status === 'active' ? 'Active' : 'Inactive'}
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5">
                   <p className="text-xs text-gray-400">
                     {new Date(plan.start_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
                     {plan.end_date ? ` – ${new Date(plan.end_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}

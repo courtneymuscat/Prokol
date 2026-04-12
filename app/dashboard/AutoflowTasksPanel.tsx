@@ -30,6 +30,7 @@ type DueStep = {
   tasks: Task[]
   resources: Resource[]
   linked_form: { id: string; title: string } | null
+  unlocks_next_step: boolean
 }
 
 
@@ -110,6 +111,16 @@ export default function AutoflowTasksPanel({ onEmpty }: Props) {
               <div className="flex items-center gap-1.5 pt-1 border-t border-gray-50">
                 <span className="text-base">📋</span>
                 <p className="text-xs text-gray-500 truncate">{step.linked_form.title}</p>
+              </div>
+            )}
+
+            {/* More steps unlocked after completion */}
+            {step.unlocks_next_step && (
+              <div className="flex items-center gap-1.5 pt-1 border-t border-gray-50">
+                <svg className="w-3 h-3 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                <p className="text-xs text-gray-400">More steps to complete after this</p>
               </div>
             )}
           </a>

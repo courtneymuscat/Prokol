@@ -706,7 +706,7 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
             className="text-lg font-bold text-gray-900 bg-transparent border-none focus:outline-none focus:ring-0 min-w-0"
           />
           <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full capitalize flex-shrink-0">
-            {template.type === 'weekly_checkin' ? 'Weekly check-in' : 'Onboarding'} · {template.total_steps} steps
+            {template.type === 'weekly_checkin' ? 'Weekly check-in' : 'Onboarding'} · {template.steps.length} steps
           </span>
         </div>
         <div className="flex items-center gap-2">

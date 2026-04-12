@@ -58,6 +58,7 @@ const RESOURCE_TYPE_META: Record<string, { icon: string; label: string; color: s
   video:    { icon: '🎬', label: 'Video',    color: 'bg-purple-50 border-purple-200 text-purple-800' },
   pdf:      { icon: '📄', label: 'PDF',      color: 'bg-red-50 border-red-200 text-red-800' },
   document: { icon: '📝', label: 'Document', color: 'bg-gray-50 border-gray-200 text-gray-800' },
+  image:    { icon: '🖼️', label: 'Image',    color: 'bg-gray-50 border-gray-200 text-gray-800' },
 }
 
 function ScaleInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -370,6 +371,19 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
             </div>
             {data.resources.map(r => {
               const meta = RESOURCE_TYPE_META[r.type] ?? RESOURCE_TYPE_META.document
+              if (r.type === 'image' && r.url) {
+                return (
+                  <a key={r.id} href={r.url} target="_blank" rel="noopener noreferrer" className="block rounded-xl border border-gray-200 overflow-hidden hover:opacity-90 transition-opacity">
+                    <img src={r.url} alt={r.name} className="w-full object-cover max-h-56" />
+                    {(r.name || r.description) && (
+                      <div className="px-3.5 py-3 bg-white">
+                        <p className="text-sm font-semibold text-gray-800">{r.name}</p>
+                        {r.description && <p className="text-xs text-gray-500 mt-0.5">{r.description}</p>}
+                      </div>
+                    )}
+                  </a>
+                )
+              }
               return (
                 <a key={r.id} href="/resources" className={`bg-white rounded-xl border p-3.5 flex items-start gap-3 ${meta.color} hover:opacity-90 transition-opacity`}>
                   <span className="text-xl flex-shrink-0">{meta.icon}</span>

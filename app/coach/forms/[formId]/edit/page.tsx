@@ -134,33 +134,31 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
       fId = d.id
       setSavedId(fId)
     } else {
-      await fetch(`/api/forms/${fId}`, {
+      const res = await fetch(`/api/forms/${fId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(meta),
       })
+      if (!res.ok) {
+        const d = await res.json()
+        setError(d.error ?? 'Failed to save form')
+        setSaving(false)
+        return
+      }
     }
 
-    // 2. Save questions — always persist all questions so order is never stale
-    for (const [i, q] of questions.entries()) {
-      if (!q.id) {
-        // New question
-        const res = await fetch(`/api/forms/${fId}/questions`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...q, order_index: i }),
-        })
-        const created = await res.json()
-        if (created?.id) {
-          setQuestions((prev) => prev.map((pq, pi) => pi === i ? { ...pq, id: created.id, _dirty: false } : pq))
-        }
-      } else {
-        await fetch(`/api/forms/questions/${q.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...q, order_index: i }),
-        })
-      }
+    // 2. Batch-save all questions in one round-trip
+    const questionsWithOrder = questions.map((q, i) => ({ ...q, order_index: i }))
+    const res = await fetch(`/api/forms/${fId}/questions`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ questions: questionsWithOrder }),
+    })
+    if (!res.ok) {
+      const d = await res.json()
+      setError(d.error ?? 'Failed to save questions')
+      setSaving(false)
+      return
     }
 
     setSaving(false)

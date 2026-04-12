@@ -11,7 +11,7 @@ export async function GET() {
   // Fetch ALL active flows (not just show_as_checkin_prompt)
   const { data: flows } = await admin
     .from('client_autoflows')
-    .select('id, name, start_date, template_id, show_as_checkin_prompt')
+    .select('id, name, start_date, template_id, show_as_checkin_prompt, coach_id')
     .eq('client_id', user.id)
     .eq('status', 'active')
 
@@ -64,9 +64,13 @@ export async function GET() {
         .map((s) => (s as Record<string, unknown>).form_id as string | null)
         .filter(Boolean) as string[]
 
+      const flowCoachId = (flow as Record<string, unknown>).coach_id as string | null
       const [resourcesResult, formsResult] = await Promise.all([
         allResourceIds.length > 0
-          ? admin.from('coach_resources').select('id, name, type, url').in('id', allResourceIds)
+          ? (() => {
+              const q = admin.from('coach_resources').select('id, name, type, url').in('id', allResourceIds)
+              return flowCoachId ? q.eq('coach_id', flowCoachId) : q
+            })()
           : Promise.resolve({ data: [] }),
         allFormIds.length > 0
           ? admin.from('forms').select('id, title').in('id', allFormIds)
@@ -79,6 +83,10 @@ export async function GET() {
       const formMap: Record<string, { id: string; title: string }> = Object.fromEntries(
         (formsResult.data ?? []).map((f) => [f.id, f])
       )
+
+      // Build a set of step_numbers that are triggered by on_step_complete from a due step
+      const dueStepNumbers = new Set(dueSteps.map((s) => s.step_number))
+      const allSteps = steps ?? []
 
       return dueSteps.map((step) => {
         const stepRecord = step as Record<string, unknown>
@@ -97,11 +105,23 @@ export async function GET() {
           completed: existingAnswers[`task_${t.id}`] === 'done',
         }))
 
+        // Check if completing this step unlocks another on_step_complete step
+        const unlocks_next_step = allSteps.some((s) => {
+          const r = s as Record<string, unknown>
+          return (
+            r.trigger_type === 'on_step_complete' &&
+            r.trigger_step_number === step.step_number &&
+            !respondedSteps.has(s.step_number) &&
+            !dueStepNumbers.has(s.step_number)
+          )
+        })
+
         return {
           flow_id: flow.id,
           flow_name: flow.name,
           step_number: step.step_number,
           title: step.title,
+          trigger_type: (stepRecord.trigger_type as string) ?? 'day_offset',
           due_date: (stepRecord.trigger_type as string) === 'on_step_complete'
             ? new Date().toISOString().split('T')[0]
             : new Date(startDate.getTime() + step.day_offset * 86400000).toISOString().split('T')[0],
@@ -109,6 +129,7 @@ export async function GET() {
           tasks,
           resources: resourceIds.map((id) => resourceMap[id]).filter(Boolean),
           linked_form: formId ? (formMap[formId] ?? null) : null,
+          unlocks_next_step,
         }
       })
     })

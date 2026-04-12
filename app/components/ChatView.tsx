@@ -116,6 +116,7 @@ export default function ChatView({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const recordingSecondsRef = useRef(0)
 
   const scrollToBottom = useCallback((smooth = false) => {
     bottomRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'instant' })
@@ -211,13 +212,17 @@ export default function ChatView({
       mr.onstop = async () => {
         stream.getTracks().forEach(t => t.stop())
         const blob = new Blob(chunksRef.current, { type: mimeType })
-        await uploadAndSendAudio(blob, mimeType, recordingSeconds)
+        await uploadAndSendAudio(blob, mimeType, recordingSecondsRef.current)
       }
       mr.start()
       mediaRecorderRef.current = mr
       setRecording(true)
       setRecordingSeconds(0)
-      timerRef.current = setInterval(() => setRecordingSeconds(s => s + 1), 1000)
+      recordingSecondsRef.current = 0
+      timerRef.current = setInterval(() => {
+        recordingSecondsRef.current += 1
+        setRecordingSeconds(recordingSecondsRef.current)
+      }, 1000)
     } catch {
       alert('Microphone access denied. Please allow microphone access to send voice notes.')
     }

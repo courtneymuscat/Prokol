@@ -282,6 +282,7 @@ export default function ClientMealPlanEditor({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: updated.name,
+          status: updated.status,
           // Use food sum if foods exist, otherwise use manually-set calorie target
           total_calories: foodSum > 0 ? foodSum : (updated.total_calories ?? 0),
           content: updated.content,
@@ -346,6 +347,7 @@ export default function ClientMealPlanEditor({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: plan.name,
+        status: plan.status,
         total_calories: foodSum > 0 ? foodSum : (plan.total_calories ?? 0),
         content: plan.content,
         start_date: plan.start_date ?? undefined,
@@ -411,6 +413,13 @@ export default function ClientMealPlanEditor({
               </svg>
             </button>
           )}
+          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 ${
+            plan.status === 'active'
+              ? 'bg-green-50 border-green-200 text-green-700'
+              : 'bg-gray-100 border-gray-200 text-gray-500'
+          }`}>
+            {plan.status === 'active' ? 'Active' : 'Inactive'}
+          </span>
           <a
             href={`/coach/clients/${clientId}?tab=mealplan`}
             className="text-xs text-gray-400 hover:text-blue-600 transition-colors ml-1"
@@ -497,26 +506,54 @@ export default function ClientMealPlanEditor({
       {/* Main content */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl mx-auto p-6 space-y-4">
-          {/* Calorie target + dates */}
+          {/* Calorie target + dates + status */}
           <div className="bg-white rounded-2xl border p-5 space-y-4">
-            <div>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Calorie target</p>
-              <div className="relative w-40">
-                <input
-                  type="number"
-                  value={plan.total_calories ?? ''}
-                  onChange={(e) => {
-                    const updated = { ...plan, total_calories: parseInt(e.target.value) || 0 }
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Calorie target</p>
+                <div className="relative w-40">
+                  <input
+                    type="number"
+                    value={plan.total_calories ?? ''}
+                    onChange={(e) => {
+                      const updated = { ...plan, total_calories: parseInt(e.target.value) || 0 }
+                      setPlan(updated)
+                      scheduleSave(updated)
+                    }}
+                    placeholder="0"
+                    min={0}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">kcal</span>
+                </div>
+              </div>
+
+              {/* Active / Inactive toggle */}
+              <div className="flex flex-col items-end gap-1.5">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Status</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newStatus = plan.status === 'active' ? 'inactive' : 'active'
+                    const updated = { ...plan, status: newStatus }
                     setPlan(updated)
                     scheduleSave(updated)
                   }}
-                  placeholder="0"
-                  min={0}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">kcal</span>
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-sm font-semibold transition-colors ${
+                    plan.status === 'active'
+                      ? 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+                      : 'bg-gray-100 border-gray-200 text-gray-500 hover:bg-gray-200'
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${plan.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`} />
+                  {plan.status === 'active' ? 'Active' : 'Inactive'}
+                </button>
+                {plan.status !== 'active' && (
+                  <p className="text-[11px] text-gray-400">Not visible to client</p>
+                )}
               </div>
             </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Start date</p>
@@ -532,12 +569,19 @@ export default function ClientMealPlanEditor({
                 />
               </div>
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">End date</p>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">
+                  End date
+                  <span className="text-[10px] text-gray-300 font-normal ml-1">(auto-deactivates)</span>
+                </p>
                 <input
                   type="date"
                   value={plan.end_date ?? ''}
                   onChange={(e) => {
-                    const updated = { ...plan, end_date: e.target.value || null }
+                    const newEndDate = e.target.value || null
+                    const today = new Date().toISOString().split('T')[0]
+                    // Auto-mark inactive if end date is in the past
+                    const newStatus = newEndDate && newEndDate < today ? 'inactive' : plan.status
+                    const updated = { ...plan, end_date: newEndDate, status: newStatus }
                     setPlan(updated)
                     scheduleSave(updated)
                   }}

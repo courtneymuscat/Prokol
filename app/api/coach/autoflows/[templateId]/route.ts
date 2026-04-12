@@ -44,9 +44,17 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     .single()
   if (!tpl) return Response.json({ error: 'Not found' }, { status: 404 })
 
+  const totalSteps = Array.isArray(steps) ? steps.length : undefined
+
   await supabase
     .from('autoflow_templates')
-    .update({ name, description: description ?? null, core_questions: core_questions ?? [], updated_at: new Date().toISOString() })
+    .update({
+      name,
+      description: description ?? null,
+      core_questions: core_questions ?? [],
+      ...(totalSteps !== undefined ? { total_steps: totalSteps } : {}),
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', templateId)
 
   if (Array.isArray(steps)) {
@@ -68,6 +76,14 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     await supabase
       .from('autoflow_template_steps')
       .upsert(stepRows, { onConflict: 'template_id,step_number' })
+
+    // Delete any steps that were removed from the template
+    const keptStepNumbers = steps.map((s: { step_number: number }) => s.step_number)
+    await supabase
+      .from('autoflow_template_steps')
+      .delete()
+      .eq('template_id', templateId)
+      .not('step_number', 'in', `(${keptStepNumbers.join(',')})`)
   }
 
   // Push name + regenerate calendar events for active client flows
