@@ -17,7 +17,7 @@ type Resource = {
   id: string
   name: string
   description: string | null
-  type: 'link' | 'video' | 'pdf' | 'document'
+  type: 'link' | 'video' | 'pdf' | 'document' | 'image'
   url: string | null
 }
 
