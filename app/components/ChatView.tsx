@@ -39,13 +39,21 @@ function AudioPlayer({ url, isMe, knownDuration = 0 }: { url: string; isMe: bool
   const [playing, setPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
   const [duration, setDuration] = useState(knownDuration)
+  const [loadError, setLoadError] = useState(false)
   const audioRef = useRef<HTMLAudioElement>(null)
 
   function toggle() {
     const a = audioRef.current
-    if (!a) return
-    if (playing) { a.pause() } else { a.play() }
-    setPlaying(!playing)
+    if (!a || loadError) return
+    if (playing) {
+      a.pause()
+      setPlaying(false)
+    } else {
+      a.play().then(() => setPlaying(true)).catch(() => {
+        setPlaying(false)
+        setLoadError(true)
+      })
+    }
   }
 
   function fmt(s: number) {
@@ -57,10 +65,17 @@ function AudioPlayer({ url, isMe, knownDuration = 0 }: { url: string; isMe: bool
   function onMetadata() {
     const a = audioRef.current
     if (!a) return
-    // WebM files often report Infinity — fall back to knownDuration
-    if (isFinite(a.duration) && a.duration > 0) {
-      setDuration(a.duration)
-    }
+    if (isFinite(a.duration) && a.duration > 0) setDuration(a.duration)
+  }
+
+  function onTimeUpdate() {
+    const a = audioRef.current
+    if (!a) return
+    const dur = isFinite(a.duration) && a.duration > 0 ? a.duration : (duration || knownDuration || 1)
+    const p = a.currentTime / dur
+    setProgress(p)
+    // Manually detect end (some browsers/formats don't fire onEnded reliably)
+    if (p >= 0.98) { setPlaying(false); setProgress(0) }
   }
 
   return (
@@ -69,11 +84,13 @@ function AudioPlayer({ url, isMe, knownDuration = 0 }: { url: string; isMe: bool
         ref={audioRef}
         src={url}
         playsInline
+        preload="auto"
         onEnded={() => { setPlaying(false); setProgress(0) }}
-        onTimeUpdate={() => { const a = audioRef.current; if (a) setProgress(a.currentTime / (duration || 1)) }}
+        onTimeUpdate={onTimeUpdate}
         onLoadedMetadata={onMetadata}
+        onError={() => { setPlaying(false); setLoadError(true) }}
       />
-      <button onClick={toggle} className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isMe ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-100 hover:bg-gray-200'}`}>
+      <button onClick={toggle} disabled={loadError} className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${loadError ? 'opacity-40 cursor-not-allowed' : ''} ${isMe ? 'bg-white/20 hover:bg-white/30' : 'bg-gray-100 hover:bg-gray-200'}`}>
         {playing
           ? <svg className={`w-3.5 h-3.5 ${isMe ? 'text-white' : 'text-gray-700'}`} fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" /></svg>
           : <svg className={`w-3.5 h-3.5 ml-0.5 ${isMe ? 'text-white' : 'text-gray-700'}`} fill="currentColor" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21" /></svg>
@@ -83,7 +100,9 @@ function AudioPlayer({ url, isMe, knownDuration = 0 }: { url: string; isMe: bool
         <div className={`h-1 rounded-full ${isMe ? 'bg-white/30' : 'bg-gray-200'}`}>
           <div className={`h-1 rounded-full transition-all ${isMe ? 'bg-white' : 'bg-blue-500'}`} style={{ width: `${progress * 100}%` }} />
         </div>
-        <p className={`text-xs mt-1 ${isMe ? 'text-white/70' : 'text-gray-400'}`}>{duration ? fmt(duration) : '0:00'}</p>
+        <p className={`text-xs mt-1 ${isMe ? 'text-white/70' : 'text-gray-400'}`}>
+          {loadError ? 'Failed to load' : (duration ? fmt(duration) : '0:00')}
+        </p>
       </div>
     </div>
   )
@@ -169,6 +188,34 @@ export default function ChatView({
 
     return () => { supabase.removeChannel(channel) }
   }, [conversationId, currentUserId, scrollToBottom])
+
+  // Polling fallback — in case realtime postgres_changes isn't configured in Supabase dashboard
+  useEffect(() => {
+    let lastCount = 0
+    const poll = async () => {
+      try {
+        const r = await fetch(`/api/conversations/${conversationId}/messages`)
+        if (!r.ok) return
+        const msgs: Message[] = await r.json()
+        if (!Array.isArray(msgs)) return
+        setMessages((prev) => {
+          if (msgs.length > prev.length) {
+            // Mark newly received messages as read
+            if (msgs.length > lastCount) {
+              fetch(`/api/conversations/${conversationId}/read`, { method: 'POST' })
+              setTimeout(() => scrollToBottom(true), 50)
+            }
+            lastCount = msgs.length
+            return msgs
+          }
+          lastCount = prev.length
+          return prev
+        })
+      } catch { /* ignore */ }
+    }
+    const interval = setInterval(poll, 3000)
+    return () => clearInterval(interval)
+  }, [conversationId, scrollToBottom])
 
   async function sendMessage(body: string, attachmentUrl?: string, attachmentType?: string) {
     const res = await fetch(`/api/conversations/${conversationId}/messages`, {
@@ -268,9 +315,15 @@ export default function ChatView({
         return
       }
 
-      const { data: urlData } = supabase.storage
+      // Use a signed URL (1 year) so audio works even if the bucket isn't set to public
+      const { data: signedData, error: signErr } = await supabase.storage
         .from('message-attachments')
-        .getPublicUrl(data.path)
+        .createSignedUrl(data.path, 365 * 24 * 60 * 60)
+      if (signErr || !signedData?.signedUrl) {
+        // Fall back to public URL if signing fails
+        console.warn('Signed URL failed, trying public URL:', signErr)
+      }
+      const urlData = { publicUrl: signedData?.signedUrl ?? supabase.storage.from('message-attachments').getPublicUrl(data.path).data.publicUrl }
 
       // Store recording duration in body so the player can display it immediately
       const res = await fetch(`/api/conversations/${conversationId}/messages`, {

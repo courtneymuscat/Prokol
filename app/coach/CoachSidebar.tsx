@@ -24,6 +24,7 @@ const NAV = [
   {
     href: '/coach/messages',
     label: 'Messages',
+    messageBadge: true,
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -105,7 +106,7 @@ const NAV = [
   },
 ]
 
-export default function CoachSidebar({ unreadCount }: { unreadCount: number }) {
+export default function CoachSidebar({ unreadCount, unreadMessages }: { unreadCount: number; unreadMessages: number }) {
   const path = usePathname()
 
   return (
@@ -137,6 +138,11 @@ export default function CoachSidebar({ unreadCount }: { unreadCount: number }) {
                 {item.badge && unreadCount > 0 && (
                   <span className="ml-auto text-[11px] bg-blue-500 text-white font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-tight">
                     {unreadCount}
+                  </span>
+                )}
+                {item.messageBadge && unreadMessages > 0 && (
+                  <span className="ml-auto text-[11px] bg-blue-500 text-white font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-tight">
+                    {unreadMessages}
                   </span>
                 )}
               </a>
@@ -192,10 +198,11 @@ export default function CoachSidebar({ unreadCount }: { unreadCount: number }) {
           {[
             NAV[0], // Dashboard
             NAV[1], // Clients
+            NAV[2], // Messages
             NAV[3], // Check-ins
-            NAV[6], // Programs
           ].map((item) => {
             const active = path === item.href || (item.href !== '/coach/dashboard' && path.startsWith(item.href))
+            const badgeCount = item.badge ? unreadCount : item.messageBadge ? unreadMessages : 0
             return (
               <a
                 key={item.href}
@@ -206,7 +213,7 @@ export default function CoachSidebar({ unreadCount }: { unreadCount: number }) {
                 <span className={`text-[10px] font-semibold tracking-tight ${active ? 'text-blue-600' : 'text-gray-400'}`}>
                   {item.label}
                 </span>
-                {item.badge && unreadCount > 0 && (
+                {badgeCount > 0 && (
                   <span className="absolute top-2 right-[calc(50%-14px)] w-2 h-2 bg-blue-500 rounded-full" />
                 )}
               </a>
