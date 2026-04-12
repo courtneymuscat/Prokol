@@ -68,6 +68,7 @@ function AudioPlayer({ url, isMe, knownDuration = 0 }: { url: string; isMe: bool
       <audio
         ref={audioRef}
         src={url}
+        playsInline
         onEnded={() => { setPlaying(false); setProgress(0) }}
         onTimeUpdate={() => { const a = audioRef.current; if (a) setProgress(a.currentTime / (duration || 1)) }}
         onLoadedMetadata={onMetadata}
@@ -214,7 +215,8 @@ export default function ChatView({
         const blob = new Blob(chunksRef.current, { type: mimeType })
         await uploadAndSendAudio(blob, mimeType, recordingSecondsRef.current)
       }
-      mr.start(200)
+      // No timeslice — request all data at stop() to avoid fragmented MP4 on iOS
+      mr.start()
       mediaRecorderRef.current = mr
       setRecording(true)
       setRecordingSeconds(0)
