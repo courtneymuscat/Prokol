@@ -60,7 +60,7 @@ export async function getOrgForUser(userId: string): Promise<OrgMembership | nul
 
   if (!data) return null
 
-  const org = data.organisations as { name: string; slug: string } | null
+  const org = data.organisations as unknown as { name: string; slug: string } | null
   if (!org) return null
 
   return {
