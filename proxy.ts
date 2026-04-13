@@ -29,7 +29,12 @@ export async function proxy(req: NextRequest) {
   } = await supabase.auth.getSession()
 
   const path = req.nextUrl.pathname
-  const isProtected = path.startsWith('/dashboard') || path.startsWith('/onboarding') || path.startsWith('/coach') || path.startsWith('/messages')
+  const isProtected =
+    path.startsWith('/dashboard') ||
+    path.startsWith('/onboarding') ||
+    path.startsWith('/coach') ||
+    path.startsWith('/messages') ||
+    path.startsWith('/org')
   const isAuthPage = path === '/login' || path === '/signup'
 
   if (isProtected && !session) {
