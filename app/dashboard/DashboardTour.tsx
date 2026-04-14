@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useLayoutEffect } from 'react'
 
-const TOUR_KEY = 'nutricoach_tour_done'
+const TOUR_KEY = 'prokol_tour_done'
 const PAD = 10 // spotlight padding around target
 
 type Step = {
@@ -18,7 +18,7 @@ const STEPS: Step[] = [
   {
     targetId: null,
     emoji: '👋',
-    title: "Welcome to NutriCoach!",
+    title: "Welcome to Prokol!",
     body: "Let me show you exactly where everything lives. Tap the highlighted areas as I point them out.",
     cta: 'Start tour →',
   },

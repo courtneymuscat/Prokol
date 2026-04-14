@@ -92,7 +92,7 @@ export default async function InvitePage({
         <div>
           <h1 className="text-2xl font-bold text-gray-900">You&apos;re invited!</h1>
           <p className="text-gray-500 mt-2 text-sm">
-            <span className="font-medium text-gray-700">{coachEmail}</span> has invited you to join their coaching roster on NutriCoach.
+            <span className="font-medium text-gray-700">{coachEmail}</span> has invited you to join their coaching roster on Prokol.
           </p>
         </div>
 

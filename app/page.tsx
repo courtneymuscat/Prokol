@@ -9,7 +9,7 @@ export default function LandingPage() {
       {/* ── Nav ─────────────────────────────────────────────────────────────── */}
       <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-gray-100 px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <span className="text-xl font-bold tracking-tight">NutriCoach</span>
+          <span className="text-xl font-bold tracking-tight">Prokol</span>
           <div className="hidden md:flex items-center gap-6 text-sm text-gray-600">
             <a href="#features" className="hover:text-gray-900 transition-colors">Features</a>
             <a href="#pricing" className="hover:text-gray-900 transition-colors">Pricing</a>
@@ -47,14 +47,14 @@ export default function LandingPage() {
       {/* ── Footer ──────────────────────────────────────────────────────────── */}
       <footer className="bg-gray-900 border-t border-gray-800 px-6 py-8">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-500">
-          <span className="font-bold text-white">NutriCoach</span>
+          <span className="font-bold text-white">Prokol</span>
           <div className="flex items-center gap-6">
             <a href="#features" className="hover:text-gray-300 transition-colors">Features</a>
             <a href="#pricing" className="hover:text-gray-300 transition-colors">Pricing</a>
             <Link href="/login" className="hover:text-gray-300 transition-colors">Log in</Link>
             <Link href="/signup" className="hover:text-gray-300 transition-colors">Sign up</Link>
           </div>
-          <span>© {new Date().getFullYear()} NutriCoach. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} Prokol. All rights reserved.</span>
         </div>
       </footer>
 

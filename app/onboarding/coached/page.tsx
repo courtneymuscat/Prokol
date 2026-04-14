@@ -83,7 +83,7 @@ export default async function CoachedOnboardingPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4 py-12">
       {/* Logo */}
       <div className="mb-8">
-        <span className="text-xl font-bold text-gray-900">NutriCoach</span>
+        <span className="text-xl font-bold text-gray-900">Prokol</span>
       </div>
 
       <div className="w-full max-w-md bg-white rounded-2xl border p-8 space-y-6">

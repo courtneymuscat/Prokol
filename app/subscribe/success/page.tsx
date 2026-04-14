@@ -72,7 +72,7 @@ export default async function SubscribeSuccessPage({
         <div>
           <h1 className="text-2xl font-bold text-gray-900">You&apos;re all set!</h1>
           <p className="text-gray-500 mt-2 text-sm">
-            Your subscription is now active. Welcome to NutriCoach — let&apos;s get you started.
+            Your subscription is now active. Welcome to Prokol — let&apos;s get you started.
           </p>
         </div>
 

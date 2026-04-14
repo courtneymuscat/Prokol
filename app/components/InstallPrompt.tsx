@@ -57,10 +57,10 @@ export default function InstallPrompt() {
     <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-safe-bottom">
       <div className="bg-white border border-gray-200 rounded-2xl shadow-xl p-4 mb-4 flex items-start gap-3">
         {/* App icon */}
-        <img src="/icons/icon-192.png" alt="NutriCoach" className="w-12 h-12 rounded-2xl flex-shrink-0" />
+        <img src="/icons/icon-192.png" alt="Prokol" className="w-12 h-12 rounded-2xl flex-shrink-0" />
 
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-gray-900">Add NutriCoach to your home screen</p>
+          <p className="text-sm font-bold text-gray-900">Add Prokol to your home screen</p>
 
           {platform === 'ios' ? (
             <p className="text-xs text-gray-500 mt-1 leading-relaxed">

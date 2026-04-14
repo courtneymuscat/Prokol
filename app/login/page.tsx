@@ -17,7 +17,7 @@ function LoginForm() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <span className="text-2xl font-bold tracking-tight text-gray-900">NutriCoach</span>
+          <span className="text-2xl font-bold tracking-tight text-gray-900">Prokol</span>
         </div>
 
         {deleted && (

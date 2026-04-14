@@ -101,7 +101,7 @@ export default async function DashboardPage() {
       <DashboardTour />
       {/* Nav */}
       <nav className="bg-white px-6 py-3.5 flex justify-between items-center border-b border-gray-100 sticky top-0 z-20">
-        <span className="text-[15px] font-bold tracking-tight text-gray-900">NutriCoach</span>
+        <span className="text-[15px] font-bold tracking-tight text-gray-900">Prokol</span>
         <div className="flex items-center gap-1">
           {/* Desktop-only nav links — bottom tab bar handles mobile */}
           <div className="hidden md:flex items-center gap-1">

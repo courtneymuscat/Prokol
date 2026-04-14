@@ -273,7 +273,7 @@ export default function AppPreviewTab({
         <PhoneFrame>
           {/* App nav */}
           <div className="bg-white px-4 py-3 border-b border-gray-100 sticky top-0 z-10">
-            <span className="text-[13px] font-bold text-gray-900">NutriCoach</span>
+            <span className="text-[13px] font-bold text-gray-900">Prokol</span>
           </div>
 
           <div className="px-0 py-4 space-y-1">

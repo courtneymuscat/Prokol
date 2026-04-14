@@ -8,7 +8,7 @@ export default async function PricingPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b px-6 py-4 flex justify-between items-center">
-        <Link href="/" className="text-xl font-bold text-gray-900">NutriCoach</Link>
+        <Link href="/" className="text-xl font-bold text-gray-900">Prokol</Link>
         <Link href="/dashboard" className="text-sm text-gray-600 hover:underline">← Back to dashboard</Link>
       </nav>
 

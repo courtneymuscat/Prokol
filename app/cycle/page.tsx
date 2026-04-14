@@ -42,7 +42,7 @@ export default async function CyclePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b px-6 py-3.5 flex justify-between items-center sticky top-0 z-20">
-        <a href="/dashboard" className="text-[15px] font-bold tracking-tight text-gray-900">NutriCoach</a>
+        <a href="/dashboard" className="text-[15px] font-bold tracking-tight text-gray-900">Prokol</a>
         <div className="flex items-center gap-1">
           <div className="hidden md:flex items-center gap-1">
             {NAV_LINKS.map(({ href, label }) => (

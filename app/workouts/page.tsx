@@ -19,7 +19,7 @@ export default async function WorkoutsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b px-6 py-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold text-gray-900">NutriCoach</h1>
+        <h1 className="text-xl font-bold text-gray-900">Prokol</h1>
         <div className="flex items-center gap-4">
           <a href="/dashboard" className="text-sm text-gray-600 hover:underline">
             Dashboard

@@ -18,7 +18,7 @@ export default async function ProgressPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b px-6 py-3.5 flex justify-between items-center sticky top-0 z-20">
-        <span className="text-[15px] font-bold tracking-tight text-gray-900">NutriCoach</span>
+        <span className="text-[15px] font-bold tracking-tight text-gray-900">Prokol</span>
         <div className="flex items-center gap-1">
           <a href="/dashboard" className="text-[13px] font-medium text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">Dashboard</a>
           <a href="/workouts" className="text-[13px] font-medium text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">Workouts</a>

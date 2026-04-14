@@ -275,7 +275,7 @@ export default function OnboardingPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
-        <span className="text-base font-bold text-gray-900">NutriCoach</span>
+        <span className="text-base font-bold text-gray-900">Prokol</span>
         {step < 5 && <span className="text-xs text-gray-400">Setting up your account</span>}
       </div>
 

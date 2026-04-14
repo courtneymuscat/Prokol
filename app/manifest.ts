@@ -2,8 +2,8 @@ import { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'NutriCoach',
-    short_name: 'NutriCoach',
+    name: 'Prokol',
+    short_name: 'Prokol',
     description: 'Track your nutrition and progress',
     start_url: '/dashboard',
     display: 'standalone',

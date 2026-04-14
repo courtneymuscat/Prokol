@@ -26,7 +26,7 @@ function SignupForm() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border p-8 space-y-6">
         <div>
-          <Link href="/" className="text-xl font-bold text-gray-900">NutriCoach</Link>
+          <Link href="/" className="text-xl font-bold text-gray-900">Prokol</Link>
           <h1 className="text-2xl font-bold mt-4 text-gray-900">
             {invite ? 'Accept your invite' : isCoach ? 'Start coaching' : 'Create your account'}
           </h1>

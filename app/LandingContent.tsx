@@ -201,7 +201,7 @@ export default function LandingContent() {
               </h1>
 
               <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-                NutriCoach tracks your nutrition, training, weight, and cycle in one place — so you can perform at your best, every single day.
+                Prokol tracks your nutrition, training, weight, and cycle in one place — so you can perform at your best, every single day.
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -318,9 +318,9 @@ export default function LandingContent() {
         <section className="py-24 px-6 bg-white">
           <div className="max-w-5xl mx-auto space-y-12">
             <div className="text-center space-y-3">
-              <h2 className="text-3xl font-bold text-gray-900">Why coaches are switching to NutriCoach</h2>
+              <h2 className="text-3xl font-bold text-gray-900">Why coaches are switching to Prokol</h2>
               <p className="text-gray-500 text-lg max-w-2xl mx-auto">
-                Most coaches patch together 3–4 tools. NutriCoach replaces all of them.
+                Most coaches patch together 3–4 tools. Prokol replaces all of them.
               </p>
             </div>
 
@@ -361,7 +361,7 @@ export default function LandingContent() {
                     <th className="text-left px-5 py-3.5 font-semibold text-gray-700 w-1/3">Feature</th>
                     <th className="px-5 py-3.5 font-semibold text-gray-500 text-center">Trainerize / Everfit</th>
                     <th className="px-5 py-3.5 font-semibold text-gray-500 text-center">MyFitnessPal</th>
-                    <th className="px-5 py-3.5 font-bold text-gray-900 text-center">NutriCoach</th>
+                    <th className="px-5 py-3.5 font-bold text-gray-900 text-center">Prokol</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -376,7 +376,7 @@ export default function LandingContent() {
                     ['Clients keep app after coaching',   false, true,  true ],
                     ['Cycle & hormonal health tracking',  false, false, true ],
                     ['AI meal photo scanning',            false, false, true ],
-                  ].map(([feature, trainerize, mfp, nutricoach]) => (
+                  ].map(([feature, trainerize, mfp, prokol]) => (
                     <tr key={feature as string} className="bg-white hover:bg-gray-50 transition-colors">
                       <td className="px-5 py-3 font-medium text-gray-700">{feature as string}</td>
                       <td className="px-5 py-3 text-center">{trainerize ? '✓' : <span className="text-gray-300">—</span>}</td>
@@ -451,7 +451,7 @@ export default function LandingContent() {
           ) : (
             <>
               <h2 className="text-4xl font-bold">Ready to understand your body?</h2>
-              <p className="text-gray-400 text-lg">Join NutriCoach free today — no credit card required.</p>
+              <p className="text-gray-400 text-lg">Join Prokol free today — no credit card required.</p>
               <Link
                 href="/signup"
                 className="inline-block text-base font-semibold px-10 py-4 rounded-2xl text-gray-900 hover:opacity-90 transition-colors"

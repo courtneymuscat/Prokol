@@ -1,4 +1,4 @@
-const CACHE = 'nutricoach-v1'
+const CACHE = 'prokol-v1'
 
 // Cache key app-shell assets on install
 self.addEventListener('install', (e) => {

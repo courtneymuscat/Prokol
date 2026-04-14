@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
   try {
     const offRes = await fetch(
       `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json`,
-      { headers: { 'User-Agent': 'NutriCoach/1.0 (nutricoach.app)' } }
+      { headers: { 'User-Agent': 'Prokol/1.0 (prokol.io)' } }
     )
 
     if (offRes.ok) {

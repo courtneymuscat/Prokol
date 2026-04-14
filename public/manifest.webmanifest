@@ -1,6 +1,6 @@
 {
-  "name": "NutriCoach",
-  "short_name": "NutriCoach",
+  "name": "Prokol",
+  "short_name": "Prokol",
   "description": "Track your nutrition, training and progress with your coach.",
   "start_url": "/dashboard",
   "scope": "/",

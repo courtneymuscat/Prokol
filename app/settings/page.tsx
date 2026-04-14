@@ -21,7 +21,7 @@ export default async function SettingsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white px-6 py-3.5 flex justify-between items-center border-b border-gray-100 sticky top-0 z-20">
-        <a href="/dashboard" className="text-[15px] font-bold tracking-tight text-gray-900">NutriCoach</a>
+        <a href="/dashboard" className="text-[15px] font-bold tracking-tight text-gray-900">Prokol</a>
         <form action={logout}>
           <button type="submit" className="text-[13px] font-medium text-gray-500 hover:text-red-500 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
             Log out

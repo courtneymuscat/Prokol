@@ -21,13 +21,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NutriCoach",
+  title: "Prokol",
   description: "Track your nutrition and progress",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "NutriCoach",
+    title: "Prokol",
   },
 };
 
