@@ -64,19 +64,28 @@ export default async function CoachedOnboardingPage() {
   }
 
   const formUrl = coachClientFormId ? `/forms/${coachClientFormId}` : null
-  const afterPayUrl = formUrl ?? (clientProfile?.onboarding_completed ? '/dashboard' : '/onboarding/coached')
+  const nextAfterProfile = formUrl ?? '/dashboard'
+  // After payment, always go through profile setup first (collects goal + body stats).
+  // If the client has already completed onboarding, skip straight to form/dashboard.
+  const afterPayUrl = clientProfile?.onboarding_completed
+    ? nextAfterProfile
+    : `/onboarding?next=${encodeURIComponent(nextAfterProfile)}`
   const coachName = coachProfile?.first_name || coachProfile?.email || 'your coach'
   const paymentLink = service?.payment_link ?? null
   const serviceName = service?.name ?? null
 
   // No payment link configured — skip straight to the next step
   if (!paymentLink) {
-    // If there's no form either, mark onboarding complete and send to dashboard
-    if (!formUrl && !clientProfile?.onboarding_completed) {
+    if (!clientProfile?.onboarding_completed) {
+      // Send to profile setup; it will redirect to form/dashboard on completion
+      redirect(afterPayUrl)
+    }
+    // Onboarding already done — go to form or dashboard
+    if (!formUrl) {
       await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', user.id)
       redirect('/dashboard')
     }
-    redirect(afterPayUrl)
+    redirect(formUrl)
   }
 
   return (
@@ -111,16 +120,13 @@ export default async function CoachedOnboardingPage() {
           <PayNowButton paymentLink={paymentLink} afterPayUrl={afterPayUrl} />
         </div>
 
-        {/* Step 2 — next step preview (muted) */}
+        {/* Step 2 — profile setup (always; form/autoflow follows automatically) */}
         <div className="border border-gray-100 bg-gray-50 rounded-xl p-4 space-y-2">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Step 2</p>
-          <p className="text-sm font-semibold text-gray-400">
-            {formUrl ? 'Complete your onboarding form' : 'Set up your profile'}
-          </p>
+          <p className="text-sm font-semibold text-gray-400">Set up your profile</p>
           <p className="text-xs text-gray-400">
-            {formUrl
-              ? 'Your coach has a short form for you to fill in.'
-              : 'Answer a few questions so we can calculate your personalised nutrition targets.'}
+            Answer a few questions so we can calculate your personalised nutrition targets.
+            {formUrl ? ' Your coach\u2019s onboarding form follows automatically.' : ''}
           </p>
         </div>
       </div>

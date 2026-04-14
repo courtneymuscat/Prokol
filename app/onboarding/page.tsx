@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -169,6 +169,13 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Read ?next= to know where to send the user after completing profile setup.
+  // Coached clients arrive here from /onboarding/coached with next=/forms/{id} or /dashboard.
+  const [nextUrl, setNextUrl] = useState<string | null>(null)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    setNextUrl(params.get('next'))
+  }, [])
   const [adjustmentPct, setAdjustmentPct] = useState(20)
   const [activeTooltip, setActiveTooltip] = useState<'bmr' | 'tdee' | null>(null)
 
@@ -762,11 +769,11 @@ export default function OnboardingPage() {
               )}
 
               <button
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push(nextUrl ?? '/dashboard')}
                 className="w-full py-3 rounded-2xl text-sm font-semibold transition-colors text-gray-900"
                 style={{ backgroundColor: '#FFD885' }}
               >
-                Go to dashboard →
+                {nextUrl?.includes('/forms/') ? 'Continue to your form →' : 'Go to dashboard →'}
               </button>
             </div>
           )}
