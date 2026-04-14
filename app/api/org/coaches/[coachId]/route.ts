@@ -62,5 +62,20 @@ export async function DELETE(
     .update({ org_id: null })
     .eq('id', coachId)
 
+  // Decrement org coach_seat_count (minimum 0)
+  const { data: org } = await admin
+    .from('organisations')
+    .select('coach_seat_count')
+    .eq('id', membership.org_id)
+    .single()
+
+  if (org) {
+    const newCount = Math.max(0, (org.coach_seat_count as number) - 1)
+    await admin
+      .from('organisations')
+      .update({ coach_seat_count: newCount })
+      .eq('id', membership.org_id)
+  }
+
   return Response.json({ ok: true })
 }

@@ -93,54 +93,82 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: 'Role must be admin or coach' }, { status: 400 })
   }
 
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email.trim())) {
+    return Response.json({ error: 'Invalid email address' }, { status: 400 })
+  }
+
   const admin = createAdminClient()
 
-  // Look up the invited coach by email
-  const { data: invitee } = await admin
-    .from('profiles')
-    .select('id, user_type')
-    .eq('email', email.trim().toLowerCase())
+  // Check seat cap
+  const { data: org } = await admin
+    .from('organisations')
+    .select('coach_seat_count, coach_seat_limit, name')
+    .eq('id', membership.org_id)
     .single()
 
-  if (!invitee) {
-    return Response.json({ error: 'No account found for that email address' }, { status: 404 })
-  }
-  if (invitee.user_type !== 'coach') {
-    return Response.json({ error: 'That user is not a coach account' }, { status: 400 })
+  if (!org) return Response.json({ error: 'Organisation not found' }, { status: 404 })
+
+  if (org.coach_seat_count >= org.coach_seat_limit) {
+    return Response.json(
+      {
+        error: `You've reached your coach limit (${org.coach_seat_limit} included). Upgrade your plan to add more coaches.`,
+        atCap: true,
+        current: org.coach_seat_count,
+        limit: org.coach_seat_limit,
+      },
+      { status: 403 },
+    )
   }
 
-  // Check not already a member
-  const { data: existing } = await admin
-    .from('org_members')
-    .select('id')
+  const normalEmail = email.trim().toLowerCase()
+
+  // Check for an active unexpired invite for this email + org
+  const { data: existingInvite } = await admin
+    .from('org_invites')
+    .select('id, token')
     .eq('org_id', membership.org_id)
-    .eq('user_id', invitee.id)
+    .eq('email', normalEmail)
+    .eq('is_active', true)
+    .gt('expires_at', new Date().toISOString())
     .maybeSingle()
 
-  if (existing) {
-    return Response.json({ error: 'Coach is already a member of this organisation' }, { status: 409 })
+  let token: string
+
+  if (existingInvite) {
+    // Resend: refresh timestamps on the existing invite
+    const newExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+    await admin
+      .from('org_invites')
+      .update({ created_at: new Date().toISOString(), expires_at: newExpiry })
+      .eq('id', existingInvite.id)
+    token = existingInvite.token
+  } else {
+    // Create a new invite record
+    const { data: invite, error } = await admin
+      .from('org_invites')
+      .insert({
+        org_id: membership.org_id,
+        email: normalEmail,
+        role,
+        invited_by: session.user.id,
+      })
+      .select('token')
+      .single()
+
+    if (error) return Response.json({ error: error.message }, { status: 500 })
+    token = invite.token
   }
 
-  // Create the membership (pending — accepted_at null until coach accepts)
-  const { data: member, error } = await admin
-    .from('org_members')
-    .insert({
-      org_id: membership.org_id,
-      user_id: invitee.id,
-      role,
-      is_active: false, // becomes active when the coach accepts
-    })
-    .select('id')
-    .single()
+  // Send invite email via Supabase auth invite
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const inviteUrl = `${appUrl}/org/invite/${token}`
 
-  if (error) return Response.json({ error: error.message }, { status: 500 })
-
-  // Create default permissions record
-  await admin.from('org_coach_permissions').insert({
-    org_id: membership.org_id,
-    coach_id: invitee.id,
-    updated_by: session.user.id,
+  await admin.auth.admin.inviteUserByEmail(normalEmail, {
+    redirectTo: inviteUrl,
+    data: { org_invite_token: token, org_name: org.name },
   })
 
-  return Response.json({ member_id: member.id, invited_user_id: invitee.id })
+  return Response.json({ success: true, invited: normalEmail })
 }

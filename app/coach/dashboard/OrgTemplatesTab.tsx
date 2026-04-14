@@ -20,30 +20,76 @@ type OrgTemplates = {
 type GroupKey = keyof OrgTemplates
 type TableName = 'autoflow_templates' | 'programs' | 'meal_plans' | 'forms' | 'note_templates'
 
-const GROUPS: { key: GroupKey; label: string; table: TableName; emptyLink: string; emptyLinkLabel: string }[] = [
-  { key: 'autoflows',      label: 'Autoflows',      table: 'autoflow_templates', emptyLink: '/coach/autoflows',    emptyLinkLabel: 'Go to Autoflows' },
-  { key: 'programs',       label: 'Programs',       table: 'programs',           emptyLink: '/coach/programs',     emptyLinkLabel: 'Go to Programs' },
-  { key: 'meal_plans',     label: 'Meal Plans',     table: 'meal_plans',         emptyLink: '/coach/meal-plans',   emptyLinkLabel: 'Go to Meal Plans' },
-  { key: 'forms',          label: 'Forms',          table: 'forms',              emptyLink: '/coach/forms',        emptyLinkLabel: 'Go to Forms' },
-  { key: 'note_templates', label: 'Note Templates', table: 'note_templates',     emptyLink: '/coach/note-templates', emptyLinkLabel: 'Go to Note Templates' },
+const GROUPS: {
+  key: GroupKey
+  label: string
+  table: TableName
+  emptyLink: string
+  emptyLinkLabel: string
+  fetchUrl: string
+  nameField: string
+}[] = [
+  { key: 'autoflows',      label: 'Autoflows',      table: 'autoflow_templates', emptyLink: '/coach/autoflows',      emptyLinkLabel: 'Go to Autoflows',      fetchUrl: '/api/coach/autoflows',      nameField: 'name' },
+  { key: 'programs',       label: 'Programs',       table: 'programs',           emptyLink: '/coach/programs',       emptyLinkLabel: 'Go to Programs',       fetchUrl: '/api/coach/programs',       nameField: 'name' },
+  { key: 'meal_plans',     label: 'Meal Plans',     table: 'meal_plans',         emptyLink: '/coach/meal-plans',     emptyLinkLabel: 'Go to Meal Plans',     fetchUrl: '/api/coach/meal-plans',     nameField: 'name' },
+  { key: 'forms',          label: 'Forms',          table: 'forms',              emptyLink: '/coach/forms',          emptyLinkLabel: 'Go to Forms',          fetchUrl: '/api/forms',                nameField: 'title' },
+  { key: 'note_templates', label: 'Note Templates', table: 'note_templates',     emptyLink: '/coach/note-templates', emptyLinkLabel: 'Go to Note Templates', fetchUrl: '/api/coach/note-templates', nameField: 'name' },
 ]
 
 // ─── Publish modal ────────────────────────────────────────────────────────────
 
-function PublishModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
-  const [templateId, setTemplateId] = useState('')
+type CoachTemplate = { id: string; name: string }
+
+function PublishModal({
+  onClose,
+  onDone,
+  orgTemplates,
+}: {
+  onClose: () => void
+  onDone: () => void
+  orgTemplates: OrgTemplates
+}) {
   const [table, setTable] = useState<TableName>('autoflow_templates')
+  const [available, setAvailable] = useState<CoachTemplate[]>([])
+  const [loadingList, setLoadingList] = useState(false)
+  const [selectedId, setSelectedId] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const activeGroup = GROUPS.find((g) => g.table === table)!
+
+  // Fetch coach's templates whenever the selected type changes
+  useEffect(() => {
+    setSelectedId('')
+    setError(null)
+    setLoadingList(true)
+    fetch(activeGroup.fetchUrl)
+      .then((r) => r.json())
+      .then((data: Record<string, unknown>[]) => {
+        // Already-published IDs for this group
+        const orgKey = activeGroup.key
+        const publishedIds = new Set(orgTemplates[orgKey].map((t) => t.id))
+
+        const list = data
+          .filter((t) => !publishedIds.has(t.id as string))
+          .map((t) => ({
+            id: t.id as string,
+            name: (t[activeGroup.nameField] as string) ?? 'Untitled',
+          }))
+        setAvailable(list)
+      })
+      .catch(() => setAvailable([]))
+      .finally(() => setLoadingList(false))
+  }, [table]) // eslint-disable-line react-hooks/exhaustive-deps
+
   async function submit() {
-    if (!templateId.trim()) return
+    if (!selectedId) return
     setSaving(true)
     setError(null)
     const res = await fetch('/api/org/templates', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ template_id: templateId.trim(), table }),
+      body: JSON.stringify({ template_id: selectedId, table }),
     })
     const data = await res.json()
     if (!res.ok) {
@@ -60,8 +106,7 @@ function PublishModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
       <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
         <h3 className="font-semibold text-gray-900">Publish template to organisation</h3>
         <p className="text-sm text-gray-500">
-          This makes the template visible to all coaches in your org. To find a template&apos;s ID,
-          open it and copy the UUID from the URL.
+          Select one of your templates to share with all coaches in your org.
         </p>
 
         <div>
@@ -78,14 +123,30 @@ function PublishModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Template ID</label>
-          <input
-            type="text"
-            value={templateId}
-            onChange={(e) => setTemplateId(e.target.value)}
-            placeholder="Paste the template UUID…"
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <label className="block text-sm font-medium text-gray-700 mb-1">Template</label>
+          {loadingList ? (
+            <div className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-400 bg-gray-50 animate-pulse">
+              Loading templates…
+            </div>
+          ) : available.length === 0 ? (
+            <div className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-400 bg-gray-50">
+              No unpublished {activeGroup.label.toLowerCase()} found.{' '}
+              <a href={activeGroup.emptyLink} className="text-blue-500 hover:underline">
+                Create one →
+              </a>
+            </div>
+          ) : (
+            <select
+              value={selectedId}
+              onChange={(e) => setSelectedId(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Select a template…</option>
+              {available.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
@@ -96,10 +157,10 @@ function PublishModal({ onClose, onDone }: { onClose: () => void; onDone: () => 
           </button>
           <button
             onClick={submit}
-            disabled={!templateId.trim() || saving}
+            disabled={!selectedId || saving}
             className="flex-1 bg-blue-600 text-white rounded-xl py-2.5 text-sm font-medium disabled:opacity-50"
           >
-            {saving ? 'Publishing…' : 'Publish'}
+            {saving ? 'Publishing…' : 'Publish to org'}
           </button>
         </div>
       </div>
@@ -113,12 +174,24 @@ export default function OrgTemplatesTab() {
   const [templates, setTemplates] = useState<OrgTemplates | null>(null)
   const [loading, setLoading] = useState(true)
   const [publishOpen, setPublishOpen] = useState(false)
+  const [unpublishing, setUnpublishing] = useState<string | null>(null)
 
   async function fetchTemplates() {
     setLoading(true)
     const res = await fetch('/api/org/templates')
     if (res.ok) setTemplates(await res.json())
     setLoading(false)
+  }
+
+  async function unpublish(templateId: string, table: TableName) {
+    setUnpublishing(templateId)
+    await fetch('/api/org/templates', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ template_id: templateId, table }),
+    })
+    await fetchTemplates()
+    setUnpublishing(null)
   }
 
   useEffect(() => { fetchTemplates() }, [])
@@ -155,7 +228,7 @@ export default function OrgTemplatesTab() {
         </button>
       </div>
 
-      {GROUPS.map(({ key, label, emptyLink, emptyLinkLabel }) => {
+      {GROUPS.map(({ key, label, table, emptyLink, emptyLinkLabel }) => {
         const items = templates?.[key] ?? []
         return (
           <div key={key} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
@@ -187,11 +260,11 @@ export default function OrgTemplatesTab() {
                       </p>
                     </div>
                     <button
-                      disabled
-                      title="Copying org templates to your account is coming soon"
-                      className="text-xs border border-gray-200 text-gray-300 px-3 py-1.5 rounded-lg cursor-not-allowed select-none"
+                      onClick={() => unpublish(t.id, table)}
+                      disabled={unpublishing === t.id}
+                      className="text-xs border border-gray-200 text-gray-500 hover:text-red-600 hover:border-red-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
                     >
-                      Use template
+                      {unpublishing === t.id ? 'Removing…' : 'Unpublish'}
                     </button>
                   </div>
                 ))}
@@ -201,14 +274,11 @@ export default function OrgTemplatesTab() {
         )
       })}
 
-      <p className="text-xs text-gray-400 text-center pb-2">
-        &ldquo;Use template&rdquo; (copy to personal account) is coming in a future update.
-      </p>
-
-      {publishOpen && (
+      {publishOpen && templates && (
         <PublishModal
           onClose={() => setPublishOpen(false)}
           onDone={() => { setPublishOpen(false); fetchTemplates() }}
+          orgTemplates={templates}
         />
       )}
     </div>

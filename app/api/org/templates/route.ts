@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireOrgRole, getOrgForUser } from '@/lib/org'
+import { requireCoach } from '@/lib/coach'
 import type { NextRequest } from 'next/server'
 
 type TemplateTable = 'autoflow_templates' | 'programs' | 'meal_plans' | 'forms' | 'note_templates'
@@ -96,6 +97,42 @@ export async function POST(req: NextRequest) {
       created_by: session.user.id,
     })
     .eq('id', template_id)
+
+  if (error) return Response.json({ error: error.message }, { status: 500 })
+
+  return Response.json({ ok: true })
+}
+
+/**
+ * DELETE /api/org/templates
+ * Unpublish a template — sets is_org_template=false, clears org_id.
+ * Requires owner or admin role.
+ */
+export async function DELETE(req: NextRequest) {
+  const coachId = await requireCoach()
+  if (!coachId) return Response.json({ error: 'Unauthorised' }, { status: 401 })
+
+  let membership
+  try {
+    membership = await requireOrgRole(coachId, 'admin')
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : 'Forbidden' }, { status: 403 })
+  }
+
+  const { template_id, table } = await req.json() as { template_id: string; table: TemplateTable }
+
+  if (!template_id) return Response.json({ error: 'template_id is required' }, { status: 400 })
+  if (!VALID_TABLES.includes(table)) {
+    return Response.json({ error: `table must be one of: ${VALID_TABLES.join(', ')}` }, { status: 400 })
+  }
+
+  const admin = createAdminClient()
+
+  const { error } = await admin
+    .from(table)
+    .update({ is_org_template: false, org_id: null })
+    .eq('id', template_id)
+    .eq('org_id', membership.org_id)
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
 

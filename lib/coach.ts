@@ -126,6 +126,6 @@ export async function requireCoach(): Promise<string | null> {
     .eq('id', session.user.id)
     .single()
 
-  if (profile?.user_type !== 'coach') return null
+  if (profile?.user_type !== 'coach' && profile?.user_type !== 'business') return null
   return session.user.id
 }

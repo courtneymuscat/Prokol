@@ -1,6 +1,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStripe } from '@/lib/stripe'
 
+export const COACH_SEAT_OVERAGE_PRICE = process.env.STRIPE_PRICE_COACH_BUSINESS_COACH_OVERAGE
+
 const INCLUDED_SEATS: Record<string, number> = {
   coach_solo:     10,
   coach_pro:      30,
@@ -55,5 +57,46 @@ export async function reportSeatUsage(coachId: string): Promise<void> {
     } catch (err) {
       console.error('Stripe meter event error:', err instanceof Error ? err.message : String(err))
     }
+  }
+}
+
+/**
+ * Reports a coach seat overage meter event to Stripe for the given org.
+ * Fired when a coach invite is accepted and the org's seat count exceeds its limit.
+ * Non-blocking — errors are logged but do not throw.
+ */
+export async function reportCoachSeatUsage(orgId: string): Promise<void> {
+  const admin = createAdminClient()
+
+  // Get the org owner's stripe_customer_id
+  const { data: ownerMembership } = await admin
+    .from('org_members')
+    .select('user_id')
+    .eq('org_id', orgId)
+    .eq('role', 'owner')
+    .eq('is_active', true)
+    .single()
+
+  if (!ownerMembership) return
+
+  const { data: ownerProfile } = await admin
+    .from('profiles')
+    .select('stripe_customer_id')
+    .eq('id', ownerMembership.user_id)
+    .single()
+
+  if (!ownerProfile?.stripe_customer_id) return
+
+  try {
+    const stripe = getStripe()
+    await stripe.billing.meterEvents.create({
+      event_name: 'coach_business_coach_overage',
+      payload: {
+        stripe_customer_id: ownerProfile.stripe_customer_id as string,
+        value: '1',
+      },
+    })
+  } catch (err) {
+    console.error('Stripe coach seat overage error:', err instanceof Error ? err.message : String(err))
   }
 }

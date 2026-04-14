@@ -67,10 +67,9 @@ export async function POST(req: NextRequest) {
     is_active: true,
   })
 
-  // Update coach profile
+  // Update coach profile — keep user_type as 'coach', only set org_id
   await admin.from('profiles').update({
     org_id: org.id,
-    user_type: 'business',
   }).eq('id', userId)
 
   return Response.json({ org_id: org.id, slug: org.slug })
