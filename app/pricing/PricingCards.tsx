@@ -42,12 +42,8 @@ function PlanCard({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planKey: plan.planKey, billing, userType }),
       })
-      if (res.status === 401) {
-        router.push(`/login?redirect=/pricing`)
-        return
-      }
-      if (res.status === 403) {
-        router.push(`/login?redirect=/pricing`)
+      if (res.status === 401 || res.status === 403) {
+        router.push(`/signup?plan=${plan.planKey}&billing=${billing}&type=${userType}`)
         return
       }
       const data = await res.json()

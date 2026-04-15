@@ -13,7 +13,7 @@ export default async function CheckoutPage({
 
   const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) redirect(`/login?redirect=/checkout?plan=${plan}&billing=${billing}&type=${type}`)
+  if (!session) redirect(`/signup?plan=${plan}&billing=${billing}&type=${type}`)
 
   const priceId = getStripePriceId(plan, billing as 'monthly' | 'annual')
 

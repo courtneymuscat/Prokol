@@ -6,10 +6,13 @@ import Link from 'next/link'
 import { signup } from '@/app/actions/auth'
 
 const PLAN_LABELS: Record<string, string> = {
-  individual_tier_2: 'Optimiser — $19.99 AUD/mo',
-  individual_tier_3: 'Elite — $34.99 AUD/mo',
-  coach_starter: 'Coach Starter — $29 AUD/mo',
-  coach_growth: 'Coach Growth — $69 AUD/mo',
+  individual_tier_2:    'Optimiser — $19.99 AUD/mo',
+  individual_tier_3:    'Elite — $34.99 AUD/mo',
+  individual_optimiser: 'Optimiser — $19.99 AUD/mo',
+  individual_elite:     'Elite — $34.99 AUD/mo',
+  coach_solo:           'Coach Solo — $49 AUD/mo',
+  coach_pro:            'Coach Pro — $99 AUD/mo',
+  coach_business:       'Coach Business — $199 AUD/mo',
 }
 
 function SignupForm() {
