@@ -36,6 +36,8 @@ export async function POST(req: NextRequest) {
       lineItems.push({ price: overagePriceId }) // no quantity — metered billing
     }
 
+    const isCoachPlan = ['coach_solo', 'coach_pro', 'coach_business'].includes(planKey)
+
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
@@ -48,6 +50,14 @@ export async function POST(req: NextRequest) {
         userType,
       },
       subscription_data: {
+        ...(isCoachPlan && {
+          trial_period_days: 14,
+          trial_settings: {
+            end_behavior: {
+              missing_payment_method: 'cancel',
+            },
+          },
+        }),
         metadata: {
           userId: user?.id ?? '',
           planKey,

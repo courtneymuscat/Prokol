@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe'
 import { createServiceClient } from '@/lib/supabase/service'
 import { TIER_TO_METER_EVENT } from '@/lib/billing'
+import { sendEmail } from '@/lib/email'
 import type Stripe from 'stripe'
 
 // planKey (Stripe metadata) → subscription_tier (DB column)
@@ -135,6 +136,41 @@ export async function POST(req: NextRequest) {
           await supabase.from('profiles').update(updates).eq('id', profile.id)
           console.log('Webhook: tier updated', profile.subscription_tier, '→', tier)
         }
+      }
+    }
+
+    // ── Trial ending soon (3 days before) ─────────────────────────────────────
+    if (event.type === 'customer.subscription.trial_will_end') {
+      const subscription = event.data.object as Stripe.Subscription
+      const customerId = subscription.customer as string
+      const trialEnd = subscription.trial_end
+        ? new Date(subscription.trial_end * 1000)
+        : null
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('email, full_name')
+        .eq('stripe_customer_id', customerId)
+        .single()
+
+      if (profile?.email && trialEnd) {
+        const trialEndDate = trialEnd.toLocaleDateString('en-AU', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
+        const name = profile.full_name ?? 'there'
+        await sendEmail({
+          to: profile.email,
+          subject: 'Your Prokol trial ends in 3 days',
+          html: `
+            <p>Hi ${name},</p>
+            <p>Your 14-day free trial ends on <strong>${trialEndDate}</strong>.</p>
+            <p>You won't be charged if you cancel before then. If you love Prokol, do nothing — your plan continues automatically.</p>
+            <p>Questions? Reply to this email.</p>
+            <p>— The Prokol team</p>
+          `,
+        })
       }
     }
 

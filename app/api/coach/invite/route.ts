@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireCoach } from '@/lib/coach'
+import { sendEmail } from '@/lib/email'
 import type { NextRequest } from 'next/server'
 
 export async function POST(req: NextRequest) {
@@ -10,6 +11,14 @@ export async function POST(req: NextRequest) {
   if (!email) return Response.json({ error: 'Email required' }, { status: 400 })
 
   const supabase = await createClient()
+
+  // Fetch coach name for the invite email
+  const { data: coachProfile } = await supabase
+    .from('profiles')
+    .select('full_name, email')
+    .eq('id', coachId)
+    .single()
+  const coachName = coachProfile?.full_name ?? coachProfile?.email ?? 'Your coach'
 
   // Check for an existing pending invite to this email from this coach
   const { data: existing } = await supabase
@@ -26,6 +35,17 @@ export async function POST(req: NextRequest) {
 
   if (existing) {
     const url = `${baseUrl}/invite/${existing.token}`
+    await sendEmail({
+      to: email,
+      subject: `You've been invited to join ${coachName} on Prokol`,
+      html: `
+        <p>Hi,</p>
+        <p>${coachName} has invited you to join them on Prokol, a coaching platform for nutrition and fitness.</p>
+        <p><a href="${url}">Accept your invite</a></p>
+        <p>This link expires in 7 days.</p>
+        <p>— The Prokol team</p>
+      `,
+    })
     return Response.json({ url, token: existing.token })
   }
 
@@ -38,5 +58,16 @@ export async function POST(req: NextRequest) {
   if (error) return Response.json({ error: error.message }, { status: 500 })
 
   const url = `${baseUrl}/invite/${invite.token}`
+  await sendEmail({
+    to: email,
+    subject: `You've been invited to join ${coachName} on Prokol`,
+    html: `
+      <p>Hi,</p>
+      <p>${coachName} has invited you to join them on Prokol, a coaching platform for nutrition and fitness.</p>
+      <p><a href="${url}">Accept your invite</a></p>
+      <p>This link expires in 7 days.</p>
+      <p>— The Prokol team</p>
+    `,
+  })
   return Response.json({ url, token: invite.token })
 }

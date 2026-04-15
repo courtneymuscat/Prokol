@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireOrgRole, getCoachPermissions } from '@/lib/org'
+import { sendEmail } from '@/lib/email'
 import type { NextRequest } from 'next/server'
 
 export async function GET() {
@@ -161,13 +162,26 @@ export async function POST(req: NextRequest) {
     token = invite.token
   }
 
-  // Send invite email via Supabase auth invite
+  // Send Supabase auth invite (creates account / magic link for new users)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
   const inviteUrl = `${appUrl}/org/invite/${token}`
 
   await admin.auth.admin.inviteUserByEmail(normalEmail, {
     redirectTo: inviteUrl,
     data: { org_invite_token: token, org_name: org.name },
+  })
+
+  // Send branded invite email
+  await sendEmail({
+    to: normalEmail,
+    subject: `You've been invited to join ${org.name} on Prokol`,
+    html: `
+      <p>Hi,</p>
+      <p>You've been invited to join <strong>${org.name}</strong> as a coach on Prokol.</p>
+      <p><a href="${inviteUrl}">Accept your invite</a></p>
+      <p>This link expires in 7 days. If you don't have a Prokol account yet, you'll be guided to create one.</p>
+      <p>— The Prokol team</p>
+    `,
   })
 
   return Response.json({ success: true, invited: normalEmail })
