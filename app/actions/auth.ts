@@ -10,6 +10,19 @@ type AuthState = { error?: string; success?: boolean } | null
 
 const FREE_PLANS = ['', 'individual_tier_1']
 
+// Canonical mapping: planKey → { user_type, subscription_tier }
+const PLAN_TO_PROFILE: Record<string, { user_type: string; subscription_tier: string }> = {
+  individual_tier_1:    { user_type: 'individual', subscription_tier: 'individual_free' },
+  individual_tier_2:    { user_type: 'individual', subscription_tier: 'individual_optimiser' },
+  individual_tier_3:    { user_type: 'individual', subscription_tier: 'individual_elite' },
+  individual_free:      { user_type: 'individual', subscription_tier: 'individual_free' },
+  individual_optimiser: { user_type: 'individual', subscription_tier: 'individual_optimiser' },
+  individual_elite:     { user_type: 'individual', subscription_tier: 'individual_elite' },
+  coach_solo:           { user_type: 'coach', subscription_tier: 'coach_solo' },
+  coach_pro:            { user_type: 'coach', subscription_tier: 'coach_pro' },
+  coach_business:       { user_type: 'coach', subscription_tier: 'coach_business' },
+}
+
 export async function signup(prevState: AuthState, formData: FormData): Promise<AuthState> {
   const supabase = await createClient()
   const email = formData.get('email') as string
@@ -17,7 +30,7 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
   const invite = (formData.get('invite') as string) || null
   const planKey = (formData.get('planKey') as string) || ''
   const billing = (formData.get('billing') as string) || 'monthly'
-  const userType = (formData.get('userType') as string) || 'individual'
+  const typeParam = (formData.get('userType') as string) || 'individual'
 
   const { data, error } = await supabase.auth.signUp({ email, password })
   if (error) return { error: error.message }
@@ -25,13 +38,29 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
   // data.user is set even when email confirmation is required; data.session may be null
   const user = data.session?.user ?? data.user
   if (user) {
+    // Derive user_type and subscription_tier from planKey.
+    // Fall back to the ?type param: coach → coach_solo, anything else → individual_free.
+    const profileAttrs = PLAN_TO_PROFILE[planKey] ?? (
+      typeParam === 'coach'
+        ? { user_type: 'coach', subscription_tier: 'coach_solo' }
+        : { user_type: 'individual', subscription_tier: 'individual_free' }
+    )
+    const resolvedUserType = profileAttrs.user_type
+    const resolvedTier = profileAttrs.subscription_tier
+
     // Use admin client so profile creation is never blocked by RLS
     const admin = createAdminClient()
     await admin.from('profiles').upsert(
-      { id: user.id, email: user.email, role: userType === 'coach' ? 'coach' : 'client', user_type: userType },
+      {
+        id: user.id,
+        email: user.email,
+        role: resolvedUserType === 'coach' ? 'coach' : 'client',
+        user_type: resolvedUserType,
+        subscription_tier: resolvedTier,
+      },
       { onConflict: 'id' }
     )
-    if (userType === 'coach') {
+    if (resolvedUserType === 'coach') {
       await admin.from('note_templates').insert(
         STARTER_NOTE_TEMPLATES.map((t) => ({ coach_id: user.id, name: t.name, body: t.body }))
       )
@@ -39,9 +68,18 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
     if (invite) await acceptInvite(invite, user.id)
   }
 
-  // If a paid plan was selected, redirect to Stripe checkout
+  // If a paid plan was selected, redirect to Stripe checkout.
+  // Only go directly to /checkout if we have a live session (email confirmation off).
+  // If email confirmation is on, data.session is null — send to login with a next param
+  // so that after they confirm + log in, they land on checkout automatically.
   if (planKey && !FREE_PLANS.includes(planKey)) {
-    redirect(`/checkout?plan=${planKey}&billing=${billing}&type=${userType}`)
+    const resolvedType = PLAN_TO_PROFILE[planKey]?.user_type ?? typeParam
+    const checkoutPath = `/checkout?plan=${planKey}&billing=${billing}&type=${resolvedType}`
+    if (data.session) {
+      redirect(checkoutPath)
+    } else {
+      redirect(`/login?next=${encodeURIComponent(checkoutPath)}`)
+    }
   }
 
   if (invite) {

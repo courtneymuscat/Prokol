@@ -30,6 +30,18 @@ const PLAN_KEY_TO_USER_TYPE: Record<string, string> = {
   coach_business:    'coach',
 }
 
+// Authoritative tier → user_type mapping. Used as final override so even if
+// planKey metadata is stale/wrong, the user_type always matches the actual tier.
+const TIER_TO_USER_TYPE: Record<string, string> = {
+  individual_free:      'individual',
+  individual_optimiser: 'individual',
+  individual_elite:     'individual',
+  coached:              'individual',
+  coach_solo:           'coach',
+  coach_pro:            'coach',
+  coach_business:       'coach',
+}
+
 // Overage meter price ID → meter event name
 const OVERAGE_PRICE_TO_EVENT: Record<string, string> = {
   'price_1TLdMADCfk3knikLyYyCzBOZ': TIER_TO_METER_EVENT.coach_solo,
@@ -91,7 +103,13 @@ export async function POST(req: NextRequest) {
 
       if (userId && planKey) {
         const tier = PLAN_KEY_TO_TIER[planKey] ?? 'individual_free'
-        const resolvedUserType = userType ?? PLAN_KEY_TO_USER_TYPE[planKey] ?? 'individual'
+        // TIER_TO_USER_TYPE is the authoritative source — corrects any wrong
+        // user_type on the profile regardless of what planKey metadata says.
+        const resolvedUserType =
+          TIER_TO_USER_TYPE[tier] ??
+          userType ??
+          PLAN_KEY_TO_USER_TYPE[planKey] ??
+          'individual'
 
         const { error } = await supabase.from('profiles').upsert({
           id: userId,
