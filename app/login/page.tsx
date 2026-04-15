@@ -11,6 +11,7 @@ function LoginForm() {
   const invite = searchParams.get('invite')
   const next = searchParams.get('next')
   const deleted = searchParams.get('deleted')
+  const linkExpired = searchParams.get('error') === 'link_expired'
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
@@ -19,6 +20,13 @@ function LoginForm() {
         <div className="text-center mb-8">
           <span className="text-2xl font-bold tracking-tight text-gray-900">Prokol</span>
         </div>
+
+        {linkExpired && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl px-5 py-4 mb-4 text-center">
+            <p className="text-sm font-semibold text-red-800">Reset link expired</p>
+            <p className="text-xs text-red-700 mt-1">That link has expired or already been used. <a href="/forgot-password" className="underline font-medium">Request a new one.</a></p>
+          </div>
+        )}
 
         {deleted && (
           <div className="bg-green-50 border border-green-200 rounded-2xl px-5 py-4 mb-4 text-center">
@@ -77,6 +85,12 @@ function LoginForm() {
             >
               {pending ? 'Logging in…' : 'Log in'}
             </button>
+
+            <p className="text-center">
+              <Link href="/forgot-password" className="text-xs text-gray-400 hover:text-gray-600 hover:underline">
+                Forgot password?
+              </Link>
+            </p>
           </form>
 
           <p className="text-center text-sm text-gray-500">

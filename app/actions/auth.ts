@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation'
 import { acceptInvite } from '@/lib/coach'
 import { STARTER_NOTE_TEMPLATES } from '@/lib/noteTemplates'
 
-type AuthState = { error?: string } | null
+type AuthState = { error?: string; success?: boolean } | null
 
 const FREE_PLANS = ['', 'individual_tier_1']
 
@@ -72,9 +72,15 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
   if (data.session?.user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('onboarding_completed, user_type, subscription_tier')
+      .select('onboarding_completed, user_type, subscription_tier, is_suspended, suspended_reason')
       .eq('id', data.session.user.id)
       .single()
+
+    // Suspended accounts cannot log in
+    if (profile?.is_suspended) {
+      await supabase.auth.signOut()
+      return { error: 'Your account has been suspended. Contact support at support@prokol.io' }
+    }
 
     // Profile missing (signup completed but profile creation failed) — create it now
     if (!profile) {
@@ -101,4 +107,23 @@ export async function logout() {
   const supabase = await createClient()
   await supabase.auth.signOut()
   redirect('/login')
+}
+
+export async function forgotPassword(prevState: AuthState, formData: FormData): Promise<AuthState> {
+  const email = formData.get('email') as string
+  const supabase = await createClient()
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=/reset-password`,
+  })
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+export async function resetPassword(prevState: AuthState, formData: FormData): Promise<AuthState> {
+  const password = formData.get('password') as string
+  const supabase = await createClient()
+  const { error } = await supabase.auth.updateUser({ password })
+  if (error) return { error: error.message }
+  redirect('/dashboard')
 }
