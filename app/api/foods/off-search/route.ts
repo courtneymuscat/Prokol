@@ -56,9 +56,10 @@ export async function GET(req: NextRequest) {
       }
 
       // Parse serving size from OFF if available (e.g. "1 biscuit (35g)", "30 g")
+      // Use typeof guards — serving_size can be a number in some OFF products which causes .trim() to throw
       const servingSizes: Array<{ label: string; grams: number }> = []
-      const servingLabel = (p.serving_size as string | undefined)?.trim()
-      const servingG = p.serving_quantity as number | undefined
+      const servingLabel = typeof p.serving_size === 'string' ? p.serving_size.trim() : undefined
+      const servingG = typeof p.serving_quantity === 'number' ? p.serving_quantity : undefined
       if (servingLabel && servingG && servingG > 0) {
         servingSizes.push({ label: servingLabel, grams: Math.round(servingG * 10) / 10 })
       }
