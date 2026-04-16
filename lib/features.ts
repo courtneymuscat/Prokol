@@ -43,6 +43,11 @@ export const FEATURES = {
   ORG_TEMPLATES:      'org_templates',
   ORG_PERMISSIONS:    'org_permissions',
   CUSTOM_BRANDING:    'custom_branding',
+
+  // ── White-label features ──────────────────────────────────────────────────
+  WHITE_LABEL_WEB:    'white_label_web',   // custom domain + full branding on web
+  WHITE_LABEL_APP:    'white_label_app',   // white-label mobile app
+  APP_STORE_LISTING:  'app_store_listing', // own App Store / Play Store listing
 } as const
 
 export type Feature = typeof FEATURES[keyof typeof FEATURES]
@@ -54,6 +59,8 @@ export type SubscriptionTier =
   | 'coach_solo'
   | 'coach_pro'
   | 'coach_business'
+  | 'wl_starter'
+  | 'wl_pro'
 export type UserType = 'individual' | 'coach' | 'business'
 
 // ─── Individual tier → feature mapping ───────────────────────────────────────
@@ -114,6 +121,17 @@ export const COACH_BUSINESS_FEATURES: Feature[] = [
   FEATURES.CUSTOM_BRANDING,
 ]
 
+export const WL_STARTER_FEATURES: Feature[] = [
+  ...COACH_BUSINESS_FEATURES,
+  FEATURES.WHITE_LABEL_WEB,
+]
+
+export const WL_PRO_FEATURES: Feature[] = [
+  ...WL_STARTER_FEATURES,
+  FEATURES.WHITE_LABEL_APP,
+  FEATURES.APP_STORE_LISTING,
+]
+
 export const TIER_FEATURES: Record<SubscriptionTier, Feature[]> = {
   individual_free:      INDIVIDUAL_FREE_FEATURES,
   individual_optimiser: INDIVIDUAL_OPTIMISER_FEATURES,
@@ -122,12 +140,16 @@ export const TIER_FEATURES: Record<SubscriptionTier, Feature[]> = {
   coach_solo:           COACH_SOLO_FEATURES,
   coach_pro:            COACH_PRO_FEATURES,
   coach_business:       COACH_BUSINESS_FEATURES,
+  wl_starter:           WL_STARTER_FEATURES,
+  wl_pro:               WL_PRO_FEATURES,
 }
 
 export const COACH_TIER_FEATURES: Record<string, Feature[]> = {
   coach_solo:     COACH_SOLO_FEATURES,
   coach_pro:      COACH_PRO_FEATURES,
   coach_business: COACH_BUSINESS_FEATURES,
+  wl_starter:     WL_STARTER_FEATURES,
+  wl_pro:         WL_PRO_FEATURES,
 }
 
 // ─── canAccess helper ─────────────────────────────────────────────────────────
@@ -157,6 +179,8 @@ export type PricingPlan = {
   highlighted: boolean
   clientLimit?: number      // coach plans only
   seatLimit?: number        // coach_business only
+  includedSeats?: number    // white-label plans — included client seats
+  includedCoaches?: number  // white-label plans — included coach seats
 }
 
 export const INDIVIDUAL_PLANS: PricingPlan[] = [
@@ -271,6 +295,44 @@ export const COACH_PLANS: PricingPlan[] = [
       'Shared template library',
       'Role-based permissions',
       'Custom branding',
+    ],
+    highlighted: false,
+  },
+  {
+    id: 'wl_starter',
+    planKey: 'wl_starter',
+    name: 'Web White-label',
+    tagline: 'Your brand, your domain',
+    priceMonthly: 299,
+    priceAnnualMonthly: 269,
+    includedSeats: 200,
+    includedCoaches: 5,
+    features: [
+      'Everything in Business',
+      'Up to 5 coaches, 200 clients (metered overages)',
+      'Custom domain (e.g. app.yourstudio.com)',
+      'Full white-label branding — zero Prokol references',
+      'Custom logo, colours & favicon',
+      'Branded emails via your support address',
+      'DNS setup assistance',
+    ],
+    highlighted: false,
+  },
+  {
+    id: 'wl_pro',
+    planKey: 'wl_pro',
+    name: 'App Store White-label',
+    tagline: 'Your app in the App Store',
+    priceMonthly: 499,
+    priceAnnualMonthly: 449,
+    includedSeats: 500,
+    includedCoaches: 10,
+    features: [
+      'Everything in Web White-label',
+      'Up to 10 coaches, 500 clients (metered overages)',
+      'White-label iOS & Android app',
+      'Your own App Store & Google Play listing',
+      'Push notifications under your brand',
     ],
     highlighted: false,
   },

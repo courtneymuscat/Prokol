@@ -4,6 +4,7 @@ import { useActionState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { signup } from '@/app/actions/auth'
+import { useBranding } from '@/app/components/BrandingProvider'
 
 const PLAN_LABELS: Record<string, string> = {
   individual_tier_2:    'Optimiser — $19.99 AUD/mo',
@@ -16,6 +17,7 @@ const PLAN_LABELS: Record<string, string> = {
 }
 
 function SignupForm() {
+  const branding = useBranding()
   const [state, action, pending] = useActionState(signup, null)
   const searchParams = useSearchParams()
   const invite = searchParams.get('invite')
@@ -29,7 +31,11 @@ function SignupForm() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border p-8 space-y-6">
         <div>
-          <Link href="/" className="text-xl font-bold text-gray-900">Prokol</Link>
+          {branding.logoUrl ? (
+            <img src={branding.logoUrl} alt={branding.appName} className="h-8 object-contain" />
+          ) : (
+            <Link href="/" className="text-xl font-bold text-gray-900">{branding.appName}</Link>
+          )}
           <h1 className="text-2xl font-bold mt-4 text-gray-900">
             {invite ? 'Accept your invite' : isCoach ? 'Start coaching' : 'Create your account'}
           </h1>
@@ -83,14 +89,25 @@ function SignupForm() {
           </div>
 
           {state?.error && (
-            <p className="text-sm text-red-600 bg-red-50 rounded-xl px-3 py-2">{state.error}</p>
+            <p className="text-sm text-red-600 bg-red-50 rounded-xl px-3 py-2">
+              {state.error === 'EMAIL_ALREADY_EXISTS' ? (
+                <>
+                  An account with this email already exists.{' '}
+                  <Link href="/login?redirect=/pricing" className="underline font-medium">
+                    Log in instead.
+                  </Link>
+                </>
+              ) : (
+                state.error
+              )}
+            </p>
           )}
 
           <button
             type="submit"
             disabled={pending}
-            className="w-full py-3 rounded-xl text-sm font-semibold text-gray-900 hover:opacity-90 disabled:opacity-50 transition-colors"
-            style={{ backgroundColor: '#FFD885' }}
+            className="w-full py-3 rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-colors"
+            style={{ backgroundColor: 'var(--brand-primary)', color: 'var(--brand-text)' }}
           >
             {pending ? 'Creating account…' : planLabel ? 'Create account & continue to checkout' : 'Create free account'}
           </button>

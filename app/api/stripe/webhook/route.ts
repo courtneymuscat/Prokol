@@ -17,6 +17,9 @@ const PLAN_KEY_TO_TIER: Record<string, string> = {
   coach_solo:        'coach_solo',
   coach_pro:         'coach_pro',
   coach_business:    'coach_business',
+  // White-label planKeys
+  wl_starter:        'wl_starter',
+  wl_pro:            'wl_pro',
 }
 
 const PLAN_KEY_TO_USER_TYPE: Record<string, string> = {
@@ -28,6 +31,8 @@ const PLAN_KEY_TO_USER_TYPE: Record<string, string> = {
   coach_solo:        'coach',
   coach_pro:         'coach',
   coach_business:    'coach',
+  wl_starter:        'business',
+  wl_pro:            'business',
 }
 
 // Authoritative tier → user_type mapping. Used as final override so even if
@@ -40,6 +45,8 @@ const TIER_TO_USER_TYPE: Record<string, string> = {
   coach_solo:           'coach',
   coach_pro:            'coach',
   coach_business:       'coach',
+  wl_starter:           'business',
+  wl_pro:               'business',
 }
 
 // Overage meter price ID → meter event name
@@ -47,6 +54,11 @@ const OVERAGE_PRICE_TO_EVENT: Record<string, string> = {
   'price_1TLdMADCfk3knikLyYyCzBOZ': TIER_TO_METER_EVENT.coach_solo,
   'price_1TLdVnDCfk3knikL5PqNQgqH': TIER_TO_METER_EVENT.coach_pro,
   'price_1TLdalDCfk3knikLPjnHAWQ9': TIER_TO_METER_EVENT.coach_business,
+  // White-label overages
+  'price_1TMSOZDCfk3knikLeHGk4VbN': 'wl_starter_coach_overage',
+  'price_1TMSPhDCfk3knikLI9nqnrkC': 'wl_starter_client_overage',
+  'price_1TMSStDCfk3knikL2L7pwjHB': 'wl_pro_coach_overage',
+  'price_1TMSTxDCfk3knikLneM05qz8': 'wl_pro_client_overage',
 }
 
 // Built at request time so env vars are loaded. Maps flat (non-overage) price ID → tier.
@@ -63,6 +75,9 @@ function buildPriceToTierMap(): Record<string, string> {
     [process.env.STRIPE_PRICE_COACH_SOLO_MONTHLY,        'coach_solo'],
     [process.env.STRIPE_PRICE_COACH_PRO_MONTHLY,         'coach_pro'],
     [process.env.STRIPE_PRICE_COACH_BUSINESS_MONTHLY,    'coach_business'],
+    // White-label plans
+    [process.env.STRIPE_PRICE_WL_STARTER_MONTHLY,        'wl_starter'],
+    [process.env.STRIPE_PRICE_WL_PRO_MONTHLY,            'wl_pro'],
   ]
   const map: Record<string, string> = {}
   for (const [priceId, tier] of entries) {
@@ -71,7 +86,7 @@ function buildPriceToTierMap(): Record<string, string> {
   return map
 }
 
-const COACH_TIER_ORDER = ['coach_solo', 'coach_pro', 'coach_business']
+const COACH_TIER_ORDER = ['coach_solo', 'coach_pro', 'coach_business', 'wl_starter', 'wl_pro']
 
 function isCoachUpgrade(from: string, to: string): boolean {
   return COACH_TIER_ORDER.indexOf(to) > COACH_TIER_ORDER.indexOf(from)

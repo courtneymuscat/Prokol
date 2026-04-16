@@ -1,6 +1,7 @@
 'use client'
 
 import { usePathname, useSearchParams } from 'next/navigation'
+import { useBranding } from '@/app/components/BrandingProvider'
 
 const NAV = [
   {
@@ -127,6 +128,16 @@ const ORG_NAV = [
       </svg>
     ),
   },
+  {
+    href: '/org/white-label',
+    tab: null,
+    label: 'White-label',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+      </svg>
+    ),
+  },
 ]
 
 export default function CoachSidebar({
@@ -138,6 +149,7 @@ export default function CoachSidebar({
   unreadMessages: number
   isBusinessTier: boolean
 }) {
+  const branding = useBranding()
   const path = usePathname()
   const searchParams = useSearchParams()
   const activeTab = searchParams.get('tab')
@@ -148,7 +160,11 @@ export default function CoachSidebar({
       <aside className="hidden md:flex flex-col w-56 bg-white shrink-0 min-h-screen sticky top-0 h-screen border-r border-gray-100">
         <div className="px-5 pt-6 pb-5">
           <a href="/dashboard" className="flex items-center gap-2">
-            <span className="text-[15px] font-bold tracking-tight text-gray-900">Prokol</span>
+            {branding.logoUrl ? (
+              <img src={branding.logoUrl} alt={branding.appName} className="h-6 object-contain" />
+            ) : (
+              <span className="text-[15px] font-bold tracking-tight text-gray-900">{branding.appName}</span>
+            )}
             <span className="text-[10px] bg-blue-100 text-blue-700 font-semibold px-1.5 py-0.5 rounded-md leading-none">Coach</span>
           </a>
         </div>
@@ -189,7 +205,9 @@ export default function CoachSidebar({
                 <p className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider">Business</p>
               </div>
               {ORG_NAV.map((item) => {
-                const active = path === '/coach/dashboard' && activeTab === item.tab
+                const active = item.tab
+                  ? path === '/coach/dashboard' && activeTab === item.tab
+                  : path === item.href
                 return (
                   <a
                     key={item.href}
@@ -243,7 +261,11 @@ export default function CoachSidebar({
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white px-4 border-b border-gray-100"
            style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div className="flex items-center gap-2 py-3">
-          <span className="text-[15px] font-bold tracking-tight text-gray-900">Prokol</span>
+          {branding.logoUrl ? (
+            <img src={branding.logoUrl} alt={branding.appName} className="h-6 object-contain" />
+          ) : (
+            <span className="text-[15px] font-bold tracking-tight text-gray-900">{branding.appName}</span>
+          )}
           <span className="text-[10px] bg-blue-100 text-blue-700 font-semibold px-1.5 py-0.5 rounded-md leading-none">Coach</span>
         </div>
       </div>

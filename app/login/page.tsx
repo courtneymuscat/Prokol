@@ -4,8 +4,10 @@ import { useActionState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { login } from '@/app/actions/auth'
+import { useBranding } from '@/app/components/BrandingProvider'
 
 function LoginForm() {
+  const branding = useBranding()
   const [state, action, pending] = useActionState(login, null)
   const searchParams = useSearchParams()
   const invite = searchParams.get('invite')
@@ -18,7 +20,11 @@ function LoginForm() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          <span className="text-2xl font-bold tracking-tight text-gray-900">Prokol</span>
+          {branding.logoUrl ? (
+            <img src={branding.logoUrl} alt={branding.appName} className="h-10 mx-auto object-contain" />
+          ) : (
+            <span className="text-2xl font-bold tracking-tight text-gray-900">{branding.appName}</span>
+          )}
         </div>
 
         {linkExpired && (
@@ -81,7 +87,8 @@ function LoginForm() {
             <button
               type="submit"
               disabled={pending}
-              className="w-full bg-blue-600 text-white rounded-xl px-4 py-2.5 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors mt-1"
+              className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50 transition-colors mt-1"
+              style={{ backgroundColor: 'var(--brand-primary)', color: 'var(--brand-text)' }}
             >
               {pending ? 'Logging in…' : 'Log in'}
             </button>

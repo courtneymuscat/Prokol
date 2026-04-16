@@ -33,7 +33,15 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
   const typeParam = (formData.get('userType') as string) || 'individual'
 
   const { data, error } = await supabase.auth.signUp({ email, password })
-  if (error) return { error: error.message }
+  if (error) {
+    if (
+      error.code === 'user_already_exists' ||
+      error.message.toLowerCase().includes('already registered')
+    ) {
+      return { error: 'EMAIL_ALREADY_EXISTS' }
+    }
+    return { error: error.message }
+  }
 
   // data.user is set even when email confirmation is required; data.session may be null
   const user = data.session?.user ?? data.user

@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { getSubscription } from '@/lib/subscription'
 import { FEATURES } from '@/lib/features'
 import { logout } from '@/app/actions/auth'
+import { headers } from 'next/headers'
+import { getBrandingFromHeaders, DEFAULT_BRANDING } from '@/lib/branding'
 
 import DailyLog from './DailyLog'
 import DailyCheckIn from './DailyCheckIn'
@@ -22,6 +24,9 @@ import ProfileCompletionPrompt from './ProfileCompletionPrompt'
 export const dynamic = 'force-dynamic'
 
 export default async function DashboardPage() {
+  const headersList = await headers()
+  const branding = getBrandingFromHeaders(headersList)
+
   const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession()
 
@@ -101,7 +106,11 @@ export default async function DashboardPage() {
       <DashboardTour />
       {/* Nav */}
       <nav className="bg-white px-6 py-3.5 flex justify-between items-center border-b border-gray-100 sticky top-0 z-20">
-        <span className="text-[15px] font-bold tracking-tight text-gray-900">Prokol</span>
+        {branding.logoUrl ? (
+          <img src={branding.logoUrl} alt={branding.appName} className="h-6 object-contain" />
+        ) : (
+          <span className="text-[15px] font-bold tracking-tight text-gray-900">{branding.appName}</span>
+        )}
         <div className="flex items-center gap-1">
           {/* Desktop-only nav links — bottom tab bar handles mobile */}
           <div className="hidden md:flex items-center gap-1">
@@ -111,7 +120,7 @@ export default async function DashboardPage() {
               { href: '/progress', label: 'Progress Photos', id: undefined },
               ...(isCoach ? [{ href: '/coach/dashboard', label: 'Coach Dashboard', id: undefined }] : []),
               ...(isCoached ? [{ href: '/messages', label: 'Messages', id: undefined }] : []),
-              ...(!isCoach ? [{ href: '/pricing', label: 'Upgrade', id: undefined }] : []),
+              ...(!isCoach && !branding.isWhiteLabel ? [{ href: '/pricing', label: 'Upgrade', id: undefined }] : []),
               { href: '/settings', label: 'Settings', id: 'tour-settings' },
             ].map(({ href, label, id }) => (
               <a key={href} href={href} id={id} className="text-[13px] font-medium text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
@@ -159,7 +168,7 @@ export default async function DashboardPage() {
           <a
             href="/coach/dashboard"
             className="flex items-center justify-between gap-4 rounded-2xl px-5 py-4 transition-opacity hover:opacity-90"
-            style={{ backgroundColor: '#FFD885' }}
+            style={{ backgroundColor: 'var(--brand-primary)' }}
           >
             <div className="flex items-center gap-3">
               <svg className="w-5 h-5 flex-shrink-0 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
