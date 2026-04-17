@@ -39,21 +39,33 @@ async function searchOFF(q: string, pageSize = 50, page = 1): Promise<{ results:
   }
 }
 
-function getRelevanceScore(name: string, q: string): number {
+function getRelevanceScore(name: string, terms: string[]): number {
+  if (terms.length === 0) return 0
   const n = name.toLowerCase()
-  if (n === q) return 5
-  if (n.startsWith(q + ' ') || n.startsWith(q + ',')) return 4
-  if (n.startsWith(q)) return 3
-  if (n.split(/[\s,\-—]+/).some(w => w.startsWith(q))) return 2
-  if (n.includes(q)) return 1
-  return 0
+  const words = n.split(/[\s,\-—\/]+/)
+  if (n === terms.join(' ')) return 200
+  let score = 0
+  let allFound = true
+  for (const term of terms) {
+    if (words.some(w => w === term))         { score += 15; continue }
+    if (words.some(w => w.startsWith(term))) { score += 10; continue }
+    if (n.startsWith(term))                  { score += 8;  continue }
+    if (n.includes(term))                    { score += 4;  continue }
+    allFound = false
+  }
+  if (allFound) score += 50
+  return score
 }
 
 function mergeResults(local: FoodResult[], off: FoodResult[], query: string): FoodResult[] {
+  const terms = query.toLowerCase().trim().split(/\s+/).filter(t => t.length >= 2)
   const localNames = new Set(local.map(f => f.name.toLowerCase()))
-  const combined = [...local, ...off.filter(f => !localNames.has(f.name.toLowerCase()))]
-  const q = query.toLowerCase().trim()
-  return [...combined].sort((a, b) => getRelevanceScore(b.name, q) - getRelevanceScore(a.name, q))
+  // Require ALL terms in name — matches the server-side filter in off-search and search routes
+  const offFiltered = terms.length > 0
+    ? off.filter(f => { const n = f.name.toLowerCase(); return terms.every(t => n.includes(t)) })
+    : off
+  const combined = [...local, ...offFiltered.filter(f => !localNames.has(f.name.toLowerCase()))]
+  return [...combined].sort((a, b) => getRelevanceScore(b.name, terms) - getRelevanceScore(a.name, terms))
 }
 
 function toMealFood(r: FoodResult, grams = 100): MealFood {
