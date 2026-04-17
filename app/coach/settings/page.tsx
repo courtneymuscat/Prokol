@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import TimezoneSelector from '@/app/components/TimezoneSelector'
+import BillingSection from '@/app/components/BillingSection'
 
 type Service = {
   id: string
@@ -267,6 +268,9 @@ export default function CoachSettingsPage() {
 
             {/* Services — outside the profile form */}
             <ServicesSection />
+
+            {/* Billing & subscription */}
+            <BillingSection returnPath="/coach/settings" />
           </>
         )}
       </main>

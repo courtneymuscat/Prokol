@@ -4,6 +4,7 @@ import { logout } from '@/app/actions/auth'
 import DeleteAccount from './DeleteAccount'
 import TimezoneSelector from '@/app/components/TimezoneSelector'
 import ProfileDetails from '@/app/components/ProfileDetails'
+import BillingSection from '@/app/components/BillingSection'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -98,6 +99,9 @@ export default async function SettingsPage() {
             )}
           </div>
         )}
+
+        {/* Billing & subscription */}
+        <BillingSection />
 
         {/* Resources — only for coached clients */}
         {profile?.subscription_tier === 'coached' && (
