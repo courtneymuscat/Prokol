@@ -115,7 +115,7 @@ export async function PATCH(
   const supabase = await createClient()
   await supabase
     .from('coach_clients')
-    .update({ status: 'archived' })
+    .update({ status: 'archived', archived_at: new Date().toISOString() })
     .eq('coach_id', coachId)
     .eq('client_id', clientId)
 
