@@ -8,6 +8,9 @@ import ClientSummaries from './ClientSummaries'
 import OrgTab from './OrgTab'
 import OrgTemplatesTab from './OrgTemplatesTab'
 import OrgSetupPrompt from './OrgSetupPrompt'
+import OrgLeadsTab from './OrgLeadsTab'
+import OrgArchivedTab from './OrgArchivedTab'
+import OrgAnalyticsTab from './OrgAnalyticsTab'
 
 export default async function CoachDashboard({
   searchParams,
@@ -31,10 +34,12 @@ export default async function CoachDashboard({
   const hasOrg = !!profile?.org_id
 
   // Redirect non-business coaches away from org tabs
-  const activeTab = (isBusinessTier && (tab === 'org' || tab === 'org-templates')) ? tab : 'home'
+  const BIZ_TABS = ['org', 'org-templates', 'leads', 'archived', 'analytics']
+  const activeTab = (isBusinessTier && BIZ_TABS.includes(tab ?? '')) ? tab! : 'home'
 
   // Only run the heavy client queries when on the home tab
   let clients: { id: string; email: string; name: string | null; tier: string; joinedAt: string | null }[] = []
+
   let activeClients = 0
   let unreadCount = 0
   let totalCheckIns = 0
@@ -123,38 +128,40 @@ export default async function CoachDashboard({
 
       {/* Tab bar — only shown for business tier coaches */}
       {isBusinessTier && (
-        <div className="flex gap-0 border-b border-gray-100 -mb-2">
-          <Link
-            href="/coach/dashboard"
-            className={`${tabBase} ${activeTab === 'home' ? tabActive : tabInactive}`}
-          >
+        <div className="flex gap-0 border-b border-gray-100 -mb-2 overflow-x-auto">
+          <Link href="/coach/dashboard" className={`${tabBase} ${activeTab === 'home' ? tabActive : tabInactive}`}>
             Overview
           </Link>
-          <Link
-            href="/coach/dashboard?tab=org"
-            className={`${tabBase} ${activeTab === 'org' ? tabOrgActive : tabInactive} flex items-center gap-1.5`}
-          >
-            Organisation
-            <span className="text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded font-semibold leading-none">
-              Biz
-            </span>
-          </Link>
-          <Link
-            href="/coach/dashboard?tab=org-templates"
-            className={`${tabBase} ${activeTab === 'org-templates' ? tabOrgActive : tabInactive} flex items-center gap-1.5`}
-          >
-            Org Templates
-            <span className="text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded font-semibold leading-none">
-              Biz
-            </span>
-          </Link>
+          {[
+            { tab: 'org', label: 'Organisation' },
+            { tab: 'leads', label: 'Leads' },
+            { tab: 'archived', label: 'Archived' },
+            { tab: 'analytics', label: 'Analytics' },
+            { tab: 'org-templates', label: 'Org Templates' },
+          ].map(({ tab: t, label }) => (
+            <Link
+              key={t}
+              href={`/coach/dashboard?tab=${t}`}
+              className={`${tabBase} ${activeTab === t ? tabOrgActive : tabInactive} flex items-center gap-1.5 whitespace-nowrap`}
+            >
+              {label}
+              <span className="text-[10px] bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded font-semibold leading-none">Biz</span>
+            </Link>
+          ))}
         </div>
       )}
 
       {/* ── Organisation tab ──────────────────────────────────────────────── */}
-      {activeTab === 'org' && (
-        hasOrg ? <OrgTab /> : <OrgSetupPrompt />
-      )}
+      {activeTab === 'org' && (hasOrg ? <OrgTab /> : <OrgSetupPrompt />)}
+
+      {/* ── Leads tab ─────────────────────────────────────────────────────── */}
+      {activeTab === 'leads' && (hasOrg ? <OrgLeadsTab /> : <OrgSetupPrompt />)}
+
+      {/* ── Archived tab ──────────────────────────────────────────────────── */}
+      {activeTab === 'archived' && (hasOrg ? <OrgArchivedTab /> : <OrgSetupPrompt />)}
+
+      {/* ── Analytics tab ─────────────────────────────────────────────────── */}
+      {activeTab === 'analytics' && (hasOrg ? <OrgAnalyticsTab /> : <OrgSetupPrompt />)}
 
       {/* ── Org Templates tab ─────────────────────────────────────────────── */}
       {activeTab === 'org-templates' && <OrgTemplatesTab />}

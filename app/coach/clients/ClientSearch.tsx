@@ -85,7 +85,7 @@ function ClientCard({ client, muted = false }: { client: Client; muted?: boolean
 
 export default function ClientSearch({ clients, archivedClients = [] }: { clients: Client[]; archivedClients?: Client[] }) {
   const [query, setQuery] = useState('')
-  const [showArchived, setShowArchived] = useState(false)
+  const [showArchived, setShowArchived] = useState(true)
 
   const matches = (c: Client) => {
     const q = query.toLowerCase()
