@@ -47,13 +47,15 @@ export async function GET(
 
   const dob = (clientProfile as Record<string, unknown> | null)?.date_of_birth as string | null
   if (dob) {
-    const { count: bdayCount } = await admin
+    const today = new Date().toISOString().split('T')[0]
+    const { count: futureBdayCount } = await admin
       .from('calendar_events')
       .select('id', { count: 'exact', head: true })
       .eq('client_id', clientId)
       .eq('type', 'birthday')
+      .gte('event_date', today)
 
-    if (!bdayCount) {
+    if (!futureBdayCount) {
       const [, bdayMonth, bdayDay] = dob.split('-').map(Number)
       const thisYear = new Date().getFullYear()
       await admin.from('calendar_events').insert(
