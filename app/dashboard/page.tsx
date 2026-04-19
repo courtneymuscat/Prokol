@@ -270,10 +270,10 @@ export default async function DashboardPage() {
         <DailyLog
           canScanMeal={canMealScanner && foodLogAccess !== 'no_scan' && foodLogAccess !== 'note_only' && foodLogAccess !== 'off'}
           foodLogAccess={isCoached ? foodLogAccess as 'full' | 'no_scan' | 'note_only' | 'off' : 'full'}
-          targetCalories={profile?.target_calories ?? null}
-          targetProtein={profile?.target_protein ?? null}
-          targetCarbs={profile?.target_carbs ?? null}
-          targetFat={profile?.target_fat ?? null}
+          targetCalories={(!isCoached || showDailyTargets) ? (profile?.target_calories ?? null) : null}
+          targetProtein={(!isCoached || showDailyTargets) ? (profile?.target_protein ?? null) : null}
+          targetCarbs={(!isCoached || showDailyTargets) ? (profile?.target_carbs ?? null) : null}
+          targetFat={(!isCoached || showDailyTargets) ? (profile?.target_fat ?? null) : null}
         />
         </div>
 
