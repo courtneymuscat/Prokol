@@ -4888,7 +4888,7 @@ function ClientServeGuide({ clientId }: { clientId: string }) {
                 </div>
               ))}
             </div>
-            {/* Estimated daily calories */}
+            {/* Estimated daily calories + macros */}
             {(draft.protein_serves > 0 || draft.carb_serves > 0 || draft.fat_serves > 0) && (() => {
               const estCal = Math.round(
                 draft.protein_serves * 130 +
@@ -4897,10 +4897,20 @@ function ClientServeGuide({ clientId }: { clientId: string }) {
                 draft.fruit_serves  *  90 +
                 (draft.veg_unlimited ? 80 : 0)
               )
+              const estP = Math.round(draft.protein_serves * 30)
+              const estC = Math.round(draft.carb_serves * 20 + draft.fruit_serves * 20)
+              const estF = Math.round(draft.fat_serves * 10)
               return (
-                <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 flex items-center justify-between">
-                  <span className="text-xs text-amber-700">Estimated daily calories</span>
-                  <span className="text-sm font-bold text-amber-800">~{estCal} kcal</span>
+                <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-amber-700">Estimated daily</span>
+                    <span className="text-sm font-bold text-amber-800">~{estCal} kcal</span>
+                  </div>
+                  <div className="flex gap-3 text-xs font-semibold">
+                    <span className="text-pink-600">~{estP}g protein</span>
+                    <span className="text-purple-600">~{estC}g carbs</span>
+                    <span className="text-green-600">~{estF}g fat</span>
+                  </div>
                 </div>
               )
             })()}

@@ -683,8 +683,11 @@ export default function DailyLog({
                 </div>
               )
             })}
+            <p className="text-xs text-emerald-600 font-medium pt-0.5">
+              🥦 Aim for at least 5 fistfuls of vegetables today (unlimited)
+            </p>
             {serveTargets.notes && (
-              <p className="text-xs text-gray-400 italic pt-0.5">{serveTargets.notes}</p>
+              <p className="text-xs text-gray-400 italic">{serveTargets.notes}</p>
             )}
             <a
               href="/cheat-sheet"
