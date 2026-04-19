@@ -4934,6 +4934,9 @@ function ClientServeGuide({ clientId }: { clientId: string }) {
             <p className="text-xs text-gray-400">
               ~{Math.round(targets.protein_serves * 130 + targets.carb_serves * 100 + targets.fat_serves * 100 + targets.fruit_serves * 90 + 80)} kcal/day estimated (excl. free condiments)
             </p>
+            <p className="text-xs text-blue-500">
+              Client can now see the &quot;Food Cheat Sheet&quot; link in their food log.
+            </p>
             {targets.notes && <p className="text-xs text-gray-500 bg-gray-50 rounded-xl px-3 py-2">{targets.notes}</p>}
           </div>
         ) : (

@@ -150,6 +150,9 @@ export default function CheatSheetEditor() {
           <span className="text-[11px] font-semibold bg-white border border-blue-100 rounded px-2 py-0.5 text-blue-700">1 Carb serve = 20g carbs</span>
           <span className="text-[11px] font-semibold bg-white border border-blue-100 rounded px-2 py-0.5 text-blue-700">1 Fat serve = 10g fat</span>
         </div>
+        <p className="text-[11px] text-blue-600 pt-0.5">
+          Clients see a &quot;Food Cheat Sheet&quot; link in their food log only after you set their daily serve targets in the client&apos;s Serve Guide tab.
+        </p>
       </div>
 
       {/* Add food panel */}
