@@ -657,7 +657,7 @@ export default function DailyLog({
       )}
 
       {/* Serve targets progress */}
-      {!noteOnly && serveTargets && allLogs.length > 0 && (() => {
+      {!noteOnly && serveTargets && (() => {
         const rows = [
           { label: 'Protein', used: serveUsed.protein, target: serveTargets.protein_serves, bar: 'bg-pink-400', text: 'text-pink-600' },
           { label: 'Carbs',   used: serveUsed.carb,    target: serveTargets.carb_serves,    bar: 'bg-purple-400', text: 'text-purple-600' },
