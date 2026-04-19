@@ -203,21 +203,6 @@ export default async function DashboardPage() {
         {/* Goals — set by coach */}
         {isCoached && <GoalsPanel />}
 
-        {/* Coached-only sections: Meal Plan, Habits */}
-        {isCoached && hasMealPlan && (
-          <section>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">My Meal Plan</p>
-            <MealPlanView />
-          </section>
-        )}
-
-        {isCoached && hasHabits && (
-          <section>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Daily Habits</p>
-            <HabitsPanel />
-          </section>
-        )}
-
         {/* Daily targets card */}
         {(!isCoached || showDailyTargets) && profile?.target_calories ? (
           <div id="tour-targets" className="bg-white rounded-2xl border px-5 py-4">
@@ -264,6 +249,21 @@ export default async function DashboardPage() {
             : <UpgradePrompt plan="Optimiser" feature="Weight trend chart" />
           }
         </section>
+
+        {/* Coached-only sections: Meal Plan, Habits */}
+        {isCoached && hasMealPlan && (
+          <section>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">My Meal Plan</p>
+            <MealPlanView />
+          </section>
+        )}
+
+        {isCoached && hasHabits && (
+          <section>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Daily Habits</p>
+            <HabitsPanel />
+          </section>
+        )}
 
         {/* Daily Food Log */}
         <div id="tour-food-log">
