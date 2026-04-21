@@ -860,15 +860,53 @@ function ClientSettingsSection({
   )
 }
 
+// ── Weight sparkline ──────────────────────────────────────────────────────────
+
+function WeightSparkline({ logs, unit }: { logs: WeightLog[]; unit: string }) {
+  if (logs.length < 2) return null
+  const points = [...logs].reverse() // oldest → newest
+  const vals = points.map((l) => unit === 'kg' ? l.weight_lbs / 2.20462 : l.weight_lbs)
+  const min = Math.min(...vals)
+  const max = Math.max(...vals)
+  const range = max - min || 1
+  const W = 160, H = 48, PAD = 4
+  const x = (i: number) => PAD + (i / (vals.length - 1)) * (W - PAD * 2)
+  const y = (v: number) => PAD + (1 - (v - min) / range) * (H - PAD * 2)
+  const d = vals.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
+  const trend = vals[vals.length - 1] - vals[0]
+  const color = trend <= 0 ? '#22c55e' : '#f87171'
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
+      <path d={d} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      {vals.map((v, i) => (
+        <circle key={i} cx={x(i)} cy={y(v)} r="2.5" fill={color} />
+      ))}
+    </svg>
+  )
+}
+
 // ── Overview tab ──────────────────────────────────────────────────────────────
 
 function OverviewTab({ data, clientId }: {
   data: ClientData
   clientId: string
 }) {
-  const latest = data.checkIns[0] ?? null
   const latestWeight = data.weightLogs[0] ?? null
   const prevWeight = data.weightLogs[1] ?? null
+
+  // Find true latest check-in across all types
+  type AnyCheckIn =
+    | { kind: 'direct'; date: string; entry: ClientData['checkIns'][number] }
+    | { kind: 'form'; date: string; entry: FormCheckIn }
+    | { kind: 'autoflow'; date: string; entry: AutoflowCheckIn }
+
+  const allCheckIns: AnyCheckIn[] = [
+    ...data.checkIns.map((c) => ({ kind: 'direct' as const, date: c.created_at, entry: c })),
+    ...(data.formCheckIns ?? []).map((f) => ({ kind: 'form' as const, date: f.submitted_at, entry: f })),
+    ...(data.autoflowCheckIns ?? []).map((a) => ({ kind: 'autoflow' as const, date: a.submitted_at, entry: a })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+  const latestCI = allCheckIns[0] ?? null
 
   return (
     <div className="space-y-4">
@@ -878,26 +916,39 @@ function OverviewTab({ data, clientId }: {
       {/* Latest check-in */}
       <div className="bg-white rounded-2xl border p-5">
         <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Latest Check-In</h3>
-        {!latest ? <p className="text-sm text-gray-400">No check-ins recorded.</p> : (
-          <div className="space-y-3">
-            <p className="text-xs text-gray-400">{fmt(latest.created_at)}</p>
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-              <Stat label="Sleep" value={latest.sleep_hours != null ? `${latest.sleep_hours}h` : '—'} />
-              <Stat label="Quality" value={SLEEP_LABELS[latest.sleep_quality ?? ''] ?? latest.sleep_quality ?? '—'} />
-              <Stat label="Energy" value={latest.energy_level ? (ENERGY_LABELS[latest.energy_level]?.split('–')[0].trim() ?? latest.energy_level) : '—'} />
-              <Stat label="RHR" value={latest.rhr != null ? `${latest.rhr} bpm` : '—'} />
-              <Stat label="HRV" value={latest.hrv != null ? `${latest.hrv} ms` : '—'} />
-            </div>
-            {latest.notes && <p className="text-xs text-gray-500 italic border-t pt-2 mt-2">"{latest.notes}"</p>}
-          </div>
+        {!latestCI ? <p className="text-sm text-gray-400">No check-ins recorded.</p> : (
+          <a href={`/coach/clients/${clientId}?tab=checkins`} className="block hover:opacity-80 transition-opacity space-y-2">
+            <p className="text-xs text-gray-400">{fmt(latestCI.date)}</p>
+            {latestCI.kind === 'direct' && (() => {
+              const c = latestCI.entry
+              return (
+                <>
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                    <Stat label="Sleep" value={c.sleep_hours != null ? `${c.sleep_hours}h` : '—'} />
+                    <Stat label="Quality" value={SLEEP_LABELS[c.sleep_quality ?? ''] ?? c.sleep_quality ?? '—'} />
+                    <Stat label="Energy" value={c.energy_level ? (ENERGY_LABELS[c.energy_level]?.split('–')[0].trim() ?? c.energy_level) : '—'} />
+                    <Stat label="RHR" value={c.rhr != null ? `${c.rhr} bpm` : '—'} />
+                    <Stat label="HRV" value={c.hrv != null ? `${c.hrv} ms` : '—'} />
+                  </div>
+                  {c.notes && <p className="text-xs text-gray-500 italic border-t pt-2">"{c.notes}"</p>}
+                </>
+              )
+            })()}
+            {latestCI.kind === 'form' && (
+              <p className="text-sm font-medium text-gray-800">{latestCI.entry.title}</p>
+            )}
+            {latestCI.kind === 'autoflow' && (
+              <p className="text-sm font-medium text-gray-800">{latestCI.entry.flow_name} — Step {latestCI.entry.step_number}</p>
+            )}
+          </a>
         )}
       </div>
 
-      {/* Weight snapshot */}
+      {/* Weight snapshot + sparkline */}
       <div className="bg-white rounded-2xl border p-5">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Current Weight</h3>
+        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Current Weight</h3>
         {!latestWeight ? <p className="text-sm text-gray-400">No data</p> : (
-          <div className="flex items-end gap-4">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-2xl font-bold text-gray-900">
                 {latestWeight.weight_unit === 'kg'
@@ -910,8 +961,9 @@ function OverviewTab({ data, clientId }: {
                   {' '}{Math.abs(latestWeight.weight_lbs - prevWeight.weight_lbs).toFixed(1)} lbs vs prev
                 </p>
               )}
+              <p className="text-xs text-gray-400 mt-1">{fmt(latestWeight.logged_at)}</p>
             </div>
-            <p className="text-xs text-gray-400 mb-0.5">{fmt(latestWeight.logged_at)}</p>
+            <WeightSparkline logs={data.weightLogs} unit={latestWeight.weight_unit} />
           </div>
         )}
       </div>
