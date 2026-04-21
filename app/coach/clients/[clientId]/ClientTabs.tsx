@@ -4294,12 +4294,19 @@ function ExpandableAutoflowCheckIn({ item, clientId, onDelete }: { item: Autoflo
       </div>
       {open && (
         <div className="px-5 pb-3 border-t border-gray-100">
-          {!hasAnswers ? (
+          {item.questions.length === 0 ? (
             <p className="text-xs text-gray-400 pt-3">No answers recorded.</p>
           ) : (
             <div className="pt-2">
               {item.questions.map((q) => (
-                <AnswerRow key={q.id} label={q.label} value={item.answers[q.id] ?? ''} type={q.type} />
+                q.id in item.answers
+                  ? <AnswerRow key={q.id} label={q.label} value={item.answers[q.id]} type={q.type} />
+                  : (
+                    <div key={q.id} className="py-2 border-b border-gray-50 last:border-0">
+                      <p className="text-xs text-gray-400">{q.label}</p>
+                      <p className="text-sm text-gray-400 italic mt-0.5">Client did not answer</p>
+                    </div>
+                  )
               ))}
             </div>
           )}
