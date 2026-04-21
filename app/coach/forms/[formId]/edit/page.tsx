@@ -45,6 +45,7 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
   const [meta, setMeta] = useState<FormMeta>({ title: '', description: '', type: 'weekly_checkin', is_active: true })
   const [questions, setQuestions] = useState<Question[]>([])
   const [saving, setSaving] = useState(false)
+  const [isDirty, setIsDirty] = useState(false)
   const [loading, setLoading] = useState(!isNew)
   const [savedId, setSavedId] = useState<string | null>(isNew ? null : formId)
   const [error, setError] = useState<string | null>(null)
@@ -74,19 +75,39 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
       })
   }, [formId, isNew])
 
+  // Warn on browser close/refresh when there are unsaved changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!isDirty) return
+      e.preventDefault()
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [isDirty])
+
+  function markDirty() { setIsDirty(true) }
+
   function addQuestion() {
     setQuestions((prev) => [
       ...prev,
-      { id: null, order_index: prev.length, label: '', description: null, type: 'text', options: null, required: false, _dirty: true },
+      { id: null, order_index: prev.length, label: '', description: null, type: 'text', options: null, required: false },
     ])
+    markDirty()
   }
 
   function updateQuestion(idx: number, patch: Partial<Question>) {
-    setQuestions((prev) => prev.map((q, i) => i === idx ? { ...q, ...patch, _dirty: true } : q))
+    setQuestions((prev) => prev.map((q, i) => i === idx ? { ...q, ...patch } : q))
+    markDirty()
   }
 
   function removeQuestion(idx: number) {
     setQuestions((prev) => prev.filter((_, i) => i !== idx).map((q, i) => ({ ...q, order_index: i })))
+    markDirty()
+  }
+
+  function updateMeta(patch: Partial<FormMeta>) {
+    setMeta((prev) => ({ ...prev, ...patch }))
+    markDirty()
   }
 
   function reorderQuestion(from: number, to: number) {
@@ -94,34 +115,23 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
     const next = [...questions]
     const [moved] = next.splice(from, 1)
     next.splice(to, 0, moved)
-    setQuestions(next.map((q, i) => ({ ...q, order_index: i, _dirty: true })))
+    setQuestions(next.map((q, i) => ({ ...q, order_index: i })))
+    markDirty()
   }
 
-  function handleDragStart(idx: number) {
-    setDragIdx(idx)
-  }
-
-  function handleDragOver(idx: number) {
-    setDragOverIdx(idx)
-  }
-
+  function handleDragStart(idx: number) { setDragIdx(idx) }
+  function handleDragOver(idx: number) { setDragOverIdx(idx) }
   function handleDrop(idx: number) {
     if (dragIdx !== null) reorderQuestion(dragIdx, idx)
-    setDragIdx(null)
-    setDragOverIdx(null)
+    setDragIdx(null); setDragOverIdx(null)
   }
+  function handleDragEnd() { setDragIdx(null); setDragOverIdx(null) }
 
-  function handleDragEnd() {
-    setDragIdx(null)
-    setDragOverIdx(null)
-  }
-
-  async function handleSave() {
+  async function handleSave(andClose = false) {
     if (!meta.title.trim()) { setError('Form title is required'); return }
-    setSaving(true)
     setError(null)
+    setSaving(true)
 
-    // 1. Create or update form
     let fId = savedId
     if (!fId) {
       const res = await fetch('/api/forms', {
@@ -139,30 +149,32 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(meta),
       })
-      if (!res.ok) {
-        const d = await res.json()
-        setError(d.error ?? 'Failed to save form')
-        setSaving(false)
-        return
-      }
+      if (!res.ok) { const d = await res.json(); setError(d.error ?? 'Failed to save'); setSaving(false); return }
     }
 
-    // 2. Batch-save all questions in one round-trip
     const questionsWithOrder = questions.map((q, i) => ({ ...q, order_index: i }))
     const res = await fetch(`/api/forms/${fId}/questions`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ questions: questionsWithOrder }),
     })
-    if (!res.ok) {
-      const d = await res.json()
-      setError(d.error ?? 'Failed to save questions')
-      setSaving(false)
-      return
+    if (!res.ok) { const d = await res.json(); setError(d.error ?? 'Failed to save questions'); setSaving(false); return }
+
+    // Update question IDs so re-saves use upsert not insert
+    const { saved } = await res.json() as { saved?: { id: string; order_index: number }[] }
+    if (saved?.length) {
+      setQuestions((prev) => {
+        const byOrder = Object.fromEntries(saved.map((s) => [s.order_index, s.id]))
+        return prev.map((q, i) => (!q.id && byOrder[i] ? { ...q, id: byOrder[i] } : q))
+      })
     }
 
     setSaving(false)
-    router.push(clientId ? `/coach/clients/${clientId}` : '/coach/forms')
+    setIsDirty(false)
+
+    if (andClose) {
+      router.push(clientId ? `/coach/clients/${clientId}?tab=checkins` : '/coach/forms')
+    }
   }
 
   async function handleDeleteQuestion(idx: number) {
@@ -180,7 +192,7 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
       <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <a
-            href={clientId ? `/coach/clients/${clientId}` : '/coach/forms'}
+            href={clientId ? `/coach/clients/${clientId}?tab=checkins` : '/coach/forms'}
             className="text-gray-400 hover:text-gray-600"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -196,13 +208,17 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
             )}
           </div>
         </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
-        >
-          {saving ? 'Saving…' : 'Save form'}
-        </button>
+        <div className="flex items-center gap-3">
+          {isDirty && !saving && <span className="text-xs text-amber-500 font-medium">Unsaved changes</span>}
+          {saving && <span className="text-xs text-gray-400 font-medium">Saving…</span>}
+          <button
+            onClick={() => handleSave(true)}
+            disabled={saving}
+            className="bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            Save &amp; close
+          </button>
+        </div>
       </div>
 
       <main className="max-w-2xl mx-auto w-full p-6 space-y-6">
@@ -225,7 +241,7 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
             <label className="block text-xs font-medium text-gray-700 mb-1">Form title</label>
             <input
               value={meta.title}
-              onChange={(e) => setMeta((m) => ({ ...m, title: e.target.value }))}
+              onChange={(e) => updateMeta({ title: e.target.value })}
               placeholder="e.g. Weekly Check-In"
               className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
@@ -234,7 +250,7 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
             <label className="block text-xs font-medium text-gray-700 mb-1">Description (optional)</label>
             <textarea
               value={meta.description}
-              onChange={(e) => setMeta((m) => ({ ...m, description: e.target.value }))}
+              onChange={(e) => updateMeta({ description: e.target.value })}
               rows={2}
               placeholder="Instructions for your clients…"
               className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
@@ -245,7 +261,7 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
               <label className="block text-xs font-medium text-gray-700 mb-1">Form type</label>
               <select
                 value={meta.type}
-                onChange={(e) => setMeta((m) => ({ ...m, type: e.target.value as FormMeta['type'] }))}
+                onChange={(e) => updateMeta({ type: e.target.value as FormMeta['type'] })}
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
                 <option value="onboarding">Onboarding</option>
@@ -258,7 +274,7 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
                 <input
                   type="checkbox"
                   checked={meta.is_active}
-                  onChange={(e) => setMeta((m) => ({ ...m, is_active: e.target.checked }))}
+                  onChange={(e) => updateMeta({ is_active: e.target.checked })}
                   className="rounded"
                 />
                 <span className="text-sm text-gray-700">Active</span>
@@ -294,11 +310,11 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
         </button>
 
         <button
-          onClick={handleSave}
+          onClick={() => handleSave(true)}
           disabled={saving}
           className="w-full bg-blue-600 text-white py-3 rounded-2xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
         >
-          {saving ? 'Saving…' : 'Save form'}
+          {saving ? 'Saving…' : 'Save & close'}
         </button>
       </main>
     </div>

@@ -69,8 +69,29 @@ type MealNote = {
   photo_url: string | null
 }
 
+type FormCheckIn = {
+  id: string
+  form_id: string
+  title: string
+  submitted_at: string
+}
+
+type AutoflowCheckIn = {
+  id: string
+  flow_id: string
+  flow_name: string
+  step_number: number
+  submitted_at: string
+  answers: Record<string, string>
+  questions: { id: string; label: string; type: string }[]
+  reviewed_by_coach?: boolean
+  coach_feedback?: string | null
+}
+
 type ClientData = {
   checkIns: CheckIn[]
+  formCheckIns: FormCheckIn[]
+  autoflowCheckIns: AutoflowCheckIn[]
   workouts: Workout[]
   weightLogs: WeightLog[]
   foodLogs: FoodLog[]
@@ -2471,27 +2492,31 @@ function getWorkoutsForDate(
 ) {
   const out: CalWorkoutForDate[] = []
   const dateStr = toDateStr(date)
-  for (const prog of programs) {
-    const start = new Date(prog.start_date); start.setHours(0, 0, 0, 0)
-    const target = new Date(dateStr); target.setHours(0, 0, 0, 0)
-    const dayOffset = Math.round((target.getTime() - start.getTime()) / 86400000)
-    if (dayOffset < 0) continue
-    const weekIdx = Math.floor(dayOffset / 7)
-    const dayIdx = dayOffset % 7
+
+  // Build override map: "programId-weekIdx-dayIdx" → override event_date
+  const overrideMap: Record<string, string> = {}
+  for (const e of events) {
+    if (e.type === 'program_workout_override') {
+      const c = e.content as Record<string, unknown>
+      overrideMap[`${c.program_id}-${c.week_index}-${c.day_index}`] = e.event_date
+    }
+  }
+
+  // Helper to add a workout from a program at a specific weekIdx/dayIdx
+  function addWorkout(prog: { id: string; name: string; content: unknown[] }, weekIdx: number, dayIdx: number) {
     const week = (prog.content[weekIdx] ?? {}) as Record<string, unknown>
     const day = ((week.days ?? []) as Record<string, unknown>[])[dayIdx]
-    if (!day) continue
+    if (!day) return
     const items = day.items as CalWorkoutItem[] | undefined
     const exes = day.exercises as unknown[] | undefined
     const count = Array.isArray(items)
       ? items.filter((it) => it.type === 'exercise').length
       : Array.isArray(exes) ? exes.length : 0
-    if (count === 0 && !Array.isArray(items)) continue
-    if (!count && (!Array.isArray(items) || items.length === 0)) continue
+    if (count === 0 && !Array.isArray(items)) return
+    if (!count && (!Array.isArray(items) || items.length === 0)) return
     const result = events.find(
       (e) =>
         e.type === 'program_workout_result' &&
-        e.event_date === dateStr &&
         (e.content as Record<string, unknown>).program_id === prog.id &&
         (e.content as Record<string, unknown>).week_index === weekIdx &&
         (e.content as Record<string, unknown>).day_index === dayIdx
@@ -2508,6 +2533,29 @@ function getWorkoutsForDate(
       result,
     })
   }
+
+  // 1. Show workouts overridden to THIS date
+  for (const e of events) {
+    if (e.type === 'program_workout_override' && e.event_date === dateStr) {
+      const c = e.content as Record<string, unknown>
+      const prog = programs.find((p) => p.id === (c.program_id as string))
+      if (prog) addWorkout(prog, c.week_index as number, c.day_index as number)
+    }
+  }
+
+  // 2. Show workouts that are scheduled for today (unless overridden away)
+  for (const prog of programs) {
+    const start = new Date(prog.start_date); start.setHours(0, 0, 0, 0)
+    const target = new Date(dateStr); target.setHours(0, 0, 0, 0)
+    const dayOffset = Math.round((target.getTime() - start.getTime()) / 86400000)
+    if (dayOffset < 0) continue
+    const weekIdx = Math.floor(dayOffset / 7)
+    const dayIdx = dayOffset % 7
+    const overrideKey = `${prog.id}-${weekIdx}-${dayIdx}`
+    if (overrideMap[overrideKey]) continue // overridden to a different date — skip
+    addWorkout(prog, weekIdx, dayIdx)
+  }
+
   return out
 }
 
@@ -2894,6 +2942,9 @@ function CalendarTab({ clientId }: { clientId: string }) {
   const [viewingAutoflow, setViewingAutoflow] = useState<{ title: string; flowId: string; stepNumber: number } | null>(null)
   const [autoflowStepData, setAutoflowStepData] = useState<{ core_questions: { id: string; label: string; type: string }[]; questions: { id: string; label: string; type: string }[]; response: { answers: Record<string, string>; submitted_at: string } | null } | null>(null)
   const [autoflowLoading, setAutoflowLoading] = useState(false)
+  const [dragEventId, setDragEventId] = useState<string | null>(null)
+  const [dragWorkout, setDragWorkout] = useState<{ programId: string; weekIdx: number; dayIdx: number } | null>(null)
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null)
 
   async function openAutoflowStep(evt: CalendarEvent) {
     const flowId = evt.content.flow_id as string
@@ -2990,6 +3041,75 @@ function CalendarTab({ clientId }: { clientId: string }) {
     setEvents((prev) => prev.filter((e) => e.id !== id))
   }
 
+  async function moveEvent(id: string, newDate: string) {
+    setEvents((prev) => prev.map((e) => e.id === id ? { ...e, event_date: newDate } : e))
+    await fetch(`/api/coach/clients/${clientId}/calendar/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_date: newDate }),
+    })
+  }
+
+  function handleDragStart(e: React.DragEvent, eventId: string) {
+    setDragEventId(eventId)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  async function moveWorkout(programId: string, weekIdx: number, dayIdx: number, newDate: string) {
+    // Find existing override event for this workout
+    const existing = events.find(
+      (e) =>
+        e.type === 'program_workout_override' &&
+        (e.content as Record<string, unknown>).program_id === programId &&
+        (e.content as Record<string, unknown>).week_index === weekIdx &&
+        (e.content as Record<string, unknown>).day_index === dayIdx
+    )
+    if (existing) {
+      setEvents((prev) => prev.map((e) => e.id === existing.id ? { ...e, event_date: newDate } : e))
+      await fetch(`/api/coach/clients/${clientId}/calendar/${existing.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_date: newDate }),
+      })
+    } else {
+      const res = await fetch(`/api/coach/clients/${clientId}/calendar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_date: newDate,
+          type: 'program_workout_override',
+          title: '',
+          content: { program_id: programId, week_index: weekIdx, day_index: dayIdx },
+        }),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        setEvents((prev) => [...prev, created])
+      }
+    }
+  }
+
+  function handleDragOver(e: React.DragEvent, dateStr: string) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverDate(dateStr)
+  }
+
+  function handleDrop(e: React.DragEvent, dateStr: string) {
+    e.preventDefault()
+    if (dragEventId) moveEvent(dragEventId, dateStr)
+    else if (dragWorkout) moveWorkout(dragWorkout.programId, dragWorkout.weekIdx, dragWorkout.dayIdx, dateStr)
+    setDragEventId(null)
+    setDragWorkout(null)
+    setDragOverDate(null)
+  }
+
+  function handleDragEnd() {
+    setDragEventId(null)
+    setDragWorkout(null)
+    setDragOverDate(null)
+  }
+
   const today = toDateStr(new Date())
 
   const periodLabel = calView === 'week'
@@ -3060,15 +3180,22 @@ function CalendarTab({ clientId }: { clientId: string }) {
             const dateStr = toDateStr(day)
             const isToday = dateStr === today
             const isPast = dateStr < today
-            const dayEvents = events.filter((e) => e.event_date === dateStr && e.type !== 'program_workout_result')
+            const dayEvents = events.filter((e) => e.event_date === dateStr && e.type !== 'program_workout_result' && e.type !== 'program_workout_override')
             const workouts = getWorkoutsForDate(programs, day, events)
             const macros = foodByDate[dateStr]
             const hasContent = workouts.length > 0 || dayEvents.length > 0 || macros
 
             return (
-              <div key={dateStr} className={`rounded-xl border p-2 min-h-[150px] flex flex-col gap-1 ${
-                isToday ? 'border-blue-400 bg-blue-50/40' : isPast ? 'bg-gray-50/50 border-gray-100' : 'bg-white border-gray-100'
-              }`}>
+              <div
+                key={dateStr}
+                onDragOver={(e) => handleDragOver(e, dateStr)}
+                onDrop={(e) => handleDrop(e, dateStr)}
+                onDragLeave={() => setDragOverDate(null)}
+                className={`rounded-xl border p-2 min-h-[150px] flex flex-col gap-1 transition-colors ${
+                  dragOverDate === dateStr ? 'border-blue-400 bg-blue-50/60 ring-2 ring-blue-300' :
+                  isToday ? 'border-blue-400 bg-blue-50/40' : isPast ? 'bg-gray-50/50 border-gray-100' : 'bg-white border-gray-100'
+                }`}
+              >
                 <div className="flex items-center justify-between mb-0.5">
                   <div>
                     <p className="text-[10px] font-semibold text-gray-400 uppercase">{day.toLocaleDateString('en-AU', { weekday: 'short' })}</p>
@@ -3083,16 +3210,23 @@ function CalendarTab({ clientId }: { clientId: string }) {
                   </button>
                 </div>
                 {workouts.map((w, i) => (
-                  <button key={i} onClick={() => setViewingWorkout(w)}
-                    className={`w-full text-left text-[10px] rounded-md px-1.5 py-1 font-medium transition-colors hover:opacity-90 ${
+                  <div
+                    key={i}
+                    draggable
+                    onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDragWorkout({ programId: w.programId, weekIdx: w.weekIdx, dayIdx: w.dayIdx }) }}
+                    onDragEnd={handleDragEnd}
+                    className={`w-full text-left text-[10px] rounded-md px-1.5 py-1 font-medium transition-colors cursor-grab active:cursor-grabbing ${dragWorkout?.programId === w.programId && dragWorkout?.weekIdx === w.weekIdx && dragWorkout?.dayIdx === w.dayIdx ? 'opacity-40' : ''} ${
                       w.result ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-blue-100 text-blue-700 border border-blue-200'
-                    }`}>
-                    <div className="flex items-center gap-1">
-                      <p className="truncate font-semibold flex-1">💪 {w.dayName}</p>
-                      {w.result && <svg className="w-3 h-3 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>}
-                    </div>
-                    <p className="opacity-70 truncate">{w.programName}{w.result ? ' · logged' : ` · ${w.exerciseCount} ex`}</p>
-                  </button>
+                    }`}
+                  >
+                    <button className="w-full text-left" onClick={() => setViewingWorkout(w)}>
+                      <div className="flex items-center gap-1">
+                        <p className="truncate font-semibold flex-1">💪 {w.dayName}</p>
+                        {w.result && <svg className="w-3 h-3 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>}
+                      </div>
+                      <p className="opacity-70 truncate">{w.programName}{w.result ? ' · logged' : ` · ${w.exerciseCount} ex`}</p>
+                    </button>
+                  </div>
                 ))}
                 {macros && (
                   <div className="text-[10px] bg-orange-50 text-orange-700 border border-orange-100 rounded-md px-1.5 py-1 space-y-0.5">
@@ -3106,7 +3240,13 @@ function CalendarTab({ clientId }: { clientId: string }) {
                   </div>
                 )}
                 {dayEvents.map((evt) => (
-                  <div key={evt.id} className={`text-[10px] rounded-md px-1.5 py-0.5 font-medium truncate border flex items-center justify-between gap-0.5 group ${EVENT_COLORS[evt.type] ?? EVENT_COLORS.custom}`}>
+                  <div
+                    key={evt.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, evt.id)}
+                    onDragEnd={handleDragEnd}
+                    className={`text-[10px] rounded-md px-1.5 py-0.5 font-medium truncate border flex items-center justify-between gap-0.5 group cursor-grab active:cursor-grabbing ${dragEventId === evt.id ? 'opacity-40' : ''} ${EVENT_COLORS[evt.type] ?? EVENT_COLORS.custom}`}
+                  >
                     {evt.type === 'autoflow' ? (
                       <button onClick={() => openAutoflowStep(evt)} className="truncate text-left hover:underline flex-1">⚡ {evt.title}</button>
                     ) : (
@@ -3138,14 +3278,21 @@ function CalendarTab({ clientId }: { clientId: string }) {
               const dateStr = toDateStr(day)
               const isToday = dateStr === today
               const isCurrentMonth = day.getMonth() === monthStart.getMonth()
-              const dayEvents = events.filter((e) => e.event_date === dateStr && e.type !== 'program_workout_result')
+              const dayEvents = events.filter((e) => e.event_date === dateStr && e.type !== 'program_workout_result' && e.type !== 'program_workout_override')
               const workouts = getWorkoutsForDate(programs, day, events)
               const macros = foodByDate[dateStr]
 
               return (
-                <div key={dateStr} className={`min-h-[90px] p-1.5 flex flex-col gap-0.5 ${
+                <div
+                key={dateStr}
+                onDragOver={(e) => handleDragOver(e, dateStr)}
+                onDrop={(e) => handleDrop(e, dateStr)}
+                onDragLeave={() => setDragOverDate(null)}
+                className={`min-h-[90px] p-1.5 flex flex-col gap-0.5 transition-colors ${
+                  dragOverDate === dateStr ? 'bg-blue-50 ring-2 ring-inset ring-blue-300' :
                   isToday ? 'bg-blue-50' : isCurrentMonth ? 'bg-white' : 'bg-gray-50/60'
-                }`}>
+                }`}
+              >
                   {/* Date number + add button */}
                   <div className="flex items-center justify-between mb-0.5">
                     <button
@@ -3164,12 +3311,19 @@ function CalendarTab({ clientId }: { clientId: string }) {
 
                   {/* Workouts */}
                   {workouts.map((w, i) => (
-                    <button key={i} onClick={() => setViewingWorkout(w)}
-                      className={`w-full text-left text-[9px] leading-tight rounded px-1 py-0.5 font-semibold truncate transition-colors hover:opacity-80 ${
+                    <div
+                      key={i}
+                      draggable
+                      onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDragWorkout({ programId: w.programId, weekIdx: w.weekIdx, dayIdx: w.dayIdx }) }}
+                      onDragEnd={handleDragEnd}
+                      className={`w-full text-left text-[9px] leading-tight rounded px-1 py-0.5 font-semibold truncate cursor-grab active:cursor-grabbing ${dragWorkout?.programId === w.programId && dragWorkout?.weekIdx === w.weekIdx && dragWorkout?.dayIdx === w.dayIdx ? 'opacity-40' : ''} ${
                         w.result ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-700'
-                      }`}>
-                      {w.result ? '✓ ' : ''}{w.dayName}
-                    </button>
+                      }`}
+                    >
+                      <button className="w-full text-left truncate" onClick={() => setViewingWorkout(w)}>
+                        {w.result ? '✓ ' : ''}{w.dayName}
+                      </button>
+                    </div>
                   ))}
 
                   {/* Macros dot */}
@@ -3181,15 +3335,17 @@ function CalendarTab({ clientId }: { clientId: string }) {
 
                   {/* Custom events */}
                   {dayEvents.slice(0, 2).map((evt) => (
-                    evt.type === 'autoflow' ? (
-                      <button key={evt.id} onClick={() => openAutoflowStep(evt)} className={`w-full text-left text-[9px] rounded px-1 py-0.5 font-medium truncate hover:opacity-80 transition-opacity ${EVENT_COLORS[evt.type] ?? EVENT_COLORS.custom}`}>
-                        ⚡ {evt.title}
-                      </button>
-                    ) : (
-                      <div key={evt.id} className={`text-[9px] rounded px-1 py-0.5 font-medium truncate ${EVENT_COLORS[evt.type] ?? EVENT_COLORS.custom}`}>
-                        {evt.title}
-                      </div>
-                    )
+                    <div
+                      key={evt.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, evt.id)}
+                      onDragEnd={handleDragEnd}
+                      className={`text-[9px] rounded px-1 py-0.5 font-medium truncate cursor-grab active:cursor-grabbing ${dragEventId === evt.id ? 'opacity-40' : ''} ${EVENT_COLORS[evt.type] ?? EVENT_COLORS.custom}`}
+                    >
+                      {evt.type === 'autoflow' ? (
+                        <button onClick={() => openAutoflowStep(evt)} className="w-full text-left hover:opacity-80 truncate">⚡ {evt.title}</button>
+                      ) : evt.title}
+                    </div>
                   ))}
                   {dayEvents.length > 2 && (
                     <p className="text-[9px] text-gray-400 px-1">+{dayEvents.length - 2} more</p>
@@ -3975,6 +4131,275 @@ function EditFormButton({ scheduleId, clientId }: { scheduleId: string; clientId
   )
 }
 
+// ── Expandable check-in response cards ───────────────────────────────────────
+
+function AnswerRow({ label, value, type }: { label: string; value: string; type: string }) {
+  let display = value
+  if (type === 'yesno') display = value === 'yes' ? 'Yes' : value === 'no' ? 'No' : value
+  try {
+    const parsed = JSON.parse(value)
+    if (Array.isArray(parsed)) display = parsed.join(', ')
+  } catch { /* not JSON */ }
+  return (
+    <div className="py-2 border-b border-gray-50 last:border-0">
+      <p className="text-xs text-gray-400">{label}</p>
+      <p className="text-sm text-gray-800 mt-0.5">{display || '—'}</p>
+    </div>
+  )
+}
+
+function CheckinFeedbackViaMessages({ clientId, checkinDate, checkinLabel, responseId, initialReviewed, initialFeedback }: {
+  clientId: string
+  checkinDate: string
+  checkinLabel: string
+  responseId?: string
+  initialReviewed?: boolean
+  initialFeedback?: string
+}) {
+  const [reviewed, setReviewed] = useState(initialReviewed ?? false)
+  const [feedback, setFeedback] = useState(initialFeedback ?? '')
+  const [sending, setSending] = useState(false)
+  const [sent, setSent] = useState(false)
+
+  async function handleSend() {
+    if (!feedback.trim()) return
+    setSending(true)
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const convoRes = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coachId: session.user.id, clientId }),
+      })
+      if (!convoRes.ok) return
+      const { id: conversationId } = await convoRes.json()
+
+      const date = new Date(checkinDate).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      const body = `Re: ${checkinLabel} (${date})\n\n${feedback.trim()}`
+
+      const [msgRes] = await Promise.all([
+        fetch(`/api/conversations/${conversationId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ body }),
+        }),
+        responseId
+          ? fetch(`/api/coach/clients/${clientId}/autoflow-responses/${responseId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ coach_feedback: feedback.trim() }),
+            })
+          : Promise.resolve(),
+      ])
+      if (msgRes.ok) {
+        setSent(true)
+        setTimeout(() => setSent(false), 3000)
+      }
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Coach feedback</p>
+        <label className="flex items-center gap-1.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={reviewed}
+            onChange={async (e) => {
+              const val = e.target.checked
+              setReviewed(val)
+              if (responseId) {
+                await fetch(`/api/coach/clients/${clientId}/autoflow-responses/${responseId}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ reviewed_by_coach: val }),
+                })
+              }
+            }}
+            className="rounded"
+          />
+          <span className={`text-xs font-medium ${reviewed ? 'text-green-600' : 'text-gray-400'}`}>
+            {reviewed ? 'Reviewed' : 'Mark as reviewed'}
+          </span>
+        </label>
+      </div>
+      <textarea
+        value={feedback}
+        onChange={(e) => setFeedback(e.target.value)}
+        rows={2}
+        placeholder="Write feedback to send to client…"
+        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+      />
+      <button
+        onClick={handleSend}
+        disabled={sending || !feedback.trim()}
+        className="text-xs font-semibold bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+      >
+        {sending ? 'Sending…' : sent ? 'Sent via messages!' : 'Send check-in feedback (sent via messages)'}
+      </button>
+    </div>
+  )
+}
+
+function ExpandableAutoflowCheckIn({ item, clientId, onDelete }: { item: AutoflowCheckIn; clientId: string; onDelete: (id: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const hasAnswers = item.questions.length > 0 && Object.keys(item.answers).length > 0
+
+  async function handleDelete() {
+    if (!confirm('Delete this check-in response?')) return
+    setDeleting(true)
+    const res = await fetch(`/api/coach/clients/${clientId}/autoflow-responses/${item.id}`, { method: 'DELETE' })
+    if (res.ok) onDelete(item.id)
+    else setDeleting(false)
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4">
+        <div>
+          <p className="text-xs font-medium text-gray-400">{fmt(item.submitted_at)}</p>
+          <p className="text-sm font-semibold text-gray-900 mt-0.5">{item.flow_name} — Step {item.step_number}</p>
+          <p className="text-xs text-gray-400 mt-0.5">Autoflow check-in</p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
+          >
+            {deleting ? '…' : 'Delete'}
+          </button>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+          >
+            {open ? 'Hide' : 'View responses'}
+            <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      {open && (
+        <div className="px-5 pb-3 border-t border-gray-100">
+          {!hasAnswers ? (
+            <p className="text-xs text-gray-400 pt-3">No answers recorded.</p>
+          ) : (
+            <div className="pt-2">
+              {item.questions.map((q) => (
+                <AnswerRow key={q.id} label={q.label} value={item.answers[q.id] ?? ''} type={q.type} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      <div className="px-5 pb-5 border-t border-gray-100">
+        <CheckinFeedbackViaMessages
+          clientId={clientId}
+          checkinDate={item.submitted_at}
+          checkinLabel={`${item.flow_name} — Step ${item.step_number}`}
+          responseId={item.id}
+          initialReviewed={item.reviewed_by_coach ?? false}
+          initialFeedback={item.coach_feedback ?? ''}
+        />
+      </div>
+    </div>
+  )
+}
+
+function ExpandableFormCheckIn({ item, clientId, onDelete }: { item: FormCheckIn; clientId: string; onDelete: (id: string) => void }) {
+  const [open, setOpen] = useState(false)
+  const [answers, setAnswers] = useState<{ label: string; type: string; value: string }[] | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  async function handleExpand() {
+    const next = !open
+    setOpen(next)
+    if (next && answers === null) {
+      setLoading(true)
+      try {
+        const res = await fetch(`/api/coach/forms/${item.form_id}/responses/${item.id}`)
+        if (res.ok) {
+          const d = await res.json()
+          setAnswers(d.answers ?? [])
+        } else {
+          setAnswers([])
+        }
+      } finally {
+        setLoading(false)
+      }
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm('Delete this check-in response?')) return
+    setDeleting(true)
+    const res = await fetch(`/api/coach/forms/${item.form_id}/responses/${item.id}`, { method: 'DELETE' })
+    if (res.ok) onDelete(item.id)
+    else setDeleting(false)
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4">
+        <div>
+          <p className="text-xs font-medium text-gray-400">{fmt(item.submitted_at)}</p>
+          <p className="text-sm font-semibold text-gray-900 mt-0.5">{item.title}</p>
+          <p className="text-xs text-gray-400 mt-0.5">Check-in form</p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
+          >
+            {deleting ? '…' : 'Delete'}
+          </button>
+          <button
+            onClick={handleExpand}
+            className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+          >
+            {open ? 'Hide' : 'View responses'}
+            <svg className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      {open && (
+        <div className="px-5 pb-3 border-t border-gray-100">
+          {loading ? (
+            <p className="text-xs text-gray-400 pt-3">Loading…</p>
+          ) : !answers?.length ? (
+            <p className="text-xs text-gray-400 pt-3">No answers recorded.</p>
+          ) : (
+            <div className="pt-2">
+              {answers.map((a, i) => (
+                <AnswerRow key={i} label={a.label} value={a.value} type={a.type} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      <div className="px-5 pb-5 border-t border-gray-100">
+        <CheckinFeedbackViaMessages
+          clientId={clientId}
+          checkinDate={item.submitted_at}
+          checkinLabel={item.title}
+        />
+      </div>
+    </div>
+  )
+}
+
 function CheckinSchedulesPanel({ clientId }: { clientId: string }) {
   const [schedules, setSchedules] = useState<CheckinSchedule[]>([])
   const [coachForms, setCoachForms] = useState<ScheduleForm[]>([])
@@ -4592,11 +5017,129 @@ type LinkedAutoflow = {
   autoflow_responses: { step_number: number }[]
 }
 
-function AutoflowCheckinsLinked({ clientId, onViewFlows }: { clientId: string; onViewFlows: () => void }) {
+function AssignAutoflowButton({ clientId, onAssigned }: { clientId: string; onAssigned?: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [templates, setTemplates] = useState<{ id: string; name: string; type: string }[] | null>(null)
+  const [templateId, setTemplateId] = useState('')
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
+  const [showAsCheckin, setShowAsCheckin] = useState(true)
+  const [assigning, setAssigning] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleOpen() {
+    setOpen(true)
+    setDone(false)
+    setError(null)
+    setTemplateId('')
+    setShowAsCheckin(true)
+    if (!templates) {
+      const res = await fetch('/api/coach/autoflows')
+      if (res.ok) setTemplates(await res.json())
+    }
+  }
+
+  async function handleAssign() {
+    if (!templateId) return
+    setAssigning(true)
+    setError(null)
+    const res = await fetch(`/api/coach/clients/${clientId}/autoflows`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ template_id: templateId, start_date: startDate, show_as_checkin_prompt: showAsCheckin }),
+    })
+    setAssigning(false)
+    if (res.ok) { setDone(true); onAssigned?.() }
+    else { const d = await res.json(); setError(d.error ?? 'Failed') }
+  }
+
+  return (
+    <>
+      <button
+        onClick={handleOpen}
+        className="w-full bg-white border border-dashed border-gray-300 rounded-2xl px-4 py-3 text-sm font-medium text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors text-center"
+      >
+        + Assign check-in autoflow
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <h2 className="text-base font-bold text-gray-900">Assign autoflow</h2>
+
+            {done ? (
+              <div className="space-y-4">
+                <p className="text-sm text-green-600 font-medium">Assigned successfully!</p>
+                <button onClick={() => setOpen(false)} className="w-full bg-gray-100 text-gray-700 font-semibold py-2 rounded-xl text-sm hover:bg-gray-200 transition-colors">Close</button>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Autoflow</label>
+                  {!templates ? (
+                    <p className="text-sm text-gray-400">Loading…</p>
+                  ) : templates.length === 0 ? (
+                    <p className="text-sm text-gray-400">No autoflows found. Create one first.</p>
+                  ) : (
+                    <select
+                      value={templateId}
+                      onChange={e => setTemplateId(e.target.value)}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select an autoflow…</option>
+                      {templates.map(t => (
+                        <option key={t.id} value={t.id}>{t.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Start date</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={e => setStartDate(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <label className="flex items-center justify-between cursor-pointer py-1">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">Assign as check-in</p>
+                    <p className="text-xs text-gray-400">Shows as a check-in prompt on client dashboard</p>
+                  </div>
+                  <div
+                    onClick={() => setShowAsCheckin(v => !v)}
+                    className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${showAsCheckin ? 'bg-blue-600' : 'bg-gray-200'}`}
+                  >
+                    <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${showAsCheckin ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </div>
+                </label>
+                {error && <p className="text-xs text-red-500">{error}</p>}
+                <div className="flex gap-2 pt-1">
+                  <button onClick={() => setOpen(false)} className="flex-1 bg-gray-100 text-gray-700 font-semibold py-2 rounded-xl text-sm hover:bg-gray-200 transition-colors">Cancel</button>
+                  <button
+                    onClick={handleAssign}
+                    disabled={!templateId || assigning}
+                    className="flex-1 bg-blue-600 text-white font-semibold py-2 rounded-xl text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  >
+                    {assigning ? 'Assigning…' : 'Assign'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
+
+function AutoflowCheckinsLinked({ clientId, onViewFlows, refreshKey }: { clientId: string; onViewFlows: () => void; refreshKey?: number }) {
   const [flows, setFlows] = useState<LinkedAutoflow[]>([])
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
+    setLoaded(false)
     fetch(`/api/coach/clients/${clientId}/autoflows`)
       .then(r => r.json())
       .then(d => {
@@ -4604,7 +5147,7 @@ function AutoflowCheckinsLinked({ clientId, onViewFlows }: { clientId: string; o
         setFlows(all.filter(f => f.autoflow_templates?.type === 'weekly_checkin'))
       })
       .finally(() => setLoaded(true))
-  }, [clientId])
+  }, [clientId, refreshKey])
 
   if (!loaded || flows.length === 0) return null
 
@@ -5068,8 +5611,10 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'files', label: 'Files' },
 ]
 
-export default function ClientTabs({ clientId }: { clientId: string }) {
-  const [tab, setTab] = useState<TabId>('overview')
+export default function ClientTabs({ clientId, initialTab }: { clientId: string; initialTab?: string }) {
+  const validTabs: TabId[] = ['overview', 'checkins', 'nutrition', 'training', 'program', 'calendar', 'mealplan', 'habits', 'notes', 'files', 'flows', 'preview', 'resources', 'cheatsheet']
+  const [tab, setTab] = useState<TabId>(validTabs.includes(initialTab as TabId) ? initialTab as TabId : 'overview')
+  const [autoflowRefreshKey, setAutoflowRefreshKey] = useState(0)
   const [data, setData] = useState<ClientData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -5255,26 +5800,59 @@ export default function ClientTabs({ clientId }: { clientId: string }) {
       {/* Check-ins */}
       {tab === 'checkins' && (
         <div className="space-y-4">
-          <AutoflowCheckinsLinked clientId={clientId} onViewFlows={() => setTab('flows')} />
+          <AssignAutoflowButton clientId={clientId} onAssigned={() => setAutoflowRefreshKey(k => k + 1)} />
+          <AutoflowCheckinsLinked clientId={clientId} onViewFlows={() => setTab('flows')} refreshKey={autoflowRefreshKey} />
           <CheckinSchedulesPanel clientId={clientId} />
           {data && (
             <div className="space-y-3">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Submitted Check-ins</p>
-              {data.checkIns.length === 0 && <Empty label="No check-ins submitted yet." />}
+              {data.checkIns.length === 0 && (data.formCheckIns ?? []).length === 0 && (data.autoflowCheckIns ?? []).length === 0 && <Empty label="No check-ins submitted yet." />}
+
+              {/* Autoflow check-in responses */}
+              {(data.autoflowCheckIns ?? []).map((ac) => (
+                <ExpandableAutoflowCheckIn
+                  key={ac.id}
+                  item={ac}
+                  clientId={clientId}
+                  onDelete={(id) => setData((d) => d ? { ...d, autoflowCheckIns: d.autoflowCheckIns.filter((x) => x.id !== id) } : d)}
+                />
+              ))}
+
+              {/* Form-based check-in responses */}
+              {(data.formCheckIns ?? []).map((fc) => (
+                <ExpandableFormCheckIn
+                  key={fc.id}
+                  item={fc}
+                  clientId={clientId}
+                  onDelete={(id) => setData((d) => d ? { ...d, formCheckIns: d.formCheckIns.filter((x) => x.id !== id) } : d)}
+                />
+              ))}
               {data.checkIns.map((c) => (
                 <div key={c.id} className="bg-white rounded-2xl border p-5 space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-medium text-gray-400">{fmt(c.created_at)}</p>
-                    {c.reviewed_by_coach ? (
-                      <span className="text-xs bg-green-50 text-green-600 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Reviewed
-                      </span>
-                    ) : (
-                      <span className="text-xs bg-amber-50 text-amber-500 font-semibold px-2 py-0.5 rounded-full">Pending review</span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {c.reviewed_by_coach ? (
+                        <span className="text-xs bg-green-50 text-green-600 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          Reviewed
+                        </span>
+                      ) : (
+                        <span className="text-xs bg-amber-50 text-amber-500 font-semibold px-2 py-0.5 rounded-full">Pending review</span>
+                      )}
+                      <button
+                        onClick={async () => {
+                          if (!confirm('Delete this check-in?')) return
+                          const res = await fetch(`/api/check-ins/${c.id}`, { method: 'DELETE' })
+                          if (res.ok) setData((d) => d ? { ...d, checkIns: d.checkIns.filter((x) => x.id !== c.id) } : d)
+                        }}
+                        className="text-xs text-red-400 hover:text-red-600 px-2 py-0.5 rounded hover:bg-red-50 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
                     <Stat label="Sleep" value={c.sleep_hours != null ? `${c.sleep_hours}h` : '—'} />

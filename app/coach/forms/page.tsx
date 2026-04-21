@@ -22,6 +22,7 @@ export default async function CoachFormsPage() {
     .from('forms')
     .select('id, title, type, is_active, created_at')
     .eq('coach_id', coachId)
+    .or('is_client_copy.is.null,is_client_copy.eq.false')
     .order('created_at', { ascending: false })
 
   // Get unread submission counts per form

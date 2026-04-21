@@ -8,10 +8,14 @@ import RemoveClientButton from './RemoveClientButton'
 
 export default async function ClientProfilePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ clientId: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const { clientId } = await params
+  const sp = await searchParams
+  const initialTab = (typeof sp.tab === 'string' ? sp.tab : 'overview') as string
   const coachId = await requireCoach()
   if (!coachId) redirect('/dashboard')
 
@@ -119,7 +123,7 @@ export default async function ClientProfilePage({
       </div>
 
       <div className="flex-1 p-6 max-w-4xl w-full">
-        <ClientTabs clientId={clientId} />
+        <ClientTabs clientId={clientId} initialTab={initialTab} />
       </div>
     </main>
   )

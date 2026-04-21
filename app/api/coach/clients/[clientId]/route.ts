@@ -28,6 +28,112 @@ export async function GET(
   // Use admin client — coach is reading another user's data, RLS would block the regular client
   const admin = createAdminClient()
 
+  // Fetch form submissions linked to this client's check-in schedules
+  const { data: checkinSchedules } = await admin
+    .from('checkin_schedules')
+    .select('form_id, title')
+    .eq('client_id', clientId)
+    .eq('coach_id', coachId)
+
+  const scheduleFormIds = (checkinSchedules ?? []).map((s) => s.form_id).filter(Boolean) as string[]
+  const scheduleTitleByFormId: Record<string, string> = {}
+  for (const s of checkinSchedules ?? []) {
+    if (s.form_id) scheduleTitleByFormId[s.form_id] = s.title
+  }
+
+  let formCheckIns: { id: string; form_id: string; title: string; submitted_at: string }[] = []
+  if (scheduleFormIds.length) {
+    const { data: subs } = await admin
+      .from('form_submissions')
+      .select('id, form_id, submitted_at')
+      .in('form_id', scheduleFormIds)
+      .eq('client_id', clientId)
+      .order('submitted_at', { ascending: false })
+      .limit(20)
+    formCheckIns = (subs ?? []).map((s) => ({
+      id: s.id,
+      form_id: s.form_id,
+      title: scheduleTitleByFormId[s.form_id] ?? 'Check-in',
+      submitted_at: s.submitted_at,
+    }))
+  }
+
+  // Fetch all autoflow responses for this client
+  type AutoflowCheckIn = {
+    id: string; flow_id: string; flow_name: string; step_number: number
+    submitted_at: string; answers: Record<string, string>
+    questions: { id: string; label: string; type: string }[]
+  }
+  let autoflowCheckIns: AutoflowCheckIn[] = []
+  const { data: clientFlows } = await admin
+    .from('client_autoflows')
+    .select('id, name, template_id')
+    .eq('client_id', clientId)
+    .eq('coach_id', coachId)
+
+  if (clientFlows?.length) {
+    const allFlowIds = clientFlows.map((f) => f.id)
+    const templateIds = [...new Set(clientFlows.map((f) => f.template_id))]
+    const flowNameById: Record<string, string> = Object.fromEntries(clientFlows.map((f) => [f.id, f.name]))
+    const flowTemplateById: Record<string, string> = Object.fromEntries(clientFlows.map((f) => [f.id, f.template_id]))
+
+    const { data: templates } = await admin
+      .from('autoflow_templates')
+      .select('id, type, core_questions')
+      .in('id', templateIds)
+
+    // Only show check-in type flows in the check-ins tab
+    const checkinTemplateIds = new Set(
+      (templates ?? []).filter((t) => t.type === 'weekly_checkin').map((t) => t.id)
+    )
+    const checkinFlowIds = clientFlows.filter((f) => checkinTemplateIds.has(f.template_id)).map((f) => f.id)
+
+    const [{ data: resps }, { data: steps }] = await Promise.all([
+      checkinFlowIds.length
+        ? admin
+            .from('autoflow_responses')
+            .select('id, client_autoflow_id, step_number, submitted_at, answers, reviewed_by_coach, coach_feedback')
+            .in('client_autoflow_id', checkinFlowIds)
+            .order('submitted_at', { ascending: false })
+            .limit(30)
+        : Promise.resolve({ data: [] }),
+      admin
+        .from('autoflow_template_steps')
+        .select('template_id, step_number, questions')
+        .in('template_id', [...checkinTemplateIds]),
+    ])
+
+    const coreQByTemplate: Record<string, { id: string; label: string; type: string }[]> = {}
+    for (const t of templates ?? []) {
+      const cqs = (t.core_questions as { id: string; label: string; type: string }[] | null) ?? []
+      coreQByTemplate[t.id] = cqs.filter((q) => q.type !== 'note' && q.type !== 'section')
+    }
+
+    const stepQMap: Record<string, Record<number, { id: string; label: string; type: string }[]>> = {}
+    for (const s of steps ?? []) {
+      if (!stepQMap[s.template_id]) stepQMap[s.template_id] = {}
+      const qs = (s.questions as { id: string; label: string; type: string }[] | null) ?? []
+      stepQMap[s.template_id][s.step_number] = qs.filter((q) => q.type !== 'note' && q.type !== 'section')
+    }
+
+    autoflowCheckIns = (resps ?? []).map((r) => {
+      const templateId = flowTemplateById[r.client_autoflow_id]
+      const coreQs = coreQByTemplate[templateId] ?? []
+      const stepQs = stepQMap[templateId]?.[r.step_number] ?? []
+      return {
+        id: r.id,
+        flow_id: r.client_autoflow_id,
+        flow_name: flowNameById[r.client_autoflow_id] ?? 'Check-in',
+        step_number: r.step_number,
+        submitted_at: r.submitted_at,
+        answers: (r.answers as Record<string, string>) ?? {},
+        questions: [...coreQs, ...stepQs],
+        reviewed_by_coach: (r as Record<string, unknown>).reviewed_by_coach as boolean ?? false,
+        coach_feedback: (r as Record<string, unknown>).coach_feedback as string | null ?? null,
+      }
+    })
+  }
+
   const [checkIns, workoutsRaw, weightLogs, foodLogs, mealNotesRaw] = await Promise.all([
     admin
       .from('check_ins')
@@ -94,8 +200,14 @@ export async function GET(
       })),
   }))
 
+  const realCheckIns = (checkIns.data ?? []).filter(
+    (c) => c.sleep_hours != null || c.sleep_quality != null || c.energy_level != null || c.rhr != null || c.hrv != null || c.notes != null
+  )
+
   return Response.json({
-    checkIns: checkIns.data ?? [],
+    checkIns: realCheckIns,
+    formCheckIns,
+    autoflowCheckIns,
     workouts,
     weightLogs: weightLogs.data ?? [],
     foodLogs: foodLogs.data ?? [],

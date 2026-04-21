@@ -6,6 +6,7 @@ import InstallPrompt from "@/app/components/InstallPrompt";
 import ServiceWorkerRegistration from "@/app/components/ServiceWorkerRegistration";
 import ClientBottomNav from "@/app/components/ClientBottomNav";
 import PushSetup from "@/app/components/PushSetup";
+import AppRefresh from "@/app/components/AppRefresh";
 import { BrandingProvider } from "@/app/components/BrandingProvider";
 import { getBrandingFromHeaders, DEFAULT_BRANDING } from "@/lib/branding";
 import { headers } from "next/headers";
@@ -93,6 +94,7 @@ export default async function RootLayout({
           <PushSetup />
           <InstallPrompt />
           <ServiceWorkerRegistration />
+          <AppRefresh />
         </BrandingProvider>
       </body>
     </html>

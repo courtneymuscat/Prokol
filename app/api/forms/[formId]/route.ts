@@ -6,8 +6,9 @@ import type { NextRequest } from 'next/server'
 type Ctx = { params: Promise<{ formId: string }> }
 
 async function ownsForm(coachId: string, formId: string) {
-  const supabase = await createClient()
-  const { data } = await supabase.from('forms').select('id').eq('id', formId).eq('coach_id', coachId).single()
+  // Use admin client — client copies have client_id set, which may block RLS reads
+  const admin = createAdminClient()
+  const { data } = await admin.from('forms').select('id').eq('id', formId).eq('coach_id', coachId).single()
   return !!data
 }
 
@@ -51,8 +52,8 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     return Response.json({ error: 'Unauthorised' }, { status: 401 })
 
   const body = await req.json()
-  const supabase = await createClient()
-  const { error } = await supabase
+  const admin = createAdminClient()
+  const { error } = await admin
     .from('forms')
     .update({ title: body.title, description: body.description ?? null, type: body.type, is_active: body.is_active })
     .eq('id', formId)

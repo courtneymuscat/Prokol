@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendPushToUser } from '@/lib/push'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ flowId: string; step: string }> }
@@ -197,23 +198,26 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
 
-  // Log a check-in record when this is a check-in prompt flow
+  // Notify coach when this is a check-in prompt flow
   const isCheckinFlow = (flow as unknown as Record<string, unknown>).show_as_checkin_prompt as boolean ?? false
   if (isCheckinFlow) {
     const adminClient = createAdminClient()
-    // Extract common check-in fields from answers if present
-    const a = answers as Record<string, unknown> ?? {}
-    const notes = typeof a.notes === 'string' ? a.notes : null
-    const weight = a.weight !== undefined ? Number(a.weight) || null : null
-    const mood = typeof a.mood === 'string' ? a.mood : null
-    const adherence = a.adherence !== undefined ? Number(a.adherence) || null : null
-    await adminClient.from('check_ins').insert({
-      user_id: user.id,
-      ...(notes !== null ? { notes } : {}),
-      ...(weight !== null ? { weight } : {}),
-      ...(mood !== null ? { mood } : {}),
-      ...(adherence !== null ? { adherence } : {}),
-    })
+    const coachIdForNotify = (flow as unknown as Record<string, unknown>).coach_id as string | null
+    if (coachIdForNotify) {
+      const { data: profile } = await adminClient
+        .from('profiles')
+        .select('first_name, full_name')
+        .eq('id', user.id)
+        .single()
+      const clientName = profile?.first_name ?? profile?.full_name ?? 'A client'
+      sendPushToUser(coachIdForNotify, {
+        title: 'New check-in',
+        body: `${clientName} just submitted a check-in`,
+        url: '/coach/check-ins',
+        icon: '/icons/icon-192.png',
+        tag: `checkin-${user.id}`,
+      }).catch(() => {})
+    }
   }
 
   // Send automated messages for any steps that unlock because this step just completed

@@ -1,10 +1,13 @@
 'use client'
 
+import type React from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 import { useBranding } from '@/app/components/BrandingProvider'
 
-const NAV = [
+type NavItem = { href: string; label: string; icon: React.ReactNode; badge?: boolean; messageBadge?: boolean; checkinBadge?: boolean }
+
+const NAV: NavItem[] = [
   {
     href: '/coach/dashboard',
     label: 'Dashboard',
@@ -36,6 +39,7 @@ const NAV = [
   {
     href: '/coach/check-ins',
     label: 'Check-ins',
+    checkinBadge: true,
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
@@ -154,10 +158,12 @@ const ORG_NAV = [
 export default function CoachSidebar({
   unreadCount,
   unreadMessages,
+  unreadCheckIns,
   isBusinessTier,
 }: {
   unreadCount: number
   unreadMessages: number
+  unreadCheckIns: number
   isBusinessTier: boolean
 }) {
   const branding = useBranding()
@@ -204,6 +210,11 @@ export default function CoachSidebar({
                 {item.messageBadge && unreadMessages > 0 && (
                   <span className="ml-auto text-[11px] bg-blue-500 text-white font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-tight">
                     {unreadMessages}
+                  </span>
+                )}
+                {item.checkinBadge && unreadCheckIns > 0 && (
+                  <span className="ml-auto text-[11px] bg-blue-500 text-white font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-tight">
+                    {unreadCheckIns}
                   </span>
                 )}
               </a>
@@ -379,7 +390,7 @@ export default function CoachSidebar({
             NAV[3], // Check-ins
           ].map((item) => {
             const active = path === item.href || (item.href !== '/coach/dashboard' && path.startsWith(item.href))
-            const badgeCount = item.badge ? unreadCount : item.messageBadge ? unreadMessages : 0
+            const badgeCount = item.badge ? unreadCount : item.messageBadge ? unreadMessages : item.checkinBadge ? unreadCheckIns : 0
             return (
               <a
                 key={item.href}

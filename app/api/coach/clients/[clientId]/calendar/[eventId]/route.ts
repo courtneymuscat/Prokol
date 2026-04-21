@@ -12,11 +12,17 @@ export async function PATCH(
 
   const supabase = await createClient()
   const body = await req.json()
-  const { title, content, type } = body
+  const { title, content, type, event_date } = body
+
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (title !== undefined) patch.title = title
+  if (content !== undefined) patch.content = content
+  if (type !== undefined) patch.type = type
+  if (event_date !== undefined) patch.event_date = event_date
 
   const { data, error } = await supabase
     .from('calendar_events')
-    .update({ title, content, type, updated_at: new Date().toISOString() })
+    .update(patch)
     .eq('id', eventId)
     .eq('client_id', clientId)
     .eq('coach_id', coachId)

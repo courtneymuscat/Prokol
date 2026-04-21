@@ -15,6 +15,15 @@ export default async function CoachAutoflowsPage() {
     .eq('coach_id', coachId)
     .order('created_at', { ascending: false })
 
+  // Count actual steps rather than using the possibly-stale total_steps column
+  const templateIds = (templates ?? []).map(t => t.id)
+  const { data: allSteps } = templateIds.length
+    ? await supabase.from('autoflow_template_steps').select('template_id').in('template_id', templateIds)
+    : { data: [] }
+  const stepCountMap: Record<string, number> = {}
+  for (const s of allSteps ?? []) stepCountMap[s.template_id] = (stepCountMap[s.template_id] ?? 0) + 1
+  const templatesWithCount = (templates ?? []).map(t => ({ ...t, total_steps: stepCountMap[t.id] ?? t.total_steps }))
+
   const existingNames = (templates ?? []).map(t => t.name)
 
   return (
@@ -35,10 +44,10 @@ export default async function CoachAutoflowsPage() {
       <main className="max-w-3xl mx-auto w-full p-6 space-y-8">
 
         {/* Your templates */}
-        {templates && templates.length > 0 && (
+        {templatesWithCount.length > 0 && (
           <div className="space-y-3">
             <h2 className="text-sm font-semibold text-gray-900">Your flows</h2>
-            <AutoflowList templates={templates} />
+            <AutoflowList templates={templatesWithCount} />
           </div>
         )}
 

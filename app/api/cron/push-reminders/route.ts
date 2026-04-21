@@ -340,5 +340,59 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ── 5. 7-day no-check-in reminder ────────────────────────────────────────────
+  //
+  // Sent at 7am local time if the client hasn't submitted any check-in
+  // (check_ins or autoflow_responses) in the past 7 days.
+
+  const { data: activeClients } = await supabase
+    .from('coach_clients')
+    .select('client_id, profiles!client_id ( timezone )')
+    .eq('status', 'active')
+
+  if (activeClients?.length) {
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString()
+    const uniqueClientIds = [...new Set(activeClients.map((r) => r.client_id))]
+
+    const [{ data: recentCheckIns }, { data: recentAutoflow }] = await Promise.all([
+      supabase
+        .from('check_ins')
+        .select('user_id, created_at')
+        .in('user_id', uniqueClientIds)
+        .gte('created_at', sevenDaysAgo)
+        .or('sleep_hours.not.is.null,notes.not.is.null,rhr.not.is.null,hrv.not.is.null'),
+      supabase
+        .from('autoflow_responses')
+        .select('client_id, submitted_at')
+        .in('client_id', uniqueClientIds)
+        .gte('submitted_at', sevenDaysAgo),
+    ])
+
+    const recentSet = new Set<string>()
+    for (const c of recentCheckIns ?? []) recentSet.add(c.user_id)
+    for (const r of recentAutoflow ?? []) recentSet.add(r.client_id)
+
+    const notifiedInThisRun = new Set<string>()
+    for (const row of activeClients) {
+      const clientId = row.client_id
+      if (recentSet.has(clientId)) continue
+      if (notifiedInThisRun.has(clientId)) continue
+
+      const profile = (row as Record<string, unknown>).profiles as { timezone: string | null } | null
+      const timezone = profile?.timezone ?? null
+      if (!isSevenAM(timezone)) continue
+
+      notifiedInThisRun.add(clientId)
+      sendPushToUser(clientId, {
+        title: 'Check in with your coach',
+        body: "It's been a while — your coach would love to hear how you're going",
+        url: '/dashboard',
+        icon: '/icons/icon-192.png',
+        tag: 'no-checkin-reminder',
+      }).catch(() => {/* silent */})
+      pushed++
+    }
+  }
+
   return Response.json({ ok: true, pushed, checkedAt: now.toISOString() })
 }

@@ -31,15 +31,27 @@ export default async function CoachClientsPage() {
 
     const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]))
 
-    const { data: latestCheckIns } = await supabase
-      .from('check_ins')
-      .select('user_id, created_at')
-      .in('user_id', allIds)
-      .order('created_at', { ascending: false })
+    const [{ data: latestCheckIns }, { data: latestAutoflowResps }] = await Promise.all([
+      admin
+        .from('check_ins')
+        .select('user_id, created_at')
+        .in('user_id', allIds)
+        .or('sleep_hours.not.is.null,notes.not.is.null,rhr.not.is.null,hrv.not.is.null')
+        .order('created_at', { ascending: false }),
+      admin
+        .from('autoflow_responses')
+        .select('client_id, submitted_at')
+        .in('client_id', allIds)
+        .order('submitted_at', { ascending: false }),
+    ])
 
     const lastCheckIn: Record<string, string> = {}
     for (const c of latestCheckIns ?? []) {
       if (!lastCheckIn[c.user_id]) lastCheckIn[c.user_id] = c.created_at
+    }
+    for (const r of latestAutoflowResps ?? []) {
+      const existing = lastCheckIn[r.client_id]
+      if (!existing || r.submitted_at > existing) lastCheckIn[r.client_id] = r.submitted_at
     }
 
     for (const r of allRows ?? []) {

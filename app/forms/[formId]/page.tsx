@@ -134,6 +134,7 @@ export default function FormFillPage({ params }: { params: Promise<{ formId: str
     }
     setSubmitted(true)
     setSubmitting(false)
+    fetch('/api/push/notify-checkin', { method: 'POST' }).catch(() => {})
   }
 
   if (loading) {

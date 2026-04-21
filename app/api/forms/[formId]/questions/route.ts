@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
 import type { NextRequest } from 'next/server'
 
@@ -9,14 +9,15 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const coachId = await requireCoach()
   if (!coachId) return Response.json({ error: 'Unauthorised' }, { status: 401 })
 
-  const supabase = await createClient()
-  const { data: form } = await supabase.from('forms').select('id').eq('id', formId).eq('coach_id', coachId).single()
+  // Use admin client to find client copies (which have client_id set, blocking RLS)
+  const admin = createAdminClient()
+  const { data: form } = await admin.from('forms').select('id').eq('id', formId).eq('coach_id', coachId).single()
   if (!form) return Response.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await req.json()
 
   // Get next order_index
-  const { data: last } = await supabase
+  const { data: last } = await admin
     .from('form_questions')
     .select('order_index')
     .eq('form_id', formId)
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   const order_index = (last?.order_index ?? -1) + 1
 
-  const { data, error } = await supabase
+  const { data, error } = await admin
     .from('form_questions')
     .insert({
       form_id: formId,
@@ -50,8 +51,9 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   const coachId = await requireCoach()
   if (!coachId) return Response.json({ error: 'Unauthorised' }, { status: 401 })
 
-  const supabase = await createClient()
-  const { data: form } = await supabase.from('forms').select('id').eq('id', formId).eq('coach_id', coachId).single()
+  // Use admin client for all writes — client copies have client_id set which may block RLS
+  const admin = createAdminClient()
+  const { data: form } = await admin.from('forms').select('id').eq('id', formId).eq('coach_id', coachId).single()
   if (!form) return Response.json({ error: 'Forbidden' }, { status: 403 })
 
   const { questions } = await req.json()
@@ -84,15 +86,15 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   // Run upsert, insert, and delete in parallel
   const [upsertResult, insertResult, deleteResult] = await Promise.all([
     toUpsert.length > 0
-      ? supabase.from('form_questions').upsert(toUpsert, { onConflict: 'id' }).select('id, order_index')
+      ? admin.from('form_questions').upsert(toUpsert, { onConflict: 'id' }).select('id, order_index')
       : Promise.resolve({ data: [], error: null }),
     toInsert.length > 0
-      ? supabase.from('form_questions').insert(toInsert).select('id, order_index')
+      ? admin.from('form_questions').insert(toInsert).select('id, order_index')
       : Promise.resolve({ data: [], error: null }),
     // Delete any questions removed from the form
     keptIds.length > 0
-      ? supabase.from('form_questions').delete().eq('form_id', formId).not('id', 'in', `(${keptIds.join(',')})`)
-      : supabase.from('form_questions').delete().eq('form_id', formId),
+      ? admin.from('form_questions').delete().eq('form_id', formId).not('id', 'in', `(${keptIds.join(',')})`)
+      : admin.from('form_questions').delete().eq('form_id', formId),
   ])
 
   const err = upsertResult.error ?? insertResult.error ?? deleteResult.error
