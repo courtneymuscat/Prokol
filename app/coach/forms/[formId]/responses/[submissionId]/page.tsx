@@ -111,20 +111,30 @@ export default async function SubmissionDetailPage({ params }: Ctx) {
 
   await admin.from('form_submissions').update({ viewed_by_coach: true }).eq('id', submissionId)
 
-  const [{ data: answers }, { data: profile }, { data: form }] = await Promise.all([
+  const [{ data: answers }, { data: profile }, { data: form }, { data: allQuestions }] = await Promise.all([
     admin
       .from('form_answers')
       .select('question_id, value, form_questions(label, description, type, order_index)')
       .eq('submission_id', submissionId),
     admin.from('profiles').select('email').eq('id', sub.client_id).single(),
     admin.from('forms').select('title').eq('id', sub.form_id).single(),
+    admin.from('form_questions').select('id, label, description, type, order_index').eq('form_id', sub.form_id).order('order_index'),
   ])
 
-  const sorted = (answers ?? []).sort((a, b) => {
-    const oa = (a.form_questions as unknown as QuestionRef)?.order_index ?? 0
-    const ob = (b.form_questions as unknown as QuestionRef)?.order_index ?? 0
-    return oa - ob
-  })
+  // Build a map of answered question IDs
+  const answeredMap = Object.fromEntries((answers ?? []).map((a) => [a.question_id, a.value]))
+
+  // Merge: use all questions from the form, attaching answers where they exist
+  type MergedRow = { question_id: string; label: string; description: string | null; type: string; order_index: number; value: string | null; answered: boolean }
+  const sorted: MergedRow[] = (allQuestions ?? []).map((q) => ({
+    question_id: q.id,
+    label: q.label,
+    description: q.description,
+    type: q.type,
+    order_index: q.order_index,
+    value: answeredMap[q.id] ?? null,
+    answered: q.id in answeredMap,
+  }))
 
   return (
     <div className="flex-1 flex flex-col">
@@ -147,21 +157,18 @@ export default async function SubmissionDetailPage({ params }: Ctx) {
         {sorted.length === 0 && (
           <p className="text-gray-400 text-sm text-center py-8">No answers recorded.</p>
         )}
-        {sorted.map((a, i) => {
-          const q = a.form_questions as unknown as QuestionRef
-          return (
-            <div key={i} className="bg-white rounded-2xl border p-5 space-y-2">
-              {/* Question label */}
-              <p className="text-sm font-semibold text-gray-800">{q?.label ?? 'Question'}</p>
-              {/* Description */}
-              {q?.description && (
-                <p className="text-xs text-gray-400 leading-relaxed">{q.description}</p>
-              )}
-              {/* Answer */}
-              <AnswerDisplay value={a.value ?? ''} type={q?.type ?? 'text'} />
-            </div>
-          )
-        })}
+        {sorted.map((a, i) => (
+          <div key={i} className="bg-white rounded-2xl border p-5 space-y-2">
+            <p className="text-sm font-semibold text-gray-800">{a.label}</p>
+            {a.description && (
+              <p className="text-xs text-gray-400 leading-relaxed">{a.description}</p>
+            )}
+            {a.answered
+              ? <AnswerDisplay value={a.value ?? ''} type={a.type} />
+              : <span className="text-xs text-gray-400 italic">Client did not answer</span>
+            }
+          </div>
+        ))}
       </main>
     </div>
   )

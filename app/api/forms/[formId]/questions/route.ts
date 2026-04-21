@@ -83,21 +83,24 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 
   const keptIds = (questions as Q[]).filter(q => q.id).map(q => q.id as string)
 
-  // Run upsert, insert, and delete in parallel
-  const [upsertResult, insertResult, deleteResult] = await Promise.all([
+  // Delete removed questions FIRST to avoid race with concurrent inserts
+  const deleteResult = keptIds.length > 0
+    ? await admin.from('form_questions').delete().eq('form_id', formId).not('id', 'in', `(${keptIds.join(',')})`)
+    : await admin.from('form_questions').delete().eq('form_id', formId)
+
+  if (deleteResult.error) return Response.json({ error: deleteResult.error.message }, { status: 500 })
+
+  // Then upsert existing and insert new in parallel
+  const [upsertResult, insertResult] = await Promise.all([
     toUpsert.length > 0
       ? admin.from('form_questions').upsert(toUpsert, { onConflict: 'id' }).select('id, order_index')
       : Promise.resolve({ data: [], error: null }),
     toInsert.length > 0
       ? admin.from('form_questions').insert(toInsert).select('id, order_index')
       : Promise.resolve({ data: [], error: null }),
-    // Delete any questions removed from the form
-    keptIds.length > 0
-      ? admin.from('form_questions').delete().eq('form_id', formId).not('id', 'in', `(${keptIds.join(',')})`)
-      : admin.from('form_questions').delete().eq('form_id', formId),
   ])
 
-  const err = upsertResult.error ?? insertResult.error ?? deleteResult.error
+  const err = upsertResult.error ?? insertResult.error
   if (err) return Response.json({ error: err.message }, { status: 500 })
 
   // Return all saved questions with their IDs so the client can reconcile
