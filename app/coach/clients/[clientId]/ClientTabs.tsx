@@ -75,6 +75,7 @@ type FormCheckIn = {
   title: string
   submitted_at: string
   viewed_by_coach?: boolean
+  coach_feedback?: string | null
 }
 
 type AutoflowCheckIn = {
@@ -4407,6 +4408,7 @@ function ExpandableFormCheckIn({ item, clientId, onDelete }: { item: FormCheckIn
           checkinLabel={item.title}
           patchUrl={`/api/coach/forms/${item.form_id}/responses/${item.id}`}
           initialReviewed={item.viewed_by_coach ?? false}
+          initialFeedback={item.coach_feedback ?? ''}
         />
       </div>
     </div>

@@ -56,8 +56,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
   const body = await req.json()
   const patch: Record<string, unknown> = {}
-  // reviewed_by_coach maps to viewed_by_coach (form_submissions uses this field)
   if ('reviewed_by_coach' in body) patch.viewed_by_coach = body.reviewed_by_coach
+  if ('coach_feedback' in body) patch.coach_feedback = body.coach_feedback
 
   if (Object.keys(patch).length > 0) {
     await admin.from('form_submissions').update(patch).eq('id', submissionId)

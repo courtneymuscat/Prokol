@@ -21,7 +21,7 @@ export default async function CoachCheckInsPage() {
   type Entry =
     | { kind: 'checkin'; id: string; client_id: string; date: string; reviewed: boolean; sleep_hours: number | null; sleep_quality: string | null; energy_level: string | null; rhr: number | null; hrv: number | null; notes: string | null }
     | { kind: 'autoflow'; id: string; client_id: string; date: string; flow_name: string; step_number: number; reviewed: boolean }
-    | { kind: 'form'; id: string; client_id: string; date: string; form_id: string; title: string }
+    | { kind: 'form'; id: string; client_id: string; date: string; form_id: string; title: string; reviewed: boolean }
 
   let entries: Entry[] = []
   let profileMap: Record<string, { email: string; name: string | null }> = {}
@@ -85,7 +85,7 @@ export default async function CoachCheckInsPage() {
     if (scheduleFormIds.length) {
       const { data: subs } = await admin
         .from('form_submissions')
-        .select('id, form_id, client_id, submitted_at')
+        .select('id, form_id, client_id, submitted_at, viewed_by_coach')
         .in('form_id', scheduleFormIds)
         .in('client_id', clientIds)
         .order('submitted_at', { ascending: false })
@@ -98,6 +98,7 @@ export default async function CoachCheckInsPage() {
           date: s.submitted_at,
           form_id: s.form_id,
           title: scheduleMeta[s.form_id]?.title ?? 'Check-in',
+          reviewed: (s as Record<string, unknown>).viewed_by_coach as boolean ?? false,
         })
       }
     }
@@ -352,7 +353,14 @@ export default async function CoachCheckInsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs bg-amber-50 text-amber-500 font-semibold px-2 py-0.5 rounded-full">Pending review</span>
+                  {entry.reviewed ? (
+                    <span className="text-xs bg-green-50 text-green-600 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                      Reviewed
+                    </span>
+                  ) : (
+                    <span className="text-xs bg-amber-50 text-amber-500 font-semibold px-2 py-0.5 rounded-full">Pending review</span>
+                  )}
                   <span className="text-xs text-gray-400">{fmtDate(entry.date)}</span>
                 </div>
               </a>
