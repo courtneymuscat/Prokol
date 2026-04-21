@@ -21,26 +21,48 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
   if (!sub) return Response.json({ error: 'Not found' }, { status: 404 })
 
-  const { data: answers } = await admin
-    .from('form_answers')
-    .select('value, form_questions(label, type, order_index)')
-    .eq('submission_id', submissionId)
+  const [{ data: answers }, { data: allQuestions }] = await Promise.all([
+    admin.from('form_answers').select('question_id, value').eq('submission_id', submissionId),
+    admin.from('form_questions').select('id, label, type, order_index').eq('form_id', formId).order('order_index'),
+  ])
 
-  type FQ = { label: string; type: string; order_index: number } | null
-
-  const sorted = (answers ?? []).sort((a, b) => {
-    const oa = (a.form_questions as unknown as FQ)?.order_index ?? 0
-    const ob = (b.form_questions as unknown as FQ)?.order_index ?? 0
-    return oa - ob
-  })
+  const answeredMap = Object.fromEntries((answers ?? []).map((a) => [a.question_id, a.value]))
 
   return Response.json({
     submitted_at: sub.submitted_at,
-    answers: sorted.map((a) => {
-      const fq = a.form_questions as unknown as FQ
-      return { label: fq?.label ?? 'Question', type: fq?.type ?? 'text', value: a.value }
-    }),
+    answers: (allQuestions ?? []).map((q) => ({
+      label: q.label,
+      type: q.type,
+      value: answeredMap[q.id] ?? null,
+      answered: q.id in answeredMap,
+    })),
   })
+}
+
+export async function PATCH(req: NextRequest, { params }: Ctx) {
+  const { formId, submissionId } = await params
+  const coachId = await requireCoach()
+  if (!coachId) return Response.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const admin = createAdminClient()
+  const { data: sub } = await admin
+    .from('form_submissions')
+    .select('id')
+    .eq('id', submissionId)
+    .eq('form_id', formId)
+    .eq('coach_id', coachId)
+    .single()
+  if (!sub) return Response.json({ error: 'Not found' }, { status: 404 })
+
+  const body = await req.json()
+  const patch: Record<string, unknown> = {}
+  // reviewed_by_coach maps to viewed_by_coach (form_submissions uses this field)
+  if ('reviewed_by_coach' in body) patch.viewed_by_coach = body.reviewed_by_coach
+
+  if (Object.keys(patch).length > 0) {
+    await admin.from('form_submissions').update(patch).eq('id', submissionId)
+  }
+  return Response.json({ ok: true })
 }
 
 export async function DELETE(_req: NextRequest, { params }: Ctx) {

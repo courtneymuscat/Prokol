@@ -74,6 +74,7 @@ type FormCheckIn = {
   form_id: string
   title: string
   submitted_at: string
+  viewed_by_coach?: boolean
 }
 
 type AutoflowCheckIn = {
@@ -4148,11 +4149,12 @@ function AnswerRow({ label, value, type }: { label: string; value: string; type:
   )
 }
 
-function CheckinFeedbackViaMessages({ clientId, checkinDate, checkinLabel, responseId, initialReviewed, initialFeedback }: {
+function CheckinFeedbackViaMessages({ clientId, checkinDate, checkinLabel, responseId, patchUrl, initialReviewed, initialFeedback }: {
   clientId: string
   checkinDate: string
   checkinLabel: string
   responseId?: string
+  patchUrl?: string
   initialReviewed?: boolean
   initialFeedback?: string
 }) {
@@ -4160,6 +4162,8 @@ function CheckinFeedbackViaMessages({ clientId, checkinDate, checkinLabel, respo
   const [feedback, setFeedback] = useState(initialFeedback ?? '')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
+
+  const effectivePatchUrl = patchUrl ?? (responseId ? `/api/coach/clients/${clientId}/autoflow-responses/${responseId}` : null)
 
   async function handleSend() {
     if (!feedback.trim()) return
@@ -4186,8 +4190,8 @@ function CheckinFeedbackViaMessages({ clientId, checkinDate, checkinLabel, respo
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ body }),
         }),
-        responseId
-          ? fetch(`/api/coach/clients/${clientId}/autoflow-responses/${responseId}`, {
+        effectivePatchUrl
+          ? fetch(effectivePatchUrl, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ coach_feedback: feedback.trim() }),
@@ -4214,8 +4218,8 @@ function CheckinFeedbackViaMessages({ clientId, checkinDate, checkinLabel, respo
             onChange={async (e) => {
               const val = e.target.checked
               setReviewed(val)
-              if (responseId) {
-                await fetch(`/api/coach/clients/${clientId}/autoflow-responses/${responseId}`, {
+              if (effectivePatchUrl) {
+                await fetch(effectivePatchUrl, {
                   method: 'PATCH',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ reviewed_by_coach: val }),
@@ -4316,7 +4320,7 @@ function ExpandableAutoflowCheckIn({ item, clientId, onDelete }: { item: Autoflo
 
 function ExpandableFormCheckIn({ item, clientId, onDelete }: { item: FormCheckIn; clientId: string; onDelete: (id: string) => void }) {
   const [open, setOpen] = useState(false)
-  const [answers, setAnswers] = useState<{ label: string; type: string; value: string }[] | null>(null)
+  const [answers, setAnswers] = useState<{ label: string; type: string; value: string | null; answered: boolean }[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -4383,7 +4387,14 @@ function ExpandableFormCheckIn({ item, clientId, onDelete }: { item: FormCheckIn
           ) : (
             <div className="pt-2">
               {answers.map((a, i) => (
-                <AnswerRow key={i} label={a.label} value={a.value} type={a.type} />
+                a.answered
+                  ? <AnswerRow key={i} label={a.label} value={a.value ?? ''} type={a.type} />
+                  : (
+                    <div key={i} className="py-2 border-b border-gray-50 last:border-0">
+                      <p className="text-xs text-gray-400">{a.label}</p>
+                      <p className="text-sm text-gray-400 italic mt-0.5">Client did not answer</p>
+                    </div>
+                  )
               ))}
             </div>
           )}
@@ -4394,6 +4405,8 @@ function ExpandableFormCheckIn({ item, clientId, onDelete }: { item: FormCheckIn
           clientId={clientId}
           checkinDate={item.submitted_at}
           checkinLabel={item.title}
+          patchUrl={`/api/coach/forms/${item.form_id}/responses/${item.id}`}
+          initialReviewed={item.viewed_by_coach ?? false}
         />
       </div>
     </div>

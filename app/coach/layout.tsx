@@ -106,13 +106,15 @@ export default async function CoachLayout({ children }: { children: React.ReactN
                 scheduleFormCount = count ?? 0
               }
 
-              return { count: (ciCount ?? 0) + autoflowCount + scheduleFormCount }
+              return { count: (ciCount ?? 0) + autoflowCount + scheduleFormCount, scheduleFormCount }
             })()
-          : Promise.resolve({ count: 0 }),
+          : Promise.resolve({ count: 0, scheduleFormCount: 0 }),
       ])
 
       unreadMessages = messagesResult.count ?? 0
       unreadCheckIns = checkInsResult.count ?? 0
+      // Subtract check-in schedule form submissions from the Forms badge (they belong in Check-ins)
+      unread = Math.max(0, (formsResult.count ?? 0) - ((checkInsResult as { count: number; scheduleFormCount?: number }).scheduleFormCount ?? 0))
     }
   } catch {
     // silently fall back to 0

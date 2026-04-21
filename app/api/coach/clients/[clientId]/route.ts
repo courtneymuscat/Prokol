@@ -45,7 +45,7 @@ export async function GET(
   if (scheduleFormIds.length) {
     const { data: subs } = await admin
       .from('form_submissions')
-      .select('id, form_id, submitted_at')
+      .select('id, form_id, submitted_at, viewed_by_coach')
       .in('form_id', scheduleFormIds)
       .eq('client_id', clientId)
       .order('submitted_at', { ascending: false })
@@ -55,6 +55,7 @@ export async function GET(
       form_id: s.form_id,
       title: scheduleTitleByFormId[s.form_id] ?? 'Check-in',
       submitted_at: s.submitted_at,
+      viewed_by_coach: s.viewed_by_coach ?? false,
     }))
   }
 
