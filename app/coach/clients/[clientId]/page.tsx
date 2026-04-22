@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import ClientTabs from './ClientTabs'
 import MessageButton from './MessageButton'
 import RemoveClientButton from './RemoveClientButton'
+import CopyInviteLink from './CopyInviteLink'
 
 export default async function ClientProfilePage({
   params,
@@ -26,7 +27,7 @@ export default async function ClientProfilePage({
     .select('accepted_at, status')
     .eq('coach_id', coachId)
     .eq('client_id', clientId)
-    .in('status', ['active', 'archived'])
+    .in('status', ['active', 'archived', 'pending_invite'])
     .single()
 
   if (!rel) redirect('/coach/clients')
@@ -38,6 +39,22 @@ export default async function ClientProfilePage({
     .select('email, subscription_tier, timezone, full_name, date_of_birth, phone')
     .eq('id', clientId)
     .single()
+
+  // If invite pending, fetch the invite link so coach can resend/copy it
+  let inviteUrl: string | null = null
+  if (rel.status === 'pending_invite' && profile?.email) {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+    const { data: inv } = await admin
+      .from('coach_invites')
+      .select('token')
+      .eq('coach_id', coachId)
+      .eq('email', profile.email)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+    if (inv?.token) inviteUrl = `${baseUrl}/invite/${inv.token}`
+  }
 
   const tierLabel: Record<string, string> = {
     individual_free:      'Free',
@@ -93,6 +110,11 @@ export default async function ClientProfilePage({
                         Archived
                       </span>
                     )}
+                    {rel.status === 'pending_invite' && (
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600">
+                        Invite pending
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-3 flex-wrap mt-0.5">
                     <p className="text-xs text-gray-400">{profile?.email}</p>
@@ -122,9 +144,34 @@ export default async function ClientProfilePage({
         </div>
       </div>
 
+      {rel.status === 'pending_invite' && inviteUrl && (
+        <InvitePendingBanner inviteUrl={inviteUrl} />
+      )}
+
       <div className="flex-1 p-6 max-w-4xl w-full">
         <ClientTabs clientId={clientId} initialTab={initialTab} />
       </div>
     </main>
   )
 }
+
+function InvitePendingBanner({ inviteUrl }: { inviteUrl: string }) {
+  return (
+    <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
+      <div className="max-w-4xl w-full flex items-center gap-3 flex-wrap">
+        <p className="text-sm text-amber-800 flex-1">
+          This client hasn&apos;t accepted their invite yet. You can start building their profile now.
+        </p>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <input
+            readOnly
+            value={inviteUrl}
+            className="text-xs border border-amber-200 bg-white rounded-lg px-3 py-1.5 text-amber-700 w-64 truncate focus:outline-none"
+          />
+          <CopyInviteLink url={inviteUrl} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
