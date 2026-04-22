@@ -21,8 +21,8 @@ export default async function CoachClientsPage() {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL
     ?? (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000')
 
-  type ClientRow = { id: string; email: string; name: string | null; tier: string; joinedAt: string | null; lastCheckIn: string | null; pendingInvite?: boolean; inviteUrl?: string }
-  type PendingInviteRow = { email: string; inviteUrl: string; sentAt: string }
+  type ClientRow = { id: string; email: string; name: string | null; tier: string; joinedAt: string | null; lastCheckIn: string | null; pendingInvite?: boolean; inviteUrl?: string; inviteToken?: string }
+  type PendingInviteRow = { email: string; inviteUrl: string; sentAt: string; token: string }
   let active: ClientRow[] = []
   let archived: ClientRow[] = []
   let pendingInvites: PendingInviteRow[] = []
@@ -86,6 +86,7 @@ export default async function CoachClientsPage() {
         lastCheckIn: lastCheckIn[r.client_id] ?? null,
         pendingInvite: r.status === 'pending_invite',
         inviteUrl: token ? `${baseUrl}/invite/${token}` : undefined,
+        inviteToken: token || undefined,
       }
       if (r.status === 'archived') archived.push(row)
       else active.push(row)
@@ -105,7 +106,7 @@ export default async function CoachClientsPage() {
   const knownEmails = new Set(active.map(c => c.email).concat(archived.map(c => c.email)))
   for (const inv of rawPendingInvites ?? []) {
     if (!knownEmails.has(inv.email)) {
-      pendingInvites.push({ email: inv.email, inviteUrl: `${baseUrl}/invite/${inv.token}`, sentAt: inv.created_at })
+      pendingInvites.push({ email: inv.email, inviteUrl: `${baseUrl}/invite/${inv.token}`, sentAt: inv.created_at, token: inv.token })
     }
   }
 

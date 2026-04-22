@@ -23,6 +23,10 @@ export default async function InvitePage({
     return <InvalidInvite message="This invite link is invalid." />
   }
 
+  if (invite.status === 'revoked') {
+    return <InvalidInvite message="This invite link has been revoked. Ask your coach to send a new one." />
+  }
+
   if (new Date(invite.expires_at) < new Date() && invite.status !== 'accepted') {
     return <InvalidInvite message="This invite link has expired. Ask your coach to send a new one." />
   }
@@ -30,7 +34,7 @@ export default async function InvitePage({
   // Get coach profile
   const { data: coachProfile } = await admin
     .from('profiles')
-    .select('email')
+    .select('email, brand_name, full_name')
     .eq('id', invite.coach_id)
     .single()
 
@@ -77,7 +81,8 @@ export default async function InvitePage({
     )
   }
 
-  const coachEmail = coachProfile?.email ?? 'your coach'
+  const brandName = (coachProfile as Record<string, unknown>)?.brand_name as string | null
+  const displayName = brandName ?? (coachProfile as Record<string, unknown>)?.full_name as string | null ?? coachProfile?.email ?? 'your coach'
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -92,7 +97,7 @@ export default async function InvitePage({
         <div>
           <h1 className="text-2xl font-bold text-gray-900">You&apos;re invited!</h1>
           <p className="text-gray-500 mt-2 text-sm">
-            <span className="font-medium text-gray-700">{coachEmail}</span> has invited you to join their coaching roster on Prokol.
+            <span className="font-medium text-gray-700">{displayName}</span> has invited you to join their coaching roster on Prokol.
           </p>
         </div>
 

@@ -14,13 +14,14 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const admin = createAdminClient()
 
-  // Fetch coach name for the invite email
+  // Fetch coach name/brand for the invite email
   const { data: coachProfile } = await supabase
     .from('profiles')
-    .select('full_name, email')
+    .select('full_name, email, brand_name')
     .eq('id', coachId)
     .single()
-  const coachName = coachProfile?.full_name ?? coachProfile?.email ?? 'Your coach'
+  const brandName = (coachProfile as Record<string, unknown>)?.brand_name as string | null
+  const coachName = brandName ?? coachProfile?.full_name ?? coachProfile?.email ?? 'Your coach'
 
   // Check for an existing pending invite to this email from this coach
   const { data: existing } = await supabase
@@ -74,19 +75,37 @@ export async function POST(req: NextRequest) {
 
   const url = `${baseUrl}/invite/${token}`
 
-  // If the invited email already has a Prokol account, add them to coach_clients immediately
-  // so the coach can start working on their file before the invite is accepted.
+  // Add the invited client to coach_clients immediately so the coach can start working on
+  // their file before the invite is accepted. For emails without an account, pre-create a
+  // ghost auth user + profile — they'll activate it when they sign up via the invite link.
   const { data: existingProfile } = await admin
     .from('profiles')
     .select('id')
     .eq('email', email)
     .single()
 
-  if (existingProfile?.id) {
+  let clientId = existingProfile?.id ?? null
+
+  if (!clientId) {
+    // Pre-create a ghost auth user (not confirmed — client will activate on signup)
+    const { data: { user: ghostUser } } = await admin.auth.admin.createUser({
+      email,
+      email_confirm: false,
+    })
+    if (ghostUser) {
+      clientId = ghostUser.id
+      await admin.from('profiles').upsert(
+        { id: ghostUser.id, email, user_type: 'individual', role: 'client', subscription_tier: 'individual_free' },
+        { onConflict: 'id' }
+      )
+    }
+  }
+
+  if (clientId) {
     await admin
       .from('coach_clients')
       .upsert(
-        { coach_id: coachId, client_id: existingProfile.id, status: 'pending_invite', service_id: service_id || null },
+        { coach_id: coachId, client_id: clientId, status: 'pending_invite', service_id: service_id || null },
         { onConflict: 'coach_id,client_id', ignoreDuplicates: true }
       )
   }

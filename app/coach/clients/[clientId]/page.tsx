@@ -6,6 +6,7 @@ import ClientTabs from './ClientTabs'
 import MessageButton from './MessageButton'
 import RemoveClientButton from './RemoveClientButton'
 import CopyInviteLink from './CopyInviteLink'
+import RevokeInviteButton from './RevokeInviteButton'
 
 export default async function ClientProfilePage({
   params,
@@ -42,6 +43,7 @@ export default async function ClientProfilePage({
 
   // If invite pending, fetch the invite link so coach can resend/copy it
   let inviteUrl: string | null = null
+  let inviteToken: string | null = null
   if (rel.status === 'pending_invite' && profile?.email) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
     const { data: inv } = await admin
@@ -53,7 +55,10 @@ export default async function ClientProfilePage({
       .order('created_at', { ascending: false })
       .limit(1)
       .single()
-    if (inv?.token) inviteUrl = `${baseUrl}/invite/${inv.token}`
+    if (inv?.token) {
+      inviteToken = inv.token
+      inviteUrl = `${baseUrl}/invite/${inv.token}`
+    }
   }
 
   const tierLabel: Record<string, string> = {
@@ -144,8 +149,8 @@ export default async function ClientProfilePage({
         </div>
       </div>
 
-      {rel.status === 'pending_invite' && inviteUrl && (
-        <InvitePendingBanner inviteUrl={inviteUrl} />
+      {rel.status === 'pending_invite' && inviteUrl && inviteToken && (
+        <InvitePendingBanner inviteUrl={inviteUrl} token={inviteToken} />
       )}
 
       <div className="flex-1 p-6 max-w-4xl w-full">
@@ -155,7 +160,7 @@ export default async function ClientProfilePage({
   )
 }
 
-function InvitePendingBanner({ inviteUrl }: { inviteUrl: string }) {
+function InvitePendingBanner({ inviteUrl, token }: { inviteUrl: string; token: string }) {
   return (
     <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
       <div className="max-w-4xl w-full flex items-center gap-3 flex-wrap">
@@ -169,6 +174,7 @@ function InvitePendingBanner({ inviteUrl }: { inviteUrl: string }) {
             className="text-xs border border-amber-200 bg-white rounded-lg px-3 py-1.5 text-amber-700 w-64 truncate focus:outline-none"
           />
           <CopyInviteLink url={inviteUrl} />
+          <RevokeInviteButton token={token} />
         </div>
       </div>
     </div>

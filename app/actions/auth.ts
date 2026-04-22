@@ -38,6 +38,39 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
       error.code === 'user_already_exists' ||
       error.message.toLowerCase().includes('already registered')
     ) {
+      // If signing up via an invite, this may be a ghost user pre-created by the coach.
+      // Detect by checking if auth email is unconfirmed, then activate transparently.
+      if (invite) {
+        const admin = createAdminClient()
+        const { data: ghostProfile } = await admin
+          .from('profiles')
+          .select('id')
+          .eq('email', email)
+          .single()
+        if (ghostProfile?.id) {
+          const { data: { user: ghostUser } } = await admin.auth.admin.getUserById(ghostProfile.id)
+          if (ghostUser && !ghostUser.email_confirmed_at) {
+            await admin.auth.admin.updateUserById(ghostProfile.id, { password, email_confirm: true })
+            const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
+            if (!signInErr && signInData.session?.user) {
+              await admin.from('profiles').upsert(
+                {
+                  id: signInData.session.user.id,
+                  email,
+                  role: 'client',
+                  user_type: 'individual',
+                  subscription_tier: 'individual_free',
+                  terms_accepted_at: new Date().toISOString(),
+                  terms_version: 'april_2026',
+                },
+                { onConflict: 'id' }
+              )
+              await acceptInvite(invite, signInData.session.user.id)
+              redirect('/onboarding/coached')
+            }
+          }
+        }
+      }
       return { error: 'EMAIL_ALREADY_EXISTS' }
     }
     return { error: error.message }

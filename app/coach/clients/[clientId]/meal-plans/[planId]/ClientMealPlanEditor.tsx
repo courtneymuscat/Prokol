@@ -20,6 +20,7 @@ type MealSlot = {
   id: string
   label: string
   foods: MealFood[]
+  notes?: string
 }
 
 type ClientPlanRecord = {
@@ -242,6 +243,17 @@ function MealSlotCard({
           <span className="text-[11px] text-blue-400 font-semibold">F {slotMacros.f.toFixed(1)}g</span>
         </div>
       )}
+
+      {/* Notes / recipe */}
+      <div className="mt-3 pt-3 border-t border-gray-100">
+        <textarea
+          value={slot.notes ?? ''}
+          onChange={(e) => onChange({ ...slot, notes: e.target.value })}
+          placeholder="Add recipe notes or prep instructions for your client…"
+          rows={2}
+          className="w-full text-xs text-gray-600 border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none placeholder:text-gray-300"
+        />
+      </div>
 
       {/* Food search */}
       <MealPlanFoodSearch onAdd={addFood} />

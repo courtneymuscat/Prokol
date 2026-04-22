@@ -11,7 +11,7 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = await supabase
     .from('profiles')
-    .select('first_name, timezone, subscription_tier, brand_colour, logo_url')
+    .select('first_name, timezone, subscription_tier, brand_colour, logo_url, brand_name')
     .eq('id', coachId)
     .single()
 
@@ -22,6 +22,7 @@ export async function GET() {
     subscription_tier: profile?.subscription_tier ?? 'individual_free',
     brand_colour: profile?.brand_colour ?? null,
     logo_url: profile?.logo_url ?? null,
+    brand_name: (profile as Record<string, unknown>)?.brand_name as string | null ?? null,
   })
 }
 
@@ -29,15 +30,21 @@ export async function PUT(req: NextRequest) {
   const coachId = await requireCoach()
   if (!coachId) return Response.json({ error: 'Unauthorised' }, { status: 401 })
 
-  const { first_name, timezone, brand_colour, logo_url } = await req.json()
+  const body = await req.json()
+  const { first_name, timezone, brand_colour, logo_url, brand_name } = body
 
-  const supabase = await createClient()
-  const updates: Record<string, unknown> = { first_name: first_name?.trim() || null }
+  // Use admin client to bypass any RLS column restrictions on branding fields
+  const { createAdminClient } = await import('@/lib/supabase/admin')
+  const admin = createAdminClient()
+
+  const updates: Record<string, unknown> = {}
+  if (first_name !== undefined) updates.first_name = first_name?.trim() || null
   if (timezone !== undefined) updates.timezone = timezone || null
   if (brand_colour !== undefined) updates.brand_colour = brand_colour || null
   if (logo_url !== undefined) updates.logo_url = logo_url || null
+  if (brand_name !== undefined) updates.brand_name = brand_name?.trim() || null
 
-  const { error } = await supabase
+  const { error } = await admin
     .from('profiles')
     .update(updates)
     .eq('id', coachId)

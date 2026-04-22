@@ -350,8 +350,8 @@ function food(food_name: string, grams: number, calories: number, protein: numbe
   return { food_name, grams, calories: Math.round(calories), protein: Math.round(protein * 10) / 10, carbs: Math.round(carbs * 10) / 10, fat: Math.round(fat * 10) / 10 }
 }
 
-function meal(label: string, foods: ReturnType<typeof food>[]) {
-  return { id: uid(), label, foods }
+function meal(label: string, foods: ReturnType<typeof food>[], notes?: string) {
+  return { id: uid(), label, foods, ...(notes ? { notes } : {}) }
 }
 
 // ── Meal Plans ────────────────────────────────────────────────────────────────
@@ -362,27 +362,27 @@ const MEAL_PLANS = [
     goal: 'omnivore',
     total_calories: 1800,
     content: [
-      meal('Breakfast', [
+      meal('Overnight Oats & Protein Yoghurt', [
         food('Oats (dry)', 60, 228, 7.8, 40.2, 4.2),
         food('Greek Yoghurt (0% fat)', 150, 89, 15, 5.4, 0.6),
         food('Banana', 100, 89, 1.1, 23, 0.3),
         food('Whey Protein', 25, 95, 20, 2.5, 1.5),
-      ]),
-      meal('Lunch', [
+      ], 'The night before, combine oats with 150ml water or milk and refrigerate. In the morning, top with Greek yoghurt and sliced banana. Stir in protein powder just before eating for a creamy, no-cook breakfast.'),
+      meal('Grilled Chicken & Brown Rice Bowl', [
         food('Chicken Breast (cooked)', 160, 248, 46.4, 0, 5.4),
         food('Brown Rice (cooked)', 150, 168, 3.9, 34.5, 1.4),
         food('Mixed Salad Leaves', 80, 18, 1.4, 2.8, 0.2),
         food('Olive Oil', 10, 88, 0, 0, 10),
-      ]),
-      meal('Snack', [
+      ], 'Season chicken with salt, pepper, garlic powder and smoked paprika. Cook in a non-stick pan over medium-high heat for 6–7 min each side until golden. Slice and serve over rice with salad and a drizzle of olive oil.'),
+      meal('Cottage Cheese & Rice Cakes', [
         food('Cottage Cheese', 150, 147, 16.5, 5.1, 6.5),
         food('Rice Cakes', 30, 117, 2.4, 26.4, 0.6),
-      ]),
-      meal('Dinner', [
+      ], 'Season cottage cheese with a pinch of salt and pepper — or mix in a little hot sauce or chopped chives for flavour. Spread onto rice cakes for a crunchy, protein-dense snack.'),
+      meal('Baked Salmon with Sweet Potato & Broccoli', [
         food('Salmon Fillet', 150, 312, 30, 0, 19.5),
         food('Sweet Potato', 200, 172, 3.2, 40, 0.2),
         food('Broccoli (steamed)', 150, 51, 4.2, 10.5, 0.6),
-      ]),
+      ], 'Preheat oven to 200°C. Season salmon with lemon zest, dill, salt and pepper. Bake for 12–15 min until just cooked through. Cube and roast sweet potato with a drizzle of olive oil for 25 min. Steam broccoli until just tender-crisp.'),
     ],
   },
 
@@ -391,29 +391,29 @@ const MEAL_PLANS = [
     goal: 'omnivore',
     total_calories: 2200,
     content: [
-      meal('Breakfast', [
+      meal('Scrambled Eggs on Toast with Avocado', [
         food('Whole Eggs', 150, 233, 19.5, 1.7, 16.5),
         food('Wholegrain Toast', 60, 156, 6.6, 28.8, 2.4),
         food('Avocado', 80, 128, 1.6, 7.2, 12),
         food('Orange Juice', 200, 88, 1.4, 20.4, 0.4),
-      ]),
-      meal('Lunch', [
+      ], 'Whisk eggs with a splash of milk, salt and pepper. Cook low and slow in a buttered non-stick pan, gently folding until just set — don\'t rush it. Mash avocado with a squeeze of lemon, season and pile onto toast. Serve with OJ for a quick carb boost.'),
+      meal('Chicken Stir-Fry with White Rice', [
         food('Chicken Breast (cooked)', 180, 279, 52.2, 0, 6.1),
         food('White Rice (cooked)', 200, 260, 5.4, 56, 0.6),
         food('Mixed Vegetables (stir-fry)', 150, 98, 4.5, 19.5, 0.8),
         food('Soy Sauce', 15, 9, 1.4, 0.9, 0),
-      ]),
-      meal('Snack', [
+      ], 'Slice chicken into strips and stir-fry in a very hot wok or pan with a little oil for 4–5 min until golden. Add vegetables and toss for 2–3 min. Season with soy sauce and a splash of rice vinegar. Serve immediately over white rice.'),
+      meal('Greek Yoghurt Berry Parfait', [
         food('Greek Yoghurt', 200, 118, 13.4, 7.2, 0.8),
         food('Mixed Berries', 100, 57, 0.7, 13.8, 0.3),
         food('Almonds', 25, 145, 5.3, 5.5, 12.5),
-      ]),
-      meal('Dinner', [
+      ], 'Layer yoghurt, berries and almonds in a bowl or glass. Simple, tastes like dessert, hits like a snack. Add a drizzle of honey if you need a bit more sweetness.'),
+      meal('Beef Bolognese Pasta', [
         food('Lean Beef Mince (5% fat)', 180, 247, 37.8, 0, 9.9),
         food('Pasta (cooked)', 200, 284, 10, 57, 1.4),
         food('Tomato Pasta Sauce', 100, 45, 1.8, 9, 0.5),
         food('Parmesan (grated)', 15, 61, 5.4, 0.2, 4.2),
-      ]),
+      ], 'Brown mince over high heat for 5–6 min, breaking it apart. Add pasta sauce, a splash of water and simmer for 10 min. Season well. Toss with cooked pasta and finish with parmesan. Classic comfort food with serious protein.'),
     ],
   },
 
@@ -422,34 +422,34 @@ const MEAL_PLANS = [
     goal: 'omnivore',
     total_calories: 2800,
     content: [
-      meal('Breakfast', [
+      meal('Peanut Butter Protein Oats', [
         food('Oats (dry)', 100, 379, 13, 67, 7),
         food('Whole Milk', 300, 183, 9.6, 14.4, 9.9),
         food('Banana', 130, 116, 1.4, 29.9, 0.4),
         food('Whey Protein', 30, 114, 24, 3, 1.8),
         food('Peanut Butter', 20, 118, 5, 4, 10),
-      ]),
-      meal('Mid-Morning Snack', [
+      ], 'Cook oats in whole milk over medium heat, stirring regularly. Remove from heat, stir in protein powder and peanut butter while warm. Top with sliced banana. This bowl is calorie-dense and keeps you fuelled for hours.'),
+      meal('Greek Yoghurt & Granola', [
         food('Greek Yoghurt', 200, 118, 13.4, 7.2, 0.8),
         food('Granola', 50, 228, 5, 33, 9),
         food('Apple', 150, 78, 0.4, 20.9, 0.2),
-      ]),
-      meal('Lunch', [
+      ], 'Layer yoghurt and granola in a bowl and top with a sliced apple. A quick mid-morning snack to keep calories and energy up between meals.'),
+      meal('Chicken & Rice Power Bowl', [
         food('Chicken Breast (cooked)', 200, 310, 58, 0, 6.8),
         food('White Rice (cooked)', 250, 325, 6.8, 70, 0.8),
         food('Broccoli (steamed)', 150, 51, 4.2, 10.5, 0.6),
         food('Olive Oil', 15, 133, 0, 0, 15),
-      ]),
-      meal('Pre-Workout Snack', [
+      ], 'Season and grill chicken — season generously with garlic, paprika and salt. Cook rice until fluffy, steam broccoli until just tender. Drizzle olive oil over everything for a calorie-rich, balanced meal.'),
+      meal('Tuna & Toast Pre-Workout', [
         food('Wholegrain Bread', 60, 162, 7.2, 28.8, 2.4),
         food('Tuna (canned in water)', 80, 93, 20.8, 0, 0.8),
-      ]),
-      meal('Dinner', [
+      ], 'Drain tuna and mash with a little lemon juice, salt and pepper. Spread on wholegrain toast. Easy 30-min pre-workout fuel — carbs for energy, protein to prime muscle protein synthesis.'),
+      meal('Pan-Seared Salmon with Asparagus & Sweet Potato', [
         food('Salmon Fillet', 180, 374, 36, 0, 23.4),
         food('Sweet Potato', 250, 215, 4, 50, 0.3),
         food('Asparagus', 120, 26, 2.9, 4.8, 0.1),
         food('Butter', 10, 72, 0.1, 0, 8.1),
-      ]),
+      ], 'Cube sweet potato and roast at 200°C with olive oil and salt for 25 min. Pat salmon dry, season with salt and pepper. Sear skin-side down in a hot pan for 4 min, flip and cook 2 min. Finish asparagus in the same pan with butter for 3–4 min.'),
     ],
   },
 
@@ -458,29 +458,29 @@ const MEAL_PLANS = [
     goal: 'omnivore',
     total_calories: 2000,
     content: [
-      meal('Breakfast', [
+      meal('Egg White Omelette with Oats & Berries', [
         food('Egg Whites', 200, 104, 21.6, 1.4, 0.4),
         food('Whole Eggs', 100, 155, 13, 1.1, 10.6),
         food('Oats (dry)', 50, 190, 6.5, 33.5, 3.5),
         food('Blueberries', 100, 57, 0.7, 13.8, 0.3),
-      ]),
-      meal('Lunch', [
+      ], 'Whisk egg whites with whole eggs, salt and pepper. Cook in a non-stick pan over medium heat, folding once. Serve alongside oats cooked in water, topped with fresh blueberries. High protein, moderate carbs — great for a fat-loss phase.'),
+      meal('Tuna & Sweet Potato Stack', [
         food('Tuna (canned in water)', 160, 186, 41.6, 0, 1.6),
         food('Sweet Potato', 200, 172, 3.2, 40, 0.2),
         food('Spinach', 100, 23, 2.9, 3.6, 0.4),
         food('Lemon Juice', 15, 4, 0.1, 0.9, 0),
-      ]),
-      meal('Snack', [
+      ], 'Bake or microwave sweet potato until tender. Flake tuna with a squeeze of lemon, salt and pepper. Serve over a bed of fresh spinach with sweet potato alongside. Clean, simple and hits your macro targets perfectly.'),
+      meal('Protein Cottage Cheese Bowl', [
         food('Cottage Cheese', 200, 196, 22, 6.8, 8.6),
         food('Whey Protein', 25, 95, 20, 2.5, 1.5),
         food('Rice Cakes', 25, 98, 2, 22, 0.5),
-      ]),
-      meal('Dinner', [
+      ], 'Stir protein powder directly into cottage cheese for a thick, creamy, high-protein snack. Season with salt and pepper or a little cinnamon if going sweet. Eat with rice cakes on the side for a carb hit.'),
+      meal('Soy Chicken & Brown Rice Stir-Fry', [
         food('Chicken Breast (cooked)', 220, 341, 63.8, 0, 7.5),
         food('Brown Rice (cooked)', 150, 168, 3.9, 34.5, 1.4),
         food('Mixed Vegetables', 200, 130, 6, 26, 1),
         food('Low Sodium Soy Sauce', 10, 6, 0.9, 0.6, 0),
-      ]),
+      ], 'Slice chicken and stir-fry in a hot pan with mixed vegetables for 5–6 min. Add soy sauce and toss for 1 min. Serve over brown rice. Season with garlic or ginger if desired — a filling dinner that packs in serious lean protein.'),
     ],
   },
 
@@ -489,34 +489,34 @@ const MEAL_PLANS = [
     goal: 'vegan',
     total_calories: 1900,
     content: [
-      meal('Breakfast', [
+      meal('Chia Oat Bowl with Berries', [
         food('Oats (dry)', 80, 303, 10.4, 53.6, 5.6),
         food('Soy Milk', 250, 108, 8.3, 9.8, 4.5),
         food('Chia Seeds', 20, 97, 3.3, 8.4, 6.1),
         food('Mixed Berries', 120, 68, 0.8, 16.6, 0.4),
         food('Maple Syrup', 10, 26, 0, 6.7, 0),
-      ]),
-      meal('Lunch', [
+      ], 'The night before: mix oats, chia seeds and soy milk in a jar and refrigerate. In the morning, top with berries and a drizzle of maple syrup. Thick, creamy and packed with plant-based protein and slow-release carbs.'),
+      meal('Chickpea & Quinoa Power Bowl', [
         food('Chickpeas (cooked)', 200, 330, 17.8, 54.4, 5.4),
         food('Quinoa (cooked)', 150, 182, 6.7, 33, 2.9),
         food('Baby Spinach', 80, 18, 2.3, 2.9, 0.3),
         food('Cherry Tomatoes', 100, 18, 0.9, 3.9, 0.2),
         food('Tahini', 15, 89, 2.6, 3.2, 8),
         food('Lemon Juice', 20, 5, 0.2, 1.2, 0),
-      ]),
-      meal('Snack', [
+      ], 'Cook quinoa and let cool slightly. Whisk tahini with lemon juice, a garlic clove and 2 tbsp water to make a smooth dressing. Combine everything and drizzle over. Season generously — this bowl is all about the tahini dressing.'),
+      meal('Almond & Apple Protein Snack', [
         food('Almonds', 30, 174, 6.3, 6.5, 15),
         food('Apple', 150, 78, 0.4, 20.9, 0.2),
         food('Vegan Protein Powder', 30, 120, 22, 4, 2),
-      ]),
-      meal('Dinner', [
+      ], 'Mix protein powder with 200ml plant milk for a quick shake, and eat alongside almonds and a sliced apple. Portable, satisfying and keeps cravings in check between meals.'),
+      meal('Crispy Tofu Stir-Fry with Brown Rice', [
         food('Tofu (firm)', 200, 162, 17.2, 3.6, 9.2),
         food('Brown Rice (cooked)', 180, 202, 4.7, 41.4, 1.6),
         food('Broccoli (steamed)', 150, 51, 4.2, 10.5, 0.6),
         food('Red Bell Pepper', 120, 37, 1.1, 8.4, 0.3),
         food('Sesame Oil', 10, 88, 0, 0, 10),
         food('Soy Sauce', 15, 9, 1.4, 0.9, 0),
-      ]),
+      ], 'Press tofu firmly for 10 min, then cube and pan-fry in a hot pan with a little oil for 5–6 min per side until golden and crispy. Add vegetables, soy sauce and a drizzle of sesame oil. Toss and serve over brown rice. Don\'t rush the tofu — the crispiness is everything.'),
     ],
   },
 ]
@@ -525,6 +525,13 @@ const MEAL_PLANS = [
 
 const SENTINEL_PROGRAM = 'Full Body — Beginner 3 Day'
 const SENTINEL_PLAN = '1,800 kcal — Omnivore'
+const SEEDED_PLAN_NAMES = [
+  '1,800 kcal — Omnivore',
+  '2,200 kcal — Omnivore',
+  '2,800 kcal — Omnivore',
+  '2,000 kcal — Omnivore',
+  '1,900 kcal — Vegan',
+]
 
 const SEEDED_NAMES = [
   'Full Body — Beginner 3 Day',
@@ -550,12 +557,18 @@ function needsReseed(prog: { content: unknown } | null): boolean {
   return !allItems.some((item: unknown) => (item as { type?: string })?.type === 'section')
 }
 
+function needsMealReseed(plan: { content: unknown } | null): boolean {
+  if (!plan) return true
+  const slots = plan.content as { notes?: string }[] | null
+  return !(slots ?? []).some(s => s.notes)
+}
+
 export async function seedCoachTemplates(coachId: string): Promise<void> {
   const admin = createAdminClient()
 
   const [{ data: existingProg }, { data: existingPlan }, { data: libExercises }] = await Promise.all([
     admin.from('programs').select('id, content').eq('coach_id', coachId).eq('name', SENTINEL_PROGRAM).maybeSingle(),
-    admin.from('meal_plans').select('id').eq('coach_id', coachId).eq('name', SENTINEL_PLAN).maybeSingle(),
+    admin.from('meal_plans').select('id, content').eq('coach_id', coachId).eq('name', SENTINEL_PLAN).maybeSingle(),
     admin.from('exercises').select('id, name, category, equipment, video_url').eq('is_custom', false),
   ])
 
@@ -580,9 +593,27 @@ export async function seedCoachTemplates(coachId: string): Promise<void> {
     )
   }
 
-  if (!existingPlan) {
-    await admin.from('meal_plans').insert(
-      MEAL_PLANS.map(p => ({ coach_id: coachId, name: p.name, goal: p.goal, total_calories: p.total_calories, content: p.content }))
+  if (needsMealReseed(existingPlan)) {
+    // Fetch all existing seeded plans so we can update in-place (preserves IDs/URLs)
+    const { data: existingPlans } = await admin
+      .from('meal_plans')
+      .select('id, name')
+      .eq('coach_id', coachId)
+      .in('name', SEEDED_PLAN_NAMES)
+
+    const existingByName = Object.fromEntries((existingPlans ?? []).map(p => [p.name, p.id]))
+
+    await Promise.all(
+      MEAL_PLANS.map(p => {
+        const existingId = existingByName[p.name]
+        if (existingId) {
+          // Update content in place — preserves the plan ID so coach URLs don't break
+          return admin.from('meal_plans').update({ content: p.content }).eq('id', existingId)
+        } else {
+          // Plan doesn't exist yet — insert fresh
+          return admin.from('meal_plans').insert({ coach_id: coachId, name: p.name, goal: p.goal, total_calories: p.total_calories, content: p.content })
+        }
+      })
     )
   }
 }

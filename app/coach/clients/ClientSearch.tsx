@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 type Client = {
@@ -12,12 +13,14 @@ type Client = {
   lastCheckIn: string | null
   pendingInvite?: boolean
   inviteUrl?: string
+  inviteToken?: string
 }
 
 type PendingInvite = {
   email: string
   inviteUrl: string
   sentAt: string
+  token: string
 }
 
 const TIER_LABELS: Record<string, string> = {
@@ -74,47 +77,57 @@ function CopyInviteButton({ url }: { url: string }) {
   )
 }
 
-function ClientCard({ client, muted = false }: { client: Client; muted?: boolean }) {
+function ClientCard({ client, muted = false, onRevoke }: { client: Client; muted?: boolean; onRevoke?: (token: string) => void }) {
   return (
-    <Link
-      href={`/coach/clients/${client.id}`}
-      className={`flex items-center gap-4 bg-white rounded-2xl border p-4 hover:bg-gray-50 transition-colors group ${muted ? 'opacity-60' : ''}`}
-    >
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${muted ? 'bg-gray-100' : client.pendingInvite ? 'bg-amber-50' : 'bg-blue-100'}`}>
-        <span className={`text-sm font-bold ${muted ? 'text-gray-400' : client.pendingInvite ? 'text-amber-500' : 'text-blue-600'}`}>
-          {(client.name ?? client.email)[0].toUpperCase()}
-        </span>
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-sm font-semibold text-gray-900 truncate">{client.name ?? client.email}</p>
-          {client.name && <p className="text-xs text-gray-400 truncate">{client.email}</p>}
-          {client.pendingInvite && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 font-medium">Invite pending</span>
-          )}
-          {!muted && !client.pendingInvite && (
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TIER_COLORS[client.tier] ?? 'bg-gray-100 text-gray-500'}`}>
-              {TIER_LABELS[client.tier] ?? client.tier}
-            </span>
-          )}
-          {!muted && !client.pendingInvite && isLapsed(client.lastCheckIn) && (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 font-medium">No recent check-in</span>
-          )}
-          {client.pendingInvite && client.inviteUrl && <CopyInviteButton url={client.inviteUrl} />}
+    <div className="relative">
+      <Link
+        href={`/coach/clients/${client.id}`}
+        className={`flex items-center gap-4 bg-white rounded-2xl border p-4 hover:bg-gray-50 transition-colors group ${muted ? 'opacity-60' : ''}`}
+      >
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${muted ? 'bg-gray-100' : client.pendingInvite ? 'bg-amber-50' : 'bg-blue-100'}`}>
+          <span className={`text-sm font-bold ${muted ? 'text-gray-400' : client.pendingInvite ? 'text-amber-500' : 'text-blue-600'}`}>
+            {(client.name ?? client.email)[0].toUpperCase()}
+          </span>
         </div>
-        <p className="text-xs text-gray-400 mt-0.5">
-          {muted
-            ? `Archived · Joined ${client.joinedAt ? new Date(client.joinedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—'}`
-            : client.pendingInvite
-            ? 'Invite sent — not yet accepted'
-            : `Last check-in: ${timeAgo(client.lastCheckIn)}${client.joinedAt ? ` · Joined ${new Date(client.joinedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}` : ''}`
-          }
-        </p>
-      </div>
-      <svg className="w-4 h-4 text-gray-300 group-hover:text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-      </svg>
-    </Link>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-semibold text-gray-900 truncate">{client.name ?? client.email}</p>
+            {client.name && <p className="text-xs text-gray-400 truncate">{client.email}</p>}
+            {client.pendingInvite && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 font-medium">Invite pending</span>
+            )}
+            {!muted && !client.pendingInvite && (
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TIER_COLORS[client.tier] ?? 'bg-gray-100 text-gray-500'}`}>
+                {TIER_LABELS[client.tier] ?? client.tier}
+              </span>
+            )}
+            {!muted && !client.pendingInvite && isLapsed(client.lastCheckIn) && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 font-medium">No recent check-in</span>
+            )}
+            {client.pendingInvite && client.inviteUrl && <CopyInviteButton url={client.inviteUrl} />}
+          </div>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {muted
+              ? `Archived · Joined ${client.joinedAt ? new Date(client.joinedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : '—'}`
+              : client.pendingInvite
+              ? 'Invite sent — not yet accepted'
+              : `Last check-in: ${timeAgo(client.lastCheckIn)}${client.joinedAt ? ` · Joined ${new Date(client.joinedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}` : ''}`
+            }
+          </p>
+        </div>
+        <svg className="w-4 h-4 text-gray-300 group-hover:text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </Link>
+      {client.pendingInvite && client.inviteToken && onRevoke && (
+        <button
+          onClick={(e) => { e.preventDefault(); onRevoke(client.inviteToken!) }}
+          className="absolute right-10 top-1/2 -translate-y-1/2 text-xs px-2 py-1 rounded-lg border border-red-200 text-red-400 hover:bg-red-50 transition-colors"
+        >
+          Revoke
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -122,6 +135,8 @@ export default function ClientSearch({ clients, archivedClients = [], pendingInv
   const [query, setQuery] = useState('')
   const [showArchived, setShowArchived] = useState(true)
   const [copiedEmail, setCopiedEmail] = useState<string | null>(null)
+  const [revokingToken, setRevokingToken] = useState<string | null>(null)
+  const router = useRouter()
 
   const matches = (c: Client) => {
     const q = query.toLowerCase()
@@ -136,6 +151,14 @@ export default function ClientSearch({ clients, archivedClients = [], pendingInv
       setCopiedEmail(email)
       setTimeout(() => setCopiedEmail(null), 2000)
     })
+  }
+
+  async function revokeInvite(token: string) {
+    if (!confirm('Revoke this invite? The link will stop working and the client will be removed from your roster.')) return
+    setRevokingToken(token)
+    await fetch(`/api/coach/invite/${token}`, { method: 'DELETE' })
+    setRevokingToken(null)
+    router.refresh()
   }
 
   const activeClients = filtered.filter(c => !c.pendingInvite)
@@ -166,7 +189,7 @@ export default function ClientSearch({ clients, archivedClients = [], pendingInv
       {activeClients.map((client) => <ClientCard key={client.id} client={client} />)}
 
       {/* Pending invite clients (have accounts, haven't accepted) */}
-      {pendingClients.map((client) => <ClientCard key={client.id} client={client} />)}
+      {pendingClients.map((client) => <ClientCard key={client.id} client={client} onRevoke={revokeInvite} />)}
 
       {/* Pending invites for emails without accounts yet */}
       {filteredPending.map((inv) => (
@@ -183,12 +206,21 @@ export default function ClientSearch({ clients, archivedClients = [], pendingInv
               Invite sent {new Date(inv.sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </p>
           </div>
-          <button
-            onClick={() => copyPendingLink(inv.email, inv.inviteUrl)}
-            className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors flex-shrink-0"
-          >
-            {copiedEmail === inv.email ? 'Copied!' : 'Copy invite link'}
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={() => copyPendingLink(inv.email, inv.inviteUrl)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+            >
+              {copiedEmail === inv.email ? 'Copied!' : 'Copy link'}
+            </button>
+            <button
+              onClick={() => revokeInvite(inv.token)}
+              disabled={revokingToken === inv.token}
+              className="text-xs px-3 py-1.5 rounded-lg border border-red-200 text-red-400 hover:bg-red-50 transition-colors disabled:opacity-50"
+            >
+              {revokingToken === inv.token ? '…' : 'Revoke'}
+            </button>
+          </div>
         </div>
       ))}
 

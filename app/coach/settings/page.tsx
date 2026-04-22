@@ -139,9 +139,10 @@ function ServicesSection() {
   )
 }
 
-function BrandingSection({ initialColour, initialLogoUrl }: { initialColour: string | null; initialLogoUrl: string | null }) {
+function BrandingSection({ initialColour, initialLogoUrl, initialBrandName }: { initialColour: string | null; initialLogoUrl: string | null; initialBrandName: string | null }) {
   const [colour, setColour] = useState(initialColour ?? '#F5C842')
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl ?? '')
+  const [brandName, setBrandName] = useState(initialBrandName ?? '')
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -161,11 +162,11 @@ function BrandingSection({ initialColour, initialLogoUrl }: { initialColour: str
       const formData = new FormData()
       formData.append('file', file)
       formData.append('type', 'coach_logo')
-      const res = await fetch('/api/coach/clients/upload-logo', {
+      const res = await fetch('/api/coach/settings/logo', {
         method: 'POST',
         body: formData,
       })
-      const json = await res.json()
+      const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error ?? 'Upload failed')
       setLogoUrl(json.url)
     } catch (err) {
@@ -182,9 +183,9 @@ function BrandingSection({ initialColour, initialLogoUrl }: { initialColour: str
       const res = await fetch('/api/coach/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brand_colour: colour, logo_url: logoUrl || null }),
+        body: JSON.stringify({ brand_colour: colour, logo_url: logoUrl || null, brand_name: brandName || null }),
       })
-      const json = await res.json()
+      const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error ?? 'Failed to save')
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
@@ -200,6 +201,19 @@ function BrandingSection({ initialColour, initialLogoUrl }: { initialColour: str
       <div>
         <h2 className="text-sm font-semibold text-gray-900">Branding</h2>
         <p className="text-xs text-gray-500 mt-0.5">Your logo and brand colour appear in your clients&apos; app experience.</p>
+      </div>
+
+      {/* Brand name */}
+      <div className="space-y-1.5">
+        <label className="block text-xs font-medium text-gray-700">Brand name</label>
+        <input
+          type="text"
+          value={brandName}
+          onChange={(e) => setBrandName(e.target.value)}
+          placeholder="e.g. Elite Coaching Co."
+          className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <p className="text-xs text-gray-400">Shown to clients on their invite and in the app.</p>
       </div>
 
       {/* Logo upload */}
@@ -287,6 +301,7 @@ export default function CoachSettingsPage() {
   const [subscriptionTier, setSubscriptionTier] = useState<string>('individual_free')
   const [brandColour, setBrandColour] = useState<string | null>(null)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [brandName, setBrandName] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -301,6 +316,7 @@ export default function CoachSettingsPage() {
         setSubscriptionTier(d.subscription_tier ?? 'individual_free')
         setBrandColour(d.brand_colour ?? null)
         setLogoUrl(d.logo_url ?? null)
+        setBrandName(d.brand_name ?? null)
         setLoading(false)
       })
   }, [])
@@ -392,7 +408,7 @@ export default function CoachSettingsPage() {
 
             {/* Branding — Pro and above */}
             {hasBranding ? (
-              <BrandingSection initialColour={brandColour} initialLogoUrl={logoUrl} />
+              <BrandingSection initialColour={brandColour} initialLogoUrl={logoUrl} initialBrandName={brandName} />
             ) : (
               <div className="bg-gray-50 rounded-2xl border border-dashed border-gray-200 p-6 space-y-2">
                 <h2 className="text-sm font-semibold text-gray-400">Branding</h2>

@@ -1,6 +1,7 @@
 import { redirect, notFound } from 'next/navigation'
 import { requireCoach } from '@/lib/coach'
 import { createClient } from '@/lib/supabase/server'
+import { seedCoachTemplates } from '@/lib/seed-coach-templates'
 import MealPlanEditor from './MealPlanEditor'
 
 export default async function MealPlanPage({
@@ -11,6 +12,9 @@ export default async function MealPlanPage({
   const { id } = await params
   const coachId = await requireCoach()
   if (!coachId) redirect('/dashboard')
+
+  // Run seed check so template content (labels, notes) stays up to date
+  await seedCoachTemplates(coachId)
 
   const supabase = await createClient()
   const { data, error } = await supabase
