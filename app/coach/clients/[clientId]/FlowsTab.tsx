@@ -320,13 +320,26 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
                       placeholder={q.type === 'note' ? 'Note text…' : q.type === 'section' ? 'Section heading…' : 'Question…'}
                       className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
                     />
-                    <select
-                      value={q.type}
-                      onChange={e => updateQuestion(i, { type: e.target.value as Question['type'] })}
-                      className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none bg-white"
-                    >
-                      {Q_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </select>
+                    <div className="flex items-center gap-3">
+                      <select
+                        value={q.type}
+                        onChange={e => updateQuestion(i, { type: e.target.value as Question['type'] })}
+                        className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none bg-white"
+                      >
+                        {Q_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                      {q.type !== 'note' && q.type !== 'section' && (
+                        <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={q.required}
+                            onChange={e => updateQuestion(i, { required: e.target.checked })}
+                            className="rounded"
+                          />
+                          Required
+                        </label>
+                      )}
+                    </div>
                   </div>
                   <button
                     onClick={() => removeQuestion(i)}
