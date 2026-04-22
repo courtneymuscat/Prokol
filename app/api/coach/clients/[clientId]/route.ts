@@ -90,7 +90,7 @@ export async function GET(
     )
     const checkinFlowIds = clientFlows.filter((f) => checkinTemplateIds.has(f.template_id)).map((f) => f.id)
 
-    const [{ data: resps }, { data: steps }] = await Promise.all([
+    const [{ data: resps }, { data: steps }, { data: stepOverrides }] = await Promise.all([
       checkinFlowIds.length
         ? admin
             .from('autoflow_responses')
@@ -103,6 +103,13 @@ export async function GET(
         .from('autoflow_template_steps')
         .select('template_id, step_number, questions')
         .in('template_id', [...checkinTemplateIds]),
+      checkinFlowIds.length
+        ? admin
+            .from('client_autoflow_step_overrides')
+            .select('client_autoflow_id, step_number, questions')
+            .in('client_autoflow_id', checkinFlowIds)
+            .not('questions', 'is', null)
+        : Promise.resolve({ data: [] }),
     ])
 
     const coreQByTemplate: Record<string, { id: string; label: string; type: string }[]> = {}
@@ -118,10 +125,19 @@ export async function GET(
       stepQMap[s.template_id][s.step_number] = qs.filter((q) => q.type !== 'note' && q.type !== 'section')
     }
 
+    // Per-client step question overrides take precedence over template questions
+    const overrideQMap: Record<string, Record<number, { id: string; label: string; type: string }[]>> = {}
+    for (const ov of stepOverrides ?? []) {
+      if (!overrideQMap[ov.client_autoflow_id]) overrideQMap[ov.client_autoflow_id] = {}
+      const qs = (ov.questions as { id: string; label: string; type: string }[] | null) ?? []
+      overrideQMap[ov.client_autoflow_id][ov.step_number] = qs.filter((q) => q.type !== 'note' && q.type !== 'section')
+    }
+
     autoflowCheckIns = (resps ?? []).map((r) => {
       const templateId = flowTemplateById[r.client_autoflow_id]
       const coreQs = coreQByTemplate[templateId] ?? []
-      const stepQs = stepQMap[templateId]?.[r.step_number] ?? []
+      // Use per-client override questions if present, otherwise fall back to template questions
+      const stepQs = overrideQMap[r.client_autoflow_id]?.[r.step_number] ?? stepQMap[templateId]?.[r.step_number] ?? []
       return {
         id: r.id,
         flow_id: r.client_autoflow_id,
