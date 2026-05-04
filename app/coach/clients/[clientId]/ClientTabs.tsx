@@ -5360,9 +5360,9 @@ function CheckinFeedbackViaMessages({ clientId, checkinDate, checkinLabel, respo
       <textarea
         value={feedback}
         onChange={(e) => setFeedback(e.target.value)}
-        rows={2}
+        rows={6}
         placeholder="Write feedback to send to client…"
-        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
       />
       <button
         onClick={handleSend}
