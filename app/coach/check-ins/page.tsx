@@ -28,19 +28,22 @@ export default async function CoachCheckInsPage() {
 
   if (clientIds.length) {
     const admin = createAdminClient()
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString()
 
     const [{ data: profiles }, { data: ci }] = await Promise.all([
       admin
         .from('profiles')
         .select('id, email, full_name, first_name')
         .in('id', clientIds),
+      // Show all unreviewed + reviewed only within last 30 days
       admin
         .from('check_ins')
         .select('id, user_id, created_at, sleep_hours, sleep_quality, energy_level, rhr, hrv, notes, reviewed_by_coach')
         .in('user_id', clientIds)
         .or('sleep_hours.not.is.null,notes.not.is.null,rhr.not.is.null,hrv.not.is.null,energy_level.not.is.null,sleep_quality.not.is.null')
+        .or(`reviewed_by_coach.eq.false,created_at.gte.${thirtyDaysAgo}`)
         .order('created_at', { ascending: false })
-        .limit(60),
+        .limit(100),
     ])
 
     profileMap = Object.fromEntries(
@@ -88,8 +91,9 @@ export default async function CoachCheckInsPage() {
         .select('id, form_id, client_id, submitted_at, viewed_by_coach')
         .in('form_id', scheduleFormIds)
         .in('client_id', clientIds)
+        .or(`viewed_by_coach.eq.false,submitted_at.gte.${thirtyDaysAgo}`)
         .order('submitted_at', { ascending: false })
-        .limit(60)
+        .limit(100)
       for (const s of subs ?? []) {
         entries.push({
           kind: 'form',
@@ -128,8 +132,9 @@ export default async function CoachCheckInsPage() {
           .from('autoflow_responses')
           .select('id, client_autoflow_id, step_number, submitted_at, client_id, reviewed_by_coach')
           .in('client_autoflow_id', weeklyFlowIds)
+          .or(`reviewed_by_coach.is.null,reviewed_by_coach.eq.false,submitted_at.gte.${thirtyDaysAgo}`)
           .order('submitted_at', { ascending: false })
-          .limit(60)
+          .limit(100)
         for (const r of resps ?? []) {
           entries.push({
             kind: 'autoflow',

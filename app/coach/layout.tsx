@@ -12,12 +12,7 @@ export default async function CoachLayout({ children }: { children: React.ReactN
     const supabase = await createClient()
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
-      const [formsResult, convosResult, profileResult, clientsResult] = await Promise.all([
-        supabase
-          .from('form_submissions')
-          .select('id', { count: 'exact', head: true })
-          .eq('coach_id', session.user.id)
-          .eq('viewed_by_coach', false),
+      const [convosResult, profileResult, clientsResult] = await Promise.all([
         supabase
           .from('conversations')
           .select('id')
@@ -34,7 +29,6 @@ export default async function CoachLayout({ children }: { children: React.ReactN
           .eq('status', 'active'),
       ])
 
-      unread = formsResult.count ?? 0
       isBusinessTier = profileResult.data?.subscription_tier === 'coach_business'
 
       const clientIds = (clientsResult.data ?? []).map((r) => r.client_id)
@@ -55,6 +49,36 @@ export default async function CoachLayout({ children }: { children: React.ReactN
               const admin = createAdminClient()
               const fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString()
 
+              // Get all check-in schedule form IDs — these belong under Check-ins, not Forms
+              const { data: scheduleRows } = await admin
+                .from('checkin_schedules')
+                .select('form_id')
+                .eq('coach_id', session.user.id)
+                .not('form_id', 'is', null)
+              const checkinFormIds = new Set(
+                (scheduleRows ?? []).map((r) => r.form_id).filter(Boolean) as string[]
+              )
+
+              // Unread Forms submissions — explicitly exclude check-in schedule forms
+              let formsCount = 0
+              if (checkinFormIds.size > 0) {
+                const { count } = await admin
+                  .from('form_submissions')
+                  .select('id', { count: 'exact', head: true })
+                  .eq('coach_id', session.user.id)
+                  .eq('viewed_by_coach', false)
+                  .not('form_id', 'in', `(${[...checkinFormIds].join(',')})`)
+                formsCount = count ?? 0
+              } else {
+                const { count } = await admin
+                  .from('form_submissions')
+                  .select('id', { count: 'exact', head: true })
+                  .eq('coach_id', session.user.id)
+                  .eq('viewed_by_coach', false)
+                formsCount = count ?? 0
+              }
+              unread = formsCount
+
               // Unreviewed direct check-ins (with real data)
               const { count: ciCount } = await admin
                 .from('check_ins')
@@ -63,7 +87,7 @@ export default async function CoachLayout({ children }: { children: React.ReactN
                 .eq('reviewed_by_coach', false)
                 .or('sleep_hours.not.is.null,notes.not.is.null,rhr.not.is.null,hrv.not.is.null,energy_level.not.is.null,sleep_quality.not.is.null')
 
-              // Autoflow check-in responses from last 14 days (no reviewed column)
+              // Autoflow check-in responses from last 14 days
               const { data: weeklyFlows } = await admin
                 .from('client_autoflows')
                 .select('id, template_id')
@@ -88,33 +112,25 @@ export default async function CoachLayout({ children }: { children: React.ReactN
                 }
               }
 
-              // Unread check-in schedule form submissions
-              const { data: scheduleRows } = await admin
-                .from('checkin_schedules')
-                .select('form_id')
-                .eq('coach_id', session.user.id)
-                .not('form_id', 'is', null)
-              const checkinFormIds = (scheduleRows ?? []).map((r) => r.form_id).filter(Boolean) as string[]
+              // Unread check-in schedule form submissions (for Check-ins badge)
               let scheduleFormCount = 0
-              if (checkinFormIds.length) {
+              if (checkinFormIds.size > 0) {
                 const { count } = await admin
                   .from('form_submissions')
                   .select('id', { count: 'exact', head: true })
-                  .in('form_id', checkinFormIds)
+                  .in('form_id', [...checkinFormIds])
                   .eq('coach_id', session.user.id)
                   .eq('viewed_by_coach', false)
                 scheduleFormCount = count ?? 0
               }
 
-              return { count: (ciCount ?? 0) + autoflowCount + scheduleFormCount, scheduleFormCount }
+              return { count: (ciCount ?? 0) + autoflowCount + scheduleFormCount }
             })()
-          : Promise.resolve({ count: 0, scheduleFormCount: 0 }),
+          : Promise.resolve({ count: 0 }),
       ])
 
       unreadMessages = messagesResult.count ?? 0
       unreadCheckIns = checkInsResult.count ?? 0
-      // Subtract check-in schedule form submissions from the Forms badge (they belong in Check-ins)
-      unread = Math.max(0, (formsResult.count ?? 0) - ((checkInsResult as { count: number; scheduleFormCount?: number }).scheduleFormCount ?? 0))
     }
   } catch {
     // silently fall back to 0
