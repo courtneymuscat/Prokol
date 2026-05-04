@@ -281,17 +281,17 @@ export default function WeightLog() {
               }
 
               return (
-                <div key={entry.id} className="flex items-center justify-between text-xs group">
+                <div key={entry.id} className="flex items-center justify-between text-xs">
                   <span className="text-gray-400">{label}</span>
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-gray-700">{display}</span>
                     <button
                       type="button"
                       onClick={() => setEditingId(entry.id)}
-                      className="text-gray-300 hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100"
+                      className="text-gray-300 hover:text-blue-500 active:text-blue-600 transition-colors p-1 -mr-1"
                       title="Edit"
                     >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                       </svg>
                     </button>
