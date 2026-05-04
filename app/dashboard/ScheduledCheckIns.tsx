@@ -16,6 +16,7 @@ type Submission = {
   id: string
   form_id: string
   submitted_at: string
+  reviewed_by_coach: boolean
 }
 
 type DueAutoflowStep = {
@@ -140,7 +141,7 @@ export default function ScheduledCheckIns({ onEmpty }: Props) {
         // Fix: column is client_id, not user_id
         const { data: subs } = await supabase
           .from('form_submissions')
-          .select('id, form_id, submitted_at')
+          .select('id, form_id, submitted_at, reviewed_by_coach')
           .eq('client_id', session.user.id)
           .in('form_id', formIds)
           .order('submitted_at', { ascending: false })
@@ -160,7 +161,11 @@ export default function ScheduledCheckIns({ onEmpty }: Props) {
           } else {
             const recent = getRecentSubmission(s, submissions)
             if (recent) {
-              completedMap[s.id] = recent
+              // Only show "Edit response" if coach hasn't reviewed yet
+              if (!recent.reviewed_by_coach) {
+                completedMap[s.id] = recent
+              }
+              // If reviewed, card is hidden entirely until next period becomes due
             } else {
               nextMap[s.id] = getNextDueDate(s, submissions, today)
             }
