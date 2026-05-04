@@ -315,7 +315,7 @@ export default function LandingPage() {
             The coaching platform for coaches and practitioners who deliver results.
           </h1>
           <p style={{ fontWeight: 300, fontSize: 'clamp(1rem,2.2vw,1.15rem)', color: T.textSec, maxWidth: 660, margin: '0 auto 40px', lineHeight: 1.75 }}>
-            Prokol is built for nutritionists, personal trainers, dietitians, and clinical coaches who want one system for nutrition, training, health data, check-ins, and client management — without the nickel-and-diming.
+            Prokol is built for nutritionists, personal trainers, dietitians, and clinical coaches who want one system for nutrition, training, female cycle tracking, health data, check-ins, and client management — without the nickel-and-diming.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
             <a href="#pricing" className="px-8 py-4 rounded-2xl text-base font-bold text-white hover:opacity-90 transition-all hover:scale-[1.02]"
@@ -392,7 +392,7 @@ export default function LandingPage() {
               '13-tab client profile: overview, nutrition, training, meal plan, check-ins, habits, notes, files, autoflows, resources, calendar, app preview, serve guide',
               'App preview tab — see your client\'s exact dashboard before making changes',
             ]}
-            screenshots={[{ file: '/public/screenshots/client-overview.png', dims: '1280×800px', desc: 'Client file overview — goals, progress photos, weight, check-in history, and client activity visible' }]}
+            screenshots={[{ file: '/public/screenshots/coach-dashboard.png', dims: '1280×800px', desc: 'Coach dashboard — client overview, activity feed, and invite form visible' }]}
           />
 
           {/* 2 — Client Onboarding */}
