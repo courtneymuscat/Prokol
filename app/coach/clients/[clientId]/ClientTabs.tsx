@@ -3303,6 +3303,7 @@ type CalendarEvent = {
   type: string
   title: string
   content: Record<string, unknown>
+  created_at?: string | null
 }
 
 type CalHabit = { id: string; name: string; type: string; target: number | null; unit: string | null; icon: string | null }
@@ -3467,9 +3468,10 @@ function CoachVideoPlayer({ path, clientId }: { path: string; clientId: string }
   return <video src={url} controls playsInline className="w-full rounded-lg mt-1 max-h-48 bg-black" />
 }
 
-function CoachWorkoutModal({ workout, clientId, onClose }: {
+function CoachWorkoutModal({ workout, clientId, clientTimezone, onClose }: {
   workout: CalWorkoutForDate
   clientId: string
+  clientTimezone: string | null
   onClose: () => void
 }) {
   const result = workout.result
@@ -3521,16 +3523,32 @@ function CoachWorkoutModal({ workout, clientId, onClose }: {
             <p className="text-xs text-gray-400 mt-0.5">
               {new Date(workout.dateStr + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}
             </p>
-            {result && (
-              <div className="flex items-center gap-1.5 mt-2 bg-green-50 border border-green-100 rounded-lg px-2.5 py-1.5 w-fit">
-                <svg className="w-3.5 h-3.5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                </svg>
-                <span className="text-xs font-semibold text-green-700">
-                  Completed {new Date(result.event_date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}
-                </span>
-              </div>
-            )}
+            {result && (() => {
+              const completedTime = result.created_at
+                ? new Intl.DateTimeFormat('en-AU', {
+                    hour: 'numeric', minute: '2-digit', hour12: true,
+                    timeZone: clientTimezone ?? undefined,
+                  }).format(new Date(result.created_at))
+                : null
+              const tzLabel = clientTimezone ? clientTimezone.split('/').pop()?.replace(/_/g, ' ') : null
+              return (
+                <div className="flex flex-col gap-0.5 mt-2">
+                  <div className="flex items-center gap-1.5 bg-green-50 border border-green-100 rounded-lg px-2.5 py-1.5 w-fit">
+                    <svg className="w-3.5 h-3.5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-xs font-semibold text-green-700">
+                      Completed {new Date(result.event_date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}
+                    </span>
+                  </div>
+                  {completedTime && (
+                    <p className="text-[11px] text-gray-400 pl-1">
+                      Logged at {completedTime}{tzLabel ? ` (${tzLabel})` : ''}
+                    </p>
+                  )}
+                </div>
+              )
+            })()}
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 mt-0.5">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -3994,6 +4012,7 @@ function CalendarTab({ clientId }: { clientId: string }) {
   const [habits, setHabits] = useState<CalHabit[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [clientTimezone, setClientTimezone] = useState<string | null>(null)
   const datePickerRef = useRef<HTMLInputElement>(null)
   const [addingEvent, setAddingEvent] = useState<string | null>(null)
   const [newEvent, setNewEvent] = useState({ type: 'task', title: '', content: '', repeat: 'none' })
@@ -4045,6 +4064,7 @@ function CalendarTab({ clientId }: { clientId: string }) {
       setPrograms(data.programs ?? [])
       setFoodByDate(data.foodByDate ?? {})
       setHabits(data.habits ?? [])
+      if (data.clientTimezone) setClientTimezone(data.clientTimezone)
     } catch {
       setError('Failed to load calendar')
     } finally {
@@ -4540,7 +4560,7 @@ function CalendarTab({ clientId }: { clientId: string }) {
         <CoachPersonalWorkoutModal event={viewingPersonalWorkout} clientId={clientId} onClose={() => setViewingPersonalWorkout(null)} />
       )}
       {viewingWorkout && (
-        <CoachWorkoutModal workout={viewingWorkout} clientId={clientId} onClose={() => setViewingWorkout(null)} />
+        <CoachWorkoutModal workout={viewingWorkout} clientId={clientId} clientTimezone={clientTimezone} onClose={() => setViewingWorkout(null)} />
       )}
 
       {/* Add event modal */}

@@ -41,7 +41,7 @@ export async function GET(
   // pre-dates the feature), create them now so the coach sees them immediately.
   const { data: clientProfile } = await admin
     .from('profiles')
-    .select('date_of_birth')
+    .select('date_of_birth, timezone')
     .eq('id', clientId)
     .single()
 
@@ -114,11 +114,14 @@ export async function GET(
     foodByDate[row.log_date] = d
   }
 
+  const clientTimezone = (clientProfile as Record<string, unknown> | null)?.timezone as string | null ?? null
+
   return Response.json({
     events,
     programs: programsResult.data ?? [],
     foodByDate,
     habits: habitsResult.data ?? [],
+    clientTimezone,
   })
 }
 
