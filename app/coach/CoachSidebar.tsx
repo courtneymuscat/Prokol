@@ -4,6 +4,7 @@ import type React from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 import { useBranding } from '@/app/components/BrandingProvider'
+import Link from 'next/link'
 
 type NavItem = { href: string; label: string; icon: React.ReactNode; badge?: boolean; messageBadge?: boolean; checkinBadge?: boolean }
 
@@ -177,21 +178,21 @@ export default function CoachSidebar({
       {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-col w-56 bg-white shrink-0 min-h-screen sticky top-0 h-screen border-r border-gray-100">
         <div className="px-5 pt-6 pb-5">
-          <a href="/dashboard" className="flex items-center gap-2">
+          <Link href="/dashboard" className="flex items-center gap-2">
             {branding.logoUrl ? (
               <img src={branding.logoUrl} alt={branding.appName} className="h-6 object-contain" />
             ) : (
               <span className="text-[15px] font-bold tracking-tight text-gray-900">{branding.appName}</span>
             )}
             <span className="text-[10px] bg-blue-100 text-blue-700 font-semibold px-1.5 py-0.5 rounded-md leading-none">Coach</span>
-          </a>
+          </Link>
         </div>
 
         <nav className="flex-1 px-3 pb-4 space-y-0.5 overflow-y-auto">
           {NAV.map((item) => {
             const active = path === item.href || (item.href !== '/coach/dashboard' && path.startsWith(item.href))
             return (
-              <a
+              <Link
                 key={item.href}
                 href={item.href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
@@ -217,7 +218,7 @@ export default function CoachSidebar({
                     {unreadCheckIns}
                   </span>
                 )}
-              </a>
+              </Link>
             )
           })}
 
@@ -232,7 +233,7 @@ export default function CoachSidebar({
                   ? path === '/coach/dashboard' && activeTab === item.tab
                   : path === item.href
                 return (
-                  <a
+                  <Link
                     key={item.href}
                     href={item.href}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
@@ -246,7 +247,7 @@ export default function CoachSidebar({
                     <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded leading-none" style={{ backgroundColor: 'rgba(29,158,117,0.1)', color: '#1D9E75' }}>
                       Biz
                     </span>
-                  </a>
+                  </Link>
                 )
               })}
             </>
@@ -254,7 +255,7 @@ export default function CoachSidebar({
         </nav>
 
         <div className="px-3 pt-3 pb-5 border-t border-gray-100 space-y-0.5">
-          <a
+          <Link
             href="/coach/settings"
             className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
               path === '/coach/settings'
@@ -267,8 +268,8 @@ export default function CoachSidebar({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             Settings
-          </a>
-          <a
+          </Link>
+          <Link
             href="/dashboard"
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13.5px] font-medium text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition-all"
           >
@@ -276,7 +277,7 @@ export default function CoachSidebar({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
             My dashboard
-          </a>
+          </Link>
         </div>
       </aside>
 
@@ -329,7 +330,7 @@ export default function CoachSidebar({
               ].map((item) => {
                 const active = path === item.href || path.startsWith(item.href)
                 return (
-                  <a
+                  <Link
                     key={item.href}
                     href={item.href}
                     onClick={() => setMoreOpen(false)}
@@ -344,11 +345,11 @@ export default function CoachSidebar({
                         <span className="ml-1 inline-block w-2 h-2 bg-blue-500 rounded-full align-middle" />
                       )}
                     </span>
-                  </a>
+                  </Link>
                 )
               })}
               {/* Settings */}
-              <a
+              <Link
                 href="/coach/settings"
                 onClick={() => setMoreOpen(false)}
                 className={`flex flex-col items-center justify-center gap-1.5 py-4 bg-white ${
@@ -360,9 +361,9 @@ export default function CoachSidebar({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
                 <span className="text-[11px] font-medium">Settings</span>
-              </a>
+              </Link>
               {/* My dashboard */}
-              <a
+              <Link
                 href="/dashboard"
                 onClick={() => setMoreOpen(false)}
                 className="flex flex-col items-center justify-center gap-1.5 py-4 bg-white text-gray-600"
@@ -371,7 +372,7 @@ export default function CoachSidebar({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
                 <span className="text-[11px] font-medium text-center leading-tight">My Dashboard</span>
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -392,7 +393,7 @@ export default function CoachSidebar({
             const active = path === item.href || (item.href !== '/coach/dashboard' && path.startsWith(item.href))
             const badgeCount = item.badge ? unreadCount : item.messageBadge ? unreadMessages : item.checkinBadge ? unreadCheckIns : 0
             return (
-              <a
+              <Link
                 key={item.href}
                 href={item.href}
                 className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 relative"
@@ -404,7 +405,7 @@ export default function CoachSidebar({
                 {badgeCount > 0 && (
                   <span className="absolute top-2 right-[calc(50%-14px)] w-2 h-2 bg-blue-500 rounded-full" />
                 )}
-              </a>
+              </Link>
             )
           })}
           {/* More tab */}
