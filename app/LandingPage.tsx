@@ -329,8 +329,8 @@ export default function LandingPage() {
           </div>
           <div style={{ transform: 'perspective(1200px) rotateX(3deg)', transformOrigin: '50% 0%' }}>
             <BrowserFrame>
-              <Placeholder file="/public/screenshots/coach-dashboard.png" dims="1280×800px"
-                desc="Coach dashboard — client overview, activity feed, and invite form visible" className="rounded-none" />
+              <Placeholder file="/public/screenshots/client-overview.png" dims="1280×800px"
+                desc="Client file overview — goals, progress photos, weight, check-in history, and client activity visible" className="rounded-none" />
             </BrowserFrame>
           </div>
         </div>
