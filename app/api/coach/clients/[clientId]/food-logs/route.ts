@@ -29,9 +29,10 @@ export async function GET(
 
   let foodQuery = admin
     .from('food_logs')
-    .select('id, log_date, meal_type, food_name, calories, protein, carbs, fat, scan_image_url, meal_notes, meal_photo_url')
+    .select('id, log_date, meal_type, food_name, calories, protein, carbs, fat, scan_image_url, meal_notes, meal_photo_url, created_at')
     .eq('user_id', clientId)
     .order('log_date', { ascending: false })
+    .order('created_at', { ascending: true })
 
   let notesQuery = admin
     .from('meal_notes')
@@ -42,10 +43,15 @@ export async function GET(
   if (start_date) { foodQuery = foodQuery.gte('log_date', start_date); notesQuery = notesQuery.gte('log_date', start_date) }
   if (end_date)   { foodQuery = foodQuery.lte('log_date', end_date);   notesQuery = notesQuery.lte('log_date', end_date) }
 
-  const [foodResult, notesResult] = await Promise.all([foodQuery, notesQuery])
+  const [foodResult, notesResult, profileResult] = await Promise.all([
+    foodQuery,
+    notesQuery,
+    admin.from('profiles').select('timezone').eq('id', clientId).single(),
+  ])
 
   return Response.json({
-    foodLogs:  foodResult.data  ?? [],
-    mealNotes: notesResult.data ?? [],
+    foodLogs:        foodResult.data  ?? [],
+    mealNotes:       notesResult.data ?? [],
+    clientTimezone:  (profileResult.data as { timezone?: string | null } | null)?.timezone ?? null,
   })
 }

@@ -3334,7 +3334,12 @@ function addDays(date: Date, days: number) {
   const d = new Date(date); d.setDate(d.getDate() + days); return d
 }
 
-function toDateStr(date: Date) { return date.toISOString().slice(0, 10) }
+function toDateStr(date: Date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
 
 type CalWorkoutItem = {
   type: 'exercise' | 'section'
@@ -3790,6 +3795,7 @@ type FoodLogEntry = {
   scan_image_url: string | null
   meal_notes: string | null
   meal_photo_url: string | null
+  created_at: string | null
 }
 
 type MealNoteEntry = {
@@ -3799,14 +3805,22 @@ type MealNoteEntry = {
   photo_url: string | null
 }
 
+function localDateStr(date: Date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 function FoodLogsTab({ clientId }: { clientId: string }) {
-  const today = new Date().toISOString().slice(0, 10)
-  const weekAgo = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10)
+  const today = localDateStr(new Date())
+  const weekAgo = localDateStr(new Date(Date.now() - 6 * 86400000))
 
   const [startDate, setStartDate] = useState(weekAgo)
   const [endDate, setEndDate] = useState(today)
   const [foodLogs, setFoodLogs] = useState<FoodLogEntry[]>([])
   const [mealNotes, setMealNotes] = useState<MealNoteEntry[]>([])
+  const [clientTimezone, setClientTimezone] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -3814,7 +3828,14 @@ function FoodLogsTab({ clientId }: { clientId: string }) {
     setLoading(true); setError(null)
     fetch(`/api/coach/clients/${clientId}/food-logs?start_date=${startDate}&end_date=${endDate}`)
       .then((r) => r.json())
-      .then((d) => { if (d.error) setError(d.error); else { setFoodLogs(d.foodLogs ?? []); setMealNotes(d.mealNotes ?? []) } })
+      .then((d) => {
+        if (d.error) setError(d.error)
+        else {
+          setFoodLogs(d.foodLogs ?? [])
+          setMealNotes(d.mealNotes ?? [])
+          setClientTimezone(d.clientTimezone ?? null)
+        }
+      })
       .catch(() => setError('Failed to load food logs'))
       .finally(() => setLoading(false))
   }, [clientId, startDate, endDate])
@@ -3845,7 +3866,7 @@ function FoodLogsTab({ clientId }: { clientId: string }) {
           {([['7d', 7], ['14d', 14], ['30d', 30]] as [string, number][]).map(([label, days]) => (
             <button key={label} onClick={() => {
               setEndDate(today)
-              setStartDate(new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10))
+              setStartDate(localDateStr(new Date(Date.now() - (days - 1) * 86400000)))
             }} className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 font-medium">
               {label}
             </button>
@@ -3911,11 +3932,23 @@ function FoodLogsTab({ clientId }: { clientId: string }) {
                       )}
 
                       {/* Food items */}
-                      {mealLogs.map((l) => (
+                      {mealLogs.map((l) => {
+                        const loggedAt = l.created_at
+                          ? new Intl.DateTimeFormat('en-AU', {
+                              hour: 'numeric', minute: '2-digit', hour12: true,
+                              timeZone: clientTimezone ?? undefined,
+                            }).format(new Date(l.created_at))
+                          : null
+                        return (
                         <div key={l.id} className="px-5 py-2.5 border-t border-gray-50">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm text-gray-800">{l.food_name ?? 'Food entry'}</p>
+                              <div className="flex items-baseline gap-2">
+                                <p className="text-sm text-gray-800">{l.food_name ?? 'Food entry'}</p>
+                                {loggedAt && (
+                                  <span className="text-[10px] text-gray-400">{loggedAt}{clientTimezone ? ` (${clientTimezone.split('/').pop()?.replace('_', ' ')})` : ''}</span>
+                                )}
+                              </div>
                               {l.meal_notes && (
                                 <p className="text-xs text-blue-500 italic mt-0.5">"{l.meal_notes}"</p>
                               )}
@@ -3938,7 +3971,7 @@ function FoodLogsTab({ clientId }: { clientId: string }) {
                             </div>
                           </div>
                         </div>
-                      ))}
+                      )})}
                     </div>
                   )
                 })}
