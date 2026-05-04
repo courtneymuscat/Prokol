@@ -108,10 +108,10 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       .eq('client_id', clientId)
       .maybeSingle(),
 
-    // Serve targets — whether the Food Cheat Sheet is visible to client
+    // Serve targets — Food Cheat Sheet visible to client
     admin
       .from('client_serve_targets')
-      .select('id')
+      .select('protein_serves, carb_serves, fat_serves, fruit_serves, veg_unlimited')
       .eq('client_id', clientId)
       .maybeSingle(),
   ])
@@ -193,6 +193,6 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     due_autoflow_steps: dueAutoflowSteps,
     supplements: supplementsResult.data ?? [],
     protocol: (protocolResult.data?.sections as { id: string; title: string; content: string }[] | null) ?? [],
-    has_serve_targets: !!serveTargetsResult.data,
+    serve_targets: serveTargetsResult.data ?? null,
   })
 }

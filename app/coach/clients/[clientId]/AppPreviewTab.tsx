@@ -19,7 +19,13 @@ type PreviewData = {
   habits: { id: string; name: string; icon: string; target: number; unit: string }[]
   checkin_schedules: { id: string; title: string; repeat_type: string; day_of_week: number }[]
   due_autoflow_steps: { flow_id: string; flow_name: string; step_number: number; title: string }[]
-  has_serve_targets: boolean
+  serve_targets: {
+    protein_serves: number
+    carb_serves: number
+    fat_serves: number
+    fruit_serves: number
+    veg_unlimited: boolean
+  } | null
 }
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -236,7 +242,7 @@ export default function AppPreviewTab({
   if (loading) return <div className="flex items-center justify-center py-16"><p className="text-sm text-gray-400">Loading preview…</p></div>
   if (error || !data) return <div className="flex items-center justify-center py-16"><p className="text-sm text-red-500">{error ?? 'No data'}</p></div>
 
-  const { branding, profile, goals, supplements, protocol, meal_plans, habits, checkin_schedules, due_autoflow_steps } = data
+  const { branding, profile, goals, supplements, protocol, meal_plans, habits, checkin_schedules, due_autoflow_steps, serve_targets } = data
   const name = profile?.full_name
 
   // Compute which targets to show on the phone preview based on the coach's selected source
@@ -401,15 +407,30 @@ export default function AppPreviewTab({
             { label: 'Food log',     on: foodLogAccess !== 'off' },
             { label: 'Meal builder', on: showMealBuilder },
             { label: 'Saved meals',  on: showSavedMeals },
+            { label: 'Cheat sheet',  on: !!serve_targets },
           ].map(({ label, on }) => (
-            <div key={label} className="flex items-center gap-2">
-              <span className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${on ? 'bg-green-100' : 'bg-gray-100'}`}>
-                {on
-                  ? <svg className="w-2.5 h-2.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/></svg>
-                  : <svg className="w-2.5 h-2.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/></svg>
-                }
-              </span>
-              <span className={`text-xs ${on ? 'text-gray-700' : 'text-gray-400'}`}>{label}</span>
+            <div key={label}>
+              <div className="flex items-center gap-2">
+                <span className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${on ? 'bg-green-100' : 'bg-gray-100'}`}>
+                  {on
+                    ? <svg className="w-2.5 h-2.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/></svg>
+                    : <svg className="w-2.5 h-2.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/></svg>
+                  }
+                </span>
+                <span className={`text-xs ${on ? 'text-gray-700' : 'text-gray-400'}`}>{label}</span>
+              </div>
+              {label === 'Cheat sheet' && serve_targets && (
+                <div className="ml-6 mt-1 space-y-0.5">
+                  <p className="text-[10px] text-emerald-600 font-medium">Client can see allocated food serves</p>
+                  <div className="flex flex-wrap gap-1">
+                    {serve_targets.protein_serves > 0 && <span className="text-[9px] bg-pink-50 text-pink-600 px-1.5 py-0.5 rounded-full">P ×{serve_targets.protein_serves}</span>}
+                    {serve_targets.carb_serves > 0 && <span className="text-[9px] bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded-full">C ×{serve_targets.carb_serves}</span>}
+                    {serve_targets.fat_serves > 0 && <span className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full">F ×{serve_targets.fat_serves}</span>}
+                    {serve_targets.fruit_serves > 0 && <span className="text-[9px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded-full">Fruit ×{serve_targets.fruit_serves}</span>}
+                    {serve_targets.veg_unlimited && <span className="text-[9px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded-full">Veg ∞</span>}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -577,6 +598,33 @@ export default function AppPreviewTab({
               </Section>
             )}
 
+            {/* Food Cheat Sheet — shown ABOVE food log when serve targets are set */}
+            {serve_targets && (
+              <Section label="">
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 overflow-hidden">
+                  <div className="flex items-center justify-between gap-2 px-3 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">📋</span>
+                      <div>
+                        <p className="text-xs font-semibold text-emerald-800">Food Cheat Sheet</p>
+                        <p className="text-[10px] text-emerald-600">See what counts as 1 serve of each food</p>
+                      </div>
+                    </div>
+                    <svg className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 px-3 pb-2.5">
+                    {serve_targets.protein_serves > 0 && <span className="text-[10px] bg-pink-100 text-pink-700 font-semibold px-2 py-0.5 rounded-full">Protein × {serve_targets.protein_serves}</span>}
+                    {serve_targets.carb_serves > 0 && <span className="text-[10px] bg-purple-100 text-purple-700 font-semibold px-2 py-0.5 rounded-full">Carbs × {serve_targets.carb_serves}</span>}
+                    {serve_targets.fat_serves > 0 && <span className="text-[10px] bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full">Fats × {serve_targets.fat_serves}</span>}
+                    {serve_targets.fruit_serves > 0 && <span className="text-[10px] bg-orange-100 text-orange-700 font-semibold px-2 py-0.5 rounded-full">Fruit × {serve_targets.fruit_serves}</span>}
+                    {serve_targets.veg_unlimited && <span className="text-[10px] bg-green-100 text-green-700 font-semibold px-2 py-0.5 rounded-full">Veg unlimited</span>}
+                  </div>
+                </div>
+              </Section>
+            )}
+
             {/* Food log */}
             {foodLogAccess !== 'off' && (
               <Section label="Today's food log">
@@ -590,24 +638,6 @@ export default function AppPreviewTab({
                 </div>
               </Section>
             )}
-
-            {/* Food Cheat Sheet — shown when serve targets are set */}
-            {data.has_serve_targets && (
-              <Section label="">
-                <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl border border-emerald-200 bg-emerald-50">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base">📋</span>
-                    <div>
-                      <p className="text-xs font-semibold text-emerald-800">Food Cheat Sheet</p>
-                      <p className="text-[10px] text-emerald-600">See what counts as 1 serve of each food</p>
-                    </div>
-                  </div>
-                  <svg className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </Section>
-            )}
           </div>}
 
           {/* ── MORE screen — bottom sheet grid matching actual /more page ─── */}
@@ -616,7 +646,7 @@ export default function AppPreviewTab({
             const hasResources = (previewResources ?? []).length > 0
             const moreGridItems = [
               ...(hasResources ? [{ id: 'resources', label: 'Resources', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' }] : []),
-              ...(data.has_serve_targets ? [{ id: 'food_guide', label: 'Food Guide', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' }] : []),
+              ...(serve_targets ? [{ id: 'food_guide', label: 'Food Guide', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' }] : []),
               { id: 'progress', label: 'Progress Photos', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
               ...(previewPlan ? [{ id: 'weekly', label: 'Weekly Changes', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' }] : []),
               { id: 'settings', label: 'Settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
