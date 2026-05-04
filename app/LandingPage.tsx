@@ -392,7 +392,7 @@ export default function LandingPage() {
               '13-tab client profile: overview, nutrition, training, meal plan, check-ins, habits, notes, files, autoflows, resources, calendar, app preview, serve guide',
               'App preview tab — see your client\'s exact dashboard before making changes',
             ]}
-            screenshots={[{ file: '/public/screenshots/coach-dashboard.png', dims: '1280×800px', desc: 'Coach dashboard — client overview, activity feed, and invite form visible' }]}
+            screenshots={[{ file: '/public/screenshots/client-overview.png', dims: '1280×800px', desc: 'Client file overview — goals, progress photos, weight, check-in history, and client activity visible' }]}
           />
 
           {/* 2 — Client Onboarding */}
