@@ -20,6 +20,14 @@ type OrgTemplates = {
 type GroupKey = keyof OrgTemplates
 type TableName = 'autoflow_templates' | 'programs' | 'meal_plans' | 'forms' | 'note_templates'
 
+type CoachAccess = {
+  id: string
+  role: string
+  full_name: string | null
+  email: string | null
+  excluded: boolean
+}
+
 const GROUPS: {
   key: GroupKey
   label: string
@@ -58,7 +66,6 @@ function PublishModal({
 
   const activeGroup = GROUPS.find((g) => g.table === table)!
 
-  // Fetch coach's templates whenever the selected type changes
   useEffect(() => {
     setSelectedId('')
     setError(null)
@@ -66,10 +73,8 @@ function PublishModal({
     fetch(activeGroup.fetchUrl)
       .then((r) => r.json())
       .then((data: Record<string, unknown>[]) => {
-        // Already-published IDs for this group
         const orgKey = activeGroup.key
         const publishedIds = new Set(orgTemplates[orgKey].map((t) => t.id))
-
         const list = data
           .filter((t) => !publishedIds.has(t.id as string))
           .map((t) => ({
@@ -168,6 +173,122 @@ function PublishModal({
   )
 }
 
+// ─── Access modal ─────────────────────────────────────────────────────────────
+
+function AccessModal({
+  template,
+  table,
+  onClose,
+}: {
+  template: Template
+  table: TableName
+  onClose: () => void
+}) {
+  const [coaches, setCoaches] = useState<CoachAccess[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch(`/api/org/templates/${template.id}/coaches?table=${table}`)
+      .then((r) => r.json())
+      .then(setCoaches)
+      .catch(() => setCoaches([]))
+      .finally(() => setLoading(false))
+  }, [template.id, table])
+
+  async function toggle(coach: CoachAccess) {
+    setSaving(coach.id)
+    const newExcluded = !coach.excluded
+    await fetch(`/api/org/templates/${template.id}/coaches`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coach_id: coach.id, table, excluded: newExcluded }),
+    })
+    setCoaches((prev) =>
+      prev.map((c) => (c.id === coach.id ? { ...c, excluded: newExcluded } : c))
+    )
+    setSaving(null)
+  }
+
+  function initials(name: string | null, email: string | null) {
+    if (name) return name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
+    return (email ?? '?')[0].toUpperCase()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+        <div>
+          <h3 className="font-semibold text-gray-900">Manage access</h3>
+          <p className="text-sm text-gray-500 mt-0.5 truncate">{template.name}</p>
+        </div>
+        <p className="text-xs text-gray-400">
+          Toggle which coaches can see this template. Admins always have access.
+        </p>
+
+        {loading ? (
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-10 bg-gray-100 rounded-xl animate-pulse" />
+            ))}
+          </div>
+        ) : coaches.length === 0 ? (
+          <p className="text-sm text-gray-400">No coaches found.</p>
+        ) : (
+          <div className="space-y-2 max-h-72 overflow-y-auto -mx-1 px-1">
+            {coaches.map((coach) => {
+              const isAdmin = coach.role === 'admin' || coach.role === 'owner'
+              const hasAccess = isAdmin || !coach.excluded
+              return (
+                <div
+                  key={coach.id}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50"
+                >
+                  <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold flex items-center justify-center shrink-0">
+                    {initials(coach.full_name, coach.email)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">
+                      {coach.full_name ?? coach.email}
+                    </p>
+                    <p className="text-xs text-gray-400 capitalize">{coach.role}</p>
+                  </div>
+                  {isAdmin ? (
+                    <span className="text-xs text-gray-400 shrink-0">Always on</span>
+                  ) : (
+                    <button
+                      onClick={() => toggle(coach)}
+                      disabled={saving === coach.id}
+                      aria-label={hasAccess ? 'Revoke access' : 'Grant access'}
+                      className={`relative w-10 h-6 rounded-full transition-colors shrink-0 disabled:opacity-50 ${
+                        hasAccess ? 'bg-green-500' : 'bg-gray-200'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                          hasAccess ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        <button
+          onClick={onClose}
+          className="w-full border border-gray-200 text-gray-600 rounded-xl py-2.5 text-sm"
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main tab ─────────────────────────────────────────────────────────────────
 
 export default function OrgTemplatesTab() {
@@ -175,6 +296,7 @@ export default function OrgTemplatesTab() {
   const [loading, setLoading] = useState(true)
   const [publishOpen, setPublishOpen] = useState(false)
   const [unpublishing, setUnpublishing] = useState<string | null>(null)
+  const [accessTarget, setAccessTarget] = useState<{ template: Template; table: TableName } | null>(null)
 
   async function fetchTemplates() {
     setLoading(true)
@@ -216,7 +338,7 @@ export default function OrgTemplatesTab() {
         <div>
           <h2 className="font-semibold text-gray-900">Organisation Templates</h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            Shared templates visible to all coaches in your org ·{' '}
+            Shared templates visible to coaches in your org ·{' '}
             <span className="font-medium text-gray-700">{totalCount} total</span>
           </p>
         </div>
@@ -242,10 +364,7 @@ export default function OrgTemplatesTab() {
             {items.length === 0 ? (
               <div className="px-5 py-4 flex items-center justify-between">
                 <p className="text-sm text-gray-400">No shared {label.toLowerCase()} yet.</p>
-                <a
-                  href={emptyLink}
-                  className="text-xs text-blue-600 hover:underline"
-                >
+                <a href={emptyLink} className="text-xs text-blue-600 hover:underline">
                   {emptyLinkLabel} →
                 </a>
               </div>
@@ -259,13 +378,21 @@ export default function OrgTemplatesTab() {
                         Published {new Date(t.created_at).toLocaleDateString()}
                       </p>
                     </div>
-                    <button
-                      onClick={() => unpublish(t.id, table)}
-                      disabled={unpublishing === t.id}
-                      className="text-xs border border-gray-200 text-gray-500 hover:text-red-600 hover:border-red-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
-                    >
-                      {unpublishing === t.id ? 'Removing…' : 'Unpublish'}
-                    </button>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => setAccessTarget({ template: t, table })}
+                        className="text-xs border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-200 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        Manage access
+                      </button>
+                      <button
+                        onClick={() => unpublish(t.id, table)}
+                        disabled={unpublishing === t.id}
+                        className="text-xs border border-gray-200 text-gray-500 hover:text-red-600 hover:border-red-200 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
+                      >
+                        {unpublishing === t.id ? 'Removing…' : 'Unpublish'}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -279,6 +406,14 @@ export default function OrgTemplatesTab() {
           onClose={() => setPublishOpen(false)}
           onDone={() => { setPublishOpen(false); fetchTemplates() }}
           orgTemplates={templates}
+        />
+      )}
+
+      {accessTarget && (
+        <AccessModal
+          template={accessTarget.template}
+          table={accessTarget.table}
+          onClose={() => setAccessTarget(null)}
         />
       )}
     </div>

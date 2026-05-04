@@ -644,6 +644,83 @@ function DayBlock({ day, dayIndex, isDragging, isDragOver, onChange, onDelete, o
   )
 }
 
+// ── Assign modal ──────────────────────────────────────────────────────────────
+
+type ClientOption = { id: string; email: string; full_name: string | null }
+
+function AssignProgramModal({ programId, programName, onClose }: { programId: string; programName: string; onClose: () => void }) {
+  const [clients, setClients] = useState<ClientOption[]>([])
+  const [loadingClients, setLoadingClients] = useState(true)
+  const [clientId, setClientId] = useState('')
+  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10))
+  const [assigning, setAssigning] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/coach/clients')
+      .then(r => r.json())
+      .then(d => {
+        const list = Array.isArray(d) ? d : []
+        setClients(list)
+        if (list.length > 0) setClientId(list[0].id)
+      })
+      .finally(() => setLoadingClients(false))
+  }, [])
+
+  async function assign() {
+    if (!clientId) return
+    setAssigning(true)
+    setError(null)
+    const res = await fetch(`/api/coach/clients/${clientId}/programs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ program_id: programId, start_date: startDate }),
+    })
+    if (res.ok) { setSuccess(true) } else { const d = await res.json().catch(() => ({})); setError(d.error ?? 'Failed to assign') }
+    setAssigning(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div><h2 className="text-base font-bold text-gray-900">Assign to Client</h2><p className="text-xs text-gray-400 mt-0.5">{programName}</p></div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+        </div>
+        {success ? (
+          <div className="text-center py-4 space-y-3">
+            <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mx-auto"><svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg></div>
+            <p className="text-sm font-semibold text-gray-900">Program assigned!</p>
+            <p className="text-xs text-gray-400">The client will see it in their training calendar.</p>
+            <button onClick={onClose} className="w-full bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">Done</button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Client</label>
+              {loadingClients ? <p className="text-sm text-gray-400">Loading…</p> : clients.length === 0 ? <p className="text-sm text-gray-400">No active clients.</p> : (
+                <select value={clientId} onChange={e => setClientId(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                  {clients.map(c => <option key={c.id} value={c.id}>{c.full_name ? `${c.full_name} (${c.email})` : c.email}</option>)}
+                </select>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Start date</label>
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <div className="flex gap-3 pt-1">
+              <button type="button" onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors">Cancel</button>
+              <button onClick={assign} disabled={assigning || !clientId || loadingClients} className="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors">{assigning ? 'Assigning…' : 'Assign'}</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ProgramBuilderPage({ params }: { params: Promise<{ id: string }> }) {
@@ -656,6 +733,7 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
   const [editingName, setEditingName] = useState(false)
   const [editingDesc, setEditingDesc] = useState(false)
   const [pushToClients, setPushToClients] = useState(true)
+  const [assignOpen, setAssignOpen] = useState(false)
   // selectedDay: [weekIndex, dayIndex] | null — drives the inline day editor
   const [selectedDay, setSelectedDay] = useState<[number, number] | null>(null)
   // drag-and-drop day reordering within a week
@@ -799,7 +877,7 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
           {saveStatus === 'saved' && <span className="text-xs text-green-500">Saved</span>}
           {saveStatus === 'error' && <span className="text-xs text-red-500">Save failed</span>}
           {dirty && saveStatus === 'idle' && <span className="text-xs text-amber-500">Unsaved changes</span>}
-          <label className="flex items-center gap-1.5 cursor-pointer select-none" title="When on, saving will also update all clients who have this program assigned">
+          <label className="flex items-center gap-1.5 cursor-pointer select-none">
             <button
               type="button"
               onClick={() => setPushToClients(v => !v)}
@@ -808,7 +886,22 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
               <span className={`absolute top-0.5 left-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${pushToClients ? 'translate-x-4' : ''}`} />
             </button>
             <span className="text-xs text-gray-500 hidden sm:block">Push to clients</span>
+            <div className="relative group hidden sm:block">
+              <span className="flex items-center justify-center w-4 h-4 rounded-full bg-gray-100 text-gray-400 text-[10px] font-bold cursor-default">?</span>
+              <div className="absolute top-full right-0 mt-1.5 w-56 bg-gray-900 text-white text-[11px] rounded-lg px-3 py-2 leading-relaxed opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-50 shadow-lg">
+                <div className="absolute bottom-full right-3 w-0 h-0 border-x-4 border-x-transparent border-b-4 border-b-gray-900" />
+                Any changes saved will automatically update all clients who have this program assigned.
+              </div>
+            </div>
           </label>
+          {programId && program && (
+            <button
+              onClick={() => setAssignOpen(true)}
+              className="border border-blue-200 text-blue-600 px-3 py-2 rounded-xl text-xs font-semibold hover:bg-blue-50 transition-colors hidden sm:block"
+            >
+              Assign to Client
+            </button>
+          )}
           <button onClick={saveNow} disabled={saving}
             className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 ${dirty ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
             {saving ? 'Saving…' : 'Save'}
@@ -816,8 +909,12 @@ export default function ProgramBuilderPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
+      {assignOpen && programId && program && (
+        <AssignProgramModal programId={programId} programName={program.name} onClose={() => setAssignOpen(false)} />
+      )}
+
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-5xl mx-auto p-6 space-y-6">
+        <div className="p-6 space-y-6">
           {/* Description */}
           <div className="bg-white rounded-2xl border p-5">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Description</p>

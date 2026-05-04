@@ -23,6 +23,7 @@ function SignupForm() {
   const [agreed, setAgreed] = useState(false)
   const searchParams = useSearchParams()
   const invite = searchParams.get('invite')
+  const orgInvite = searchParams.get('org_invite')
   const planKey = searchParams.get('plan') ?? ''
   const billing = searchParams.get('billing') ?? 'monthly'
   const type = searchParams.get('type') ?? 'individual'
@@ -52,7 +53,7 @@ function SignupForm() {
         </div>
 
         {planLabel && (
-          <div className="flex items-center gap-2 text-sm rounded-xl px-4 py-3 border" style={{ backgroundColor: '#FFFBF0', borderColor: '#FFE9A8' }}>
+          <div className="flex items-center gap-2 text-sm rounded-xl px-4 py-3 border" style={{ backgroundColor: '#EEF4F0', borderColor: 'rgba(29,158,117,0.18)' }}>
             <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="#B08000" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -62,6 +63,7 @@ function SignupForm() {
 
         <form action={action} className="space-y-4">
           {invite && <input type="hidden" name="invite" value={invite} />}
+          {orgInvite && <input type="hidden" name="org_invite" value={orgInvite} />}
           {planKey && <input type="hidden" name="planKey" value={planKey} />}
           {billing && <input type="hidden" name="billing" value={billing} />}
           {type && <input type="hidden" name="userType" value={type} />}
@@ -130,7 +132,7 @@ function SignupForm() {
             type="submit"
             disabled={pending || !agreed}
             className="w-full py-3 rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-colors"
-            style={{ backgroundColor: 'var(--brand-primary)', color: 'var(--brand-text)' }}
+            style={{ backgroundColor: '#1D9E75', color: '#ffffff' }}
           >
             {pending ? 'Creating account…' : planLabel ? 'Create account & continue to checkout' : 'Create free account'}
           </button>

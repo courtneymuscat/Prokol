@@ -1,12 +1,15 @@
-const CACHE = 'prokol-v1'
+const CACHE = 'prokol-v2'
 
-// Cache key app-shell assets on install
 self.addEventListener('install', (e) => {
   self.skipWaiting()
 })
 
 self.addEventListener('activate', (e) => {
-  e.waitUntil(clients.claim())
+  e.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+    ).then(() => clients.claim())
+  )
 })
 
 // Network-first for navigations; cache-first for static assets

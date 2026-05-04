@@ -73,7 +73,17 @@ export async function GET() {
     permissions: permissionsMap[m.user_id],
   }))
 
-  return Response.json(coaches)
+  // Also return pending invites (sent but not yet accepted)
+  const { data: pendingInvites } = await admin
+    .from('org_invites')
+    .select('token, email, role, created_at, expires_at')
+    .eq('org_id', membership.org_id)
+    .eq('is_active', true)
+    .gt('expires_at', new Date().toISOString())
+    .is('accepted_at', null)
+    .order('created_at', { ascending: false })
+
+  return Response.json({ coaches, pending_invites: pendingInvites ?? [] })
 }
 
 export async function POST(req: NextRequest) {
@@ -162,25 +172,30 @@ export async function POST(req: NextRequest) {
     token = invite.token
   }
 
-  // Send Supabase auth invite (creates account / magic link for new users)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
-  const inviteUrl = `${appUrl}/org/invite/${token}`
+  const acceptUrl = `${appUrl}/org/invite/${token}`
+  const loginUrl = `${appUrl}/login?next=${encodeURIComponent('/org/invite/' + token)}`
+  const signupUrl = `${appUrl}/signup?org_invite=${token}`
 
-  await admin.auth.admin.inviteUserByEmail(normalEmail, {
-    redirectTo: inviteUrl,
-    data: { org_invite_token: token, org_name: org.name },
-  })
-
-  // Send branded invite email
+  // Single branded invite email — no Supabase auth invite (avoids double email)
   await sendEmail({
     to: normalEmail,
     subject: `You've been invited to join ${org.name} on Prokol`,
     html: `
-      <p>Hi,</p>
-      <p>You've been invited to join <strong>${org.name}</strong> as a coach on Prokol.</p>
-      <p><a href="${inviteUrl}">Accept your invite</a></p>
-      <p>This link expires in 7 days. If you don't have a Prokol account yet, you'll be guided to create one.</p>
-      <p>— The Prokol Health team</p>
+      <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;padding:40px 24px;background:#fff;">
+        <p style="font-size:20px;font-weight:700;color:#111;margin:0 0 16px;">You've been invited to join ${org.name}</p>
+        <p style="font-size:15px;color:#555;line-height:1.6;margin:0 0 24px;">
+          You've been invited as a coach on Prokol Health. Click below to accept your invite.
+        </p>
+        <a href="${acceptUrl}" style="display:inline-block;background:#1D9E75;color:#fff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:10px;text-decoration:none;margin-bottom:24px;">Accept invite →</a>
+        <p style="font-size:13px;color:#888;margin:0 0 8px;">
+          Already have a Prokol account? <a href="${loginUrl}" style="color:#1D9E75;">Log in to accept</a>
+        </p>
+        <p style="font-size:13px;color:#888;margin:0 0 24px;">
+          New to Prokol? <a href="${signupUrl}" style="color:#1D9E75;">Create an account to accept</a>
+        </p>
+        <p style="font-size:12px;color:#aaa;">This invite expires in 7 days.</p>
+      </div>
     `,
   })
 

@@ -161,7 +161,7 @@ export default function WhiteLabelPage() {
             </p>
           )}
           <p className="text-sm text-gray-500 mb-4">
-            Please contact <a href="mailto:courtney@prokol.io" className="underline">courtney@prokol.io</a> if you have questions.
+            Please contact <a href="mailto:info@prokol.io" className="underline">info@prokol.io</a> if you have questions.
           </p>
         </div>
       </div>
@@ -299,7 +299,7 @@ export default function WhiteLabelPage() {
               type="submit"
               disabled={loading}
               className="w-full py-3 rounded-xl text-sm font-semibold text-gray-900 hover:opacity-90 disabled:opacity-50 transition-colors"
-              style={{ backgroundColor: '#FFD885' }}
+              style={{ backgroundColor: '#1D9E75' }}
             >
               {loading ? 'Submitting…' : 'Submit application'}
             </button>

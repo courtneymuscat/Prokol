@@ -1,134 +1,151 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import PayNowButton from './PayNowButton'
+import TosAcceptanceGate from './TosAcceptanceGate'
 
 export default async function CoachedOnboardingPage() {
   const supabase = await createClient()
+  const admin = createAdminClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    redirect('/login')
-  }
+  if (!user) redirect('/login')
 
-  // Look up their coach via coach_clients table
-  // Select core columns; form_id may not exist yet if migration hasn't run
-  const { data: coachClientRow } = await supabase
+  // Use admin client — RLS may block clients from reading their own coach_clients row.
+  const { data: coachClientRow } = await admin
     .from('coach_clients')
     .select('coach_id, service_id')
     .eq('client_id', user.id)
-    .eq('status', 'active')
+    .in('status', ['active', 'pending_invite'])
+    .limit(1)
     .single()
 
-  // Separately try to get form_id (column may not exist yet)
-  let coachClientFormId: string | null = null
+  if (!coachClientRow) redirect('/dashboard')
+
+  // Optional columns that may not exist in older schema versions
+  let formId: string | null = null
+  let autoflowTemplateId: string | null = null
   try {
-    const { data: formRow } = await supabase
+    const { data: extras } = await admin
       .from('coach_clients')
-      .select('form_id')
+      .select('form_id, autoflow_id')
       .eq('client_id', user.id)
-      .eq('status', 'active')
+      .in('status', ['active', 'pending_invite'])
+      .limit(1)
       .single()
-    coachClientFormId = (formRow as { form_id?: string | null })?.form_id ?? null
-  } catch { /* column doesn't exist yet */ }
-
-  if (!coachClientRow) {
-    redirect('/onboarding')
-  }
-
-  // Use admin client to bypass RLS for reading the coach's profile and service
-  const admin = createAdminClient()
+    formId = (extras as Record<string, unknown>)?.form_id as string | null ?? null
+    autoflowTemplateId = (extras as Record<string, unknown>)?.autoflow_id as string | null ?? null
+  } catch { /* columns don't exist yet — fine */ }
 
   const [{ data: coachProfile }, { data: clientProfile }] = await Promise.all([
-    admin
-      .from('profiles')
-      .select('first_name, email')
-      .eq('id', coachClientRow.coach_id)
-      .single(),
-    supabase
-      .from('profiles')
-      .select('onboarding_completed')
-      .eq('id', user.id)
-      .single(),
+    admin.from('profiles').select('first_name, email, brand_name, logo_url, brand_colour').eq('id', coachClientRow.coach_id).single(),
+    admin.from('profiles').select('onboarding_completed').eq('id', user.id).single(),
   ])
 
-  // Fetch service if one is attached
-  let service: { name: string; payment_link: string; price_label: string | null } | null = null
+  // Fetch service if attached — include tos_url for acceptance gate
+  let service: { name: string; payment_link: string; price_label: string | null; description: string | null; tos_url: string | null } | null = null
   if (coachClientRow.service_id) {
     const { data } = await admin
       .from('coach_services')
-      .select('name, payment_link, price_label')
+      .select('name, payment_link, price_label, description, tos_url')
       .eq('id', coachClientRow.service_id)
       .single()
-    service = data ?? null
+    service = data ? { ...data, tos_url: (data as Record<string, unknown>).tos_url as string | null ?? null } : null
   }
 
-  const formUrl = coachClientFormId ? `/forms/${coachClientFormId}` : null
-  const nextAfterProfile = formUrl ?? '/dashboard'
-  // After payment, always go through profile setup first (collects goal + body stats).
-  // If the client has already completed onboarding, skip straight to form/dashboard.
-  const afterPayUrl = clientProfile?.onboarding_completed
-    ? nextAfterProfile
-    : `/onboarding?next=${encodeURIComponent(nextAfterProfile)}`
+  // Look up the active autoflow instance so we can link directly to it
+  let autoflowInstanceId: string | null = null
+  if (autoflowTemplateId) {
+    try {
+      const { data: flowRow } = await admin
+        .from('client_autoflows')
+        .select('id')
+        .eq('client_id', user.id)
+        .eq('template_id', autoflowTemplateId)
+        .eq('status', 'active')
+        .limit(1)
+        .single()
+      autoflowInstanceId = flowRow?.id ?? null
+    } catch { /* no autoflow yet */ }
+  }
+
+  const finalDestination = '/dashboard'
+  const afterPayUrl = finalDestination
+
   const coachName = coachProfile?.first_name || coachProfile?.email || 'your coach'
-  const paymentLink = service?.payment_link ?? null
-  const serviceName = service?.name ?? null
+  const coachBrandName = (coachProfile as Record<string, unknown>)?.brand_name as string | null ?? null
+  const coachLogoUrl = (coachProfile as Record<string, unknown>)?.logo_url as string | null ?? null
+  const coachBrandColour = (coachProfile as Record<string, unknown>)?.brand_colour as string | null ?? null
+  const displayName = coachBrandName || coachName
 
-  // No payment link configured — skip straight to the next step
-  if (!paymentLink) {
-    if (!clientProfile?.onboarding_completed) {
-      // Send to profile setup; it will redirect to form/dashboard on completion
-      redirect(afterPayUrl)
-    }
-    // Onboarding already done — go to form or dashboard
-    if (!formUrl) {
-      await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', user.id)
-      redirect('/dashboard')
-    }
-    redirect(formUrl)
-  }
+  // No service — go straight to the app
+  if (!service) redirect(finalDestination)
+
+  const paymentLink = service.payment_link
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4 py-12">
-      {/* Logo */}
-      <div className="mb-8">
-        <span className="text-xl font-bold text-gray-900">Prokol</span>
+      {/* Logo / brand header */}
+      <div className="mb-8 flex items-center gap-2">
+        {coachLogoUrl ? (
+          <img src={coachLogoUrl} alt={displayName} className="h-8 object-contain" />
+        ) : (
+          <span className="text-xl font-bold text-gray-900">{displayName}</span>
+        )}
       </div>
 
-      <div className="w-full max-w-md bg-white rounded-2xl border p-8 space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-3">
-          <div className="w-14 h-14 rounded-full bg-yellow-100 flex items-center justify-center mx-auto">
-            <span className="text-2xl">✨</span>
+      <div className="w-full max-w-md space-y-4">
+        {/* Welcome header */}
+        <div className="bg-white rounded-2xl border p-6 text-center space-y-3">
+          <div
+            className="w-14 h-14 rounded-full flex items-center justify-center mx-auto text-2xl"
+            style={{ backgroundColor: coachBrandColour ? `${coachBrandColour}22` : '#fef9c3' }}
+          >
+            ✨
           </div>
           <h1 className="text-xl font-bold text-gray-900">
-            Welcome to {coachName}&apos;s program
+            Welcome to {displayName}&apos;s program
           </h1>
-          {serviceName && (
-            <p className="text-sm text-gray-600 font-medium">You&apos;re joining: {serviceName}</p>
-          )}
-          <p className="text-sm text-gray-500">Complete the steps below to get started.</p>
+          <p className="text-sm text-gray-500">You&apos;re almost in. Here&apos;s what you&apos;re signing up for.</p>
         </div>
 
-        {/* Step 1 — Payment */}
-        <div className="border border-gray-200 rounded-xl p-4 space-y-3">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Step 1</p>
-          <p className="text-sm font-semibold text-gray-900">Complete payment</p>
-          <p className="text-xs text-gray-500">
-            Click below to pay {coachName}. Once done, come back here to continue.
-          </p>
-          <PayNowButton paymentLink={paymentLink} afterPayUrl={afterPayUrl} />
+        {/* Service card */}
+        <div
+          className="bg-white rounded-2xl border-2 p-5 space-y-3"
+          style={{ borderColor: coachBrandColour ?? '#e5e7eb' }}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1 flex-1 min-w-0">
+              <p className="text-base font-bold text-gray-900">{service.name}</p>
+              {service.description && (
+                <p className="text-sm text-gray-500 leading-relaxed">{service.description}</p>
+              )}
+            </div>
+            {service.price_label && (
+              <span
+                className="flex-shrink-0 text-sm font-bold px-3 py-1 rounded-full"
+                style={{
+                  backgroundColor: coachBrandColour ? `${coachBrandColour}18` : '#f0fdf4',
+                  color: coachBrandColour ?? '#15803d',
+                }}
+              >
+                {service.price_label}
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Step 2 — profile setup (always; form/autoflow follows automatically) */}
-        <div className="border border-gray-100 bg-gray-50 rounded-xl p-4 space-y-2">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Step 2</p>
-          <p className="text-sm font-semibold text-gray-400">Set up your profile</p>
-          <p className="text-xs text-gray-400">
-            Answer a few questions so we can calculate your personalised nutrition targets.
-            {formUrl ? ' Your coach\u2019s onboarding form follows automatically.' : ''}
-          </p>
-        </div>
+        {/* ToS acceptance + payment */}
+        <TosAcceptanceGate
+          paymentLink={paymentLink}
+          afterPayUrl={afterPayUrl}
+          tosUrl={service.tos_url}
+          coachName={coachName}
+          brandColour={coachBrandColour}
+        />
+
+        <p className="text-xs text-center text-gray-400">
+          Questions? Contact {coachName} directly.
+        </p>
       </div>
     </div>
   )

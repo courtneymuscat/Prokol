@@ -99,7 +99,7 @@ export async function POST(
           </table>
           <p>Once you&apos;ve added the record, reply to this email and we&apos;ll activate your domain within 24 hours.</p>
           <p>Your domain: <strong>${app.custom_domain}</strong></p>
-          <p>Questions? Email <a href="mailto:courtney@prokol.io">courtney@prokol.io</a></p>
+          <p>Questions? Email <a href="mailto:info@prokol.io">info@prokol.io</a></p>
         `,
       })
     }

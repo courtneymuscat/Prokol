@@ -35,7 +35,7 @@ export default function PayNowButton({
     <button
       onClick={handleClick}
       className="block w-full text-center py-2.5 rounded-xl text-sm font-semibold text-gray-900 transition-colors"
-      style={{ backgroundColor: '#FFD885' }}
+      style={{ backgroundColor: '#1D9E75' }}
     >
       Pay now →
     </button>

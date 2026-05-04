@@ -1,17 +1,24 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { requireOrgRole } from '@/lib/org'
+import { requireOrgRole, getOrgForUser, getCoachPermissions } from '@/lib/org'
 
 export async function GET() {
   const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return Response.json({ error: 'Unauthorised' }, { status: 401 })
 
+  // Admins always have access; coaches need can_view_all_clients
   let membership
   try {
     membership = await requireOrgRole(session.user.id, 'admin')
-  } catch (err) {
-    return Response.json({ error: err instanceof Error ? err.message : 'Forbidden' }, { status: 403 })
+  } catch {
+    const m = await getOrgForUser(session.user.id)
+    if (!m) return Response.json({ error: 'Not a member of any organisation' }, { status: 403 })
+    const perms = await getCoachPermissions(session.user.id, m.org_id)
+    if (!perms.can_view_all_clients) {
+      return Response.json({ error: 'Insufficient permissions to view all org clients' }, { status: 403 })
+    }
+    membership = m
   }
 
   const admin = createAdminClient()

@@ -14,7 +14,7 @@ export async function PATCH(
   const body = await req.json()
   const { title, content, type, event_date } = body
 
-  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  const patch: Record<string, unknown> = {}
   if (title !== undefined) patch.title = title
   if (content !== undefined) patch.content = content
   if (type !== undefined) patch.type = type

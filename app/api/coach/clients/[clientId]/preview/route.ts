@@ -12,7 +12,7 @@ async function verifyAccess(coachId: string, clientId: string): Promise<boolean>
     .select('id')
     .eq('coach_id', coachId)
     .eq('client_id', clientId)
-    .in('status', ['active', 'archived'])
+    .in('status', ['active', 'archived', 'pending_invite'])
     .single()
   return !!data
 }
@@ -28,17 +28,28 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
   const [
     profileResult,
+    coachBrandingResult,
     coachRelResult,
     goalsResult,
     mealPlansResult,
     habitsResult,
     schedulesResult,
     autoflowsResult,
+    supplementsResult,
+    protocolResult,
+    serveTargetsResult,
   ] = await Promise.all([
     admin
       .from('profiles')
-      .select('full_name, target_calories, target_protein, target_carbs, target_fat')
+      .select('full_name, sex, target_calories, target_protein, target_carbs, target_fat')
       .eq('id', clientId)
+      .single(),
+
+    // Coach branding — shown in the preview nav
+    admin
+      .from('profiles')
+      .select('brand_colour, logo_url, brand_name')
+      .eq('id', coachId)
       .single(),
 
     supabase
@@ -56,7 +67,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
     admin
       .from('client_meal_plans')
-      .select('id, name, status')
+      .select('id, name, status, content, total_calories')
       .eq('client_id', clientId)
       .eq('status', 'active')
       .order('created_at', { ascending: false }),
@@ -81,6 +92,28 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       .eq('client_id', clientId)
       .eq('status', 'active')
       .eq('show_as_checkin_prompt', true),
+
+    // Supplements assigned to client
+    admin
+      .from('client_supplements')
+      .select('id, name, dosage')
+      .eq('client_id', clientId)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true }),
+
+    // Protocol sections assigned to client
+    admin
+      .from('client_protocol')
+      .select('sections')
+      .eq('client_id', clientId)
+      .maybeSingle(),
+
+    // Serve targets — whether the Food Cheat Sheet is visible to client
+    admin
+      .from('client_serve_targets')
+      .select('id')
+      .eq('client_id', clientId)
+      .maybeSingle(),
   ])
 
   // Compute due autoflow steps
@@ -124,13 +157,42 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     dueAutoflowSteps.push(...perFlow.flat())
   }
 
+  const brandingRaw = coachBrandingResult.data as Record<string, unknown> | null
   return Response.json({
-    profile: profileResult.data ?? null,
+    branding: {
+      brand_colour: (brandingRaw?.brand_colour as string | null) ?? null,
+      logo_url:     (brandingRaw?.logo_url as string | null) ?? null,
+      brand_name:   (brandingRaw?.brand_name as string | null) ?? null,
+    },
+    profile: profileResult.data ? { ...profileResult.data, sex: (profileResult.data as Record<string, unknown>).sex as string | null ?? null } : null,
     show_daily_targets: coachRelResult.data?.show_daily_targets ?? true,
     goals: goalsResult.data ?? { main_goal: null, mini_goals: [], key_notes: [] },
-    meal_plans: mealPlansResult.data ?? [],
+    meal_plans: (mealPlansResult.data ?? []).map((plan) => {
+      type MealFood = { calories?: number; protein?: number; carbs?: number; fat?: number }
+      type MealSlot = { foods?: MealFood[] }
+      let cal = 0, pro = 0, carb = 0, fat = 0
+      for (const slot of (Array.isArray(plan.content) ? plan.content : []) as MealSlot[]) {
+        for (const food of (Array.isArray(slot?.foods) ? slot.foods : []) as MealFood[]) {
+          cal  += Number(food?.calories) || 0
+          pro  += Number(food?.protein)  || 0
+          carb += Number(food?.carbs)    || 0
+          fat  += Number(food?.fat)      || 0
+        }
+      }
+      return {
+        id: plan.id,
+        name: plan.name,
+        target_calories: cal > 0 ? Math.round(cal) : ((plan as Record<string, unknown>).total_calories as number | null) ?? null,
+        target_protein:  pro  > 0 ? Math.round(pro)  : null,
+        target_carbs:    carb > 0 ? Math.round(carb) : null,
+        target_fat:      fat  > 0 ? Math.round(fat)  : null,
+      }
+    }),
     habits: habitsResult.data ?? [],
     checkin_schedules: schedulesResult.data ?? [],
     due_autoflow_steps: dueAutoflowSteps,
+    supplements: supplementsResult.data ?? [],
+    protocol: (protocolResult.data?.sections as { id: string; title: string; content: string }[] | null) ?? [],
+    has_serve_targets: !!serveTargetsResult.data,
   })
 }

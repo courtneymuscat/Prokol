@@ -624,7 +624,7 @@ function CycleModal({ log, saving, onUpdate, onClose, advancedAccess = true }: {
             <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center space-y-3">
               <p className="text-sm font-semibold text-gray-700">Symptoms, BBT, Cervical Mucus & Mood tracking</p>
               <p className="text-xs text-gray-400">Unlock advanced cycle tracking on the Optimiser plan</p>
-              <a href="/pricing" className="inline-block text-xs font-semibold px-4 py-2 rounded-xl text-gray-900 hover:opacity-90" style={{ backgroundColor: '#FFD885' }}>Upgrade to Optimiser →</a>
+              <a href="/pricing" className="inline-block text-xs font-semibold px-4 py-2 rounded-xl text-gray-900 hover:opacity-90" style={{ backgroundColor: '#1D9E75' }}>Upgrade to Optimiser →</a>
             </div>
           )}
 
@@ -1031,6 +1031,17 @@ export default function CycleTracker({ advancedAccess = true }: { advancedAccess
           {!prediction && (
             <p className="w-full text-xs text-gray-300 mt-1">Log 2+ complete cycles to see predictions</p>
           )}
+        </div>
+
+        {/* Disclaimer */}
+        <div className="mt-4 flex items-start gap-2.5 bg-amber-50 border border-amber-100 rounded-xl px-3.5 py-3">
+          <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+          </svg>
+          <p className="text-[11px] text-amber-700 leading-relaxed">
+            <strong className="font-semibold">Guidance only — not a contraception tool.</strong>{' '}
+            Cycle predictions and fertile window estimates are based on your logged data and statistical averages. They are not medically accurate and should not be used to prevent or plan pregnancy. Many factors affect cycle length and ovulation timing. Always consult a qualified healthcare professional for reproductive health decisions.
+          </p>
         </div>
       </Card>
 

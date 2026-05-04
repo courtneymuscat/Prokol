@@ -49,7 +49,7 @@ export default async function CoachFormsPage() {
         </a>
       </div>
 
-      <main className="max-w-3xl mx-auto w-full p-6 space-y-6">
+      <main className="w-full p-6 space-y-6">
 
         {/* Template picker */}
         <FormTemplates />

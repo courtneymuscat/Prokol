@@ -11,6 +11,113 @@ type ProgramSummary = {
   updated_at: string
 }
 
+type Client = { id: string; email: string; full_name: string | null }
+
+function AssignProgramModal({
+  program,
+  onClose,
+}: {
+  program: ProgramSummary
+  onClose: () => void
+}) {
+  const [clients, setClients] = useState<Client[]>([])
+  const [loadingClients, setLoadingClients] = useState(true)
+  const [clientId, setClientId] = useState('')
+  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10))
+  const [assigning, setAssigning] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/coach/clients')
+      .then(r => r.json())
+      .then(d => {
+        setClients(Array.isArray(d) ? d : [])
+        if (Array.isArray(d) && d.length > 0) setClientId(d[0].id)
+      })
+      .finally(() => setLoadingClients(false))
+  }, [])
+
+  async function assign() {
+    if (!clientId) return
+    setAssigning(true)
+    setError(null)
+    const res = await fetch(`/api/coach/clients/${clientId}/programs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ program_id: program.id, start_date: startDate }),
+    })
+    if (res.ok) {
+      setSuccess(true)
+    } else {
+      const d = await res.json().catch(() => ({}))
+      setError(d.error ?? 'Failed to assign')
+    }
+    setAssigning(false)
+  }
+
+  const clientLabel = (c: Client) => c.full_name ? `${c.full_name} (${c.email})` : c.email
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h2 className="text-base font-bold text-gray-900">Assign to Client</h2>
+            <p className="text-xs text-gray-400 mt-0.5">{program.name}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        {success ? (
+          <div className="text-center py-4 space-y-3">
+            <div className="w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mx-auto">
+              <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+            </div>
+            <p className="text-sm font-semibold text-gray-900">Program assigned!</p>
+            <p className="text-xs text-gray-400">The client will see it in their training calendar.</p>
+            <button onClick={onClose} className="w-full bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors">Done</button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Client</label>
+              {loadingClients ? (
+                <p className="text-sm text-gray-400">Loading clients…</p>
+              ) : clients.length === 0 ? (
+                <p className="text-sm text-gray-400">No active clients found.</p>
+              ) : (
+                <select value={clientId} onChange={e => setClientId(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                  {clients.map(c => <option key={c.id} value={c.id}>{clientLabel(c)}</option>)}
+                </select>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Start date</label>
+              <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <div className="flex gap-3 pt-1">
+              <button type="button" onClick={onClose}
+                className="flex-1 border border-gray-200 text-gray-600 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors">
+                Cancel
+              </button>
+              <button onClick={assign} disabled={assigning || !clientId || loadingClients}
+                className="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                {assigning ? 'Assigning…' : 'Assign'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
@@ -24,6 +131,7 @@ export default function ProgramsPage() {
   const [description, setDescription] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [assigningProgram, setAssigningProgram] = useState<ProgramSummary | null>(null)
 
   useEffect(() => {
     fetch('/api/coach/programs')
@@ -74,7 +182,7 @@ export default function ProgramsPage() {
         </button>
       </div>
 
-      <main className="max-w-4xl mx-auto w-full p-6">
+      <main className="w-full p-6">
         {loading && (
           <p className="text-sm text-gray-400 text-center py-16">Loading programs…</p>
         )}
@@ -134,12 +242,20 @@ export default function ProgramsPage() {
                   <span className="text-xs text-gray-400">{fmtDate(p.created_at)}</span>
                 </div>
 
-                <a
-                  href={`/coach/programs/${p.id}`}
-                  className="mt-3 text-center text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg py-1.5 hover:bg-blue-50 transition-colors"
-                >
-                  Open builder
-                </a>
+                <div className="mt-3 flex flex-col gap-2">
+                  <button
+                    onClick={() => setAssigningProgram(p)}
+                    className="w-full text-center text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg py-1.5 transition-colors"
+                  >
+                    Assign to Client
+                  </button>
+                  <a
+                    href={`/coach/programs/${p.id}`}
+                    className="text-center text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg py-1.5 hover:bg-blue-50 transition-colors"
+                  >
+                    Open builder
+                  </a>
+                </div>
               </div>
             ))}
           </div>
@@ -213,6 +329,11 @@ export default function ProgramsPage() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Assign modal */}
+      {assigningProgram && (
+        <AssignProgramModal program={assigningProgram} onClose={() => setAssigningProgram(null)} />
       )}
     </div>
   )

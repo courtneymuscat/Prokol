@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { logout } from '@/app/actions/auth'
 import DeleteAccount from './DeleteAccount'
 import TimezoneSelector from '@/app/components/TimezoneSelector'
@@ -17,12 +18,53 @@ export default async function SettingsPage() {
     .eq('id', session.user.id)
     .single()
 
+  // Detect coached status via coach_clients (more reliable than subscription_tier)
+  const { data: coachRel } = await supabase
+    .from('coach_clients')
+    .select('coach_id')
+    .eq('client_id', session.user.id)
+    .eq('status', 'active')
+    .maybeSingle()
+  const isCoached = !!coachRel
+
+  // Fetch coach branding if coached
+  let coachLogoUrl: string | null = null
+  let coachBrandName: string | null = null
+  let coachBrandColour: string | null = null
+  if (coachRel?.coach_id) {
+    const admin = createAdminClient()
+    const { data: coachProfile } = await admin
+      .from('profiles')
+      .select('brand_colour, logo_url, brand_name')
+      .eq('id', coachRel.coach_id)
+      .single()
+    coachLogoUrl = (coachProfile as Record<string, unknown>)?.logo_url as string | null ?? null
+    coachBrandName = (coachProfile as Record<string, unknown>)?.brand_name as string | null ?? null
+    coachBrandColour = (coachProfile as Record<string, unknown>)?.brand_colour as string | null ?? null
+  }
+
+  const navLogo = coachLogoUrl
+  const navName = coachBrandName ?? 'Prokol'
+
   const hasMacros = profile?.target_calories
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {isCoached && coachBrandColour && (
+        <style dangerouslySetInnerHTML={{ __html: `:root { --brand-primary: ${coachBrandColour}; }` }} />
+      )}
       <nav className="bg-white px-6 py-3.5 flex justify-between items-center border-b border-gray-100 sticky top-0 z-20">
-        <a href="/dashboard" className="text-[15px] font-bold tracking-tight text-gray-900">Prokol</a>
+        {navLogo ? (
+          <a href="/dashboard" className="flex items-center gap-2.5">
+            <img src={navLogo} alt={navName} className="h-9 w-9 object-cover rounded-full border border-gray-100 flex-shrink-0" />
+            {coachBrandName && (
+              <span className="text-[15px] font-bold tracking-tight text-gray-900">{coachBrandName}</span>
+            )}
+          </a>
+        ) : (
+          <a href="/dashboard" className="text-[15px] font-bold tracking-tight text-gray-900"
+            style={{ color: coachBrandColour ?? undefined }}>{navName}</a>
+        )}
         <form action={logout}>
           <button type="submit" className="text-[13px] font-medium text-gray-500 hover:text-red-500 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
             Log out
@@ -91,7 +133,7 @@ export default async function SettingsPage() {
                 <a
                   href="/onboarding"
                   className="inline-block text-xs font-semibold px-4 py-2 rounded-xl text-gray-900"
-                  style={{ backgroundColor: '#FFD885' }}
+                  style={{ backgroundColor: '#1D9E75' }}
                 >
                   Set my targets →
                 </a>
@@ -101,7 +143,19 @@ export default async function SettingsPage() {
         )}
 
         {/* Billing & subscription */}
-        <BillingSection />
+        {isCoached ? (
+          <div className="bg-white rounded-2xl border p-5 space-y-2">
+            <p className="text-sm font-semibold text-gray-900">Billing & subscription</p>
+            <div className="flex items-center gap-2.5 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+              <svg className="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-xs text-blue-700">Your subscription tier is managed by your coach. No billing action is needed from you.</p>
+            </div>
+          </div>
+        ) : (
+          <BillingSection />
+        )}
 
         {/* Resources — only for coached clients */}
         {profile?.subscription_tier === 'coached' && (
@@ -169,6 +223,14 @@ export default async function SettingsPage() {
         <div className="space-y-2">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Danger zone</p>
           <DeleteAccount />
+        </div>
+
+        {/* Legal */}
+        <div className="border-t border-gray-100 pt-4 flex flex-wrap gap-x-5 gap-y-1.5">
+          <a href="/terms" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Terms of Service</a>
+          <a href="/privacy" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Privacy Policy</a>
+          <a href="/health-data" target="_blank" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">Health Data Processing</a>
+          <a href="mailto:info@prokol.io" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">info@prokol.io</a>
         </div>
       </main>
     </div>

@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { NextRequest } from 'next/server'
 
-const ALLOWED_TYPES = ['personal', 'travel', 'extra_activity', 'note']
+const ALLOWED_TYPES = ['personal', 'travel', 'extra_activity', 'note', 'workout']
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { event_date, end_date, type, title } = body
+  const { event_date, end_date, type, title, content: bodyContent } = body
 
   if (!event_date || !title?.trim()) {
     return Response.json({ error: 'Missing required fields' }, { status: 400 })
@@ -20,6 +20,15 @@ export async function POST(req: NextRequest) {
   }
 
   const admin = createAdminClient()
+
+  // Look up the client's active coach
+  const { data: rel } = await admin
+    .from('coach_clients')
+    .select('coach_id')
+    .eq('client_id', user.id)
+    .eq('status', 'active')
+    .single()
+  const coachId = rel?.coach_id ?? null
 
   // Travel with end_date — create one event per day in the range (max 90 days)
   if (type === 'travel' && end_date && end_date > event_date) {
@@ -32,16 +41,18 @@ export async function POST(req: NextRequest) {
     }
     const { data, error } = await admin
       .from('calendar_events')
-      .insert(dates.map((d) => ({ event_date: d, type, title: title.trim(), content: {}, client_id: user.id, coach_id: null })))
+      .insert(dates.map((d) => ({ event_date: d, type, title: title.trim(), content: {}, client_id: user.id, coach_id: coachId })))
       .select()
     if (error) return Response.json({ error: error.message }, { status: 400 })
     return Response.json(data)
   }
 
+  const safeContent = (bodyContent && typeof bodyContent === 'object' && !Array.isArray(bodyContent)) ? bodyContent : {}
+
   // Single-day event
   const { data, error } = await admin
     .from('calendar_events')
-    .insert({ event_date, type, title: title.trim(), content: {}, client_id: user.id, coach_id: null })
+    .insert({ event_date, type, title: title.trim(), content: safeContent, client_id: user.id, coach_id: coachId })
     .select()
     .single()
 

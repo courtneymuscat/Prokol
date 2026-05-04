@@ -237,13 +237,13 @@ export default function CoachSidebar({
                     href={item.href}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
                       active
-                        ? 'bg-purple-50 text-purple-700'
+                        ? 'bg-teal-50 text-teal-700'
                         : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
                     }`}
                   >
-                    <span className={`flex-shrink-0 ${active ? 'text-purple-500' : 'text-gray-400'}`}>{item.icon}</span>
+                    <span className={`flex-shrink-0 ${active ? 'text-teal-500' : 'text-gray-400'}`}>{item.icon}</span>
                     <span>{item.label}</span>
-                    <span className="ml-auto text-[10px] bg-purple-100 text-purple-600 font-semibold px-1.5 py-0.5 rounded leading-none">
+                    <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded leading-none" style={{ backgroundColor: 'rgba(29,158,117,0.1)', color: '#1D9E75' }}>
                       Biz
                     </span>
                   </a>

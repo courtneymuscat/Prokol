@@ -113,13 +113,19 @@ const COACH_BASE_FEATURES: Feature[] = [
 
 const COACH_PT_SOLO_FEATURES: Feature[] = [
   ...COACH_BASE_FEATURES,
-  FEATURES.PROGRAM_COACH,       // build + assign programs
-  FEATURES.EXERCISE_LIBRARY_EDIT, // manage exercise library
+  FEATURES.PROGRAM_COACH,
+  FEATURES.EXERCISE_LIBRARY_EDIT,
+  FEATURES.COACH_CHECKIN_FEED,
+  FEATURES.COACH_CHECKIN_FEEDBACK,
+  FEATURES.COACH_NOTES,
 ]
 
 const COACH_NUTRITIONIST_SOLO_FEATURES: Feature[] = [
   ...COACH_BASE_FEATURES,
-  FEATURES.MEAL_PLAN_COACH,     // build + assign meal plans
+  FEATURES.MEAL_PLAN_COACH,
+  FEATURES.COACH_CHECKIN_FEED,
+  FEATURES.COACH_CHECKIN_FEEDBACK,
+  FEATURES.COACH_NOTES,
 ]
 
 // ─── Legacy coach_solo (existing subscribers) — gets combined solo features ──
@@ -281,7 +287,7 @@ export const COACH_SOLO_PLANS: PricingPlan[] = [
     planKey: 'coach_pt_solo',
     name: 'Solo — Personal Trainer',
     tagline: 'Programs & training focus',
-    priceMonthly: 39,
+    priceMonthly: 49,
     priceAnnualMonthly: 0, // monthly only
     isMonthlyOnly: true,
     includedClients: 5,
@@ -304,7 +310,7 @@ export const COACH_SOLO_PLANS: PricingPlan[] = [
     planKey: 'coach_nutritionist_solo',
     name: 'Solo — Nutritionist',
     tagline: 'Meal plans & nutrition focus',
-    priceMonthly: 39,
+    priceMonthly: 49,
     priceAnnualMonthly: 0, // monthly only
     isMonthlyOnly: true,
     includedClients: 5,
@@ -330,13 +336,13 @@ export const COACH_PLANS: PricingPlan[] = [
     planKey: 'coach_pro',
     name: 'Pro',
     tagline: 'Scale your practice',
-    priceMonthly: 89,
+    priceMonthly: 99,
     priceAnnualMonthly: 0, // monthly only
     isMonthlyOnly: true,
-    includedClients: 20,
+    includedClients: 15,
     clientOveragePrice: 3,
     features: [
-      '20 clients included (+$3/mo per extra client)',
+      '15 clients included (+$3/mo per extra client)',
       'Everything in Solo (PT + Nutritionist)',
       'Check-in feed + client feedback',
       'Coach notes (private per client)',
@@ -350,16 +356,16 @@ export const COACH_PLANS: PricingPlan[] = [
     planKey: 'coach_business',
     name: 'Business',
     tagline: 'For teams & studios',
-    priceMonthly: 199,
+    priceMonthly: 249,
     priceAnnualMonthly: 0, // monthly only
     isMonthlyOnly: true,
-    includedClients: 100,
-    clientOveragePrice: 2,
+    includedClients: 75,
+    clientOveragePrice: 3,
     includedCoaches: 3,
     coachOveragePrice: 19,
     features: [
       '3 coaches included (+$19/mo per extra coach)',
-      '100 clients included (+$2/mo per extra client)',
+      '75 clients included (+$3/mo per extra client)',
       'Everything in Pro',
       'Multi-coach team management',
       'Organisation dashboard',

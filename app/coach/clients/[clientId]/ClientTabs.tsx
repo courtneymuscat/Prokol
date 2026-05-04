@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { noteBodyToHtml } from '@/lib/noteUtils'
 const CheckInFeedback = lazy(() => import('./CheckInFeedback'))
 const FlowsTab = lazy(() => import('./FlowsTab'))
 const AppPreviewTab = lazy(() => import('./AppPreviewTab'))
+const PlanBuilderTab = lazy(() => import('./PlanBuilderTab'))
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -99,6 +101,8 @@ type ClientData = {
   foodLogs: FoodLog[]
   mealNotes: MealNote[]
 }
+
+import TDEESection from './TDEESection'
 
 // ── TDEE calculation (mirrors onboarding/page.tsx exactly) ───────────────────
 
@@ -216,9 +220,10 @@ function Empty({ label }: { label: string }) {
   return <p className="text-sm text-gray-400 text-center py-10">{label}</p>
 }
 
-// ── TDEE section (inside Overview) ────────────────────────────────────────────
+// TDEESection is imported from ./TDEESection.tsx
+// ── Goals section (originally below) — kept here as a marker
 
-function TDEESection({ clientId }: { clientId: string }) {
+function _TDEESectionPlaceholder({ clientId }: { clientId: string }) {
   const [loading, setLoading] = useState(true)
   const [savingTdee, setSavingTdee] = useState(false)
   const [savingTargets, setSavingTargets] = useState(false)
@@ -235,6 +240,9 @@ function TDEESection({ clientId }: { clientId: string }) {
   const [activities, setActivities] = useState<TDEEActivity[]>([])
   const [goal, setGoal] = useState<TDEEGoal | null>(null)
   const [adjustmentPct, setAdjustmentPct] = useState(20)
+  const [macroMethod, setMacroMethod] = useState<'auto' | 'manual'>('auto')
+  const [proteinPerKg, setProteinPerKg] = useState('2.0')
+  const [fatPct, setFatPct] = useState('25')
 
   // Saved targets (shown in collapsed view)
   const [savedTdee, setSavedTdee] = useState<number | null>(null)
@@ -278,6 +286,19 @@ function TDEESection({ clientId }: { clientId: string }) {
     ? calcMacros(tdeeResult.tdee, parseFloat(weightKg), goal, adjustmentPct)
     : null
 
+  // Manual macro override — protein g/kg BW, fat % of cals, carbs from remainder
+  const effectiveMacros = (() => {
+    if (!macros) return null
+    if (macroMethod === 'auto') return macros
+    const wkg = parseFloat(weightKg) || 0
+    const ppkg = parseFloat(proteinPerKg) || 2.0
+    const fp = parseFloat(fatPct) || 25
+    const proteinG = Math.round(wkg * ppkg)
+    const fatG = Math.round(macros.targetCals * fp / 100 / 9)
+    const carbG = Math.round(Math.max(macros.targetCals - proteinG * 4 - fatG * 9, 0) / 4)
+    return { targetCals: macros.targetCals, proteinG, carbG, fatG }
+  })()
+
   function addActivity() {
     setActivities(prev => [...prev, { id: crypto.randomUUID(), type: 'strength', duration_minutes: '45', sessions_per_week: '3' }])
   }
@@ -299,39 +320,47 @@ function TDEESection({ clientId }: { clientId: string }) {
       goal,
       adjustment_pct: adjustmentPct,
       tdee: tdeeResult!.tdee,
-      target_calories: macros!.targetCals,
-      target_protein: macros!.proteinG,
-      target_carbs: macros!.carbG,
-      target_fat: macros!.fatG,
+      target_calories: effectiveMacros!.targetCals,
+      target_protein: effectiveMacros!.proteinG,
+      target_carbs: effectiveMacros!.carbG,
+      target_fat: effectiveMacros!.fatG,
       apply_targets: applyTargets,
     }
   }
 
   async function handleSaveTdee() {
-    if (!tdeeResult || !macros) return
+    if (!tdeeResult || !effectiveMacros) return
     setSavingTdee(true)
+    // In manual mode, always apply the macro targets too — the coach explicitly set them
+    const applyTargets = macroMethod === 'manual'
     await fetch(`/api/coach/clients/${clientId}/tdee`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildPayload(false)),
+      body: JSON.stringify(buildPayload(applyTargets)),
     })
     setSavedTdee(tdeeResult.tdee)
+    if (applyTargets) {
+      setSavedCals(effectiveMacros.targetCals)
+      setSavedProtein(effectiveMacros.proteinG)
+      setSavedCarbs(effectiveMacros.carbG)
+      setSavedFat(effectiveMacros.fatG)
+    }
     setSavingTdee(false)
-    setSavedMsg('TDEE saved')
+    setSavedMsg(applyTargets ? 'TDEE & targets saved' : 'TDEE saved')
     setTimeout(() => { setSavedMsg(null); setExpanded(false) }, 1500)
   }
 
   async function handleSaveTargets() {
-    if (!tdeeResult || !macros) return
+    if (!tdeeResult || !effectiveMacros) return
     setSavingTargets(true)
     await fetch(`/api/coach/clients/${clientId}/tdee`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(buildPayload(true)),
     })
     setSavedTdee(tdeeResult.tdee)
-    setSavedCals(macros.targetCals)
-    setSavedProtein(macros.proteinG)
-    setSavedCarbs(macros.carbG)
-    setSavedFat(macros.fatG)
+    setSavedCals(effectiveMacros.targetCals)
+    setSavedProtein(effectiveMacros.proteinG)
+    setSavedCarbs(effectiveMacros.carbG)
+    setSavedFat(effectiveMacros.fatG)
     setSavingTargets(false)
     setSavedMsg('Targets saved')
     setTimeout(() => { setSavedMsg(null); setExpanded(false) }, 1500)
@@ -494,7 +523,7 @@ function TDEESection({ clientId }: { clientId: string }) {
           </div>
 
           {/* Live result */}
-          {tdeeResult && macros && goal && (
+          {tdeeResult && effectiveMacros && goal && (
             <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -504,7 +533,7 @@ function TDEESection({ clientId }: { clientId: string }) {
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-400">Target</p>
-                  <p className="text-2xl font-bold text-gray-900">{macros.targetCals.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-gray-900">{effectiveMacros.targetCals.toLocaleString()}</p>
                   <p className="text-xs text-gray-400">kcal/day</p>
                 </div>
               </div>
@@ -524,7 +553,65 @@ function TDEESection({ clientId }: { clientId: string }) {
                 </div>
               )}
 
-              <p className="text-xs text-gray-500">{macros.proteinG}g P · {macros.carbG}g C · {macros.fatG}g F</p>
+              {/* Macro method toggle */}
+              <div className="border-t border-gray-200 pt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Macro targets</p>
+                  <div className="flex bg-gray-200 rounded-lg p-0.5">
+                    {(['auto', 'manual'] as const).map(m => (
+                      <button key={m} onClick={() => setMacroMethod(m)}
+                        className={`px-3 py-1 rounded-md text-xs font-semibold transition-colors ${macroMethod === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                        {m === 'auto' ? 'Auto' : 'Manual'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {macroMethod === 'manual' && (
+                  <div className="space-y-2.5">
+                    {/* Protein g/kg */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex-1">
+                        <label className="text-xs text-gray-500 mb-1 block">Protein g/kg BW <span className="text-gray-400">(1.4–2.2)</span></label>
+                        <input type="number" step="0.1" min="1" max="3" value={proteinPerKg}
+                          onChange={e => setProteinPerKg(e.target.value)}
+                          className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                      </div>
+                      <div className="text-right flex-shrink-0 pt-4">
+                        <p className="text-base font-bold text-gray-900">{effectiveMacros.proteinG}g</p>
+                        <p className="text-[10px] text-gray-400">{(effectiveMacros.proteinG * 4).toLocaleString()} kcal</p>
+                      </div>
+                    </div>
+
+                    {/* Fat % of cals */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex-1">
+                        <label className="text-xs text-gray-500 mb-1 block">Fat % of calories <span className="text-gray-400">(20–40%)</span></label>
+                        <input type="number" step="1" min="15" max="50" value={fatPct}
+                          onChange={e => setFatPct(e.target.value)}
+                          className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
+                      </div>
+                      <div className="text-right flex-shrink-0 pt-4">
+                        <p className="text-base font-bold text-gray-900">{effectiveMacros.fatG}g</p>
+                        <p className="text-[10px] text-gray-400">{(effectiveMacros.fatG * 9).toLocaleString()} kcal</p>
+                      </div>
+                    </div>
+
+                    {/* Carbs — remainder */}
+                    <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2.5 border border-gray-100">
+                      <div>
+                        <p className="text-xs font-medium text-gray-700">Carbs <span className="font-normal text-gray-400">(remaining calories)</span></p>
+                        <p className="text-[10px] text-gray-400">{(effectiveMacros.carbG * 4).toLocaleString()} kcal</p>
+                      </div>
+                      <p className="text-base font-bold text-gray-900">{effectiveMacros.carbG}g</p>
+                    </div>
+                  </div>
+                )}
+
+                {macroMethod === 'auto' && (
+                  <p className="text-xs text-gray-500">{effectiveMacros.proteinG}g P · {effectiveMacros.carbG}g C · {effectiveMacros.fatG}g F</p>
+                )}
+              </div>
             </div>
           )}
 
@@ -542,18 +629,24 @@ function TDEESection({ clientId }: { clientId: string }) {
             </div>
           )}
 
-          <div className="flex gap-2">
-            {/* Always available — saves TDEE calculation without touching daily targets */}
-            <button onClick={handleSaveTdee} disabled={savingTdee || !tdeeResult || !macros}
-              className="flex-1 py-2.5 rounded-xl text-sm font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors">
-              {savingTdee ? 'Saving…' : 'Save TDEE data'}
-            </button>
+          <div className="space-y-1.5">
+            <div className="flex gap-2">
+              {/* Saves TDEE calculation without touching daily targets — coach view only */}
+              <button onClick={handleSaveTdee} disabled={savingTdee || !tdeeResult || !effectiveMacros}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors">
+                {savingTdee ? 'Saving…' : macroMethod === 'manual' ? 'Save TDEE & targets' : 'Save TDEE data'}
+              </button>
 
-            {/* Writes target_calories/macros — label changes based on whether meal plan is active */}
-            <button onClick={handleSaveTargets} disabled={savingTargets || !tdeeResult || !macros}
-              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 transition-colors">
-              {savingTargets ? 'Saving…' : hasActiveMealPlan ? 'Override daily targets' : 'Set as daily targets'}
-            </button>
+              {/* Writes target_calories/macros to client profile */}
+              <button onClick={handleSaveTargets} disabled={savingTargets || !tdeeResult || !effectiveMacros}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 transition-colors">
+                {savingTargets ? 'Saving…' : hasActiveMealPlan ? 'Override daily targets' : 'Set as daily targets'}
+              </button>
+            </div>
+            <div className="flex gap-2 text-[10px] text-gray-400 px-0.5">
+              <span className="flex-1 text-center">Coach view only</span>
+              <span className="flex-1 text-center">Shown on client dashboard</span>
+            </div>
           </div>
         </div>
       )}
@@ -572,6 +665,8 @@ function GoalsSection({ clientId }: { clientId: string }) {
   const [newKeyNote, setNewKeyNote] = useState('')
   const [editingKeyNoteIdx, setEditingKeyNoteIdx] = useState<number | null>(null)
   const [editingKeyNoteVal, setEditingKeyNoteVal] = useState('')
+  const [editingMiniIdx, setEditingMiniIdx] = useState<number | null>(null)
+  const [editingMiniVal, setEditingMiniVal] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -629,6 +724,17 @@ function GoalsSection({ clientId }: { clientId: string }) {
     await putGoals(mainGoalRef.current, next, keyNotesRef.current)
   }
 
+  async function saveMiniEdit(i: number) {
+    const val = editingMiniVal.trim()
+    if (!val) return
+    const next = miniGoalsRef.current.map((g, j) => j === i ? val : g)
+    setMiniGoals(next); miniGoalsRef.current = next
+    setEditingMiniIdx(null); setEditingMiniVal('')
+    setMiniSaving(true)
+    await putGoals(mainGoalRef.current, next, keyNotesRef.current)
+    setMiniSaving(false)
+  }
+
   async function addKeyNote() {
     const val = newKeyNote.trim()
     if (!val) return
@@ -656,128 +762,176 @@ function GoalsSection({ clientId }: { clientId: string }) {
     setKeyNotesSaving(false)
   }
 
-  if (loading) return <div className="bg-white rounded-2xl border p-5"><p className="text-sm text-gray-400">Loading…</p></div>
+  if (loading) return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="bg-white rounded-2xl border p-5 h-32 animate-pulse" />
+      <div className="bg-white rounded-2xl border p-5 h-32 animate-pulse" />
+    </div>
+  )
 
   return (
-    <div className="space-y-4">
-      {/* Important notes */}
-      <div className="rounded-2xl border border-red-100 p-5 space-y-3" style={{ backgroundColor: 'rgba(254,226,226,0.45)' }}>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+      {/* ── Important Notes ─────────────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-gray-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
             </svg>
-            <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Important Notes</h3>
+            <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">Important Notes</h3>
           </div>
-          {keyNotesSaving && <span className="text-[11px] text-gray-500">Saving…</span>}
+          {keyNotesSaving && <span className="text-[11px] text-gray-400">Saving…</span>}
         </div>
 
-        {/* List */}
-        <div className="space-y-2">
+        <div className="flex flex-wrap gap-2 min-h-[32px]">
           {keyNotes.length === 0 && (
-            <p className="text-xs text-gray-400">No notes yet — add allergies, injuries, lifestyle factors, anything to know at a glance.</p>
+            <p className="text-xs text-gray-400 italic">No notes yet — add allergies, injuries, key context…</p>
           )}
           {keyNotes.map((n, i) => (
-            <div key={i} className="bg-gray-100 rounded-xl px-3 py-2">
+            <div key={i}>
               {editingKeyNoteIdx === i ? (
-                <div className="flex gap-2">
+                <div className="flex gap-1.5 items-center">
                   <input
                     autoFocus
                     value={editingKeyNoteVal}
                     onChange={(e) => setEditingKeyNoteVal(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveKeyNoteEdit(i) } if (e.key === 'Escape') { setEditingKeyNoteIdx(null) } }}
-                    className="flex-1 bg-white border border-gray-300 rounded-lg px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                    className="border border-red-300 rounded-lg px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-300 bg-white w-40"
                   />
-                  <button onClick={() => saveKeyNoteEdit(i)} className="text-xs font-semibold text-gray-700 hover:text-gray-900">Save</button>
-                  <button onClick={() => setEditingKeyNoteIdx(null)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                  <button onClick={() => saveKeyNoteEdit(i)} className="text-xs font-semibold text-red-600 hover:text-red-800">Save</button>
+                  <button onClick={() => setEditingKeyNoteIdx(null)} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
                 </div>
               ) : (
-                <div className="flex items-start gap-2">
-                  <span className="flex-1 text-sm text-gray-900 leading-snug">{n}</span>
-                  <button onClick={() => { setEditingKeyNoteIdx(i); setEditingKeyNoteVal(n) }} className="text-gray-400 hover:text-gray-700 flex-shrink-0 transition-colors">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                <span className="group inline-flex items-center gap-1.5 bg-red-500 text-white text-xs font-medium px-3 py-1.5 rounded-full">
+                  <span>{n}</span>
+                  <button onClick={() => { setEditingKeyNoteIdx(i); setEditingKeyNoteVal(n) }}
+                    className="opacity-60 hover:opacity-100 transition-opacity">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                   </button>
-                  <button onClick={() => removeKeyNote(i)} className="text-gray-300 hover:text-red-400 flex-shrink-0 transition-colors">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  <button onClick={() => removeKeyNote(i)}
+                    className="opacity-60 hover:opacity-100 transition-opacity">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                   </button>
-                </div>
+                </span>
               )}
             </div>
           ))}
         </div>
 
-        {/* Add input */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 pt-1 border-t border-gray-100">
           <input
             value={newKeyNote}
             onChange={(e) => setNewKeyNote(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addKeyNote())}
             placeholder="Add a note…"
-            className="flex-1 border border-gray-200 bg-white rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300"
+            className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-red-300 text-gray-900"
           />
-          <button onClick={addKeyNote} disabled={!newKeyNote.trim()} className="text-xs font-semibold text-gray-700 hover:text-gray-900 disabled:opacity-40 px-2 transition-colors">Add</button>
+          <button onClick={addKeyNote} disabled={!newKeyNote.trim()}
+            className="text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-40 px-2 transition-colors">
+            Add
+          </button>
         </div>
       </div>
 
-      {/* Goals */}
-      <div className="rounded-2xl border border-green-100 p-5 space-y-4" style={{ backgroundColor: 'rgba(220,252,231,0.45)' }}>
+      {/* ── Goals ──────────────────────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Client Goals</h3>
-          <button
-            onClick={saveMainGoal}
-            disabled={saving || !mainGoalDirty}
-            className="text-xs font-semibold text-gray-700 hover:text-gray-900 disabled:opacity-40 transition-colors"
-          >
-            {saving ? 'Saving…' : saved ? 'Saved!' : 'Save'}
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+            </svg>
+            <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">Goals</h3>
+          </div>
+          <button onClick={saveMainGoal} disabled={saving || !mainGoalDirty}
+            className="text-xs font-semibold text-green-700 hover:text-green-900 disabled:opacity-40 transition-colors">
+            {saving ? 'Saving…' : saved ? 'Saved ✓' : mainGoalDirty ? 'Save' : ''}
           </button>
         </div>
 
         {/* Main goal */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">Main goal</label>
-          <textarea
-            value={mainGoal}
-            onChange={(e) => { setMainGoal(e.target.value); mainGoalRef.current = e.target.value }}
-            placeholder="e.g. Lose 5 kg by summer, build consistent training habit…"
-            rows={2}
-            className={`w-full border rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 bg-white focus:outline-none focus:ring-2 resize-none transition-colors ${
-              mainGoalDirty ? 'border-gray-400 focus:ring-gray-400' : 'border-gray-200 focus:ring-gray-300'
-            }`}
-          />
-          {mainGoalDirty && (
-            <p className="text-xs text-gray-500 mt-1">Unsaved — click Save to apply changes</p>
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Main Goal</label>
+          {savedMainGoal && !mainGoalDirty ? (
+            <div className="bg-green-700 text-white rounded-xl px-4 py-3 group relative">
+              <p className="text-sm font-medium leading-snug pr-6">{savedMainGoal}</p>
+              <button
+                onClick={() => setMainGoal(savedMainGoal + ' ')}
+                className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity"
+                title="Edit"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+              </button>
+            </div>
+          ) : (
+            <textarea
+              autoFocus={mainGoalDirty}
+              value={mainGoal}
+              onChange={(e) => { setMainGoal(e.target.value); mainGoalRef.current = e.target.value }}
+              placeholder="e.g. Lose 5 kg by summer, build consistent training habit…"
+              rows={2}
+              className={`w-full border rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-300 bg-white focus:outline-none focus:ring-2 resize-none ${
+                mainGoalDirty ? 'border-green-400 focus:ring-green-300' : 'border-gray-200 focus:ring-green-200'
+              }`}
+            />
           )}
         </div>
 
         {/* Mini goals */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-xs font-medium text-gray-700">Mini goals <span className="text-gray-500 font-normal">(this week / before next check-in)</span></label>
-            {miniSaving && <span className="text-xs text-gray-500">Saving…</span>}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Mini Goals <span className="font-normal normal-case">(this week)</span></label>
+            {miniSaving && <span className="text-xs text-gray-400">Saving…</span>}
           </div>
-          <div className="space-y-1.5 mb-2">
-            {miniGoals.length === 0 && <p className="text-xs text-gray-400">No mini goals yet.</p>}
+          <div className="space-y-1.5 min-h-[28px]">
+            {miniGoals.length === 0 && <p className="text-xs text-gray-400 italic">No mini goals yet.</p>}
             {miniGoals.map((g, i) => (
-              <div key={i} className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-2">
-                <span className="flex-1 text-sm text-gray-900">{g}</span>
-                <button onClick={() => removeMini(i)} className="text-gray-300 hover:text-red-400 flex-shrink-0">
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                </button>
+              <div key={i}>
+                {editingMiniIdx === i ? (
+                  <div className="flex gap-1.5 items-center">
+                    <input
+                      autoFocus
+                      value={editingMiniVal}
+                      onChange={(e) => setEditingMiniVal(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveMiniEdit(i) } if (e.key === 'Escape') { setEditingMiniIdx(null) } }}
+                      className="flex-1 border border-green-300 rounded-lg px-2 py-1 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-300 bg-white"
+                    />
+                    <button onClick={() => saveMiniEdit(i)} className="text-xs font-semibold text-green-700 hover:text-green-900">Save</button>
+                    <button onClick={() => setEditingMiniIdx(null)} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
+                  </div>
+                ) : (
+                  <div className="group flex items-start gap-2 bg-green-50 rounded-xl px-3 py-2">
+                    <span className="mt-1 w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
+                    <span className="flex-1 min-w-0 text-xs text-green-900 leading-relaxed break-words">{g}</span>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
+                      <button onClick={() => { setEditingMiniIdx(i); setEditingMiniVal(g) }} className="text-green-600 hover:text-green-800" title="Edit">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                      </button>
+                      <button onClick={() => removeMini(i)} className="text-green-600 hover:text-red-500" title="Remove">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 pt-1 border-t border-gray-100">
             <input
               value={newMini}
               onChange={(e) => setNewMini(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addMini())}
               placeholder="Add a mini goal…"
-              className="flex-1 border border-gray-200 bg-white rounded-xl px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300"
+              className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-green-300 text-gray-900"
             />
-            <button onClick={addMini} disabled={!newMini.trim()} className="text-xs font-semibold text-gray-700 hover:text-gray-900 disabled:opacity-40 px-2">Add</button>
+            <button onClick={addMini} disabled={!newMini.trim()}
+              className="text-xs font-semibold text-green-700 hover:text-green-900 disabled:opacity-40 px-2 transition-colors">
+              Add
+            </button>
           </div>
         </div>
       </div>
+
     </div>
   )
 }
@@ -805,7 +959,55 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
   )
 }
 
+function CycleReminderToggle({ clientId }: { clientId: string }) {
+  const [isFemale, setIsFemale] = useState<boolean | null>(null)
+  const [enabled, setEnabled] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    fetch(`/api/coach/clients/${clientId}/cycle-reminder`)
+      .then(r => r.json())
+      .then(d => {
+        setIsFemale(d.sex === 'female')
+        setEnabled(d.cycle_reminders !== false)
+      })
+      .catch(() => {})
+  }, [clientId])
+
+  if (isFemale === false) return null
+  if (isFemale === null) return null
+
+  async function toggle() {
+    const next = !enabled
+    setEnabled(next)
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/coach/clients/${clientId}/cycle-reminder`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: next }),
+      })
+      if (!res.ok) setEnabled(!next)
+    } catch {
+      setEnabled(!next)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-gray-900">Cycle tracking reminders</p>
+        <p className="text-xs text-gray-400 mt-0.5">Daily 8pm push notification to log symptoms if not already logged</p>
+      </div>
+      <Toggle checked={enabled} onChange={toggle} disabled={saving} />
+    </div>
+  )
+}
+
 function ClientSettingsSection({
+  clientId,
   showDailyTargets,
   onToggle,
   saving,
@@ -813,6 +1015,7 @@ function ClientSettingsSection({
   onFoodLogAccess,
   savingFoodLog,
 }: {
+  clientId: string
   showDailyTargets: boolean
   onToggle: () => void
   saving: boolean
@@ -832,6 +1035,9 @@ function ClientSettingsSection({
         </div>
         <Toggle checked={showDailyTargets} onChange={onToggle} disabled={saving} />
       </div>
+
+      {/* Cycle reminder toggle (female clients only — self-fetching) */}
+      <CycleReminderToggle clientId={clientId} />
 
       {/* Food log access */}
       <div className="space-y-2.5">
@@ -860,28 +1066,210 @@ function ClientSettingsSection({
   )
 }
 
-// ── Weight sparkline ──────────────────────────────────────────────────────────
+// ── Weight full chart ─────────────────────────────────────────────────────────
 
-function WeightSparkline({ logs, unit }: { logs: WeightLog[]; unit: string }) {
-  if (logs.length < 2) return null
-  const points = [...logs].reverse() // oldest → newest
-  const vals = points.map((l) => unit === 'kg' ? l.weight_lbs / 2.20462 : l.weight_lbs)
-  const min = Math.min(...vals)
-  const max = Math.max(...vals)
-  const range = max - min || 1
-  const W = 160, H = 48, PAD = 4
-  const x = (i: number) => PAD + (i / (vals.length - 1)) * (W - PAD * 2)
-  const y = (v: number) => PAD + (1 - (v - min) / range) * (H - PAD * 2)
-  const d = vals.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
-  const trend = vals[vals.length - 1] - vals[0]
-  const color = trend <= 0 ? '#22c55e' : '#f87171'
+const WC_W = 600, WC_H = 220
+const WC_PAD = { top: 16, right: 16, bottom: 48, left: 56 }
+const WC_IW = WC_W - WC_PAD.left - WC_PAD.right
+const WC_IH = WC_H - WC_PAD.top - WC_PAD.bottom
+
+function fmtShortDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function WeightFullChart({ logs }: { logs: WeightLog[] }) {
+  const svgRef = useRef<SVGSVGElement>(null)
+  const defaultUnit = logs[0]?.weight_unit === 'kg' ? 'kg' : 'lbs'
+  const [unit, setUnit] = useState<'lbs' | 'kg'>(defaultUnit as 'lbs' | 'kg')
+  type TooltipState = { x: number; y: number; value: string; date: string } | null
+  const [tooltip, setTooltip] = useState<TooltipState>(null)
+
+  if (logs.length < 2) return <p className="text-sm text-gray-400">Log at least 2 entries to see the trend.</p>
+
+  const display = [...logs].reverse().map(l => ({
+    date: l.logged_at,
+    value: unit === 'kg' ? l.weight_lbs / 2.20462 : l.weight_lbs,
+  }))
+
+  const values = display.map(p => p.value)
+  const minVal = Math.min(...values), maxVal = Math.max(...values)
+  const spread = maxVal - minVal || 1
+  const yMin = minVal - spread * 0.15, yMax = maxVal + spread * 0.15
+
+  const toX = (i: number) => WC_PAD.left + (i / (display.length - 1)) * WC_IW
+  const toY = (v: number) => WC_PAD.top + WC_IH - ((v - yMin) / (yMax - yMin)) * WC_IH
+
+  const pathD = display.map((p, i) => `${i === 0 ? 'M' : 'L'} ${toX(i).toFixed(1)} ${toY(p.value).toFixed(1)}`).join(' ')
+  const areaD = pathD
+    + ` L ${toX(display.length - 1).toFixed(1)} ${(WC_PAD.top + WC_IH).toFixed(1)}`
+    + ` L ${WC_PAD.left.toFixed(1)} ${(WC_PAD.top + WC_IH).toFixed(1)} Z`
+
+  const labelCount = Math.min(6, display.length)
+  const labelStep = Math.floor((display.length - 1) / Math.max(labelCount - 1, 1)) || 1
+  const labelIndices = Array.from({ length: labelCount }, (_, k) => Math.min(k * labelStep, display.length - 1))
+  const yTicks = [0, 0.33, 0.67, 1].map(t => yMin + t * (yMax - yMin))
+
+  const delta = display[display.length - 1].value - display[0].value
+  const deltaColor = delta < 0 ? 'text-green-600' : delta > 0 ? 'text-red-500' : 'text-gray-500'
+  const color = delta <= 0 ? '#22c55e' : '#f87171'
+
+  function handleMouseMove(e: React.MouseEvent<SVGSVGElement>) {
+    const rect = svgRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const scaleX = WC_W / rect.width
+    const mouseX = (e.clientX - rect.left) * scaleX - WC_PAD.left
+    const idx = Math.max(0, Math.min(display.length - 1, Math.round((mouseX / WC_IW) * (display.length - 1))))
+    const p = display[idx]
+    setTooltip({ x: toX(idx), y: toY(p.value), value: `${p.value.toFixed(1)} ${unit}`, date: fmtShortDate(p.date) })
+  }
+
   return (
-    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
-      <path d={d} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      {vals.map((v, i) => (
-        <circle key={i} cx={x(i)} cy={y(v)} r="2.5" fill={color} />
-      ))}
-    </svg>
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-gray-400">{display.length} entries</p>
+        <div className="flex items-center gap-3">
+          <span className={`text-xs font-semibold ${deltaColor}`}>{delta >= 0 ? '+' : ''}{delta.toFixed(1)} {unit}</span>
+          <button
+            onClick={() => setUnit(u => u === 'lbs' ? 'kg' : 'lbs')}
+            className="text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 px-2 py-0.5 rounded-full transition-colors"
+          >
+            {unit === 'lbs' ? 'Switch to kg' : 'Switch to lbs'}
+          </button>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <svg ref={svgRef} viewBox={`0 0 ${WC_W} ${WC_H}`} className="w-full min-w-[320px]" style={{ height: 220 }}
+          onMouseMove={handleMouseMove} onMouseLeave={() => setTooltip(null)}>
+          <defs>
+            <linearGradient id="wcgrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity="0.15" />
+              <stop offset="100%" stopColor={color} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+
+          {/* Y axis label */}
+          <text x={12} y={WC_PAD.top + WC_IH / 2} textAnchor="middle" dominantBaseline="middle"
+            fontSize={10} fill="#9ca3af" transform={`rotate(-90, 12, ${WC_PAD.top + WC_IH / 2})`}>
+            Weight ({unit})
+          </text>
+
+          {/* Y grid + tick labels */}
+          {yTicks.map((v, i) => (
+            <g key={i}>
+              <line x1={WC_PAD.left} x2={WC_PAD.left + WC_IW} y1={toY(v)} y2={toY(v)} stroke="#f3f4f6" strokeWidth={1} />
+              <text x={WC_PAD.left - 6} y={toY(v)} textAnchor="end" dominantBaseline="middle" fontSize={10} fill="#9ca3af">
+                {v.toFixed(1)}
+              </text>
+            </g>
+          ))}
+
+          {/* Area + line */}
+          <path d={areaD} fill="url(#wcgrad)" />
+          <path d={pathD} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+
+          {/* Dots */}
+          {display.length <= 20 && display.map((p, i) => (
+            <circle key={i} cx={toX(i)} cy={toY(p.value)} r={3} fill="white" stroke={color} strokeWidth={2} />
+          ))}
+
+          {/* X axis date labels */}
+          {labelIndices.map(idx => (
+            <text key={idx} x={toX(idx)} y={WC_PAD.top + WC_IH + 18} textAnchor="middle" fontSize={10} fill="#9ca3af">
+              {fmtShortDate(display[idx].date)}
+            </text>
+          ))}
+
+          {/* X axis label */}
+          <text x={WC_PAD.left + WC_IW / 2} y={WC_H - 4} textAnchor="middle" fontSize={10} fill="#9ca3af">
+            Date
+          </text>
+
+          {/* Tooltip */}
+          {tooltip && (
+            <>
+              <line x1={tooltip.x} x2={tooltip.x} y1={WC_PAD.top} y2={WC_PAD.top + WC_IH} stroke="#d1d5db" strokeWidth={1} strokeDasharray="3 3" />
+              <circle cx={tooltip.x} cy={tooltip.y} r={5} fill={color} />
+              <rect x={Math.min(tooltip.x + 8, WC_W - 110)} y={tooltip.y - 28} width={100} height={36} rx={6}
+                fill="white" stroke="#e5e7eb" strokeWidth={1} filter="drop-shadow(0 1px 2px rgba(0,0,0,0.08))" />
+              <text x={Math.min(tooltip.x + 58, WC_W - 60)} y={tooltip.y - 13} textAnchor="middle" fontSize={11} fontWeight="600" fill="#111827">
+                {tooltip.value}
+              </text>
+              <text x={Math.min(tooltip.x + 58, WC_W - 60)} y={tooltip.y + 3} textAnchor="middle" fontSize={9} fill="#9ca3af">
+                {tooltip.date}
+              </text>
+            </>
+          )}
+        </svg>
+      </div>
+    </div>
+  )
+}
+
+// ── Upcoming personal/travel events panel ────────────────────────────────────
+
+const EV_ICONS: Record<string, string> = { personal: '📌', travel: '✈️', birthday: '🎂' }
+const EV_COLOURS: Record<string, string> = {
+  personal: 'bg-orange-50 text-orange-700 border-orange-200',
+  travel:   'bg-sky-50 text-sky-700 border-sky-200',
+  birthday: 'bg-pink-50 text-pink-700 border-pink-200',
+}
+
+type RawEvent = { id: string; type: string; title: string; event_date: string }
+type GroupedEvent = { key: string; type: string; title: string; start: string; end: string }
+
+function groupEvents(evs: RawEvent[]): GroupedEvent[] {
+  const groups: GroupedEvent[] = []
+  for (const ev of evs) {
+    const last = groups[groups.length - 1]
+    const prevDate = last ? new Date(last.end + 'T00:00:00') : null
+    const thisDate = new Date(ev.event_date + 'T00:00:00')
+    const isConsecutive = prevDate && (thisDate.getTime() - prevDate.getTime() === 86400000)
+    if (last && isConsecutive && last.type === ev.type && last.title === ev.title) {
+      last.end = ev.event_date
+    } else {
+      groups.push({ key: ev.id, type: ev.type, title: ev.title, start: ev.event_date, end: ev.event_date })
+    }
+  }
+  return groups
+}
+
+function fmtEvDate(dateStr: string) {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
+function UpcomingEventsPanel({ clientId }: { clientId: string }) {
+  const [events, setEvents] = useState<RawEvent[]>([])
+
+  useEffect(() => {
+    const today = new Date()
+    const start = today.toISOString().split('T')[0]
+    const end = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    fetch(`/api/coach/clients/${clientId}/calendar?start_date=${start}&end_date=${end}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const evs = Array.isArray(d.events) ? d.events : []
+        setEvents(evs.filter((e: { type: string }) => ['personal', 'travel', 'birthday'].includes(e.type)))
+      })
+  }, [clientId])
+
+  const grouped = groupEvents(events)
+  if (grouped.length === 0) return null
+
+  return (
+    <div className="bg-white rounded-2xl border border-amber-200 p-5">
+      <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Upcoming in next 30 days</h3>
+      <div className="space-y-2">
+        {grouped.map((ev) => (
+          <div key={ev.key} className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 text-xs font-medium ${EV_COLOURS[ev.type] ?? 'bg-gray-50 text-gray-600 border-gray-100'}`}>
+            <span className="text-sm">{EV_ICONS[ev.type] ?? '📅'}</span>
+            <span className="flex-1 min-w-0 break-words">{ev.type === 'birthday' ? 'Birthday' : ev.title}</span>
+            <span className="flex-shrink-0 opacity-70">
+              {ev.start === ev.end ? fmtEvDate(ev.start) : `${fmtEvDate(ev.start)} – ${fmtEvDate(ev.end)}`}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -909,64 +1297,86 @@ function OverviewTab({ data, clientId }: {
   const latestCI = allCheckIns[0] ?? null
 
   return (
-    <div className="space-y-4">
-      {/* Goals + Important Notes — top */}
+    <div className="space-y-5">
+
+      {/* Goals + Important Notes */}
       <GoalsSection clientId={clientId} />
 
-      {/* Latest check-in */}
-      <div className="bg-white rounded-2xl border p-5">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Latest Check-In</h3>
-        {!latestCI ? <p className="text-sm text-gray-400">No check-ins recorded.</p> : (
-          <a href={`/coach/clients/${clientId}?tab=checkins`} className="block hover:opacity-80 transition-opacity space-y-2">
-            <p className="text-xs text-gray-400">{fmt(latestCI.date)}</p>
-            {latestCI.kind === 'direct' && (() => {
-              const c = latestCI.entry
-              return (
-                <>
-                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-                    <Stat label="Sleep" value={c.sleep_hours != null ? `${c.sleep_hours}h` : '—'} />
-                    <Stat label="Quality" value={SLEEP_LABELS[c.sleep_quality ?? ''] ?? c.sleep_quality ?? '—'} />
-                    <Stat label="Energy" value={c.energy_level ? (ENERGY_LABELS[c.energy_level]?.split('–')[0].trim() ?? c.energy_level) : '—'} />
-                    <Stat label="RHR" value={c.rhr != null ? `${c.rhr} bpm` : '—'} />
-                    <Stat label="HRV" value={c.hrv != null ? `${c.hrv} ms` : '—'} />
-                  </div>
-                  {c.notes && <p className="text-xs text-gray-500 italic border-t pt-2">"{c.notes}"</p>}
-                </>
-              )
-            })()}
-            {latestCI.kind === 'form' && (
-              <p className="text-sm font-medium text-gray-800">{latestCI.entry.title}</p>
-            )}
-            {latestCI.kind === 'autoflow' && (
-              <p className="text-sm font-medium text-gray-800">{latestCI.entry.flow_name} — Step {latestCI.entry.step_number}</p>
-            )}
-          </a>
-        )}
+      {/* Upcoming personal/travel events */}
+      <UpcomingEventsPanel clientId={clientId} />
+
+      {/* Row: Latest check-in + Progress photos */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        {/* Latest check-in */}
+        <div className="bg-white rounded-2xl border p-5">
+          <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Latest Check-In</h3>
+          {!latestCI ? (
+            <p className="text-sm text-gray-400">No check-ins recorded.</p>
+          ) : (
+            <a href={`/coach/clients/${clientId}?tab=checkins`} className="block hover:opacity-80 transition-opacity space-y-3">
+              <p className="text-xs font-medium text-gray-400">{fmt(latestCI.date)}</p>
+              {latestCI.kind === 'direct' && (() => {
+                const c = latestCI.entry
+                return (
+                  <>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Stat label="Sleep" value={c.sleep_hours != null ? `${c.sleep_hours}h` : '—'} />
+                      <Stat label="Energy" value={c.energy_level ? (ENERGY_LABELS[c.energy_level]?.split('–')[0].trim() ?? c.energy_level) : '—'} />
+                      <Stat label="HRV" value={c.hrv != null ? `${c.hrv} ms` : '—'} />
+                    </div>
+                    {c.notes && <p className="text-xs text-gray-500 italic border-t border-gray-50 pt-2 line-clamp-2">"{c.notes}"</p>}
+                  </>
+                )
+              })()}
+              {latestCI.kind === 'form' && (
+                <p className="text-sm font-medium text-gray-800">{latestCI.entry.title}</p>
+              )}
+              {latestCI.kind === 'autoflow' && (
+                <p className="text-sm font-medium text-gray-800">{latestCI.entry.flow_name} — Step {latestCI.entry.step_number}</p>
+              )}
+              <p className="text-[11px] text-blue-500 font-medium">View all check-ins →</p>
+            </a>
+          )}
+        </div>
+
+        {/* Progress photos */}
+        <CoachProgressPhotos clientId={clientId} />
       </div>
 
-      {/* Weight snapshot + sparkline */}
-      <div className="bg-white rounded-2xl border p-5">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Current Weight</h3>
-        {!latestWeight ? <p className="text-sm text-gray-400">No data</p> : (
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-2xl font-bold text-gray-900">
-                {latestWeight.weight_unit === 'kg'
-                  ? `${(latestWeight.weight_lbs / 2.20462).toFixed(1)} kg`
-                  : `${latestWeight.weight_lbs.toFixed(1)} lbs`}
-              </p>
-              {prevWeight && (
-                <p className={`text-xs mt-1 ${latestWeight.weight_lbs < prevWeight.weight_lbs ? 'text-green-500' : 'text-red-400'}`}>
-                  {latestWeight.weight_lbs < prevWeight.weight_lbs ? '▼' : '▲'}
-                  {' '}{Math.abs(latestWeight.weight_lbs - prevWeight.weight_lbs).toFixed(1)} lbs vs prev
+      {/* Row: Weight stat + Weight chart */}
+      {latestWeight && (
+        <div className="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-4">
+          <div className="bg-white rounded-2xl border p-5">
+            <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Current Weight</h3>
+            <div className="space-y-2">
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <p className="text-3xl font-bold text-gray-900">
+                  {latestWeight.weight_unit === 'kg'
+                    ? `${(latestWeight.weight_lbs / 2.20462).toFixed(1)}`
+                    : `${latestWeight.weight_lbs.toFixed(1)}`}
                 </p>
-              )}
-              <p className="text-xs text-gray-400 mt-1">{fmt(latestWeight.logged_at)}</p>
+                <span className="text-sm text-gray-400 font-medium">{latestWeight.weight_unit}</span>
+                {prevWeight && (
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    latestWeight.weight_lbs < prevWeight.weight_lbs
+                      ? 'bg-green-50 text-green-600'
+                      : 'bg-red-50 text-red-500'
+                  }`}>
+                    {latestWeight.weight_lbs < prevWeight.weight_lbs ? '▼' : '▲'}
+                    {' '}{Math.abs(latestWeight.weight_lbs - prevWeight.weight_lbs).toFixed(1)} lbs
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-400">{fmt(latestWeight.logged_at)}</p>
             </div>
-            <WeightSparkline logs={data.weightLogs} unit={latestWeight.weight_unit} />
           </div>
-        )}
-      </div>
+          <div className="bg-white rounded-2xl border p-5">
+            <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Weight Over Time</h3>
+            <WeightFullChart logs={data.weightLogs} />
+          </div>
+        </div>
+      )}
 
       {/* TDEE calculator */}
       <TDEESection clientId={clientId} />
@@ -975,16 +1385,411 @@ function OverviewTab({ data, clientId }: {
   )
 }
 
+// ── Coach Progress Photos ─────────────────────────────────────────────────────
+
+type ProgressPhoto = {
+  id: string
+  storage_path: string
+  taken_at: string
+  category: 'front' | 'back' | 'side_left' | 'side_right'
+  notes: string | null
+  weight_kg: number | null
+  url: string
+}
+
+const PHOTO_CATS: { value: ProgressPhoto['category']; label: string; short: string }[] = [
+  { value: 'front',      label: 'Front',      short: 'F' },
+  { value: 'back',       label: 'Back',       short: 'B' },
+  { value: 'side_left',  label: 'Left Side',  short: 'L' },
+  { value: 'side_right', label: 'Right Side', short: 'R' },
+]
+
+const PHOTO_CAT_COLORS: Record<ProgressPhoto['category'], string> = {
+  front:      'bg-blue-100 text-blue-700',
+  back:       'bg-purple-100 text-purple-700',
+  side_left:  'bg-teal-100 text-teal-700',
+  side_right: 'bg-orange-100 text-orange-700',
+}
+
+function photoCatLabel(c: ProgressPhoto['category']) {
+  return PHOTO_CATS.find(x => x.value === c)?.label ?? c
+}
+
+function photoFmtDate(d: string) {
+  const [y, m, day] = d.split('-').map(Number)
+  return new Date(y, m - 1, day).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
+}
+
+function photoFmtMonth(ym: string) {
+  const [y, m] = ym.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })
+}
+
+// Compare panel — mirrors client app ComparePanel
+function PhotoComparePanel({ label, photo, onSelect }: {
+  label: string
+  photo: ProgressPhoto | null
+  onSelect: () => void
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs font-semibold text-gray-500 text-center uppercase tracking-wide">{label}</p>
+      <button onClick={onSelect}
+        className={`w-full aspect-[3/4] rounded-xl overflow-hidden relative group ${
+          !photo ? 'border-2 border-dashed border-gray-200 hover:border-gray-300 bg-gray-50' : ''
+        }`}>
+        {photo ? (
+          <>
+            <img src={photo.url} alt={photoCatLabel(photo.category)} className="w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors flex items-center justify-center">
+              <span className="opacity-0 group-hover:opacity-100 text-white text-xs font-semibold bg-black/50 px-3 py-1.5 rounded-lg transition-opacity">Change</span>
+            </div>
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/75 to-transparent p-3">
+              <p className="text-white text-xs font-bold">{photoFmtDate(photo.taken_at)}</p>
+              <p className="text-white/70 text-xs">{photoCatLabel(photo.category)}{photo.weight_kg ? ` · ${photo.weight_kg}kg` : ''}</p>
+            </div>
+          </>
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-gray-400">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="text-xs font-medium">Select photo</span>
+          </div>
+        )}
+      </button>
+    </div>
+  )
+}
+
+// Pick-photo modal — mirrors client app PickPhotoModal
+function PhotoPickModal({ photos, onPick, onClose }: {
+  photos: ProgressPhoto[]
+  onPick: (p: ProgressPhoto) => void
+  onClose: () => void
+}) {
+  const [filter, setFilter] = useState<ProgressPhoto['category'] | 'all'>('all')
+  const filtered = filter === 'all' ? photos : photos.filter(p => p.category === filter)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center">
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      <div className="relative bg-white rounded-t-3xl w-full max-h-[80vh] flex flex-col shadow-2xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+          <p className="font-bold text-gray-900">Select photo</p>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="flex gap-2 px-5 py-3 border-b border-gray-50 flex-shrink-0 overflow-x-auto">
+          {(['all', ...PHOTO_CATS.map(c => c.value)] as (ProgressPhoto['category'] | 'all')[]).map(f => (
+            <button key={f} onClick={() => setFilter(f)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                filter === f ? 'bg-gray-900 border-gray-900 text-white' : 'border-gray-200 text-gray-600 hover:border-gray-400'
+              }`}>
+              {f === 'all' ? 'All' : photoCatLabel(f)}
+            </button>
+          ))}
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          {filtered.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-10">No photos in this category</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              {filtered.map(photo => (
+                <button key={photo.id} onClick={() => { onPick(photo); onClose() }}
+                  className="aspect-[3/4] rounded-xl overflow-hidden relative group">
+                  <img src={photo.url} alt={photoCatLabel(photo.category)} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                  <div className="absolute top-1.5 left-1.5">
+                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${PHOTO_CAT_COLORS[photo.category]}`}>
+                      {photoCatLabel(photo.category).charAt(0)}
+                    </span>
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                    <p className="text-white text-xs font-medium leading-tight">{photoFmtDate(photo.taken_at)}</p>
+                    {photo.weight_kg && <p className="text-white/70 text-xs">{photo.weight_kg}kg</p>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CoachProgressPhotos({ clientId }: { clientId: string }) {
+  const [photos, setPhotos] = useState<ProgressPhoto[]>([])
+  const [loading, setLoading] = useState(true)
+  const [filterCat, setFilterCat] = useState<ProgressPhoto['category'] | 'all'>('all')
+  const [compareMode, setCompareMode] = useState(false)
+  const [compareLeft, setCompareLeft] = useState<ProgressPhoto | null>(null)
+  const [compareRight, setCompareRight] = useState<ProgressPhoto | null>(null)
+  const [pickingFor, setPickingFor] = useState<'left' | 'right' | null>(null)
+  const [lightbox, setLightbox] = useState<ProgressPhoto | null>(null)
+
+  useEffect(() => {
+    fetch(`/api/coach/clients/${clientId}/progress-photos`)
+      .then((r) => r.json())
+      .then((d) => setPhotos(Array.isArray(d) ? d : []))
+      .finally(() => setLoading(false))
+  }, [clientId])
+
+  const filtered = filterCat === 'all' ? photos : photos.filter((p) => p.category === filterCat)
+
+  const byMonth: Record<string, ProgressPhoto[]> = {}
+  for (const p of filtered) {
+    const key = p.taken_at.slice(0, 7)
+    ;(byMonth[key] ??= []).push(p)
+  }
+
+  const weightDelta = compareLeft?.weight_kg && compareRight?.weight_kg
+    ? (compareRight.weight_kg - compareLeft.weight_kg).toFixed(1)
+    : null
+
+  return (
+    <div className="bg-white rounded-2xl border p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Progress Photos</h3>
+        {photos.length >= 2 && (
+          <button onClick={() => setCompareMode(m => !m)}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
+              compareMode ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-700 hover:border-gray-400'
+            }`}>
+            Compare
+          </button>
+        )}
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-gray-400">Loading…</p>
+      ) : photos.length === 0 ? (
+        <p className="text-sm text-gray-400">No progress photos uploaded yet.</p>
+      ) : (
+        <div className="space-y-4">
+
+          {/* Compare view */}
+          {compareMode && (
+            <div className="space-y-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Side-by-side comparison</p>
+              <div className="grid grid-cols-2 gap-3">
+                <PhotoComparePanel label="Before" photo={compareLeft} onSelect={() => setPickingFor('left')} />
+                <PhotoComparePanel label="After" photo={compareRight} onSelect={() => setPickingFor('right')} />
+              </div>
+              {weightDelta !== null && (
+                <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3">
+                  <span className="text-xs font-medium text-gray-500">Weight change</span>
+                  <span className={`text-sm font-bold ${
+                    parseFloat(weightDelta) < 0 ? 'text-teal-600' :
+                    parseFloat(weightDelta) > 0 ? 'text-orange-500' : 'text-gray-600'
+                  }`}>
+                    {parseFloat(weightDelta) > 0 ? '+' : ''}{weightDelta}kg
+                  </span>
+                </div>
+              )}
+              {compareLeft && compareRight && (
+                <div className="bg-gray-50 rounded-xl px-4 py-3">
+                  <p className="text-xs text-gray-400">
+                    {(() => {
+                      const [ly, lm, ld] = compareLeft.taken_at.split('-').map(Number)
+                      const [ry, rm, rd] = compareRight.taken_at.split('-').map(Number)
+                      const days = Math.abs(Math.round((new Date(ry, rm - 1, rd).getTime() - new Date(ly, lm - 1, ld).getTime()) / 86400000))
+                      return days === 0 ? 'Same day' : `${days} days between photos`
+                    })()}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Category filter */}
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+            {(['all', ...PHOTO_CATS.map(c => c.value)] as (ProgressPhoto['category'] | 'all')[]).map(f => (
+              <button key={f} onClick={() => setFilterCat(f)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                  filterCat === f ? 'bg-gray-900 border-gray-900 text-white' : 'border-gray-200 text-gray-600 hover:border-gray-400'
+                }`}>
+                {f === 'all' ? `All (${photos.length})` : photoCatLabel(f)}
+              </button>
+            ))}
+          </div>
+
+          {/* Gallery grouped by month */}
+          {filtered.length === 0 ? (
+            <p className="text-sm text-gray-400">No photos in this category.</p>
+          ) : (
+            <div className="space-y-4">
+              {Object.entries(byMonth)
+                .sort(([a], [b]) => b.localeCompare(a))
+                .map(([ym, group]) => (
+                  <div key={ym}>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">{photoFmtMonth(ym)}</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {group.map((p) => (
+                        <button key={p.id} onClick={() => setLightbox(p)}
+                          className="aspect-[3/4] rounded-xl overflow-hidden relative group">
+                          <img src={p.url} alt={photoCatLabel(p.category)} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                          <div className="absolute top-1.5 left-1.5">
+                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded-md ${PHOTO_CAT_COLORS[p.category]}`}>
+                              {photoCatLabel(p.category).charAt(0)}
+                            </span>
+                          </div>
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/65 to-transparent p-2">
+                            <p className="text-white text-xs font-medium leading-tight">{photoFmtDate(p.taken_at)}</p>
+                            {p.weight_kg && <p className="text-white/70 text-xs">{p.weight_kg}kg</p>}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={() => setLightbox(null)}>
+          <div className="absolute inset-0 bg-black/85" />
+          <div className="relative w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <img src={lightbox.url} alt={photoCatLabel(lightbox.category)}
+              className="w-full max-h-[75vh] object-contain rounded-2xl" />
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent rounded-b-2xl p-5">
+              <p className="text-white font-bold text-base">{photoFmtDate(lightbox.taken_at)}</p>
+              <p className="text-white/70 text-sm mt-0.5">
+                {photoCatLabel(lightbox.category)}{lightbox.weight_kg ? ` · ${lightbox.weight_kg}kg` : ''}
+              </p>
+              {lightbox.notes && <p className="text-white/60 text-xs mt-1">{lightbox.notes}</p>}
+            </div>
+            <button onClick={() => setLightbox(null)}
+              className="absolute top-3 right-3 w-8 h-8 bg-black/50 rounded-full flex items-center justify-center text-white hover:bg-black/70 transition-colors">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Pick photo modal */}
+      {pickingFor && (
+        <PhotoPickModal
+          photos={photos}
+          onPick={(p) => {
+            if (pickingFor === 'left') setCompareLeft(p)
+            else setCompareRight(p)
+          }}
+          onClose={() => setPickingFor(null)}
+        />
+      )}
+    </div>
+  )
+}
+
 // ── Notes tab ─────────────────────────────────────────────────────────────────
+
+// ── Rich text toolbar ─────────────────────────────────────────────────────────
+
+const FONT_COLORS = ['#111827', '#ef4444', '#f97316', '#eab308', '#22c55e', '#1D9E75', '#3b82f6', '#8b5cf6', '#ec4899', '#6b7280']
+
+function RichToolbar({ editorRef }: { editorRef: React.RefObject<HTMLDivElement | null> }) {
+  const colorInputRef = useRef<HTMLInputElement>(null)
+  const highlightInputRef = useRef<HTMLInputElement>(null)
+
+  function exec(cmd: string, value?: string) {
+    editorRef.current?.focus()
+    document.execCommand(cmd, false, value)
+  }
+
+  function ToolBtn({ title, onClick, children }: { title: string; onClick: () => void; children: React.ReactNode }) {
+    return (
+      <button
+        type="button"
+        title={title}
+        onMouseDown={(e) => { e.preventDefault(); onClick() }}
+        className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 transition-colors text-gray-600 hover:text-gray-900 text-sm font-semibold select-none"
+      >
+        {children}
+      </button>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-0.5 flex-wrap border border-gray-200 rounded-xl px-2 py-1.5 bg-gray-50">
+      <ToolBtn title="Bold" onClick={() => exec('bold')}><span className="font-bold">B</span></ToolBtn>
+      <ToolBtn title="Italic" onClick={() => exec('italic')}><span className="italic">I</span></ToolBtn>
+      <ToolBtn title="Underline" onClick={() => exec('underline')}><span className="underline">U</span></ToolBtn>
+      <ToolBtn title="Strikethrough" onClick={() => exec('strikeThrough')}><span className="line-through">S</span></ToolBtn>
+
+      <div className="w-px h-5 bg-gray-200 mx-1" />
+
+      {/* Font color swatches */}
+      {FONT_COLORS.map(c => (
+        <button
+          key={c}
+          type="button"
+          title={`Colour ${c}`}
+          onMouseDown={(e) => { e.preventDefault(); exec('foreColor', c) }}
+          className="w-5 h-5 rounded-full border border-white shadow-sm hover:scale-110 transition-transform"
+          style={{ backgroundColor: c }}
+        />
+      ))}
+      {/* Custom colour picker */}
+      <button
+        type="button"
+        title="Custom colour"
+        onMouseDown={(e) => { e.preventDefault(); colorInputRef.current?.click() }}
+        className="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-700"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+        </svg>
+      </button>
+      <input ref={colorInputRef} type="color" className="sr-only" onChange={e => exec('foreColor', e.target.value)} />
+
+      <div className="w-px h-5 bg-gray-200 mx-1" />
+
+      {/* Highlight */}
+      <ToolBtn title="Highlight" onClick={() => highlightInputRef.current?.click()}>
+        <span style={{ background: 'linear-gradient(transparent 50%, #fde047 50%)' }} className="px-0.5">H</span>
+      </ToolBtn>
+      <input ref={highlightInputRef} type="color" defaultValue="#fde047" className="sr-only" onChange={e => exec('hiliteColor', e.target.value)} />
+
+      <div className="w-px h-5 bg-gray-200 mx-1" />
+
+      <ToolBtn title="Heading" onClick={() => exec('formatBlock', '<h3>')}><span className="font-bold text-xs">H</span></ToolBtn>
+      <ToolBtn title="Paragraph" onClick={() => exec('formatBlock', '<p>')}><span className="text-xs">¶</span></ToolBtn>
+      <ToolBtn title="Bullet list" onClick={() => exec('insertUnorderedList')}>
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+        </svg>
+      </ToolBtn>
+
+      <div className="w-px h-5 bg-gray-200 mx-1" />
+
+      <ToolBtn title="Clear formatting" onClick={() => exec('removeFormat')}>
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </ToolBtn>
+    </div>
+  )
+}
 
 function NotesTab({ clientId }: { clientId: string }) {
   const [notes, setNotes] = useState<Note[]>([])
-  const [body, setBody] = useState('')
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [loading, setLoading] = useState(true)
   const [templates, setTemplates] = useState<{ id: string; name: string; body: string }[]>([])
   const [currentNoteId, setCurrentNoteId] = useState<string | null>(null)
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const editorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     Promise.all([
@@ -996,14 +1801,17 @@ function NotesTab({ clientId }: { clientId: string }) {
     }).finally(() => setLoading(false))
   }, [clientId])
 
-  async function doSave(text: string, noteId: string | null): Promise<string | null> {
-    if (!text.trim()) return noteId
+  function getHtml() { return editorRef.current?.innerHTML ?? '' }
+
+  async function doSave(html: string, noteId: string | null): Promise<string | null> {
+    const stripped = html.replace(/<[^>]*>/g, '').trim()
+    if (!stripped) return noteId
     setSaveStatus('saving')
     if (noteId) {
       const res = await fetch(`/api/coach/notes/${clientId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ noteId, body: text }),
+        body: JSON.stringify({ noteId, body: html }),
       })
       if (res.ok) {
         const updated = await res.json()
@@ -1015,7 +1823,7 @@ function NotesTab({ clientId }: { clientId: string }) {
       const res = await fetch(`/api/coach/notes/${clientId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: text }),
+        body: JSON.stringify({ body: html }),
       })
       if (res.ok) {
         const note = await res.json()
@@ -1028,29 +1836,29 @@ function NotesTab({ clientId }: { clientId: string }) {
     }
   }
 
-  function handleBodyChange(text: string) {
-    setBody(text)
+  function scheduleAutoSave() {
     setSaveStatus('idle')
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-    if (!text.trim()) return
     autoSaveTimer.current = setTimeout(async () => {
-      const id = await doSave(text, currentNoteId)
+      const html = getHtml()
+      const id = await doSave(html, currentNoteId)
       if (id && !currentNoteId) setCurrentNoteId(id)
     }, 1500)
   }
 
   function startNew() {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-    setBody('')
+    if (editorRef.current) editorRef.current.innerHTML = ''
     setCurrentNoteId(null)
     setSaveStatus('idle')
   }
 
   function editNote(note: Note) {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
-    setBody(note.body)
+    if (editorRef.current) editorRef.current.innerHTML = note.body
     setCurrentNoteId(note.id)
     setSaveStatus('saved')
+    editorRef.current?.focus()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -1092,7 +1900,11 @@ function NotesTab({ clientId }: { clientId: string }) {
                 defaultValue=""
                 onChange={(e) => {
                   const t = templates.find((t) => t.id === e.target.value)
-                  if (t) { handleBodyChange(t.body); e.target.value = '' }
+                  if (t && editorRef.current) {
+                    editorRef.current.innerHTML = noteBodyToHtml(t.body)
+                    scheduleAutoSave()
+                    e.target.value = ''
+                  }
                 }}
                 className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
@@ -1107,11 +1919,16 @@ function NotesTab({ clientId }: { clientId: string }) {
             )}
           </div>
         </div>
-        <textarea
-          value={body}
-          onChange={(e) => handleBodyChange(e.target.value)}
-          placeholder="Write a note about this client… or pick a template above"
-          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y font-mono leading-relaxed"
+
+        <RichToolbar editorRef={editorRef} />
+
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          onInput={scheduleAutoSave}
+          data-placeholder="Write a note about this client… or pick a template above"
+          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed overflow-auto prose prose-sm max-w-none"
           style={{ minHeight: '55vh' }}
         />
       </div>
@@ -1120,7 +1937,10 @@ function NotesTab({ clientId }: { clientId: string }) {
       {notes.length === 0 && <Empty label="No notes yet." />}
       {notes.map((note) => (
         <div key={note.id} className={`bg-white rounded-2xl border p-5 group relative transition-all ${currentNoteId === note.id ? 'border-blue-300 bg-blue-50' : ''}`}>
-          <p className="text-xs text-gray-800 whitespace-pre-wrap font-mono leading-relaxed">{note.body}</p>
+          <div
+            className="text-sm text-gray-800 leading-relaxed prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: note.body }}
+          />
           <div className="flex items-center justify-between mt-3">
             <p className="text-xs text-gray-400">{fmtFull(note.created_at)}</p>
             <div className="flex items-center gap-3">
@@ -2489,13 +3309,14 @@ type CalHabit = { id: string; name: string; type: string; target: number | null;
 type MacroDay = { cal: number; protein: number; carbs: number; fat: number }
 
 const EVENT_COLORS: Record<string, string> = {
+  task:           'bg-rose-50 text-rose-700 border-rose-200',
   workout:        'bg-blue-50 text-blue-700 border-blue-200',
   steps:          'bg-green-50 text-green-700 border-green-200',
   note:           'bg-yellow-50 text-yellow-700 border-yellow-200',
   habit:          'bg-purple-50 text-purple-700 border-purple-200',
-  autoflow:       'bg-orange-50 text-orange-700 border-orange-200',
+  autoflow:       'bg-indigo-50 text-indigo-700 border-indigo-200',
   personal:       'bg-orange-50 text-orange-700 border-orange-200',
-  travel:         'bg-teal-50 text-teal-700 border-teal-200',
+  travel:         'bg-sky-50 text-sky-700 border-sky-200',
   extra_activity: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   birthday:       'bg-pink-50 text-pink-700 border-pink-200',
   custom:         'bg-gray-50 text-gray-700 border-gray-200',
@@ -2599,9 +3420,12 @@ function getWorkoutsForDate(
 
   // 2. Show workouts that are scheduled for today (unless overridden away)
   for (const prog of programs) {
-    const start = new Date(prog.start_date); start.setHours(0, 0, 0, 0)
-    const target = new Date(dateStr); target.setHours(0, 0, 0, 0)
-    const dayOffset = Math.round((target.getTime() - start.getTime()) / 86400000)
+    const start = new Date(prog.start_date + 'T00:00:00')
+    // Use local date components from the Date object directly — toISOString() returns UTC
+    // which gives the wrong date in UTC+10 timezones (e.g. AEST midnight → previous day UTC).
+    const startUTC  = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate())
+    const targetUTC = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+    const dayOffset = Math.round((targetUTC - startUTC) / 86400000)
     if (dayOffset < 0) continue
     const weekIdx = Math.floor(dayOffset / 7)
     const dayIdx = dayOffset % 7
@@ -2656,22 +3480,31 @@ function CoachWorkoutModal({ workout, clientId, onClose }: {
   )
   const [savingFeedback, setSavingFeedback] = useState(false)
   const [feedbackSaved, setFeedbackSaved] = useState(false)
+  const [feedbackError, setFeedbackError] = useState<string | null>(null)
 
   async function saveFeedback() {
     if (!result) return
     setSavingFeedback(true)
-    const exerciseFeedback = Object.entries(coachNotes).map(([id, coachNote]) => ({ id, coachNote }))
-    await fetch(`/api/workouts/program-session/${result.id}/feedback`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ exerciseFeedback }),
-    })
-    setSavingFeedback(false)
-    setFeedbackSaved(true)
-    setTimeout(() => setFeedbackSaved(false), 2500)
+    setFeedbackError(null)
+    try {
+      const exerciseFeedback = Object.entries(coachNotes).map(([id, coachNote]) => ({ id, coachNote }))
+      const res = await fetch(`/api/workouts/program-session/${result.id}/feedback`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exerciseFeedback }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error((body as { error?: string }).error ?? `Server error ${res.status}`)
+      }
+      setFeedbackSaved(true)
+      setTimeout(() => setFeedbackSaved(false), 2500)
+    } catch (e) {
+      setFeedbackError(e instanceof Error ? e.message : 'Failed to save feedback')
+    } finally {
+      setSavingFeedback(false)
+    }
   }
-
-  const hasFeedbackChanges = result && Object.keys(coachNotes).length > 0
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
@@ -2682,8 +3515,17 @@ function CoachWorkoutModal({ workout, clientId, onClose }: {
             <h2 className="text-base font-bold text-gray-900 mt-0.5">{workout.dayName}</h2>
             <p className="text-xs text-gray-400 mt-0.5">
               {new Date(workout.dateStr + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}
-              {result && <span className="ml-2 text-green-600 font-semibold">· Completed</span>}
             </p>
+            {result && (
+              <div className="flex items-center gap-1.5 mt-2 bg-green-50 border border-green-100 rounded-lg px-2.5 py-1.5 w-fit">
+                <svg className="w-3.5 h-3.5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="text-xs font-semibold text-green-700">
+                  Completed {new Date(result.event_date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </span>
+              </div>
+            )}
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 mt-0.5">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -2760,11 +3602,11 @@ function CoachWorkoutModal({ workout, clientId, onClose }: {
                 {/* Coach feedback input */}
                 {result && (
                   <div className="pt-1">
-                    <p className="text-[10px] text-amber-600 font-semibold uppercase tracking-wide mb-1">Technique feedback</p>
+                    <p className="text-[10px] text-amber-600 font-semibold uppercase tracking-wide mb-1">Feedback</p>
                     <textarea
                       value={coachNotes[item.id] ?? savedEx?.coachNote ?? ''}
                       onChange={(e) => setCoachNotes((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                      placeholder="Add technique feedback for this exercise…"
+                      placeholder="Add feedback for this exercise…"
                       rows={2}
                       className="w-full text-xs border border-amber-100 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-amber-300 placeholder:text-gray-300 bg-amber-50"
                     />
@@ -2775,16 +3617,147 @@ function CoachWorkoutModal({ workout, clientId, onClose }: {
           })}
         </div>
 
-        <div className="px-5 py-4 border-t flex gap-3">
-          <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50">
+        <div className="px-5 py-4 border-t space-y-2">
+          {feedbackError && (
+            <p className="text-xs text-red-500 text-center">{feedbackError}</p>
+          )}
+          <div className="flex gap-3">
+            <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50">
+              Close
+            </button>
+            {result && (
+              <button onClick={saveFeedback} disabled={savingFeedback}
+                className="flex-1 bg-amber-500 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 transition-colors">
+                {savingFeedback ? 'Saving…' : feedbackSaved ? 'Saved ✓' : 'Save Feedback'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Coach personal workout viewer ─────────────────────────────────────────────
+
+type PersonalWorkoutDetail = {
+  id: string
+  name: string
+  started_at: string
+  ended_at: string | null
+  duration_min: number | null
+  exercises: Array<{
+    weId: string
+    name: string
+    category: string
+    notes: string | null
+    sets: Array<{ setNumber: number; weightLbs: number | null; reps: number | null; durationSeconds: number | null; calories: number | null }>
+  }>
+  sections: Array<{ title: string; notes: string; scoreType: string; scoreValue: string }>
+}
+
+function CoachPersonalWorkoutModal({ event, clientId, onClose }: {
+  event: CalendarEvent
+  clientId: string
+  onClose: () => void
+}) {
+  const [detail, setDetail] = useState<PersonalWorkoutDetail | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const workoutId = (event.content as Record<string, unknown>)?.workout_id as string | undefined
+
+  useEffect(() => {
+    if (!workoutId) { setLoading(false); return }
+    fetch(`/api/coach/clients/${clientId}/workouts/${workoutId}`)
+      .then((r) => r.ok ? r.json() : r.json().then((b: { error?: string }) => { throw new Error(b.error ?? 'Failed') }))
+      .then((d) => setDetail(d))
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
+      .finally(() => setLoading(false))
+  }, [workoutId, clientId])
+
+  function fmtSet(s: PersonalWorkoutDetail['exercises'][0]['sets'][0]): string {
+    const parts: string[] = []
+    if (s.weightLbs != null) parts.push(`${s.weightLbs} kg`)
+    if (s.reps != null) parts.push(`${s.reps} reps`)
+    if (s.durationSeconds != null) parts.push(`${s.durationSeconds}s`)
+    if (s.calories != null) parts.push(`${s.calories} cal`)
+    return parts.join(' × ') || '—'
+  }
+
+  const dateDisplay = new Date(event.event_date + 'T00:00:00').toLocaleDateString('en-AU', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  })
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white w-full sm:rounded-2xl shadow-2xl sm:max-w-lg max-h-[90vh] flex flex-col rounded-t-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between px-5 pt-5 pb-3 border-b">
+          <div>
+            <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide">Personal workout</p>
+            <h2 className="text-base font-bold text-gray-900 mt-0.5">{event.title}</h2>
+            <p className="text-xs text-gray-400 mt-0.5">{dateDisplay}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 mt-0.5">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          {loading && <p className="text-sm text-gray-400 text-center py-4">Loading…</p>}
+          {error && <p className="text-sm text-red-500 text-center py-4">{error}</p>}
+          {!loading && !error && !workoutId && (
+            <p className="text-sm text-gray-400 text-center py-4">No workout data linked.</p>
+          )}
+          {detail && (
+            <>
+              {detail.duration_min != null && (
+                <p className="text-xs text-gray-400">{detail.duration_min} min</p>
+              )}
+              {detail.exercises.map((ex) => (
+                <div key={ex.weId} className="border border-gray-100 rounded-xl px-4 py-3 space-y-1.5">
+                  <p className="text-sm font-semibold text-gray-800">{ex.name}
+                    <span className="text-xs font-normal text-gray-400 ml-1.5 capitalize">{ex.category}</span>
+                  </p>
+                  {ex.sets.length > 0 ? (
+                    <div className="space-y-0.5">
+                      {ex.sets.map((s) => (
+                        <p key={s.setNumber} className="text-xs text-gray-600">
+                          Set {s.setNumber}: {fmtSet(s)}
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400 italic">No sets recorded</p>
+                  )}
+                  {ex.notes && <p className="text-xs text-gray-500 italic">"{ex.notes}"</p>}
+                </div>
+              ))}
+              {detail.sections.map((s, i) => (
+                <div key={i} className="bg-purple-50 rounded-xl px-4 py-3 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-purple-600 uppercase tracking-wide">Section</span>
+                    {s.title && <p className="text-sm font-semibold text-gray-800">{s.title}</p>}
+                  </div>
+                  {s.notes && <p className="text-sm text-gray-600">{s.notes}</p>}
+                  {s.scoreValue && (
+                    <p className="text-xs text-gray-500">
+                      <span className="font-medium capitalize">{s.scoreType}:</span> {s.scoreValue}
+                    </p>
+                  )}
+                </div>
+              ))}
+              {detail.exercises.length === 0 && detail.sections.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-4">No exercises recorded.</p>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="px-5 py-4 border-t">
+          <button onClick={onClose} className="w-full border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50">
             Close
           </button>
-          {result && hasFeedbackChanges && (
-            <button onClick={saveFeedback} disabled={savingFeedback}
-              className="flex-1 bg-amber-500 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 transition-colors">
-              {savingFeedback ? 'Saving…' : feedbackSaved ? 'Saved ✓' : 'Save Feedback'}
-            </button>
-          )}
         </div>
       </div>
     </div>
@@ -2990,9 +3963,11 @@ function CalendarTab({ clientId }: { clientId: string }) {
   const [error, setError] = useState<string | null>(null)
   const datePickerRef = useRef<HTMLInputElement>(null)
   const [addingEvent, setAddingEvent] = useState<string | null>(null)
-  const [newEvent, setNewEvent] = useState({ type: 'note', title: '', content: '' })
+  const [newEvent, setNewEvent] = useState({ type: 'task', title: '', content: '', repeat: 'none' })
   const [saving, setSaving] = useState(false)
+  const [deletingSeriesId, setDeletingSeriesId] = useState<string | null>(null)
   const [viewingWorkout, setViewingWorkout] = useState<CalWorkoutForDate | null>(null)
+  const [viewingPersonalWorkout, setViewingPersonalWorkout] = useState<CalendarEvent | null>(null)
   const [viewingAutoflow, setViewingAutoflow] = useState<{ title: string; flowId: string; stepNumber: number } | null>(null)
   const [autoflowStepData, setAutoflowStepData] = useState<{ core_questions: { id: string; label: string; type: string }[]; questions: { id: string; label: string; type: string }[]; response: { answers: Record<string, string>; submitted_at: string } | null } | null>(null)
   const [autoflowLoading, setAutoflowLoading] = useState(false)
@@ -3084,15 +4059,54 @@ function CalendarTab({ clientId }: { clientId: string }) {
     const res = await fetch(`/api/coach/clients/${clientId}/calendar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_date: date, type: newEvent.type, title: newEvent.title, content: newEvent.content ? { note: newEvent.content } : {} }),
+      body: JSON.stringify({
+        event_date: date,
+        type: newEvent.type,
+        title: newEvent.title,
+        content: newEvent.content ? { note: newEvent.content } : {},
+        repeat_rule: newEvent.repeat !== 'none' ? newEvent.repeat : undefined,
+      }),
     })
-    if (res.ok) { const created = await res.json(); setEvents((prev) => [...prev, created]) }
-    setAddingEvent(null); setNewEvent({ type: 'note', title: '', content: '' }); setSaving(false)
+    if (res.ok) {
+      const data = await res.json()
+      // API returns { events: [...] } for recurring, or a single event for one-off
+      const created = Array.isArray(data.events) ? data.events : [data]
+      setEvents((prev) => [...prev, ...created])
+    }
+    setAddingEvent(null); setNewEvent({ type: 'task', title: '', content: '', repeat: 'none' }); setSaving(false)
   }
 
   async function deleteEvent(id: string) {
+    const evt = events.find(e => e.id === id)
+    const recurrenceId = evt?.content?.recurrence_id as string | undefined
+    if (recurrenceId) {
+      // Show series delete prompt
+      setDeletingSeriesId(id)
+      return
+    }
     await fetch(`/api/coach/clients/${clientId}/calendar/${id}`, { method: 'DELETE' })
     setEvents((prev) => prev.filter((e) => e.id !== id))
+  }
+
+  async function deleteOnlyThis(id: string) {
+    await fetch(`/api/coach/clients/${clientId}/calendar/${id}`, { method: 'DELETE' })
+    setEvents((prev) => prev.filter((e) => e.id !== id))
+    setDeletingSeriesId(null)
+  }
+
+  async function deleteAllFuture(id: string) {
+    const evt = events.find(e => e.id === id)
+    const recurrenceId = evt?.content?.recurrence_id as string | undefined
+    const today = toDateStr(new Date())
+    const toDelete = events.filter(e =>
+      (e.id === id || (recurrenceId && (e.content?.recurrence_id as string) === recurrenceId)) &&
+      e.event_date >= today
+    )
+    await Promise.all(toDelete.map(e =>
+      fetch(`/api/coach/clients/${clientId}/calendar/${e.id}`, { method: 'DELETE' })
+    ))
+    setEvents((prev) => prev.filter(e => !toDelete.some(d => d.id === e.id)))
+    setDeletingSeriesId(null)
   }
 
   async function moveEvent(id: string, newDate: string) {
@@ -3278,7 +4292,7 @@ function CalendarTab({ clientId }: { clientId: string }) {
                         <p className="truncate font-semibold flex-1">💪 {w.dayName}</p>
                         {w.result && <svg className="w-3 h-3 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>}
                       </div>
-                      <p className="opacity-70 truncate">{w.programName}{w.result ? ' · logged' : ` · ${w.exerciseCount} ex`}</p>
+                      <p className="opacity-70 truncate">{w.programName} · {w.result ? `done ${new Date(w.result.event_date + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}` : `${w.exerciseCount} ex`}</p>
                     </button>
                   </div>
                 ))}
@@ -3303,6 +4317,8 @@ function CalendarTab({ clientId }: { clientId: string }) {
                   >
                     {evt.type === 'autoflow' ? (
                       <button onClick={() => openAutoflowStep(evt)} className="truncate text-left hover:underline flex-1">⚡ {evt.title}</button>
+                    ) : evt.type === 'workout' ? (
+                      <button onClick={() => setViewingPersonalWorkout(evt)} className="truncate text-left hover:underline flex-1">💪 {evt.title}</button>
                     ) : (
                       <span className="truncate flex-1">{evt.title}</span>
                     )}
@@ -3398,6 +4414,8 @@ function CalendarTab({ clientId }: { clientId: string }) {
                     >
                       {evt.type === 'autoflow' ? (
                         <button onClick={() => openAutoflowStep(evt)} className="w-full text-left hover:opacity-80 truncate">⚡ {evt.title}</button>
+                      ) : evt.type === 'workout' ? (
+                        <button onClick={() => setViewingPersonalWorkout(evt)} className="w-full text-left hover:opacity-80 truncate">💪 {evt.title}</button>
                       ) : evt.title}
                     </div>
                   ))}
@@ -3485,6 +4503,9 @@ function CalendarTab({ clientId }: { clientId: string }) {
       )}
 
       {/* Workout results modal */}
+      {viewingPersonalWorkout && (
+        <CoachPersonalWorkoutModal event={viewingPersonalWorkout} clientId={clientId} onClose={() => setViewingPersonalWorkout(null)} />
+      )}
       {viewingWorkout && (
         <CoachWorkoutModal workout={viewingWorkout} clientId={clientId} onClose={() => setViewingWorkout(null)} />
       )}
@@ -3502,6 +4523,7 @@ function CalendarTab({ clientId }: { clientId: string }) {
             <select value={newEvent.type} onChange={(e) => setNewEvent((n) => ({ ...n, type: e.target.value }))}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
               <optgroup label="Coach events">
+                <option value="task">📌 Task</option>
                 <option value="note">📝 Note</option>
                 <option value="workout">💪 Workout</option>
                 <option value="steps">👟 Steps Goal</option>
@@ -3516,6 +4538,7 @@ function CalendarTab({ clientId }: { clientId: string }) {
             </select>
             <input type="text" value={newEvent.title} onChange={(e) => setNewEvent((n) => ({ ...n, title: e.target.value }))}
               placeholder={
+                newEvent.type === 'task' ? 'e.g. Weigh in, Submit check-in…' :
                 newEvent.type === 'personal' ? 'Birthday dinner, date night…' :
                 newEvent.type === 'travel' ? 'Holiday, trip, going away…' :
                 newEvent.type === 'extra_activity' ? 'Walk, swim, bike ride…' :
@@ -3531,11 +4554,55 @@ function CalendarTab({ clientId }: { clientId: string }) {
                 'Notes (optional)'
               } rows={2}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+
+            {/* Repeat — available for all coach event types */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-500">Repeat</label>
+              <select value={newEvent.repeat} onChange={(e) => setNewEvent((n) => ({ ...n, repeat: e.target.value }))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                <option value="none">Does not repeat</option>
+                <option value="weekly">Every week</option>
+                <option value="biweekly">Every 2 weeks</option>
+                <option value="monthly">Every month</option>
+              </select>
+              {newEvent.repeat !== 'none' && (
+                <p className="text-[11px] text-gray-400">
+                  {newEvent.repeat === 'weekly' && `Repeats every ${new Date(addingEvent + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long' })} for 1 year`}
+                  {newEvent.repeat === 'biweekly' && `Repeats every 2 weeks on ${new Date(addingEvent + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long' })} for 1 year`}
+                  {newEvent.repeat === 'monthly' && `Repeats on the ${new Date(addingEvent + 'T00:00:00').getDate()}th of each month for 1 year`}
+                </p>
+              )}
+            </div>
+
             <div className="flex gap-3">
               <button onClick={() => setAddingEvent(null)} className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50">Cancel</button>
               <button onClick={() => saveEvent(addingEvent)} disabled={!newEvent.title.trim() || saving}
                 className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
-                {saving ? 'Saving…' : 'Add'}
+                {saving ? 'Saving…' : newEvent.repeat !== 'none' ? 'Add recurring' : 'Add'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Series delete prompt */}
+      {deletingSeriesId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
+            <h3 className="text-sm font-bold text-gray-900">Delete recurring event</h3>
+            <p className="text-sm text-gray-500">This is part of a recurring series. What would you like to delete?</p>
+            <div className="space-y-2">
+              <button onClick={() => deleteOnlyThis(deletingSeriesId)}
+                className="w-full border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50">
+                This event only
+              </button>
+              <button onClick={() => deleteAllFuture(deletingSeriesId)}
+                className="w-full border border-red-200 text-red-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-red-50">
+                This and all future events in series
+              </button>
+              <button onClick={() => setDeletingSeriesId(null)}
+                className="w-full text-gray-400 py-2 text-sm hover:text-gray-600">
+                Cancel
               </button>
             </div>
           </div>
@@ -3555,6 +4622,7 @@ type ClientMealPlan = {
   start_date: string
   end_date: string | null
   status: string
+  show_macros?: boolean
 }
 
 type MealPlanTemplate = {
@@ -3805,12 +4873,15 @@ function MealPlanTab({ clientId }: { clientId: string }) {
                     {plan.status === 'active' ? 'Active' : 'Inactive'}
                   </button>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <p className="text-xs text-gray-400">
                     {new Date(plan.start_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
                     {plan.end_date ? ` – ${new Date(plan.end_date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
                     {' · '}{Math.round(totalCals)} kcal/day
                   </p>
+                  {plan.show_macros === false && (
+                    <span className="text-[10px] font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-1.5 py-0.5 leading-none">macros hidden</span>
+                  )}
                   <button
                     onClick={() => isEditingDates ? setEditingDatesId(null) : openDateEditor(plan)}
                     className="text-gray-300 hover:text-blue-500 transition-colors"
@@ -4605,7 +5676,7 @@ function CheckinSchedulesPanel({ clientId }: { clientId: string }) {
         <button
           onClick={openAddModal}
           className="text-xs font-semibold px-3 py-1.5 rounded-lg text-gray-900 hover:opacity-90 transition-colors"
-          style={{ backgroundColor: '#FFD885' }}
+          style={{ backgroundColor: '#1D9E75' }}
         >
           + Add Schedule
         </button>
@@ -4754,7 +5825,7 @@ function CheckinSchedulesPanel({ clientId }: { clientId: string }) {
                 onClick={handleSave}
                 disabled={saving}
                 className="flex-1 text-sm font-semibold px-4 py-2.5 rounded-xl text-gray-900 hover:opacity-90 transition-colors disabled:opacity-50"
-                style={{ backgroundColor: '#FFD885' }}
+                style={{ backgroundColor: '#1D9E75' }}
               >
                 {saving ? 'Saving…' : modal.editing ? 'Save Changes' : 'Add Schedule'}
               </button>
@@ -5434,8 +6505,23 @@ const CAT_CONFIG: Record<string, { label: string; serve: string; badge: string; 
   condiment: { label: 'Condiments',   serve: '~1 fat or carb serve',   badge: 'bg-blue-100 text-blue-700',    color: 'bg-blue-50' },
   free:      { label: 'Free Foods',   serve: 'Unlimited',              badge: 'bg-gray-100 text-gray-600',    color: 'bg-gray-50' },
 }
-const SEC_LABELS: Record<string, string> = { fat: '+ 1 fat', carb: '+ 1 carb' }
-const SEC_COLORS: Record<string, string> = { fat: 'bg-green-100 text-green-700', carb: 'bg-purple-100 text-purple-700' }
+const SEC_LABELS: Record<string, string> = { fat: '+ 1 fat', carb: '+ 1 carb', fat_half: '+ ½ fat', carb_half: '+ ½ carb', protein_half: '+ ½ protein', protein: '+ 1 protein' }
+const SEC_COLORS: Record<string, string> = { fat: 'bg-green-100 text-green-700', carb: 'bg-purple-100 text-purple-700', fat_half: 'bg-green-50 text-green-600', carb_half: 'bg-purple-50 text-purple-600', protein_half: 'bg-pink-50 text-pink-600', protein: 'bg-pink-100 text-pink-700' }
+
+function macrosToServes(macros: { proteinG: number; carbG: number; fatG: number }) {
+  const roundHalf = (n: number) => Math.round(n * 2) / 2
+  const fruit_serves = 2
+  // Reserve carb budget for fruit (2 × 20g) and veg (~150 kcal ÷ 4 kcal/g ≈ 38g carbs)
+  const vegCarbG = Math.round(150 / 4)
+  const remainingCarbG = Math.max(0, macros.carbG - fruit_serves * 20 - vegCarbG)
+  return {
+    protein_serves: roundHalf(macros.proteinG / 30),
+    carb_serves: roundHalf(remainingCarbG / 20),
+    fat_serves: roundHalf(macros.fatG / 10),
+    fruit_serves,
+    veg_unlimited: true,
+  }
+}
 
 function ClientServeGuide({ clientId }: { clientId: string }) {
   const [foods, setFoods] = useState<ServeFood[]>([])
@@ -5445,6 +6531,7 @@ function ClientServeGuide({ clientId }: { clientId: string }) {
   const [editingTargets, setEditingTargets] = useState(false)
   const [draft, setDraft] = useState({ protein_serves: 0, carb_serves: 0, fat_serves: 0, fruit_serves: 0, veg_unlimited: true, notes: '' })
   const [savingTargets, setSavingTargets] = useState(false)
+  const [autoAssign, setAutoAssign] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -5459,6 +6546,13 @@ function ClientServeGuide({ clientId }: { clientId: string }) {
     }).finally(() => setLoading(false))
   }, [clientId])
 
+  function applyMacrosToServes(macros: { proteinG: number; carbG: number; fatG: number }) {
+    const serves = macrosToServes(macros)
+    setDraft(d => ({ ...d, ...serves }))
+    setEditingTargets(true)
+    setAutoAssign(true)
+  }
+
   async function saveTargets() {
     setSavingTargets(true)
     const r = await fetch('/api/coach/clients/serve-targets', {
@@ -5470,12 +6564,16 @@ function ClientServeGuide({ clientId }: { clientId: string }) {
     setTargets(d.targets)
     setEditingTargets(false)
     setSavingTargets(false)
+    setAutoAssign(false)
   }
 
   if (loading) return <div className="py-12 text-center text-gray-400 text-sm animate-pulse">Loading…</div>
 
   return (
     <div className="space-y-5">
+      {/* TDEE calculator */}
+      <TDEESection clientId={clientId} onApplyToServes={applyMacrosToServes} />
+
       {/* Serve targets panel */}
       <div className="bg-white rounded-2xl border border-gray-200 p-5">
         <div className="flex items-center justify-between mb-4">
@@ -5490,6 +6588,14 @@ function ClientServeGuide({ clientId }: { clientId: string }) {
 
         {editingTargets ? (
           <div className="space-y-4">
+            {autoAssign && (
+              <div className="flex items-center gap-2 bg-teal-50 border border-teal-100 rounded-xl px-3 py-2.5">
+                <svg className="w-4 h-4 text-teal-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-xs text-teal-700">Serves auto-calculated from TDEE — adjust if needed, then save.</p>
+              </div>
+            )}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {([
                 { key: 'protein_serves', label: 'Protein', color: 'text-pink-600' },
@@ -5507,12 +6613,19 @@ function ClientServeGuide({ clientId }: { clientId: string }) {
             </div>
             {/* Estimated daily calories + macros */}
             {(draft.protein_serves > 0 || draft.carb_serves > 0 || draft.fat_serves > 0) && (() => {
+              // Real-food estimates per serve (primary macro + typical mixed macros in real food):
+              // Protein 135 kcal = 30g P (120) + ~3g fat typical in lean meat/eggs (+27, rounded down)
+              // Carb    90 kcal = 20g C (80)  + ~3g protein typical in grains/legumes (+12, rounded down)
+              // Fat     95 kcal = 10g F (90)  + small protein/carbs in nuts/seeds (+5)
+              // Fruit   80 kcal = 20g C (80), minimal other macros
+              // Veg     150 kcal = unlimited non-starchy veg (~500g typical day, accounts for variety incl. starchy veg)
+              const vegCal = draft.veg_unlimited ? 150 : 0
               const estCal = Math.round(
-                draft.protein_serves * 130 +
-                draft.carb_serves   * 100 +
-                draft.fat_serves    * 100 +
-                draft.fruit_serves  *  90 +
-                (draft.veg_unlimited ? 80 : 0)
+                draft.protein_serves * 135 +
+                draft.carb_serves   *  90 +
+                draft.fat_serves    *  95 +
+                draft.fruit_serves  *  80 +
+                vegCal
               )
               const estP = Math.round(draft.protein_serves * 30)
               const estC = Math.round(draft.carb_serves * 20 + draft.fruit_serves * 20)
@@ -5520,14 +6633,16 @@ function ClientServeGuide({ clientId }: { clientId: string }) {
               return (
                 <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-amber-700">Estimated daily</span>
+                    <span className="text-xs text-amber-700">Estimated daily <span className="font-normal text-amber-600">(real-food total, incl. ~{vegCal} kcal veg)</span></span>
                     <span className="text-sm font-bold text-amber-800">~{estCal} kcal</span>
                   </div>
                   <div className="flex gap-3 text-xs font-semibold">
-                    <span className="text-pink-600">~{estP}g protein</span>
-                    <span className="text-purple-600">~{estC}g carbs</span>
-                    <span className="text-green-600">~{estF}g fat</span>
+                    <span className="text-pink-600">~{estP}g P</span>
+                    <span className="text-purple-600">~{estC}g C</span>
+                    <span className="text-green-600">~{estF}g F</span>
+                    <span className="text-gray-400 font-normal">(primary macros only)</span>
                   </div>
+                  <p className="text-[11px] text-amber-600">Estimate includes real-food mixed macros (e.g. fat in protein foods, protein in grains) + ~150 kcal for veg. Note: the 150 kcal veg estimate is drawn from the carb budget when auto-assigning from TDEE.</p>
                 </div>
               )
             })()}
@@ -5559,12 +6674,12 @@ function ClientServeGuide({ clientId }: { clientId: string }) {
               ))}
             </div>
             <p className="text-xs text-gray-400">
-              ~{Math.round(targets.protein_serves * 130 + targets.carb_serves * 100 + targets.fat_serves * 100 + targets.fruit_serves * 90 + 80)} kcal/day estimated (excl. free condiments)
+              ~{Math.round(targets.protein_serves * 135 + targets.carb_serves * 90 + targets.fat_serves * 95 + targets.fruit_serves * 80 + 150)} kcal/day estimated (real-food total incl. mixed macros + ~150 kcal veg) · Veg is unlimited and already included in this estimate.
             </p>
             <p className="text-xs text-blue-500">
               Client can now see the &quot;Food Cheat Sheet&quot; link in their food log.
             </p>
-            {targets.notes && <p className="text-xs text-gray-500 bg-gray-50 rounded-xl px-3 py-2">{targets.notes}</p>}
+            {targets.notes && <p className="text-xs text-gray-500 bg-gray-50 rounded-xl px-3 py-2 whitespace-pre-wrap">{targets.notes}</p>}
           </div>
         ) : (
           <p className="text-sm text-gray-400">No targets set yet. Click "Set Targets" above.</p>
@@ -5665,9 +6780,811 @@ function ClientServeGuide({ clientId }: { clientId: string }) {
   )
 }
 
+// ── Supplements Tab ───────────────────────────────────────────────────────────
+
+type LibSupplement = {
+  id: string; coach_id: string | null; name: string
+  default_dosage: string | null; benefits: string | null; brand_url: string | null; considerations: string | null
+}
+type ClientSupplement = {
+  id: string; supplement_id: string | null; name: string
+  dosage: string | null; benefits: string | null; brand_url: string | null; notes: string | null; considerations: string | null
+}
+
+function SupplementsTab({ clientId }: { clientId: string }) {
+  const [library, setLibrary] = useState<LibSupplement[]>([])
+  const [assigned, setAssigned] = useState<ClientSupplement[]>([])
+  const [loading, setLoading] = useState(true)
+  const [newName, setNewName] = useState('')
+  const [newDosage, setNewDosage] = useState('')
+  const [newBenefits, setNewBenefits] = useState('')
+  const [newBrandUrl, setNewBrandUrl] = useState('')
+  const [newConsiderations, setNewConsiderations] = useState('')
+  const [addingCustom, setAddingCustom] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [editingLibId, setEditingLibId] = useState<string | null>(null)
+  const [libEdits, setLibEdits] = useState<Partial<LibSupplement>>({})
+  const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+
+  function toggleExpanded(id: string) {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  function startEditLib(sup: LibSupplement) {
+    setEditingLibId(sup.id)
+    setLibEdits({ name: sup.name, default_dosage: sup.default_dosage ?? '', benefits: sup.benefits ?? '', brand_url: sup.brand_url ?? '', considerations: sup.considerations ?? '' })
+  }
+
+  async function saveLibEdit(id: string) {
+    const res = await fetch(`/api/coach/supplements/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(libEdits),
+    })
+    if (res.ok) {
+      const updated = await res.json()
+      setLibrary(p => p.map(s => s.id === id ? updated : s))
+    }
+    setEditingLibId(null)
+  }
+
+  async function deleteLib(id: string) {
+    await fetch(`/api/coach/supplements/${id}`, { method: 'DELETE' })
+    setLibrary(p => p.filter(s => s.id !== id))
+  }
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/coach/supplements').then(r => r.json()),
+      fetch(`/api/coach/clients/${clientId}/supplements`).then(r => r.json()),
+    ]).then(([lib, asgn]) => {
+      setLibrary(Array.isArray(lib) ? lib : [])
+      setAssigned(Array.isArray(asgn) ? asgn : [])
+    }).finally(() => setLoading(false))
+  }, [clientId])
+
+  async function assign(sup: LibSupplement) {
+    const res = await fetch(`/api/coach/clients/${clientId}/supplements`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        supplement_id: sup.id,
+        name: sup.name,
+        dosage: sup.default_dosage,
+        benefits: sup.benefits,
+        brand_url: sup.brand_url,
+        considerations: sup.considerations,
+      }),
+    })
+    const d = await res.json()
+    if (res.ok) setAssigned(p => [...p, d])
+  }
+
+  async function addCustom() {
+    if (!newName.trim()) return
+    setSaving(true)
+    const libRes = await fetch('/api/coach/supplements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName.trim(), default_dosage: newDosage, benefits: newBenefits, brand_url: newBrandUrl, considerations: newConsiderations }),
+    })
+    const libData = await libRes.json()
+    if (libRes.ok) setLibrary(p => [...p, libData])
+    setNewName(''); setNewDosage(''); setNewBenefits(''); setNewBrandUrl(''); setNewConsiderations('')
+    setAddingCustom(false)
+    setSaving(false)
+  }
+
+  function patchField(id: string, field: string, value: string) {
+    setAssigned(p => p.map(s => s.id === id ? { ...s, [field]: value } : s))
+    if (saveTimers.current[id]) clearTimeout(saveTimers.current[id])
+    saveTimers.current[id] = setTimeout(() => {
+      fetch(`/api/coach/clients/${clientId}/supplements/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: value }),
+      })
+    }, 800)
+  }
+
+  async function remove(id: string) {
+    setAssigned(p => p.filter(s => s.id !== id))
+    await fetch(`/api/coach/clients/${clientId}/supplements/${id}`, { method: 'DELETE' })
+  }
+
+  const assignedIds = new Set(assigned.map(a => a.supplement_id).filter(Boolean))
+
+  if (loading) return <div className="py-10 text-center text-sm text-gray-400">Loading…</div>
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Library */}
+        <div className="bg-white rounded-2xl border p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-900">Supplement Library</h3>
+            <button onClick={() => setAddingCustom(v => !v)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+              {addingCustom ? 'Cancel' : '+ Add Custom'}
+            </button>
+          </div>
+
+          {addingCustom && (
+            <div className="space-y-2 bg-blue-50 rounded-xl p-3">
+              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Supplement name *"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <input value={newDosage} onChange={e => setNewDosage(e.target.value)} placeholder="Default dosage"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <textarea value={newBenefits} onChange={e => setNewBenefits(e.target.value)} placeholder="Benefits / description" rows={2}
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+              <input value={newBrandUrl} onChange={e => setNewBrandUrl(e.target.value)} placeholder="Brand URL (optional)"
+                className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 space-y-1.5">
+                <p className="text-[11px] font-semibold text-amber-700 flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  Considerations — coach only, not shown to client
+                </p>
+                <textarea value={newConsiderations} onChange={e => setNewConsiderations(e.target.value)}
+                  placeholder="Contraindications, cautions, interactions…" rows={2}
+                  className="w-full text-sm border border-amber-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none" />
+              </div>
+              <button onClick={addCustom} disabled={saving || !newName.trim()}
+                className="w-full py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                {saving ? 'Saving…' : 'Save to Library'}
+              </button>
+            </div>
+          )}
+
+          <div className="divide-y divide-gray-50 max-h-[480px] overflow-y-auto">
+            {library.map(sup => {
+              const isAssigned = assignedIds.has(sup.id)
+              const isEditing = editingLibId === sup.id
+
+              if (isEditing) {
+                return (
+                  <div key={sup.id} className="py-3 space-y-2">
+                    <input value={libEdits.name ?? ''} onChange={e => setLibEdits(p => ({ ...p, name: e.target.value }))}
+                      placeholder="Name *"
+                      className="w-full text-sm font-semibold border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <input value={libEdits.default_dosage ?? ''} onChange={e => setLibEdits(p => ({ ...p, default_dosage: e.target.value }))}
+                      placeholder="Default dosage"
+                      className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <textarea value={libEdits.benefits ?? ''} onChange={e => setLibEdits(p => ({ ...p, benefits: e.target.value }))}
+                      placeholder="Benefits / description" rows={2}
+                      className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <input value={libEdits.brand_url ?? ''} onChange={e => setLibEdits(p => ({ ...p, brand_url: e.target.value }))}
+                      placeholder="Brand URL"
+                      className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 space-y-1">
+                      <p className="text-[10px] font-semibold text-amber-700">Considerations — coach only</p>
+                      <textarea value={libEdits.considerations ?? ''} onChange={e => setLibEdits(p => ({ ...p, considerations: e.target.value }))}
+                        placeholder="Contraindications, cautions…" rows={2}
+                        className="w-full text-xs border border-amber-200 rounded-lg px-2.5 py-1.5 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-amber-400" />
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => saveLibEdit(sup.id)}
+                        className="flex-1 py-1.5 bg-gray-900 text-white text-xs font-semibold rounded-lg hover:opacity-90 transition-opacity">
+                        Save
+                      </button>
+                      <button onClick={() => setEditingLibId(null)}
+                        className="px-3 py-1.5 text-xs font-semibold text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                        Cancel
+                      </button>
+                      <button onClick={() => { setEditingLibId(null); deleteLib(sup.id) }}
+                        className="px-3 py-1.5 text-xs font-semibold text-red-500 border border-red-100 rounded-lg hover:bg-red-50 transition-colors">
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                )
+              }
+
+              return (
+                <div key={sup.id} className="py-2.5 flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">{sup.name}</p>
+                    {sup.default_dosage && <p className="text-xs text-gray-400 mt-0.5">{sup.default_dosage}</p>}
+                    {sup.benefits && <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{sup.benefits}</p>}
+                    {sup.considerations && (
+                      <p className="text-[11px] text-amber-700 bg-amber-50 rounded px-1.5 py-0.5 mt-1 line-clamp-2">
+                        ⚠ {sup.considerations}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <button onClick={() => startEditLib(sup)}
+                      className="text-xs text-gray-400 hover:text-gray-700 font-medium px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors">
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => !isAssigned && assign(sup)}
+                      disabled={isAssigned}
+                      className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors ${
+                        isAssigned ? 'bg-green-50 text-green-600 cursor-default' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                      }`}
+                    >
+                      {isAssigned ? 'Assigned ✓' : '+ Assign'}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Assigned */}
+        <div className="bg-white rounded-2xl border p-5 space-y-3">
+          <h3 className="text-sm font-semibold text-gray-900">Assigned to Client</h3>
+          {assigned.length === 0 ? (
+            <p className="text-sm text-gray-400">No supplements assigned yet. Select from the library.</p>
+          ) : (
+            <div className="space-y-1.5 max-h-[520px] overflow-y-auto pr-1">
+              {assigned.map(s => {
+                const isOpen = expandedIds.has(s.id)
+                return (
+                  <div key={s.id} className="border border-gray-100 rounded-xl overflow-hidden">
+                    {/* Header row — always visible */}
+                    <div className="flex items-center gap-2 px-3 py-2.5">
+                      <button
+                        onClick={() => toggleExpanded(s.id)}
+                        className="flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+                        aria-label={isOpen ? 'Collapse' : 'Expand'}
+                      >
+                        <svg className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                      <button onClick={() => toggleExpanded(s.id)} className="flex-1 min-w-0 text-left">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{s.name || 'Unnamed supplement'}</p>
+                        {!isOpen && s.dosage && (
+                          <p className="text-xs text-gray-400 truncate">{s.dosage}</p>
+                        )}
+                      </button>
+                      <button onClick={() => remove(s.id)} className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0" title="Remove">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+
+                    {/* Expandable fields */}
+                    {isOpen && (
+                      <div className="px-3 pb-3 space-y-2 border-t border-gray-50">
+                        <div className="pt-2">
+                          <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Name</label>
+                          <input
+                            value={s.name}
+                            onChange={e => patchField(s.id, 'name', e.target.value)}
+                            className="w-full text-sm font-semibold text-gray-900 border border-gray-200 rounded-lg px-2.5 py-1.5 mt-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Dosage</label>
+                          <input
+                            value={s.dosage ?? ''}
+                            onChange={e => patchField(s.id, 'dosage', e.target.value)}
+                            placeholder="e.g. 2000 IU daily with food"
+                            className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 mt-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Benefits</label>
+                          <textarea
+                            value={s.benefits ?? ''}
+                            onChange={e => patchField(s.id, 'benefits', e.target.value)}
+                            placeholder="Why this supplement…"
+                            rows={2}
+                            className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 mt-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Brand / Link</label>
+                          <input
+                            value={s.brand_url ?? ''}
+                            onChange={e => patchField(s.id, 'brand_url', e.target.value)}
+                            placeholder="https://…"
+                            className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 mt-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Notes for client</label>
+                          <textarea
+                            value={s.notes ?? ''}
+                            onChange={e => patchField(s.id, 'notes', e.target.value)}
+                            placeholder="Any extra instructions…"
+                            rows={2}
+                            className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 mt-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                          />
+                        </div>
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 space-y-1">
+                          <p className="text-[10px] font-semibold text-amber-700 flex items-center gap-1">
+                            <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            Considerations — not visible to client
+                          </p>
+                          <textarea
+                            value={s.considerations ?? ''}
+                            onChange={e => patchField(s.id, 'considerations', e.target.value)}
+                            placeholder="Contraindications, cautions, interactions…"
+                            rows={2}
+                            className="w-full text-xs border border-amber-200 rounded-lg px-2.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Protocol Tab ──────────────────────────────────────────────────────────────
+
+type ProtocolSection = { id: string; title: string; content: string }
+
+const PROTOCOL_PRESETS = ['Sleep', 'Stress Management', 'Lifestyle', 'Nutrition Timing', 'Recovery', 'Mindset', 'Movement']
+
+function ProtocolTab({ clientId }: { clientId: string }) {
+  const [sections, setSections] = useState<ProtocolSection[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [showPresets, setShowPresets] = useState(false)
+
+  useEffect(() => {
+    fetch(`/api/coach/clients/${clientId}/protocol`)
+      .then(r => r.json())
+      .then(d => setSections(Array.isArray(d.sections) ? d.sections : []))
+      .finally(() => setLoading(false))
+  }, [clientId])
+
+  function scheduleSave(updated: ProtocolSection[]) {
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    setSaveStatus('saving')
+    saveTimer.current = setTimeout(async () => {
+      await fetch(`/api/coach/clients/${clientId}/protocol`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sections: updated }),
+      })
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus('idle'), 2000)
+    }, 1000)
+  }
+
+  function addSection(title: string) {
+    const updated = [...sections, { id: crypto.randomUUID(), title, content: '' }]
+    setSections(updated)
+    scheduleSave(updated)
+    setShowPresets(false)
+  }
+
+  function updateSection(id: string, field: 'title' | 'content', value: string) {
+    const updated = sections.map(s => s.id === id ? { ...s, [field]: value } : s)
+    setSections(updated)
+    scheduleSave(updated)
+  }
+
+  function deleteSection(id: string) {
+    const updated = sections.filter(s => s.id !== id)
+    setSections(updated)
+    scheduleSave(updated)
+  }
+
+  if (loading) return <div className="py-10 text-center text-sm text-gray-400">Loading…</div>
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">Client Protocol</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Lifestyle, sleep, stress management and other protocols — visible to the client.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {saveStatus === 'saving' && <span className="text-xs text-gray-400">Saving…</span>}
+          {saveStatus === 'saved' && <span className="text-xs text-green-500">Saved ✓</span>}
+          <div className="relative">
+            <button
+              onClick={() => setShowPresets(v => !v)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
+            >
+              + Add Section
+            </button>
+            {showPresets && (
+              <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden min-w-[180px]">
+                {PROTOCOL_PRESETS.map(p => (
+                  <button key={p} onClick={() => addSection(p)}
+                    className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0">
+                    {p}
+                  </button>
+                ))}
+                <button onClick={() => addSection('Custom')}
+                  className="w-full text-left px-4 py-2.5 text-sm text-blue-600 font-medium hover:bg-blue-50 transition-colors">
+                  Custom…
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {sections.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-dashed border-gray-200 py-12 text-center">
+          <p className="text-sm text-gray-500 font-medium">No protocol sections yet</p>
+          <p className="text-xs text-gray-400 mt-1">Add sections like Sleep, Stress Management, Lifestyle…</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {sections.map(s => (
+            <div key={s.id} className="bg-white rounded-2xl border p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <input
+                  value={s.title}
+                  onChange={e => updateSection(s.id, 'title', e.target.value)}
+                  className="flex-1 text-sm font-semibold text-gray-900 border-b border-transparent hover:border-gray-200 focus:border-blue-400 focus:outline-none py-0.5 bg-transparent"
+                  placeholder="Section title"
+                />
+                <button onClick={() => deleteSection(s.id)} className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0" title="Delete section">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+              <textarea
+                value={s.content}
+                onChange={e => updateSection(s.id, 'content', e.target.value)}
+                placeholder="Add notes, guidelines, or instructions for this section…"
+                rows={3}
+                className="w-full text-sm text-gray-700 border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none placeholder:text-gray-300"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
-type TabId = 'overview' | 'checkins' | 'nutrition' | 'training' | 'program' | 'calendar' | 'mealplan' | 'habits' | 'notes' | 'files' | 'flows' | 'preview' | 'resources' | 'cheatsheet'
+type CycleLogEntry = {
+  log_date: string
+  period: boolean
+  flow: string | null
+  clots: string | null
+  blood_color: string | null
+  spotting: boolean
+  cervical_mucus: string | null
+  cervix_position: string | null
+  bbt: string | null
+  symptoms: string[]
+  mittelschmerz: boolean
+  pain_side: string | null
+  mood: string | null
+  energy: string | null
+  sleep: string | null
+  libido: string | null
+  digestion: string | null
+  notes: string | null
+}
+
+function CycleTab({ clientId }: { clientId: string }) {
+  const today = new Date()
+  const [allLogs, setAllLogs] = useState<CycleLogEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [year, setYear] = useState(today.getFullYear())
+  const [month, setMonth] = useState(today.getMonth())
+  const [hoveredDate, setHoveredDate] = useState<string | null>(null)
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    fetch(`/api/coach/clients/${clientId}/cycle-logs?limit=365`)
+      .then((r) => r.json())
+      .then((d) => setAllLogs(Array.isArray(d) ? d : []))
+      .finally(() => setLoading(false))
+  }, [clientId])
+
+  if (loading) return <p className="text-sm text-gray-400 py-10 text-center">Loading…</p>
+  if (allLogs.length === 0) return <Empty label="No cycle data logged yet." />
+
+  const logMap: Record<string, CycleLogEntry> = {}
+  for (const l of allLogs) logMap[l.log_date] = l
+
+  const MONTH_NAMES_C = ['January','February','March','April','May','June','July','August','September','October','November','December']
+  const DAY_LABELS_C = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
+  function shiftDate(ds: string, days: number) {
+    const [y, m, d] = ds.split('-').map(Number)
+    const dt = new Date(y, m - 1, d + days)
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`
+  }
+  function diffDays(a: string, b: string) {
+    const [ay, am, ad] = a.split('-').map(Number)
+    const [by, bm, bd] = b.split('-').map(Number)
+    return Math.round((new Date(by, bm - 1, bd).getTime() - new Date(ay, am - 1, ad).getTime()) / 86400000)
+  }
+
+  // Period starts for prediction
+  const sortedDates = Object.keys(logMap).sort()
+  const periodStarts: string[] = []
+  for (const d of sortedDates) {
+    if (logMap[d]?.period && !logMap[shiftDate(d, -1)]?.period) periodStarts.push(d)
+  }
+  type CyclePrediction = { avgCycleLength: number; nextPeriodStart: string; nextPeriodEnd: string; ovulationDay: string; fertileStart: string; fertileEnd: string; daysUntilPeriod: number }
+  let prediction: CyclePrediction | null = null
+  if (periodStarts.length >= 2) {
+    const lengths: number[] = []
+    for (let i = 1; i < periodStarts.length; i++) {
+      const len = diffDays(periodStarts[i - 1], periodStarts[i])
+      if (len >= 18 && len <= 45) lengths.push(len)
+    }
+    if (lengths.length > 0) {
+      const recent = lengths.slice(-3)
+      const avgCycleLength = Math.round(recent.reduce((a, b) => a + b, 0) / recent.length)
+      const periodLengths = periodStarts.map(start => {
+        let len = 0, cur = start
+        while (logMap[cur]?.period) { len++; cur = shiftDate(cur, 1) }
+        return len || 5
+      })
+      const avgPeriodLen = Math.round(periodLengths.reduce((a, b) => a + b, 0) / periodLengths.length)
+      const lastStart = periodStarts[periodStarts.length - 1]
+      const nextPeriodStart = shiftDate(lastStart, avgCycleLength)
+      const nextPeriodEnd = shiftDate(nextPeriodStart, Math.max(avgPeriodLen - 1, 4))
+      const ovulationDay = shiftDate(nextPeriodStart, -14)
+      const fertileStart = shiftDate(ovulationDay, -5)
+      const fertileEnd = shiftDate(ovulationDay, 1)
+      prediction = { avgCycleLength, nextPeriodStart, nextPeriodEnd, ovulationDay, fertileStart, fertileEnd, daysUntilPeriod: diffDays(todayStr, nextPeriodStart) }
+    }
+  }
+
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const firstDayOfWeek = new Date(year, month, 1).getDay()
+
+  const allPeriodDates = new Set(Object.entries(logMap).filter(([, l]) => l.period).map(([d]) => d))
+  const ovulationHints = new Set<string>()
+  for (const ds of allPeriodDates) {
+    const [dy, dm, dd] = ds.split('-').map(Number)
+    const prev = new Date(dy, dm - 1, dd - 1)
+    const prevStr = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}-${String(prev.getDate()).padStart(2, '0')}`
+    if (!allPeriodDates.has(prevStr)) {
+      const ov = new Date(dy, dm - 1, dd + 14)
+      ovulationHints.add(`${ov.getFullYear()}-${String(ov.getMonth() + 1).padStart(2, '0')}-${String(ov.getDate()).padStart(2, '0')}`)
+    }
+  }
+
+  const FLOW_LABEL_C: Record<string, string> = { spotting: 'Spotting', light: 'Light', medium: 'Medium', heavy: 'Heavy' }
+  const MOOD_EMOJI_C: Record<string, string> = { happy: '😊', calm: '😌', anxious: '😰', irritable: '😤', low: '😔', weepy: '😢' }
+  const SYMPTOM_LABEL_C: Record<string, string> = {
+    cramps_mild: 'Mild cramps', cramps_moderate: 'Moderate cramps', cramps_severe: 'Severe cramps',
+    headache: 'Headache', migraine: 'Migraine', acne: 'Acne', acne_hormonal: 'Hormonal acne',
+    breast_tenderness: 'Breast tenderness', fatigue: 'Fatigue', fatigue_severe: 'Severe fatigue',
+    bloating: 'Bloating', back_pain: 'Back pain', nausea: 'Nausea', diarrhea_period: 'Period diarrhea',
+    hair_shedding: 'Hair shedding', night_sweats: 'Night sweats', insomnia: 'Insomnia',
+    pms_anxiety: 'PMS anxiety', pms_rage: 'PMS rage', pms_weeping: 'PMS weeping',
+    spotting_mid: 'Mid-cycle spotting', spotting_pre_period: 'Pre-period spotting',
+  }
+
+  const hoveredLog = hoveredDate ? logMap[hoveredDate] : null
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 p-4">
+      {/* Month nav */}
+      <div className="flex items-center justify-between mb-5">
+        <button type="button"
+          onClick={() => { if (month === 0) { setYear(y => y - 1); setMonth(11) } else setMonth(m => m - 1) }}
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-500">
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+        </button>
+        <p className="text-base font-bold text-gray-900">{MONTH_NAMES_C[month]} {year}</p>
+        <button type="button"
+          onClick={() => { if (month === 11) { setYear(y => y + 1); setMonth(0) } else setMonth(m => m + 1) }}
+          className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-500">
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+        </button>
+      </div>
+
+      {/* Prediction strip */}
+      {prediction && (
+        <div className="grid grid-cols-3 gap-2 mb-4 text-center">
+          <div className="bg-rose-50 rounded-xl py-2 px-1">
+            <p className="text-xs font-bold text-rose-600">
+              {prediction.daysUntilPeriod > 0 ? `In ${prediction.daysUntilPeriod}d` : prediction.daysUntilPeriod === 0 ? 'Today' : 'Overdue'}
+            </p>
+            <p className="text-xs text-rose-400 mt-0.5">Next period est.</p>
+          </div>
+          <div className="bg-teal-50 rounded-xl py-2 px-1">
+            <p className="text-xs font-bold text-teal-600">In {Math.max(0, diffDays(todayStr, prediction.ovulationDay))}d</p>
+            <p className="text-xs text-teal-400 mt-0.5">Ovulation est.</p>
+          </div>
+          <div className="bg-gray-50 rounded-xl py-2 px-1">
+            <p className="text-xs font-bold text-gray-600">{prediction.avgCycleLength}d</p>
+            <p className="text-xs text-gray-400 mt-0.5">Avg cycle</p>
+          </div>
+        </div>
+      )}
+
+      {/* Day headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {DAY_LABELS_C.map((d) => <p key={d} className="text-center text-xs font-semibold text-gray-400 py-1">{d}</p>)}
+      </div>
+
+      {/* Calendar grid */}
+      <div className="grid grid-cols-7 gap-y-1">
+        {Array.from({ length: firstDayOfWeek }).map((_, i) => <div key={`pad-${i}`} />)}
+        {Array.from({ length: daysInMonth }).map((_, i) => {
+          const day = i + 1
+          const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+          const log = logMap[dateStr]
+          const isPeriod = log?.period
+          const isSpotting = log?.spotting && !log?.period
+          const isMittelschmerz = log?.mittelschmerz
+          const hasSymptoms = (log?.symptoms?.length ?? 0) > 0
+          const hasMood = !!log?.mood
+          const hasFertility = !!log?.cervical_mucus || !!log?.bbt || !!log?.cervix_position
+          const isToday = dateStr === todayStr
+          const isFuture = dateStr > todayStr
+          const isOvHint = ovulationHints.has(dateStr)
+
+          const isPredPeriod = !isPeriod && isFuture && prediction && dateStr >= prediction.nextPeriodStart && dateStr <= prediction.nextPeriodEnd
+          const isPredOvulation = isFuture && prediction && dateStr === prediction.ovulationDay
+          const isInFertile = !isPeriod && isFuture && prediction && dateStr >= prediction.fertileStart && dateStr <= prediction.fertileEnd && !isPredOvulation
+
+          const hasData = log && (isPeriod || isSpotting || hasMood || hasSymptoms || hasFertility || log.energy || log.notes)
+
+          const bgClass = isPeriod ? 'bg-rose-100 hover:bg-rose-200'
+            : isSpotting ? 'bg-rose-50 hover:bg-rose-100'
+            : isPredPeriod ? 'bg-rose-50 hover:bg-rose-100'
+            : isPredOvulation ? 'bg-teal-100 hover:bg-teal-200'
+            : isInFertile ? 'bg-teal-50 hover:bg-teal-100'
+            : 'hover:bg-gray-50'
+
+          return (
+            <button key={day} type="button"
+              onMouseEnter={(e) => {
+                if (hoverTimer.current) clearTimeout(hoverTimer.current)
+                if (hasData) {
+                  const rect = (e.currentTarget as HTMLButtonElement).getBoundingClientRect()
+                  setTooltipPos({ x: rect.left + rect.width / 2, y: rect.bottom + 8 })
+                  setHoveredDate(dateStr)
+                }
+              }}
+              onMouseLeave={() => { hoverTimer.current = setTimeout(() => setHoveredDate(null), 100) }}
+              className={[
+                'relative flex flex-col items-center justify-start pt-1 pb-1.5 rounded-xl transition-all mx-0.5 min-h-[44px]',
+                bgClass,
+                hoveredDate === dateStr ? 'ring-2 ring-blue-400 ring-offset-1' : '',
+              ].join(' ')}
+            >
+              <span className={[
+                'text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full',
+                isToday ? 'bg-gray-900 text-white'
+                  : isPredOvulation ? 'text-teal-700'
+                  : isPeriod ? 'text-rose-700'
+                  : isPredPeriod ? 'text-rose-400'
+                  : 'text-gray-700',
+              ].join(' ')}>{day}</span>
+              <div className="flex items-center gap-0.5 mt-0.5 h-2 flex-wrap justify-center">
+                {isPeriod && <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />}
+                {isSpotting && <span className="w-1.5 h-1.5 rounded-full bg-rose-300" />}
+                {isPredPeriod && <span className="w-1.5 h-1.5 rounded-full border border-rose-300" />}
+                {isPredOvulation && <span className="w-2 h-2 rounded-full bg-teal-400 border-2 border-teal-600" />}
+                {isInFertile && <span className="w-1.5 h-1.5 rounded-full bg-teal-300" />}
+                {(isOvHint || isMittelschmerz) && !isPeriod && <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />}
+                {hasSymptoms && <span className="w-1.5 h-1.5 rounded-full bg-orange-400" />}
+                {hasMood && <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />}
+                {hasFertility && <span className="w-1.5 h-1.5 rounded-full bg-teal-600" />}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-4 pt-3 border-t border-gray-50">
+        {[
+          { color: 'bg-rose-400', label: 'Period' },
+          { color: 'bg-rose-50 border border-rose-300', label: 'Predicted period' },
+          { color: 'bg-teal-100 border border-teal-400', label: 'Est. ovulation' },
+          { color: 'bg-teal-50 border border-teal-200', label: 'Fertile window' },
+          { color: 'bg-orange-400', label: 'Symptoms' },
+          { color: 'bg-purple-400', label: 'Mood' },
+          { color: 'bg-teal-600', label: 'Fertility data' },
+        ].map(({ color, label }) => (
+          <div key={label} className="flex items-center gap-1.5">
+            <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${color}`} />
+            <span className="text-xs text-gray-400">{label}</span>
+          </div>
+        ))}
+        {!prediction && <p className="w-full text-xs text-gray-300 mt-1">Log 2+ complete cycles to see predictions</p>}
+      </div>
+
+      {/* Hover tooltip */}
+      {hoveredDate && hoveredLog && tooltipPos && (
+        <div
+          className="fixed z-50 bg-white rounded-2xl border border-gray-200 shadow-xl p-3 w-64 pointer-events-none"
+          style={{
+            left: Math.min(tooltipPos.x - 128, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 272),
+            top: tooltipPos.y,
+          }}
+        >
+          <p className="text-xs font-semibold text-gray-500 mb-2">
+            {new Date(hoveredDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+          </p>
+          <div className="space-y-1.5">
+            {hoveredLog.period && (
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-rose-400 flex-shrink-0" />
+                <span className="text-sm text-gray-700">Period{hoveredLog.flow ? ` · ${FLOW_LABEL_C[hoveredLog.flow] ?? hoveredLog.flow}` : ''}</span>
+              </div>
+            )}
+            {hoveredLog.spotting && !hoveredLog.period && (
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-rose-300 flex-shrink-0" />
+                <span className="text-sm text-gray-700">Spotting</span>
+              </div>
+            )}
+            {hoveredLog.mood && (
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />
+                <span className="text-sm text-gray-700">{MOOD_EMOJI_C[hoveredLog.mood]} {hoveredLog.mood.charAt(0).toUpperCase() + hoveredLog.mood.slice(1)}</span>
+              </div>
+            )}
+            {hoveredLog.energy && (
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+                <span className="text-sm text-gray-700">Energy: {hoveredLog.energy.charAt(0).toUpperCase() + hoveredLog.energy.slice(1)}</span>
+              </div>
+            )}
+            {hoveredLog.sleep && (
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0" />
+                <span className="text-sm text-gray-700">Sleep: {hoveredLog.sleep.charAt(0).toUpperCase() + hoveredLog.sleep.slice(1)}</span>
+              </div>
+            )}
+            {hoveredLog.bbt && (
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-teal-600 flex-shrink-0" />
+                <span className="text-sm text-gray-700">BBT: {hoveredLog.bbt}°</span>
+              </div>
+            )}
+            {hoveredLog.cervical_mucus && (
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-teal-600 flex-shrink-0" />
+                <span className="text-sm text-gray-700 capitalize">CM: {hoveredLog.cervical_mucus.replace('_', ' ')}</span>
+              </div>
+            )}
+            {(hoveredLog.symptoms ?? []).length > 0 && (
+              <div className="flex flex-wrap gap-1 pt-0.5">
+                {(hoveredLog.symptoms ?? []).map((s) => (
+                  <span key={s} className="text-xs bg-orange-50 text-orange-700 px-2 py-0.5 rounded-full">
+                    {SYMPTOM_LABEL_C[s] ?? s}
+                  </span>
+                ))}
+              </div>
+            )}
+            {hoveredLog.notes && (
+              <p className="text-xs text-gray-500 italic border-t border-gray-100 pt-1.5 mt-0.5">{hoveredLog.notes}</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+type TabId = 'overview' | 'checkins' | 'nutrition' | 'training' | 'program' | 'calendar' | 'mealplan' | 'habits' | 'notes' | 'files' | 'flows' | 'preview' | 'resources' | 'cheatsheet' | 'supplements' | 'protocol' | 'cycle' | 'plan'
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview', label: 'Overview' },
@@ -5675,10 +7592,14 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'flows', label: 'Autoflows' },
   { id: 'resources', label: 'Resources' },
   { id: 'calendar', label: 'Calendar' },
-  { id: 'program', label: 'Training' },
+  { id: 'program', label: 'Programs' },
   { id: 'mealplan', label: 'Meal Plan' },
-  { id: 'cheatsheet', label: 'Serve Guide' },
   { id: 'nutrition', label: 'Food Logs' },
+  { id: 'cheatsheet', label: 'Serve Guide' },
+  { id: 'cycle', label: 'Cycle' },
+  { id: 'plan', label: 'Weekly Changes' },
+  { id: 'supplements', label: 'Supplements' },
+  { id: 'protocol', label: 'Protocol' },
   { id: 'habits', label: 'Habits' },
   { id: 'checkins', label: 'Check-ins' },
   { id: 'notes', label: 'Notes' },
@@ -5686,7 +7607,7 @@ const TABS: { id: TabId; label: string }[] = [
 ]
 
 export default function ClientTabs({ clientId, initialTab }: { clientId: string; initialTab?: string }) {
-  const validTabs: TabId[] = ['overview', 'checkins', 'nutrition', 'training', 'program', 'calendar', 'mealplan', 'habits', 'notes', 'files', 'flows', 'preview', 'resources', 'cheatsheet']
+  const validTabs: TabId[] = ['overview', 'checkins', 'nutrition', 'training', 'program', 'calendar', 'mealplan', 'habits', 'notes', 'files', 'flows', 'preview', 'resources', 'cheatsheet', 'supplements', 'protocol', 'cycle', 'plan']
   const [tab, setTab] = useState<TabId>(validTabs.includes(initialTab as TabId) ? initialTab as TabId : 'overview')
   const [autoflowRefreshKey, setAutoflowRefreshKey] = useState(0)
   const [data, setData] = useState<ClientData | null>(null)
@@ -5700,6 +7621,9 @@ export default function ClientTabs({ clientId, initialTab }: { clientId: string;
   const [savingMealBuilder, setSavingMealBuilder] = useState(false)
   const [showSavedMeals, setShowSavedMeals] = useState(true)
   const [savingSavedMeals, setSavingSavedMeals] = useState(false)
+  const [targetsSource, setTargetsSource] = useState<'tdee' | 'meal_plan'>('tdee')
+  const [targetsMealPlanId, setTargetsMealPlanId] = useState<string | null>(null)
+  const [savingTargetsSource, setSavingTargetsSource] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -5711,6 +7635,8 @@ export default function ClientTabs({ clientId, initialTab }: { clientId: string;
       setFoodLogAccess(settings.food_log_access ?? 'full')
       setShowMealBuilder(settings.show_meal_builder ?? true)
       setShowSavedMeals(settings.show_saved_meals ?? true)
+      setTargetsSource(settings.targets_source ?? 'tdee')
+      setTargetsMealPlanId(settings.targets_meal_plan_id ?? null)
     }).finally(() => setLoading(false))
   }, [clientId])
 
@@ -5786,6 +7712,21 @@ export default function ClientTabs({ clientId, initialTab }: { clientId: string;
     }
   }
 
+  async function handleTargetsSource(source: 'tdee' | 'meal_plan', planId: string | null) {
+    setTargetsSource(source)
+    setTargetsMealPlanId(planId)
+    setSavingTargetsSource(true)
+    try {
+      await fetch(`/api/coach/clients/${clientId}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targets_source: source, targets_meal_plan_id: planId }),
+      })
+    } finally {
+      setSavingTargetsSource(false)
+    }
+  }
+
   if (loading) return <p className="text-sm text-gray-400 py-10 text-center">Loading…</p>
   if (error) return <p className="text-sm text-red-500 py-10 text-center">{error}</p>
 
@@ -5831,6 +7772,10 @@ export default function ClientTabs({ clientId, initialTab }: { clientId: string;
             showSavedMeals={showSavedMeals}
             onToggleSavedMeals={handleToggleSavedMeals}
             savingSavedMeals={savingSavedMeals}
+            targetsSource={targetsSource}
+            targetsMealPlanId={targetsMealPlanId}
+            onTargetsSource={handleTargetsSource}
+            savingTargetsSource={savingTargetsSource}
           />
         </Suspense>
       )}
@@ -5868,8 +7813,24 @@ export default function ClientTabs({ clientId, initialTab }: { clientId: string;
       {/* Serve Guide / Cheat Sheet */}
       {tab === 'cheatsheet' && <ClientServeGuide clientId={clientId} />}
 
+      {/* Supplements */}
+      {tab === 'supplements' && <SupplementsTab clientId={clientId} />}
+
+      {/* Plan Builder */}
+      {tab === 'plan' && (
+        <Suspense fallback={<div className="py-12 text-center text-sm text-gray-400">Loading…</div>}>
+          <PlanBuilderTab clientId={clientId} />
+        </Suspense>
+      )}
+
+      {/* Protocol */}
+      {tab === 'protocol' && <ProtocolTab clientId={clientId} />}
+
       {/* Files */}
       {tab === 'files' && <FilesTab clientId={clientId} />}
+
+      {/* Cycle */}
+      {tab === 'cycle' && <CycleTab clientId={clientId} />}
 
       {/* Check-ins */}
       {tab === 'checkins' && (
@@ -5882,69 +7843,77 @@ export default function ClientTabs({ clientId, initialTab }: { clientId: string;
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Submitted Check-ins</p>
               {data.checkIns.length === 0 && (data.formCheckIns ?? []).length === 0 && (data.autoflowCheckIns ?? []).length === 0 && <Empty label="No check-ins submitted yet." />}
 
-              {/* Autoflow check-in responses */}
-              {(data.autoflowCheckIns ?? []).map((ac) => (
-                <ExpandableAutoflowCheckIn
-                  key={ac.id}
-                  item={ac}
-                  clientId={clientId}
-                  onDelete={(id) => setData((d) => d ? { ...d, autoflowCheckIns: d.autoflowCheckIns.filter((x) => x.id !== id) } : d)}
-                />
-              ))}
-
-              {/* Form-based check-in responses */}
-              {(data.formCheckIns ?? []).map((fc) => (
-                <ExpandableFormCheckIn
-                  key={fc.id}
-                  item={fc}
-                  clientId={clientId}
-                  onDelete={(id) => setData((d) => d ? { ...d, formCheckIns: d.formCheckIns.filter((x) => x.id !== id) } : d)}
-                />
-              ))}
-              {data.checkIns.map((c) => (
-                <div key={c.id} className="bg-white rounded-2xl border p-5 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-medium text-gray-400">{fmt(c.created_at)}</p>
-                    <div className="flex items-center gap-2">
-                      {c.reviewed_by_coach ? (
-                        <span className="text-xs bg-green-50 text-green-600 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          Reviewed
-                        </span>
-                      ) : (
-                        <span className="text-xs bg-amber-50 text-amber-500 font-semibold px-2 py-0.5 rounded-full">Pending review</span>
-                      )}
-                      <button
-                        onClick={async () => {
-                          if (!confirm('Delete this check-in?')) return
-                          const res = await fetch(`/api/check-ins/${c.id}`, { method: 'DELETE' })
-                          if (res.ok) setData((d) => d ? { ...d, checkIns: d.checkIns.filter((x) => x.id !== c.id) } : d)
-                        }}
-                        className="text-xs text-red-400 hover:text-red-600 px-2 py-0.5 rounded hover:bg-red-50 transition-colors"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-                    <Stat label="Sleep" value={c.sleep_hours != null ? `${c.sleep_hours}h` : '—'} />
-                    <Stat label="Quality" value={SLEEP_LABELS[c.sleep_quality ?? ''] ?? c.sleep_quality ?? '—'} />
-                    <Stat label="Energy" value={ENERGY_LABELS[c.energy_level ?? ''] ?? c.energy_level ?? '—'} />
-                    <Stat label="RHR" value={c.rhr != null ? `${c.rhr} bpm` : '—'} />
-                    <Stat label="HRV" value={c.hrv != null ? `${c.hrv} ms` : '—'} />
-                  </div>
-                  {c.notes && <p className="text-xs text-gray-500 italic border-t border-gray-50 pt-2">"{c.notes}"</p>}
-                  <Suspense fallback={null}>
-                    <CheckInFeedback
-                      checkInId={c.id}
-                      initialFeedback={c.coach_feedback}
-                      initialReviewed={c.reviewed_by_coach}
+              {/* Merge all check-in types and sort newest first */}
+              {[
+                ...(data.autoflowCheckIns ?? []).map((ac) => ({ kind: 'autoflow' as const, date: ac.submitted_at, item: ac })),
+                ...(data.formCheckIns ?? []).map((fc) => ({ kind: 'form' as const, date: fc.submitted_at, item: fc })),
+                ...data.checkIns.map((c) => ({ kind: 'direct' as const, date: c.created_at, item: c })),
+              ]
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .map((entry) => {
+                  if (entry.kind === 'autoflow') return (
+                    <ExpandableAutoflowCheckIn
+                      key={entry.item.id}
+                      item={entry.item}
+                      clientId={clientId}
+                      onDelete={(id) => setData((d) => d ? { ...d, autoflowCheckIns: d.autoflowCheckIns.filter((x) => x.id !== id) } : d)}
                     />
-                  </Suspense>
-                </div>
-              ))}
+                  )
+                  if (entry.kind === 'form') return (
+                    <ExpandableFormCheckIn
+                      key={entry.item.id}
+                      item={entry.item}
+                      clientId={clientId}
+                      onDelete={(id) => setData((d) => d ? { ...d, formCheckIns: d.formCheckIns.filter((x) => x.id !== id) } : d)}
+                    />
+                  )
+                  // Direct daily check-in
+                  const c = entry.item
+                  return (
+                    <div key={c.id} className="bg-white rounded-2xl border p-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-gray-400">{fmt(c.created_at)}</p>
+                        <div className="flex items-center gap-2">
+                          {c.reviewed_by_coach ? (
+                            <span className="text-xs bg-green-50 text-green-600 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                              </svg>
+                              Reviewed
+                            </span>
+                          ) : (
+                            <span className="text-xs bg-amber-50 text-amber-500 font-semibold px-2 py-0.5 rounded-full">Pending review</span>
+                          )}
+                          <button
+                            onClick={async () => {
+                              if (!confirm('Delete this check-in?')) return
+                              const res = await fetch(`/api/check-ins/${c.id}`, { method: 'DELETE' })
+                              if (res.ok) setData((d) => d ? { ...d, checkIns: d.checkIns.filter((x) => x.id !== c.id) } : d)
+                            }}
+                            className="text-xs text-red-400 hover:text-red-600 px-2 py-0.5 rounded hover:bg-red-50 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                        <Stat label="Sleep" value={c.sleep_hours != null ? `${c.sleep_hours}h` : '—'} />
+                        <Stat label="Quality" value={SLEEP_LABELS[c.sleep_quality ?? ''] ?? c.sleep_quality ?? '—'} />
+                        <Stat label="Energy" value={ENERGY_LABELS[c.energy_level ?? ''] ?? c.energy_level ?? '—'} />
+                        <Stat label="RHR" value={c.rhr != null ? `${c.rhr} bpm` : '—'} />
+                        <Stat label="HRV" value={c.hrv != null ? `${c.hrv} ms` : '—'} />
+                      </div>
+                      {c.notes && <p className="text-xs text-gray-500 italic border-t border-gray-50 pt-2">"{c.notes}"</p>}
+                      <Suspense fallback={null}>
+                        <CheckInFeedback
+                          checkInId={c.id}
+                          initialFeedback={c.coach_feedback}
+                          initialReviewed={c.reviewed_by_coach}
+                        />
+                      </Suspense>
+                    </div>
+                  )
+                })}
             </div>
           )}
         </div>

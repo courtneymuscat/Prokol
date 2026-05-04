@@ -7,20 +7,33 @@ export async function GET() {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return Response.json({ error: 'Unauthorised' }, { status: 401 })
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('timezone, full_name, date_of_birth, phone, sex, subscription_tier, cycle_reminders')
-    .eq('id', session.user.id)
-    .single()
+  const [profileResult, coachRelResult] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('timezone, full_name, date_of_birth, phone, sex, subscription_tier, cycle_reminders')
+      .eq('id', session.user.id)
+      .single(),
+    supabase
+      .from('coach_clients')
+      .select('id')
+      .eq('client_id', session.user.id)
+      .eq('status', 'active')
+      .maybeSingle(),
+  ])
 
-  const p = profile as Record<string, unknown> | null
+  const p = profileResult.data as Record<string, unknown> | null
+  // If the user has an active coach relationship, treat them as coached regardless of
+  // what subscription_tier is stored in profiles (which may lag behind).
+  const hasActiveCoach = !!coachRelResult.data
+  const tier = hasActiveCoach ? 'coached' : (p?.subscription_tier ?? null)
+
   return Response.json({
     timezone: p?.timezone ?? null,
     full_name: p?.full_name ?? null,
     date_of_birth: p?.date_of_birth ?? null,
     phone: p?.phone ?? null,
     sex: p?.sex ?? null,
-    subscription_tier: p?.subscription_tier ?? null,
+    subscription_tier: tier,
     cycle_reminders: p?.cycle_reminders ?? true,
   })
 }

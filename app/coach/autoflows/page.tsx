@@ -41,7 +41,7 @@ export default async function CoachAutoflowsPage() {
         </a>
       </div>
 
-      <main className="max-w-3xl mx-auto w-full p-6 space-y-8">
+      <main className="w-full p-6 space-y-8">
 
         {/* Your templates */}
         {templatesWithCount.length > 0 && (

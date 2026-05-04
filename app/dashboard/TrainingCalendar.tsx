@@ -1,13 +1,109 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import ActiveWorkout from '@/app/workouts/ActiveWorkout'
+import WorkoutEditor from '@/app/workouts/WorkoutEditor'
+
+// ─── Exercise history (coached clients) ──────────────────────────────────────
+
+type CalHistorySession = {
+  workoutName: string
+  date: string
+  notes: string | null
+  sets: { set_number: number; weight_lbs: number | null; reps: number | null; duration_seconds: number | null; calories: number | null }[]
+}
+
+function ExerciseHistoryPanel({ exerciseId }: { exerciseId: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const [history, setHistory] = useState<CalHistorySession[]>([])
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    fetch(`/api/exercises/history?exerciseId=${exerciseId}`)
+      .then((r) => r.json())
+      .then((d) => { setHistory(Array.isArray(d) ? d : []); setLoaded(true) })
+      .catch(() => setLoaded(true))
+  }, [exerciseId])
+
+  if (!loaded) return null
+  if (history.length === 0) return (
+    <div className="flex items-center gap-1.5 mt-1">
+      <svg className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <p className="text-xs text-gray-400">No previous sessions yet</p>
+    </div>
+  )
+
+  function fmtSet(s: CalHistorySession['sets'][0]): string {
+    const parts: string[] = []
+    if (s.weight_lbs != null) parts.push(`${s.weight_lbs}kg`)
+    if (s.reps != null) parts.push(`${s.reps} reps`)
+    if (s.duration_seconds != null) parts.push(`${s.duration_seconds}s`)
+    if (s.calories != null) parts.push(`${s.calories} cal`)
+    return parts.join(' × ') || '—'
+  }
+
+  const last = history[0]
+  const lastDate = new Date(last.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
+
+  return (
+    <div className="mt-2 rounded-xl border border-gray-200 overflow-hidden">
+      <button type="button" onClick={() => setExpanded(v => !v)}
+        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left">
+        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+          <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-xs font-semibold text-gray-600">Last session</span>
+          <span className="text-xs text-gray-400">{lastDate}</span>
+          {last.sets.slice(0, 4).map((s) => (
+            <span key={s.set_number} className="text-xs bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-600 font-medium">
+              {fmtSet(s)}
+            </span>
+          ))}
+          {last.sets.length > 4 && <span className="text-xs text-gray-400">+{last.sets.length - 4}</span>}
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {history.length > 1 && <span className="text-[10px] text-gray-400">{history.length} sessions</span>}
+          <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </button>
+      {expanded && (
+        <div className="divide-y divide-gray-100">
+          {history.map((session, i) => (
+            <div key={i} className="px-3 py-2.5 space-y-2 bg-white">
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="text-xs font-semibold text-gray-700 truncate">{session.workoutName}</p>
+                <p className="text-xs text-gray-400 flex-shrink-0">
+                  {new Date(session.date).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {session.sets.map((s) => (
+                  <span key={s.set_number} className="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-0.5 text-gray-700 font-medium">
+                    <span className="text-gray-400 mr-1">{s.set_number}.</span>{fmtSet(s)}
+                  </span>
+                ))}
+              </div>
+              {session.notes && <p className="text-xs text-gray-500 italic border-t border-gray-100 pt-1.5">{session.notes}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type ScoreType = 'time' | 'reps' | 'rounds' | 'weight' | 'distance' | 'calories' | 'custom' | 'none'
 
-type ProgramSet = { setNumber: number; reps: string; weight: string; duration?: string }
+type ProgramSet = { setNumber: number; reps: string; weight: string; duration?: string; rest?: string }
 
 type ProgramItem = {
   type: 'exercise' | 'section'
@@ -64,7 +160,10 @@ type LoggedNotes     = Record<string, string>  // exercise id → client note te
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function toDateStr(date: Date): string {
-  return date.toISOString().split('T')[0]
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 function startOfWeek(date: Date): Date {
@@ -82,7 +181,9 @@ function addDays(date: Date, n: number): Date {
 }
 
 function differenceInDays(a: Date, b: Date): number {
-  return Math.floor((a.getTime() - b.getTime()) / (1000 * 60 * 60 * 24))
+  const aUTC = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())
+  const bUTC = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate())
+  return Math.round((aUTC - bUTC) / 86400000)
 }
 
 function getWorkoutsForDate(
@@ -94,8 +195,8 @@ function getWorkoutsForDate(
   const dateStr = toDateStr(date)
 
   for (const prog of programs) {
-    const start = new Date(prog.start_date)
-    start.setHours(0, 0, 0, 0)
+    // Parse start_date using local time components to avoid UTC-midnight → local-yesterday shift
+    const start = new Date(prog.start_date + 'T00:00:00')
     const dayOffset = differenceInDays(date, start)
     if (dayOffset < 0) continue
     const weekIdx = Math.floor(dayOffset / 7)
@@ -149,7 +250,7 @@ function eventColour(type: string): string {
     case 'note':           return 'bg-yellow-100 text-yellow-800 border-yellow-200'
     case 'personal':       return 'bg-orange-100 text-orange-800 border-orange-200'
     case 'birthday':       return 'bg-pink-100 text-pink-800 border-pink-200'
-    case 'travel':         return 'bg-teal-100 text-teal-800 border-teal-200'
+    case 'travel':         return 'bg-sky-100 text-sky-800 border-sky-200'
     case 'extra_activity': return 'bg-emerald-100 text-emerald-800 border-emerald-200'
     case 'autoflow':       return 'bg-indigo-100 text-indigo-800 border-indigo-200'
     default:               return 'bg-purple-100 text-purple-800 border-purple-200'
@@ -161,8 +262,9 @@ const CLIENT_EVENT_TYPES = [
   { value: 'travel',         label: 'Travel / Away',     icon: '✈️', placeholder: 'Holiday, trip, going away…' },
   { value: 'extra_activity', label: 'Extra Activity',    icon: '🏃', placeholder: 'Walk, swim, bike ride…' },
   { value: 'note',           label: 'Note',              icon: '📝', placeholder: 'Anything else…' },
+  { value: 'workout',        label: 'Log a Workout',     icon: '💪', placeholder: '' },
 ] as const
-type ClientEventType = 'personal' | 'travel' | 'extra_activity' | 'note'
+type ClientEventType = 'personal' | 'travel' | 'extra_activity' | 'note' | 'workout'
 
 // ─── Score input ──────────────────────────────────────────────────────────────
 
@@ -220,7 +322,7 @@ function fmtTime(s: number): string {
 
 function VideoTrimModal({ file, onConfirm, onCancel }: {
   file: File
-  onConfirm: (blob: Blob, ext: string) => void
+  onConfirm: (blob: Blob | File, ext: string) => void
   onCancel: () => void
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -228,26 +330,34 @@ function VideoTrimModal({ file, onConfirm, onCancel }: {
   const [startTime, setStartTime] = useState(0)
   const [endTime, setEndTime] = useState(0)
   const [trimming, setTrimming] = useState(false)
-  const [progress, setProgress] = useState(0) // 0-100 during trim
+  const [progress, setProgress] = useState(0)
   const [trimError, setTrimError] = useState<string | null>(null)
   const objectUrl = useRef(URL.createObjectURL(file))
 
   useEffect(() => {
-    return () => { URL.revokeObjectURL(objectUrl.current) }
+    return () => URL.revokeObjectURL(objectUrl.current)
   }, [])
+
+  const canTrim = typeof MediaRecorder !== 'undefined' &&
+    typeof (document.createElement('video') as HTMLVideoElement & { captureStream?: () => MediaStream }).captureStream === 'function'
 
   function onLoadedMetadata() {
     const d = videoRef.current!.duration
     setDuration(d)
     setEndTime(d)
+    // Auto-play preview
+    videoRef.current?.play().catch(() => {})
   }
 
-  // Check browser support for captureStream
-  const canTrim = typeof MediaRecorder !== 'undefined' &&
-    typeof (document.createElement('video') as HTMLVideoElement & { captureStream?: () => MediaStream }).captureStream === 'function'
+  async function handleUpload() {
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'mp4'
 
-  async function handleTrim() {
-    if (!canTrim) { onConfirm(file, 'webm'); return }
+    // On iOS/Safari or if no trim needed — upload as-is
+    if (!canTrim || (startTime <= 0.1 && endTime >= duration - 0.1)) {
+      onConfirm(file, ext)
+      return
+    }
+
     setTrimming(true)
     setTrimError(null)
     setProgress(0)
@@ -255,175 +365,128 @@ function VideoTrimModal({ file, onConfirm, onCancel }: {
     try {
       const videoEl = videoRef.current!
       videoEl.muted = true
+      videoEl.pause()
       videoEl.currentTime = startTime
+      await new Promise<void>(res => { videoEl.onseeked = () => res() })
 
-      await new Promise<void>((res) => {
-        videoEl.onseeked = () => res()
-      })
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9'
+        : MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : null
+      if (!mimeType) { onConfirm(file, ext); return }
 
       const stream = (videoEl as HTMLVideoElement & { captureStream: () => MediaStream }).captureStream()
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-        ? 'video/webm;codecs=vp9'
-        : MediaRecorder.isTypeSupported('video/webm')
-        ? 'video/webm'
-        : ''
-      if (!mimeType) { setTrimError('Trimming not supported on this browser — uploading original.'); setTrimming(false); onConfirm(file, file.name.split('.').pop()?.toLowerCase() ?? 'mp4'); return }
-
       const recorder = new MediaRecorder(stream, { mimeType })
       const chunks: BlobPart[] = []
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data) }
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
 
       await new Promise<void>((resolve, reject) => {
         recorder.onstop = () => resolve()
         recorder.onerror = () => reject(new Error('Recording failed'))
         recorder.start(200)
         videoEl.play()
-
         function tick() {
-          if (!videoEl.paused) {
-            const elapsed = videoEl.currentTime - startTime
-            const total = endTime - startTime
-            setProgress(Math.min(100, Math.round((elapsed / total) * 100)))
-          }
-          if (videoEl.currentTime >= endTime) {
-            recorder.stop()
-            videoEl.pause()
-          } else {
-            requestAnimationFrame(tick)
-          }
+          const elapsed = videoEl.currentTime - startTime
+          const total = endTime - startTime
+          setProgress(Math.min(99, Math.round((elapsed / total) * 100)))
+          if (videoEl.currentTime >= endTime) { recorder.stop(); videoEl.pause() }
+          else requestAnimationFrame(tick)
         }
         requestAnimationFrame(tick)
       })
 
-      const blob = new Blob(chunks, { type: mimeType })
-      onConfirm(blob, 'webm')
+      setProgress(100)
+      onConfirm(new Blob(chunks, { type: mimeType }), 'webm')
     } catch (err) {
       setTrimError(err instanceof Error ? err.message : 'Trim failed')
       setTrimming(false)
     }
   }
 
+  const startPct = duration > 0 ? (startTime / duration) * 100 : 0
+  const endPct = duration > 0 ? (endTime / duration) * 100 : 100
   const trimDuration = endTime - startTime
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
-        <div className="px-5 pt-5 pb-3 border-b border-gray-100 flex items-center justify-between">
-          <p className="text-sm font-semibold text-gray-900">Trim video</p>
-          <button type="button" onClick={onCancel} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-        </div>
+    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 bg-black/70">
+        <button type="button" onClick={onCancel} className="text-white/70 hover:text-white font-medium text-sm px-2 py-1">
+          Cancel
+        </button>
+        <p className="text-white font-semibold text-sm">Trim &amp; Upload</p>
+        <button
+          type="button"
+          onClick={handleUpload}
+          disabled={trimming || duration === 0}
+          className="text-indigo-400 font-semibold text-sm px-2 py-1 disabled:opacity-40"
+        >
+          {trimming ? `${progress}%` : 'Upload'}
+        </button>
+      </div>
 
-        <div className="p-5 space-y-4">
-          {/* Video preview */}
-          <video
-            ref={videoRef}
-            src={objectUrl.current}
-            onLoadedMetadata={onLoadedMetadata}
-            playsInline
-            className="w-full rounded-xl bg-black max-h-48 object-contain"
-          />
+      {/* Video */}
+      <div className="flex-1 flex items-center justify-center bg-black p-2 min-h-0">
+        <video
+          ref={videoRef}
+          src={objectUrl.current}
+          onLoadedMetadata={onLoadedMetadata}
+          playsInline
+          controls
+          className="max-h-full max-w-full rounded-xl"
+        />
+      </div>
 
-          {duration > 0 && (
-            <>
-              {/* Start time */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs text-gray-500">
-                  <span>Start</span>
-                  <span className="font-mono font-medium text-gray-800">{fmtTime(startTime)}</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={duration}
-                  step={0.1}
-                  value={startTime}
-                  onChange={(e) => {
-                    const v = Math.min(Number(e.target.value), endTime - 0.5)
-                    setStartTime(v)
-                    if (videoRef.current) videoRef.current.currentTime = v
-                  }}
-                  className="w-full accent-indigo-600"
-                />
-              </div>
+      {/* Trim controls */}
+      <div className="bg-gray-900 px-5 pt-4 pb-8 space-y-3">
+        {duration > 0 ? (
+          <>
+            {/* Timeline bar */}
+            <div className="relative h-2.5 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="absolute h-full bg-indigo-500 rounded-full"
+                style={{ left: `${startPct}%`, width: `${endPct - startPct}%` }}
+              />
+            </div>
 
-              {/* End time */}
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs text-gray-500">
-                  <span>End</span>
-                  <span className="font-mono font-medium text-gray-800">{fmtTime(endTime)}</span>
-                </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={duration}
-                  step={0.1}
-                  value={endTime}
-                  onChange={(e) => {
-                    const v = Math.max(Number(e.target.value), startTime + 0.5)
-                    setEndTime(v)
-                    if (videoRef.current) videoRef.current.currentTime = v
-                  }}
-                  className="w-full accent-indigo-600"
-                />
-              </div>
+            <div className="flex justify-between text-xs text-white/50">
+              <span>{fmtTime(startTime)}</span>
+              <span className="text-indigo-400 font-semibold">{fmtTime(trimDuration)} selected</span>
+              <span>{fmtTime(endTime)}</span>
+            </div>
 
-              {/* Duration info */}
-              <div className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-2 text-xs text-gray-500">
-                <span>Clip length</span>
-                <span className="font-mono font-semibold text-gray-800">{fmtTime(trimDuration)}</span>
-              </div>
+            {/* Start slider */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-white/50 w-10 flex-shrink-0">Start</span>
+              <input type="range" min={0} max={duration} step={0.1} value={startTime}
+                onChange={e => {
+                  const v = Math.min(Number(e.target.value), endTime - 0.5)
+                  setStartTime(v)
+                  if (videoRef.current) videoRef.current.currentTime = v
+                }}
+                className="flex-1 accent-indigo-500"
+              />
+            </div>
 
-              {/* Trim progress */}
-              {trimming && (
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Processing…</span>
-                    <span>{progress}%</span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                    <div className="bg-indigo-500 h-1.5 rounded-full transition-all" style={{ width: `${progress}%` }} />
-                  </div>
-                </div>
-              )}
+            {/* End slider */}
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-white/50 w-10 flex-shrink-0">End</span>
+              <input type="range" min={0} max={duration} step={0.1} value={endTime}
+                onChange={e => {
+                  const v = Math.max(Number(e.target.value), startTime + 0.5)
+                  setEndTime(v)
+                  if (videoRef.current) videoRef.current.currentTime = v
+                }}
+                className="flex-1 accent-indigo-500"
+              />
+            </div>
 
-              {trimError && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{trimError}</p>}
-            </>
-          )}
-        </div>
-
-        <div className="px-5 pb-5 flex gap-2">
-          {canTrim ? (
-            <>
-              <button
-                type="button"
-                onClick={handleTrim}
-                disabled={trimming || duration === 0}
-                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-semibold rounded-xl transition-colors"
-              >
-                {trimming ? 'Trimming…' : 'Trim & upload'}
-              </button>
-              <button
-                type="button"
-                onClick={() => onConfirm(file, file.name.split('.').pop()?.toLowerCase() ?? 'mp4')}
-                disabled={trimming}
-                className="px-4 py-2.5 border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-40"
-              >
-                Upload as-is
-              </button>
-            </>
-          ) : (
-            // iOS Safari / unsupported browsers — skip trim
-            <button
-              type="button"
-              onClick={() => onConfirm(file, file.name.split('.').pop()?.toLowerCase() ?? 'mp4')}
-              className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors"
-            >
-              Upload video
-            </button>
-          )}
-        </div>
+            {trimError && <p className="text-xs text-red-400 bg-red-900/30 rounded-lg px-3 py-2">{trimError}</p>}
+            {!canTrim && (
+              <p className="text-[11px] text-white/30 text-center">Trimming not supported on this browser — full video will upload</p>
+            )}
+          </>
+        ) : (
+          <p className="text-xs text-white/40 text-center py-2">Loading video…</p>
+        )}
       </div>
     </div>
   )
@@ -443,12 +506,11 @@ function VideoUploadButton({ videoPath, onUploaded }: {
     if (!file) return
     if (file.size > 500 * 1024 * 1024) { setUploadError('Video must be under 500 MB'); return }
     setUploadError(null)
-    setPendingFile(file)
-    // Reset input so the same file can be re-selected after cancel
     e.target.value = ''
+    setPendingFile(file)
   }
 
-  async function handleConfirm(blob: Blob, ext: string) {
+  async function handleConfirm(blob: Blob | File, ext: string) {
     setPendingFile(null)
     setUploading(true)
     setUploadError(null)
@@ -567,6 +629,41 @@ function WorkoutModal({ workout, onClose, onSaved, onMoved }: {
   const [showMove, setShowMove] = useState(false)
   const [moveDate, setMoveDate] = useState(workout.result?.event_date ?? workout.dateStr)
   const [moving, setMoving] = useState(false)
+  const [restCountdown, setRestCountdown] = useState<number | null>(null)
+  const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [completedSets, setCompletedSets] = useState<Set<string>>(new Set())
+
+  function startRest(seconds: number) {
+    if (seconds <= 0) return
+    if (restTimerRef.current) clearInterval(restTimerRef.current)
+    setRestCountdown(seconds)
+    restTimerRef.current = setInterval(() => {
+      setRestCountdown(prev => {
+        if (prev === null || prev <= 1) { if (restTimerRef.current) clearInterval(restTimerRef.current); return null }
+        return prev - 1
+      })
+    }, 1000)
+  }
+
+  function skipRest() {
+    if (restTimerRef.current) clearInterval(restTimerRef.current)
+    setRestCountdown(null)
+  }
+
+  useEffect(() => () => { if (restTimerRef.current) clearInterval(restTimerRef.current) }, [])
+
+  function toggleSetDone(key: string, restSecs?: string) {
+    setCompletedSets(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) { next.delete(key); skipRest() }
+      else {
+        next.add(key)
+        const r = parseInt(restSecs ?? '0') || 0
+        if (r > 0) startRest(r)
+      }
+      return next
+    })
+  }
   const [moveError, setMoveError] = useState<string | null>(null)
 
   const items = workout.day.items ?? []
@@ -643,6 +740,23 @@ function WorkoutModal({ workout, onClose, onSaved, onMoved }: {
   const hasAnyScore = scoredSections.length > 0
 
   return (
+    <>
+    {/* Rest countdown */}
+    {restCountdown !== null && (
+      <div className="fixed bottom-24 left-0 right-0 z-[60] flex justify-center px-4 pointer-events-none">
+        <div className="bg-orange-500 text-white rounded-2xl px-5 py-4 shadow-2xl flex items-center gap-4 max-w-sm w-full pointer-events-auto">
+          <div className="w-14 h-14 rounded-full bg-orange-600 flex items-center justify-center flex-shrink-0">
+            <span className="text-xl font-bold tabular-nums">{restCountdown}</span>
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold">Rest time</p>
+            <p className="text-xs text-orange-100">Next set in {restCountdown}s</p>
+          </div>
+          <button onClick={skipRest} className="text-white/80 hover:text-white text-xs font-semibold bg-orange-600 px-3 py-1.5 rounded-lg">Skip</button>
+        </div>
+      </div>
+    )}
+
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white w-full sm:rounded-2xl shadow-2xl sm:max-w-lg max-h-[90vh] flex flex-col rounded-t-2xl" onClick={(e) => e.stopPropagation()}>
 
@@ -660,6 +774,16 @@ function WorkoutModal({ workout, onClose, onSaved, onMoved }: {
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          {workout.result && (
+            <div className="flex items-center gap-1.5 bg-green-50 border border-green-100 rounded-xl px-3 py-2">
+              <svg className="w-3.5 h-3.5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="text-xs font-semibold text-green-700">
+                Completed {new Date(workout.result.event_date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </span>
+            </div>
+          )}
           {items.length === 0 && (
             <p className="text-sm text-gray-400 text-center py-4">No exercises scheduled.</p>
           )}
@@ -716,35 +840,51 @@ function WorkoutModal({ workout, onClose, onSaved, onMoved }: {
                 {/* Logged sets */}
                 {(logging || workout.result) && (
                   <div className="space-y-1.5 pt-1">
-                    {sets.map((s, si) => (
-                      <div key={si} className="flex items-center gap-2">
+                    {sets.map((s, si) => {
+                      const setKey = `${item.id}-${si}`
+                      const done = completedSets.has(setKey)
+                      const restSecs = item.sets?.[si]?.rest
+                      return (
+                      <div key={si} className={`space-y-1 ${done ? 'opacity-60' : ''}`}>
+                      <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-400 w-8">Set {si + 1}</span>
                         {logging ? (
                           <>
-                            <input type="number" inputMode="decimal" value={s.weight} placeholder="Weight"
+                            <input type="number" inputMode="decimal" value={s.weight} placeholder="kg"
                               onChange={(e) => setExSets((prev) => {
                                 const copy = [...(prev[item.id] ?? sets)]
                                 copy[si] = { ...copy[si], weight: e.target.value }
                                 return { ...prev, [item.id]: copy }
                               })}
-                              className="w-20 border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300" />
-                            <span className="text-xs text-gray-300">kg ×</span>
-                            <input type="number" inputMode="numeric" value={s.reps} placeholder="Reps"
+                              disabled={done}
+                              className="w-16 border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300 disabled:bg-gray-50" />
+                            <span className="text-xs text-gray-300">×</span>
+                            <input type="number" inputMode="numeric" value={s.reps} placeholder="reps"
                               onChange={(e) => setExSets((prev) => {
                                 const copy = [...(prev[item.id] ?? sets)]
                                 copy[si] = { ...copy[si], reps: e.target.value }
                                 return { ...prev, [item.id]: copy }
                               })}
-                              className="w-16 border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300" />
-                            <span className="text-xs text-gray-300">reps</span>
+                              disabled={done}
+                              className="w-14 border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300 disabled:bg-gray-50" />
+                            {restSecs && <span className="text-[10px] text-orange-500 font-medium ml-1">⏱ {restSecs}s</span>}
+                            <button
+                              type="button"
+                              onClick={() => toggleSetDone(setKey, restSecs)}
+                              className={`ml-auto w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${done ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 text-transparent hover:border-green-400'}`}
+                            >✓</button>
                           </>
                         ) : (
-                          <span className="text-xs text-gray-600">{s.weight ? `${s.weight} kg × ` : ''}{s.reps} reps</span>
+                          <span className="text-xs text-gray-600">{s.weight ? `${s.weight} kg × ` : ''}{s.reps} reps{restSecs ? ` — rest ${restSecs}s` : ''}</span>
                         )}
                       </div>
-                    ))}
+                      </div>
+                    )})}
                   </div>
                 )}
+
+                {/* Exercise history — shown while logging so client can reference previous performance */}
+                {logging && <ExerciseHistoryPanel exerciseId={item.id} />}
 
                 {/* Video + notes — logging mode */}
                 {logging && (
@@ -776,9 +916,9 @@ function WorkoutModal({ workout, onClose, onSaved, onMoved }: {
                       </div>
                     )}
                     {savedResult?.coachNote && (
-                      <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                        <p className="text-[10px] text-amber-600 font-semibold uppercase tracking-wide mb-0.5">Coach feedback</p>
-                        <p className="text-xs text-amber-900">{savedResult.coachNote}</p>
+                      <div className="rounded-lg px-3 py-2" style={{ backgroundColor: 'rgba(29,158,117,0.06)' }}>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: '#1D9E75' }}>Coach feedback</p>
+                        <p className="text-xs text-gray-700">{savedResult.coachNote}</p>
                       </div>
                     )}
                   </div>
@@ -810,7 +950,7 @@ function WorkoutModal({ workout, onClose, onSaved, onMoved }: {
                   <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                   <span className="text-sm font-semibold text-green-700 whitespace-nowrap">Logged</span>
                   {workout.result.event_date !== workout.dateStr && (
-                    <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 whitespace-nowrap">
+                    <span className="text-[10px] rounded px-1.5 py-0.5 whitespace-nowrap">
                       Moved · {new Date(workout.result.event_date + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
                     </span>
                   )}
@@ -858,15 +998,17 @@ function WorkoutModal({ workout, onClose, onSaved, onMoved }: {
         </div>
       </div>
     </div>
+    </>
   )
 }
 
 // ─── Add Event Modal ──────────────────────────────────────────────────────────
 
-function AddEventModal({ dateStr, onClose, onCreated }: {
+function AddEventModal({ dateStr, onClose, onCreated, onStartWorkout }: {
   dateStr: string
   onClose: () => void
   onCreated: (event: CalendarEvent | CalendarEvent[]) => void
+  onStartWorkout?: () => void
 }) {
   const [type, setType] = useState<ClientEventType>('personal')
   const [title, setTitle] = useState('')
@@ -936,12 +1078,14 @@ function AddEventModal({ dateStr, onClose, onCreated }: {
                 type="button"
                 onClick={() => handleTypeChange(t.value)}
                 className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                  t.value === 'workout' ? 'col-span-2' : ''
+                } ${
                   type === t.value ? 'border-indigo-400 bg-indigo-50' : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
                 <div className="text-base leading-none mb-1">{t.icon}</div>
                 <p className="text-[11px] font-semibold text-gray-800">{t.label}</p>
-                <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{t.placeholder}</p>
+                {t.placeholder && <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{t.placeholder}</p>}
               </button>
             ))}
           </div>
@@ -977,31 +1121,43 @@ function AddEventModal({ dateStr, onClose, onCreated }: {
             </div>
           )}
 
-          <div>
-            <label className="text-xs font-semibold text-gray-500 mb-1.5 block">Title</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={placeholder}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              onKeyDown={(e) => e.key === 'Enter' && handleSave()}
-              autoFocus
-            />
-          </div>
+          {type !== 'workout' && (
+            <div>
+              <label className="text-xs font-semibold text-gray-500 mb-1.5 block">Title</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder={placeholder}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                autoFocus
+              />
+            </div>
+          )}
 
           {error && <p className="text-xs text-red-500">{error}</p>}
         </div>
 
         <div className="px-5 pb-5">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving || !title.trim()}
-            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-semibold rounded-xl transition-colors"
-          >
-            {saving ? 'Adding…' : 'Add event'}
-          </button>
+          {type === 'workout' ? (
+            <button
+              type="button"
+              onClick={() => { onClose(); onStartWorkout?.() }}
+              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors"
+            >
+              Start Workout
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || !title.trim()}
+              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm font-semibold rounded-xl transition-colors"
+            >
+              {saving ? 'Adding…' : 'Add event'}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -1010,7 +1166,7 @@ function AddEventModal({ dateStr, onClose, onCreated }: {
 
 // ─── Day Detail Sheet ─────────────────────────────────────────────────────────
 
-function DayDetailSheet({ date, workouts, events, onClose, onWorkoutTap, onAddEvent, onDeleteEvent }: {
+function DayDetailSheet({ date, workouts, events, onClose, onWorkoutTap, onAddEvent, onDeleteEvent, onOwnWorkoutTap }: {
   date: Date
   workouts: WorkoutForDate[]
   events: CalendarEvent[]
@@ -1018,6 +1174,7 @@ function DayDetailSheet({ date, workouts, events, onClose, onWorkoutTap, onAddEv
   onWorkoutTap: (w: WorkoutForDate) => void
   onAddEvent: (dateStr: string) => void
   onDeleteEvent: (id: string) => void
+  onOwnWorkoutTap?: (ev: CalendarEvent) => void
 }) {
   const dateStr = toDateStr(date)
   const displayDate = date.toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -1088,9 +1245,31 @@ function DayDetailSheet({ date, workouts, events, onClose, onWorkoutTap, onAddEv
             const autoflowLink = ev.type === 'autoflow' ? (ev.content as Record<string, unknown>)?.link as string | undefined : undefined
             const eventIcons: Record<string, string> = {
               personal: '🎉', travel: '✈️', extra_activity: '🏃', note: '📝',
-              birthday: '🎂', autoflow: '📋',
+              birthday: '🎂', autoflow: '📋', workout: '💪',
             }
             const icon = eventIcons[ev.type] ?? '📌'
+
+            if (ev.type === 'workout') {
+              return (
+                <button
+                  key={ev.id}
+                  type="button"
+                  onClick={() => { onClose(); onOwnWorkoutTap?.(ev) }}
+                  className="w-full text-left rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 hover:bg-blue-100 transition-colors active:scale-[0.98]"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-base flex-shrink-0">💪</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-blue-900 truncate">{ev.title}</p>
+                      <p className="text-xs text-blue-600 mt-0.5">Tap to view or edit</p>
+                    </div>
+                    <svg className="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </button>
+              )
+            }
 
             const inner = (
               <div className="flex items-center gap-3">
@@ -1140,7 +1319,7 @@ function DayDetailSheet({ date, workouts, events, onClose, onWorkoutTap, onAddEv
 
 // ─── Day Cell ─────────────────────────────────────────────────────────────────
 
-function DayCell({ date, workouts, events, isToday, isPast, compact, onWorkoutTap, onAddEvent, onDeleteEvent, onDayTap }: {
+function DayCell({ date, workouts, events, isToday, isPast, compact, onWorkoutTap, onAddEvent, onDeleteEvent, onDayTap, onOwnWorkoutTap }: {
   date: Date
   workouts: WorkoutForDate[]
   events: CalendarEvent[]
@@ -1151,6 +1330,7 @@ function DayCell({ date, workouts, events, isToday, isPast, compact, onWorkoutTa
   onAddEvent?: (dateStr: string) => void
   onDeleteEvent?: (id: string) => void
   onDayTap?: (dateStr: string) => void
+  onOwnWorkoutTap?: (ev: CalendarEvent) => void
 }) {
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
   const dayNameIndex = date.getDay() === 0 ? 6 : date.getDay() - 1
@@ -1215,7 +1395,11 @@ function DayCell({ date, workouts, events, isToday, isPast, compact, onWorkoutTa
                   </svg>
                 )}
               </div>
-              {sections.length > 0 ? (
+              {w.result ? (
+                <p className="text-[10px] text-green-700 font-medium truncate">
+                  Done {new Date(w.result.event_date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}
+                </p>
+              ) : sections.length > 0 ? (
                 <p className="text-[10px] text-indigo-600 truncate">{sections.map((s) => s.title).join(' · ')}</p>
               ) : (
                 <p className="text-[10px] text-indigo-600">{exCount} exercise{exCount !== 1 ? 's' : ''}</p>
@@ -1234,6 +1418,13 @@ function DayCell({ date, workouts, events, isToday, isPast, compact, onWorkoutTa
               <a key={ev.id} href={autoflowLink} className={cls} onClick={(e) => e.stopPropagation()}>
                 <span className="truncate flex-1">{ev.title}</span>
               </a>
+            )
+          }
+          if (ev.type === 'workout') {
+            return (
+              <button key={ev.id} type="button" onClick={(e) => { e.stopPropagation(); onOwnWorkoutTap?.(ev) }} className={`${cls} w-full text-left`}>
+                <span className="truncate flex-1">💪 {ev.title}</span>
+              </button>
             )
           }
           return (
@@ -1266,6 +1457,9 @@ function DayCell({ date, workouts, events, isToday, isPast, compact, onWorkoutTa
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function TrainingCalendar() {
+  const searchParams = useSearchParams()
+  const deepLinkEventId = searchParams.get('event')
+
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()))
   const [programs, setPrograms] = useState<ClientProgram[]>([])
   const [events, setEvents] = useState<CalendarEvent[]>([])
@@ -1273,7 +1467,10 @@ export default function TrainingCalendar() {
   const [error, setError] = useState<string | null>(null)
   const [viewingWorkout, setViewingWorkout] = useState<WorkoutForDate | null>(null)
   const [addingEventDate, setAddingEventDate] = useState<string | null>(null)
+  const [addingWorkoutDate, setAddingWorkoutDate] = useState<string | null>(null)
   const [viewingDay, setViewingDay] = useState<string | null>(null)
+  const [editingOwnWorkout, setEditingOwnWorkout] = useState<{ eventId: string; workoutId: string; title: string } | null>(null)
+  const deepLinkHandled = useRef(false)
 
   const weekEnd = addDays(weekStart, 6)
 
@@ -1341,6 +1538,64 @@ export default function TrainingCalendar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekStart])
 
+  // Phase 1: when deep link present on mount, jump calendar to the correct week
+  useEffect(() => {
+    if (!deepLinkEventId) return
+    const supabase = createClient()
+    supabase
+      .from('calendar_events')
+      .select('event_date')
+      .eq('id', deepLinkEventId)
+      .single()
+      .then(({ data }) => {
+        if (data?.event_date) {
+          const [y, m, d] = (data.event_date as string).split('-').map(Number)
+          setWeekStart(startOfWeek(new Date(y, m - 1, d)))
+        }
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkEventId])
+
+  // Phase 2: once data for the correct week is loaded, open the workout modal
+  useEffect(() => {
+    if (!deepLinkEventId || deepLinkHandled.current || loading) return
+    const targetEvent = events.find((e) => e.id === deepLinkEventId)
+    if (!targetEvent) return
+    deepLinkHandled.current = true
+
+    // Mark feedback as seen immediately — regardless of whether the modal opens.
+    // The banner must clear even if the program is archived or not found.
+    const c = targetEvent.content as Record<string, unknown>
+    if (c.feedback_left_at) {
+      fetch(`/api/client/calendar/${deepLinkEventId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feedback_seen: true }),
+      }).catch(() => {/* silent */})
+    }
+
+    const progId  = c.program_id as string | undefined
+    const weekIdx = c.week_index as number | undefined
+    const dayIdx  = c.day_index  as number | undefined
+
+    const prog = programs.find((p) => p.id === progId)
+    if (!prog || weekIdx === undefined || dayIdx === undefined) return
+
+    const week = prog.content[weekIdx]
+    const day  = week?.days?.[dayIdx]
+    if (!day) return
+
+    setViewingWorkout({
+      programId: prog.id,
+      programName: prog.name,
+      weekIdx,
+      dayIdx,
+      day,
+      dateStr: targetEvent.event_date,
+      result: targetEvent,
+    })
+  }, [deepLinkEventId, loading, events, programs])
+
   const goToPrevWeek = () => setWeekStart((d) => addDays(d, -7))
   const goToNextWeek = () => setWeekStart((d) => addDays(d, 7))
   const goToThisWeek = () => setWeekStart(startOfWeek(new Date()))
@@ -1381,6 +1636,35 @@ export default function TrainingCalendar() {
   async function handleDeleteEvent(id: string) {
     const res = await fetch(`/api/client/calendar/${id}`, { method: 'DELETE' })
     if (res.ok) setEvents((prev) => prev.filter((e) => e.id !== id))
+  }
+
+  function handleOwnWorkoutTap(ev: CalendarEvent) {
+    const workoutId = (ev.content as Record<string, unknown>)?.workout_id as string | undefined
+    if (!workoutId) return
+    setEditingOwnWorkout({ eventId: ev.id, workoutId, title: ev.title })
+  }
+
+  async function handleWorkoutFinished(workoutId?: string, workoutName?: string) {
+    if (addingWorkoutDate) {
+      try {
+        const res = await fetch('/api/client/calendar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event_date: addingWorkoutDate,
+            type: 'workout',
+            title: workoutName || 'Workout',
+            content: workoutId ? { workout_id: workoutId } : {},
+          }),
+        })
+        if (res.ok) {
+          const created = await res.json()
+          const newEvents = Array.isArray(created) ? created : [created]
+          setEvents((prev) => [...prev, ...newEvents])
+        }
+      } catch { /* calendar event is best-effort */ }
+    }
+    setAddingWorkoutDate(null)
   }
 
   return (
@@ -1444,7 +1728,8 @@ export default function TrainingCalendar() {
                     onWorkoutTap={setViewingWorkout}
                     onAddEvent={setAddingEventDate}
                     onDeleteEvent={handleDeleteEvent}
-                    onDayTap={setViewingDay} />
+                    onDayTap={setViewingDay}
+                    onOwnWorkoutTap={handleOwnWorkoutTap} />
                 )
               })}
             </div>
@@ -1459,7 +1744,8 @@ export default function TrainingCalendar() {
                     compact onWorkoutTap={setViewingWorkout}
                     onAddEvent={setAddingEventDate}
                     onDeleteEvent={handleDeleteEvent}
-                    onDayTap={setViewingDay} />
+                    onDayTap={setViewingDay}
+                    onOwnWorkoutTap={handleOwnWorkoutTap} />
                 )
               })}
             </div>
@@ -1482,6 +1768,7 @@ export default function TrainingCalendar() {
             onWorkoutTap={setViewingWorkout}
             onAddEvent={setAddingEventDate}
             onDeleteEvent={handleDeleteEvent}
+            onOwnWorkoutTap={handleOwnWorkoutTap}
           />
         )
       })()}
@@ -1502,7 +1789,41 @@ export default function TrainingCalendar() {
           dateStr={addingEventDate}
           onClose={() => setAddingEventDate(null)}
           onCreated={handleEventCreated}
+          onStartWorkout={() => {
+            setAddingWorkoutDate(addingEventDate)
+            setAddingEventDate(null)
+          }}
         />
+      )}
+
+      {/* Edit own workout overlay */}
+      {editingOwnWorkout && (
+        <div className="fixed inset-0 z-[60] bg-gray-50 overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-4 pt-4">
+            <WorkoutEditor
+              workoutId={editingOwnWorkout.workoutId}
+              onClose={() => setEditingOwnWorkout(null)}
+              onSaved={() => {
+                setEditingOwnWorkout(null)
+                // Refresh title if name changed
+                fetchData(weekStart, addDays(weekStart, 6))
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Personal workout overlay — same flow as individual clients */}
+      {addingWorkoutDate && (
+        <div className="fixed inset-0 z-[60] bg-gray-50 overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-4 pt-4">
+            <ActiveWorkout
+              onFinish={(workoutId, workoutName) => handleWorkoutFinished(workoutId, workoutName)}
+              onBack={() => setAddingWorkoutDate(null)}
+              canUploadVideo={true}
+            />
+          </div>
+        </div>
       )}
     </div>
   )

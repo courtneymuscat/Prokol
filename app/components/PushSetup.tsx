@@ -92,7 +92,7 @@ export default function PushSetup() {
           <button
             onClick={handleEnable}
             className="text-xs font-semibold px-3 py-1.5 rounded-lg text-gray-900"
-            style={{ backgroundColor: '#FFD885' }}
+            style={{ backgroundColor: '#1D9E75' }}
           >
             Enable
           </button>

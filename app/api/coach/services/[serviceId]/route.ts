@@ -4,10 +4,26 @@ import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ serviceId: string }> }
 
+const SERVICE_TIERS = new Set(['coach_solo', 'coach_pt_solo', 'coach_nutritionist_solo', 'coach_pro', 'coach_business', 'wl_starter', 'wl_pro'])
+
+async function checkServiceTier(coachId: string): Promise<boolean> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('profiles')
+    .select('subscription_tier')
+    .eq('id', coachId)
+    .single()
+  return SERVICE_TIERS.has(data?.subscription_tier ?? '')
+}
+
 export async function PUT(req: NextRequest, { params }: Ctx) {
   const { serviceId } = await params
   const coachId = await requireCoach()
   if (!coachId) return Response.json({ error: 'Unauthorised' }, { status: 401 })
+
+  if (!(await checkServiceTier(coachId))) {
+    return Response.json({ error: 'Services require Coach Pro or Business plan' }, { status: 403 })
+  }
 
   const { name, description, price_label, payment_link } = await req.json()
 
@@ -22,7 +38,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     })
     .eq('id', serviceId)
     .eq('coach_id', coachId)
-    .select('id, name, description, price_label, payment_link, created_at')
+    .select('id, name, description, price_label, payment_link, tos_url, created_at')
     .single()
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
@@ -34,6 +50,10 @@ export async function DELETE(_req: NextRequest, { params }: Ctx) {
   const { serviceId } = await params
   const coachId = await requireCoach()
   if (!coachId) return Response.json({ error: 'Unauthorised' }, { status: 401 })
+
+  if (!(await checkServiceTier(coachId))) {
+    return Response.json({ error: 'Services require Coach Pro or Business plan' }, { status: 403 })
+  }
 
   const supabase = await createClient()
   const { error } = await supabase

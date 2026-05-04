@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Geist_Mono, Geist } from "next/font/google";
+import { Inter, Geist_Mono, Geist, Syne, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import InstallPrompt from "@/app/components/InstallPrompt";
@@ -22,6 +22,20 @@ const inter = Inter({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
+});
+
+const syne = Syne({
+  variable: "--font-syne",
+  subsets: ["latin"],
+  weight: ["700", "800"],
+  display: "swap",
+});
+
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
+  weight: ["300", "400", "500"],
   display: "swap",
 });
 
@@ -76,7 +90,7 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("h-full", "antialiased", inter.variable, geistMono.variable, "font-sans", geist.variable)}
+      className={cn("h-full", "antialiased", inter.variable, geistMono.variable, "font-sans", geist.variable, syne.variable, dmSans.variable)}
     >
       <head>
         <style dangerouslySetInnerHTML={{ __html: cssVars }} />

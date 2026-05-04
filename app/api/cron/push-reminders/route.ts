@@ -66,7 +66,10 @@ export async function GET(req: NextRequest) {
 
   /** Is it the 8pm hour in this timezone right now? */
   function isEightPM(timezone: string | null): boolean {
-    return getLocalInfo(timezone).hour === 20
+    // If no timezone set, send at 8pm UTC (catches UTC-adjacent zones)
+    // Use a 2-hour window (8–9pm) to be safe against clock drift
+    const { hour } = getLocalInfo(timezone)
+    return hour === 20 || hour === 21
   }
 
   /** Days between two YYYY-MM-DD strings */
@@ -137,6 +140,9 @@ export async function GET(req: NextRequest) {
   }
 
   // ── 2. Scheduled check-ins due today ──────────────────────────────────────
+  //
+  // Sent at 7am local time when it's the client's scheduled check-in day.
+  // Handles weekly, biweekly, monthly, and once repeat types correctly.
 
   const { data: schedules } = await supabase
     .from('checkin_schedules')
@@ -144,6 +150,7 @@ export async function GET(req: NextRequest) {
       client_id,
       title,
       day_of_week,
+      repeat_type,
       start_date,
       profiles!client_id ( timezone )
     `)
@@ -162,14 +169,39 @@ export async function GET(req: NextRequest) {
       if (notifiedClients.has(clientId)) continue
 
       const { dayOfWeek, dateStr } = getLocalInfo(timezone)
+      const startDate = s.start_date as string
+      if (startDate > dateStr) continue
 
-      if ((s.day_of_week as number) !== dayOfWeek) continue
-      if ((s.start_date as string) > dateStr) continue
+      const repeatType = (s.repeat_type as string) ?? 'weekly'
+
+      // Check if today matches this schedule's repeat pattern
+      let isDueToday = false
+      if (repeatType === 'once') {
+        isDueToday = startDate === dateStr
+      } else if (repeatType === 'weekly') {
+        isDueToday = (s.day_of_week as number) === dayOfWeek
+      } else if (repeatType === 'biweekly') {
+        if ((s.day_of_week as number) === dayOfWeek) {
+          const weeksSinceStart = Math.floor(daysBetween(startDate, dateStr) / 7)
+          isDueToday = weeksSinceStart % 2 === 0
+        }
+      } else if (repeatType === 'monthly') {
+        // Monthly: same day-of-week and same week-of-month as the start date
+        const [sy, sm, sd] = startDate.split('-').map(Number)
+        const startDow = new Date(sy, sm - 1, sd).getDay()
+        const startWeekOfMonth = Math.floor((sd - 1) / 7)
+        const [cy, cm, cd] = dateStr.split('-').map(Number)
+        const todayDow = new Date(cy, cm - 1, cd).getDay()
+        const todayWeekOfMonth = Math.floor((cd - 1) / 7)
+        isDueToday = todayDow === startDow && todayWeekOfMonth === startWeekOfMonth
+      }
+
+      if (!isDueToday) continue
 
       notifiedClients.add(clientId)
       sendPushToUser(clientId, {
-        title: 'Check-in reminder',
-        body: `Time to complete your ${s.title as string}`,
+        title: "Check-in day 📋",
+        body: `Don't forget to complete your ${s.title as string} today`,
         url: '/dashboard',
         icon: '/icons/icon-192.png',
         tag: 'scheduled-checkin',
@@ -238,22 +270,32 @@ export async function GET(req: NextRequest) {
   //
   // Sent at 8pm local time if the client hasn't logged today.
   // Message is phase-aware: adapts based on recent cycle history.
-  // Opt-out via cycle_reminders = false on the profiles table.
-  //
-  // Required migration:
-  //   ALTER TABLE profiles ADD COLUMN IF NOT EXISTS cycle_reminders boolean DEFAULT true;
+  // Opt-out via cycle_reminders = false on the profiles table (optional column).
 
+  // Select without cycle_reminders first — that column may not exist yet.
+  // If it does exist, fetch it separately per-user to check opt-out.
   const { data: femaleClients } = await supabase
     .from('profiles')
-    .select('id, timezone, cycle_reminders')
+    .select('id, timezone')
     .eq('sex', 'female')
+
+  // Try to get cycle_reminders opt-outs (may fail if column doesn't exist — that's fine)
+  let cycleOptOuts = new Set<string>()
+  try {
+    const { data: optOutRows } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('sex', 'female')
+      .eq('cycle_reminders', false)
+    cycleOptOuts = new Set((optOutRows ?? []).map((r: { id: string }) => r.id))
+  } catch { /* column doesn't exist yet — all users get reminders */ }
 
   if (femaleClients?.length) {
     for (const client of femaleClients) {
-      const p = client as unknown as { id: string; timezone: string | null; cycle_reminders: boolean | null }
+      const p = client as unknown as { id: string; timezone: string | null }
 
       // Skip if user has opted out
-      if (p.cycle_reminders === false) continue
+      if (cycleOptOuts.has(p.id)) continue
 
       const timezone = p.timezone ?? null
       if (!isEightPM(timezone)) continue
@@ -280,7 +322,16 @@ export async function GET(req: NextRequest) {
         .gte('log_date', ninetyDaysAgo)
         .order('log_date', { ascending: true })
 
-      let body = 'Tap to log your symptoms for today'
+      // Phase-aware message pools
+      const generalMessages = [
+        'How are you feeling today? Log your symptoms to track your cycle.',
+        'Quick check-in — how\'s your energy today?',
+        'Take a moment to log today. Every entry helps you understand your patterns.',
+        'How\'s your mood and energy? Your cycle data is building a picture over time.',
+        'Don\'t forget to log today — it only takes a second.',
+      ]
+
+      let body = generalMessages[Math.floor(Math.random() * generalMessages.length)]
 
       if (recentLogs && recentLogs.length >= 2) {
         // Find period start dates (first day of each period block)
@@ -289,13 +340,11 @@ export async function GET(req: NextRequest) {
         const sortedDates = Object.keys(logMap).sort()
         for (const date of sortedDates) {
           if (!logMap[date]) continue
-          // It's a period start if the previous day wasn't a period day
           const prevDate = sortedDates[sortedDates.indexOf(date) - 1]
           if (!prevDate || !logMap[prevDate]) starts.push(date)
         }
 
         if (starts.length >= 2) {
-          // Calculate average cycle length from the last 3 cycles
           const lengths: number[] = []
           for (let i = 1; i < starts.length; i++) {
             const diff = daysBetween(starts[i - 1], starts[i])
@@ -311,19 +360,55 @@ export async function GET(req: NextRequest) {
 
             if (dayOfCycle >= 1 && dayOfCycle <= 5) {
               // Menstrual phase
-              body = 'Track your flow and how you\'re feeling today'
+              const messages = [
+                'How\'s your flow today? Log your period symptoms.',
+                'Period day — how are you feeling? Log your flow and energy.',
+                'How\'s your energy during your period? Take a moment to log.',
+                'Tracking cramps, flow, and mood during your period helps spot patterns.',
+              ]
+              body = messages[Math.floor(Math.random() * messages.length)]
             } else if (daysUntilPeriod >= 0 && daysUntilPeriod <= 2) {
               // Late luteal — period imminent
-              const d = daysUntilPeriod
-              body = d === 0
-                ? 'Your period could start any day — log any symptoms you\'re feeling'
-                : `Your period may be ${d === 1 ? 'tomorrow' : 'in 2 days'} — log any pre-period symptoms`
+              if (daysUntilPeriod === 0) {
+                const messages = [
+                  'Your period could arrive any day — how are you feeling?',
+                  'Period due today or very soon — log any symptoms you\'re noticing.',
+                ]
+                body = messages[Math.floor(Math.random() * messages.length)]
+              } else {
+                const d = daysUntilPeriod === 1 ? 'tomorrow' : 'in 2 days'
+                const messages = [
+                  `Period predicted ${d} — log any pre-period symptoms.`,
+                  `Almost time — how are you feeling as your period approaches ${d}?`,
+                ]
+                body = messages[Math.floor(Math.random() * messages.length)]
+              }
             } else if (daysUntilPeriod >= 3 && daysUntilPeriod <= 7) {
               // Luteal phase — PMS window
-              body = 'You\'re in your luteal phase — log mood, energy and any PMS symptoms'
+              const messages = [
+                'How\'s your mood today? You\'re in your luteal phase.',
+                'Luteal phase check-in — log mood, energy and any PMS symptoms.',
+                'How\'s your energy and sleep in the lead-up to your period?',
+                'Any cravings or mood changes today? Log them to spot your PMS pattern.',
+              ]
+              body = messages[Math.floor(Math.random() * messages.length)]
             } else if (dayOfCycle >= 11 && dayOfCycle <= 17) {
               // Ovulation window
-              body = 'You may be approaching ovulation — log cervical mucus and energy levels'
+              const messages = [
+                'You may be approaching ovulation — how\'s your energy?',
+                'Ovulation window — log cervical mucus and how you\'re feeling.',
+                'Peak energy phase incoming — how are you feeling today?',
+                'Any ovulation symptoms? Log them to confirm your fertile window.',
+              ]
+              body = messages[Math.floor(Math.random() * messages.length)]
+            } else {
+              // Follicular phase (post-period, pre-ovulation)
+              const messages = [
+                'How\'s your energy today? You\'re in your follicular phase.',
+                'Log how you\'re feeling — energy tends to rise this week.',
+                'Quick daily log — mood, energy, sleep. Takes 10 seconds.',
+              ]
+              body = messages[Math.floor(Math.random() * messages.length)]
             }
           }
         }

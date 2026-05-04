@@ -10,6 +10,9 @@ type OverageItem = {
 type BillingInfo = {
   subscription_tier: string
   next_billing_date: string | null
+  trial_end?: string | null
+  cancel_at_period_end?: boolean
+  cancels_at?: string | null
   has_stripe_customer: boolean
   seat_count?: number
   included_seats?: number
@@ -26,10 +29,10 @@ const PLAN_DISPLAY: Record<string, { name: string; price: string; isCoach?: bool
   individual_elite:          { name: 'Elite',                  price: '$34.99 AUD/mo' },
   coached:                   { name: 'Coached',                price: '' },
   coach_solo:                { name: 'Coach Solo (Legacy)',     price: '$39 AUD/mo',  isCoach: true },
-  coach_pt_solo:             { name: 'Solo — Personal Trainer', price: '$39 AUD/mo', isCoach: true },
-  coach_nutritionist_solo:   { name: 'Solo — Nutritionist',    price: '$39 AUD/mo',  isCoach: true },
-  coach_pro:                 { name: 'Coach Pro',              price: '$89 AUD/mo',  isCoach: true },
-  coach_business:            { name: 'Coach Business',         price: '$199 AUD/mo', isCoach: true },
+  coach_pt_solo:             { name: 'Solo — Personal Trainer', price: '$49 AUD/mo', isCoach: true },
+  coach_nutritionist_solo:   { name: 'Solo — Nutritionist',    price: '$49 AUD/mo',  isCoach: true },
+  coach_pro:                 { name: 'Coach Pro',              price: '$99 AUD/mo',  isCoach: true },
+  coach_business:            { name: 'Coach Business',         price: '$249 AUD/mo', isCoach: true },
   wl_starter:                { name: 'Web White-label',        price: '$299 AUD/mo', isCoach: true },
   wl_pro:                    { name: 'App Store White-label',  price: '$499 AUD/mo', isCoach: true },
 }
@@ -61,15 +64,27 @@ function SeatBar({ used, included, label }: { used: number; included: number; la
 export default function BillingSection({ returnPath = '/settings' }: { returnPath?: string }) {
   const [info, setInfo] = useState<BillingInfo | null>(null)
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [redirecting, setRedirecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showCancelWarning, setShowCancelWarning] = useState(false)
 
   useEffect(() => {
     fetch('/api/billing/info')
-      .then((r) => r.json())
-      .then((d) => { setInfo(d); setLoading(false) })
-      .catch(() => setLoading(false))
+      .then(async (r) => {
+        const d = await r.json()
+        if (!r.ok || d.error) {
+          setFetchError(d.error ?? `Error ${r.status}`)
+          setLoading(false)
+          return
+        }
+        setInfo(d)
+        setLoading(false)
+      })
+      .catch((e) => {
+        setFetchError(e?.message ?? 'Failed to load billing info')
+        setLoading(false)
+      })
   }, [])
 
   async function handleManage() {
@@ -117,11 +132,39 @@ export default function BillingSection({ returnPath = '/settings' }: { returnPat
     )
   }
 
+  if (fetchError) {
+    return (
+      <div className="bg-white rounded-2xl border p-5 space-y-3">
+        <p className="text-sm font-semibold text-gray-900">Billing & subscription</p>
+        <p className="text-xs text-red-600 bg-red-50 rounded-xl px-3 py-2">
+          Could not load billing info: {fetchError}
+        </p>
+        <button
+          onClick={() => { setFetchError(null); setLoading(true); fetch('/api/billing/info').then(async r => { const d = await r.json(); if (!r.ok || d.error) { setFetchError(d.error ?? `Error ${r.status}`) } else { setInfo(d) } setLoading(false) }).catch(e => { setFetchError(e?.message ?? 'Failed'); setLoading(false) }) }}
+          className="text-xs text-blue-600 hover:underline"
+        >
+          Retry
+        </button>
+      </div>
+    )
+  }
+
   const tier = info?.subscription_tier ?? 'individual_free'
   const plan = PLAN_DISPLAY[tier] ?? { name: tier, price: '' }
   const isCoachTier = COACH_TIERS.has(tier)
+  const isCancelling = info?.cancel_at_period_end ?? false
+  const cancelsDate = info?.cancels_at
+    ? new Date(info.cancels_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null
   const nextDate = info?.next_billing_date
     ? new Date(info.next_billing_date).toLocaleDateString('en-AU', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
+    : null
+  const trialEndDate = info?.trial_end
+    ? new Date(info.trial_end).toLocaleDateString('en-AU', {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
@@ -134,7 +177,22 @@ export default function BillingSection({ returnPath = '/settings' }: { returnPat
   return (
     <>
       <div className="bg-white rounded-2xl border p-5 space-y-4">
-        <p className="text-sm font-semibold text-gray-900">Billing & subscription</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-gray-900">Billing & subscription</p>
+          {/* Invoices link — always shown for any paying customer */}
+          {info?.has_stripe_customer && (
+            <button
+              onClick={handleManageClick}
+              disabled={redirecting}
+              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors disabled:opacity-50"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              {redirecting ? 'Opening…' : 'View invoices'}
+            </button>
+          )}
+        </div>
 
         {/* Plan header */}
         <div className="flex items-start justify-between gap-3">
@@ -146,6 +204,18 @@ export default function BillingSection({ returnPath = '/settings' }: { returnPat
             Current plan
           </span>
         </div>
+
+        {/* Active trial banner */}
+        {trialEndDate && (
+          <div className="flex items-start gap-2 bg-teal-50 border border-teal-100 rounded-xl px-3 py-2.5 text-xs text-teal-800">
+            <svg className="w-4 h-4 flex-shrink-0 mt-0.5 text-teal-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>
+              <strong>Free trial active</strong> — your trial ends on <strong>{trialEndDate}</strong>. Your first payment will be charged on that date. Cancel any time before then to avoid being charged.
+            </span>
+          </div>
+        )}
 
         {/* Seat usage bars for coach plans */}
         {isCoachTier && (info?.included_seats ?? 0) > 0 && (
@@ -204,6 +274,19 @@ export default function BillingSection({ returnPath = '/settings' }: { returnPat
           </p>
         )}
 
+        {/* Cancellation-scheduled notice */}
+        {isCancelling && cancelsDate && (
+          <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-xs text-amber-800">
+            <svg className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>
+              Your subscription is set to cancel on <strong>{cancelsDate}</strong>. You&apos;ll keep full access until then.
+              {' '}To undo this, open the billing portal and reactivate.
+            </span>
+          </div>
+        )}
+
         {tier === 'coached' ? (
           <p className="text-xs text-gray-500 italic">Your subscription is managed by your coach.</p>
         ) : tier === 'individual_free' ? (
@@ -212,7 +295,7 @@ export default function BillingSection({ returnPath = '/settings' }: { returnPat
             <a
               href="/pricing"
               className="inline-block text-xs font-semibold px-4 py-2 rounded-xl text-gray-900"
-              style={{ backgroundColor: '#FFD885' }}
+              style={{ backgroundColor: '#1D9E75' }}
             >
               Upgrade plan →
             </a>
@@ -235,12 +318,15 @@ export default function BillingSection({ returnPath = '/settings' }: { returnPat
               >
                 {redirecting ? 'Redirecting…' : 'Manage subscription'}
               </button>
-              <a
-                href="/pricing"
-                className="text-xs font-semibold px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:border-gray-400 transition-colors"
+              {/* Change plan: redirect to portal so Stripe handles proration on the EXISTING
+                  subscription — going to /pricing and creating a new checkout would duplicate it */}
+              <button
+                onClick={handleManageClick}
+                disabled={redirecting}
+                className="text-xs font-semibold px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:border-gray-400 transition-colors disabled:opacity-50"
               >
-                Change plan
-              </a>
+                {redirecting ? 'Redirecting…' : 'Change plan'}
+              </button>
             </div>
           </div>
         ) : (
@@ -249,7 +335,7 @@ export default function BillingSection({ returnPath = '/settings' }: { returnPat
             <a
               href="/pricing"
               className="inline-block text-xs font-semibold px-4 py-2 rounded-xl text-gray-900"
-              style={{ backgroundColor: '#FFD885' }}
+              style={{ backgroundColor: '#1D9E75' }}
             >
               Subscribe →
             </a>
@@ -295,7 +381,7 @@ export default function BillingSection({ returnPath = '/settings' }: { returnPat
               <button
                 onClick={() => setShowCancelWarning(false)}
                 className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-900"
-                style={{ backgroundColor: '#FFD885' }}
+                style={{ backgroundColor: '#1D9E75' }}
               >
                 Go back
               </button>

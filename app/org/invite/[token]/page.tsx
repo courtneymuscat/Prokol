@@ -53,13 +53,24 @@ export default function OrgInvitePage({
     load()
   }, [token])
 
+  async function signOutAndLogin(destination: string) {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    window.location.href = destination
+  }
+
   async function acceptAsCurrentUser() {
     setState({ status: 'accepting' })
     const res = await fetch(`/api/org/invite/${token}`, { method: 'POST' })
     const data = await res.json()
     if (res.ok) {
-      setState({ status: 'accepted' })
-      router.push(data.redirect ?? '/coach/dashboard')
+      if (data.had_own_subscription) {
+        setState({ status: 'error', message: '__subscription_warning__' })
+        setTimeout(() => router.push(data.redirect ?? '/coach/dashboard'), 5000)
+      } else {
+        setState({ status: 'accepted' })
+        router.push(data.redirect ?? '/coach/dashboard')
+      }
     } else {
       setState({ status: 'error', message: data.error ?? 'Something went wrong' })
     }
@@ -87,6 +98,26 @@ export default function OrgInvitePage({
             This invite has expired or is invalid. Ask your organisation owner to send a new invite.
           </p>
           <a href="/dashboard" className="text-sm text-blue-600 hover:underline">Go to dashboard</a>
+        </div>
+      </div>
+    )
+  }
+
+  if (state.status === 'error' && state.message === '__subscription_warning__') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border p-8 space-y-4">
+          <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto">
+            <svg className="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-lg font-semibold text-gray-900 text-center">You&apos;ve joined the team!</h1>
+          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <strong>Action needed:</strong> You had an active Prokol subscription. Your seat is now covered by your organisation — please cancel your individual plan in your billing settings to avoid being double-charged.
+          </p>
+          <a href="/settings" className="block text-center text-sm text-blue-600 hover:underline">Go to billing settings →</a>
+          <p className="text-xs text-gray-400 text-center">Redirecting to dashboard in 5 seconds…</p>
         </div>
       </div>
     )
@@ -140,15 +171,35 @@ export default function OrgInvitePage({
         {/* Actions */}
         <div className="space-y-3">
           {userEmail ? (
-            <button
-              onClick={acceptAsCurrentUser}
-              className="block w-full bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors text-center"
-            >
-              Accept as {userEmail}
-            </button>
+            userEmail.toLowerCase() === invite.email.toLowerCase() ? (
+              <button
+                onClick={acceptAsCurrentUser}
+                className="block w-full bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors text-center"
+              >
+                Accept as {userEmail}
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+                  You&apos;re logged in as <strong>{userEmail}</strong> but this invite was sent to <strong>{invite.email}</strong>.
+                </div>
+                <button
+                  onClick={() => signOutAndLogin(`/login?next=${encodeURIComponent('/org/invite/' + token)}`)}
+                  className="block w-full bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors text-center"
+                >
+                  Log in as {invite.email}
+                </button>
+                <button
+                  onClick={() => signOutAndLogin(`/signup?org_invite=${token}`)}
+                  className="block w-full border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors text-center"
+                >
+                  Sign up with {invite.email}
+                </button>
+              </div>
+            )
           ) : (
             <a
-              href={`/signup?invite=${token}`}
+              href={`/signup?org_invite=${token}`}
               className="block w-full bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors text-center"
             >
               Create account &amp; accept
@@ -157,7 +208,7 @@ export default function OrgInvitePage({
 
           {!userEmail && (
             <a
-              href={`/login?invite=${token}`}
+              href={`/login?next=${encodeURIComponent('/org/invite/' + token)}`}
               className="block w-full border border-gray-200 text-gray-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-colors text-center"
             >
               Already have an account? Log in

@@ -180,7 +180,7 @@ export default function PrivacyPage() {
               <li><strong>Complain</strong> to the Office of the Australian Information Commissioner (OAIC) if you believe we have breached the APPs</li>
             </ul>
             <p className="mt-3">
-              To exercise these rights, contact us at <a href="mailto:courtney@prokol.io" className="text-blue-600 hover:underline">courtney@prokol.io</a>.
+              To exercise these rights, contact us at <a href="mailto:info@prokol.io" className="text-blue-600 hover:underline">info@prokol.io</a>.
               We will respond within 30 days. Account deletion can also be initiated directly from Settings → Account → Delete Account.
             </p>
           </section>
@@ -220,8 +220,8 @@ export default function PrivacyPage() {
               <p>502 Castlereagh Rd, Agnes Banks NSW 2753, Australia</p>
               <p>
                 Email:{' '}
-                <a href="mailto:courtney@prokol.io" className="text-blue-600 hover:underline">
-                  courtney@prokol.io
+                <a href="mailto:info@prokol.io" className="text-blue-600 hover:underline">
+                  info@prokol.io
                 </a>
               </p>
             </div>

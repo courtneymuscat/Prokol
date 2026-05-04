@@ -4,7 +4,7 @@ import { useState, useEffect, use } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-type QuestionType = 'text' | 'textarea' | 'number' | 'radio' | 'checkbox' | 'dropdown' | 'file_upload' | 'image'
+type QuestionType = 'text' | 'textarea' | 'number' | 'scale' | 'yesno' | 'radio' | 'checkbox' | 'dropdown' | 'file_upload' | 'image' | 'signature'
 
 type Question = {
   id: string | null   // null = not yet saved
@@ -28,11 +28,14 @@ const TYPE_LABELS: Record<QuestionType, string> = {
   text: 'Short text',
   textarea: 'Long text',
   number: 'Number',
+  scale: 'Scale 1–10',
+  yesno: 'Yes / No',
   radio: 'Single choice',
   checkbox: 'Multiple choice',
   dropdown: 'Dropdown',
   file_upload: 'File upload',
   image: 'Image',
+  signature: 'Signature',
 }
 
 export default function FormBuilderPage({ params }: { params: Promise<{ formId: string }> }) {

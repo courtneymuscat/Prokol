@@ -104,7 +104,7 @@ const COACH_PLATFORM_POINTS = [
 
 function CheckIcon() {
   return (
-    <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="#FFD885" strokeWidth={2.5} viewBox="0 0 24 24">
+    <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="#1D9E75" strokeWidth={2.5} viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
     </svg>
   )
@@ -149,7 +149,7 @@ export default function LandingContent() {
       </section>
 
       {/* ── Hero ────────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #FFFBF0 0%, #FFF5D0 50%, #FFFBF0 100%)' }}>
+      <section className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #EEF4F0 0%, rgba(29,158,117,0.08) 50%, #EEF4F0 100%)' }}>
         <div className="max-w-4xl mx-auto px-6 py-24 text-center space-y-8">
           {isCoach ? (
             <>
@@ -170,7 +170,7 @@ export default function LandingContent() {
                 <Link
                   href="/signup?type=coach"
                   className="text-base font-semibold px-8 py-4 rounded-2xl text-gray-900 transition-colors hover:opacity-90 shadow-sm"
-                  style={{ backgroundColor: '#FFD885' }}
+                  style={{ backgroundColor: '#1D9E75' }}
                 >
                   Start coaching free →
                 </Link>
@@ -208,7 +208,7 @@ export default function LandingContent() {
                 <Link
                   href="/signup"
                   className="text-base font-semibold px-8 py-4 rounded-2xl text-gray-900 transition-colors hover:opacity-90 shadow-sm"
-                  style={{ backgroundColor: '#FFD885' }}
+                  style={{ backgroundColor: '#1D9E75' }}
                 >
                   Start for free →
                 </Link>
@@ -250,7 +250,7 @@ export default function LandingContent() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {(isCoach ? COACH_FEATURES : INDIVIDUAL_FEATURES).map((f) => (
               <div key={f.title} className="space-y-4">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: '#FFF5D0' }}>
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: 'rgba(29,158,117,0.08)' }}>
                   {f.emoji}
                 </div>
                 <div>
@@ -273,7 +273,7 @@ export default function LandingContent() {
 
       {/* ── Coach platform deep-dive (coach view only) ───────────────────────── */}
       {isCoach && (
-        <section id="coach-platform" className="py-24 px-6" style={{ backgroundColor: '#FFFBF0' }}>
+        <section id="coach-platform" className="py-24 px-6" style={{ backgroundColor: '#EEF4F0' }}>
           <div className="max-w-5xl mx-auto space-y-14">
             <div className="text-center space-y-3">
               <h2 className="text-3xl font-bold text-gray-900">The platform your clients will love using</h2>
@@ -294,7 +294,7 @@ export default function LandingContent() {
 
             {/* Client retention callout */}
             <div className="bg-white rounded-2xl border border-gray-100 p-7 flex flex-col md:flex-row items-start md:items-center gap-6">
-              <div className="w-12 h-12 rounded-2xl flex-shrink-0 flex items-center justify-center text-2xl" style={{ backgroundColor: '#FFF5D0' }}>
+              <div className="w-12 h-12 rounded-2xl flex-shrink-0 flex items-center justify-center text-2xl" style={{ backgroundColor: 'rgba(29,158,117,0.08)' }}>
                 🔄
               </div>
               <div className="flex-1">
@@ -357,7 +357,7 @@ export default function LandingContent() {
             <div className="overflow-x-auto rounded-2xl border border-gray-100">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ backgroundColor: '#FFF5D0' }}>
+                  <tr style={{ backgroundColor: 'rgba(29,158,117,0.08)' }}>
                     <th className="text-left px-5 py-3.5 font-semibold text-gray-700 w-1/3">Feature</th>
                     <th className="px-5 py-3.5 font-semibold text-gray-500 text-center">Trainerize / Everfit</th>
                     <th className="px-5 py-3.5 font-semibold text-gray-500 text-center">MyFitnessPal</th>
@@ -382,7 +382,7 @@ export default function LandingContent() {
                       <td className="px-5 py-3 text-center">{trainerize ? '✓' : <span className="text-gray-300">—</span>}</td>
                       <td className="px-5 py-3 text-center">{mfp ? '✓' : <span className="text-gray-300">—</span>}</td>
                       <td className="px-5 py-3 text-center">
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold" style={{ backgroundColor: '#FFD885', color: '#78520A' }}>✓</span>
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold" style={{ backgroundColor: '#1D9E75', color: '#FFFFFF' }}>✓</span>
                       </td>
                     </tr>
                   ))}
@@ -391,7 +391,7 @@ export default function LandingContent() {
             </div>
 
             {/* Summary callout */}
-            <div className="rounded-2xl p-7 text-center space-y-3" style={{ backgroundColor: '#FFFBF0' }}>
+            <div className="rounded-2xl p-7 text-center space-y-3" style={{ backgroundColor: '#EEF4F0' }}>
               <p className="text-xl font-bold text-gray-900">One platform. Everything connected.</p>
               <p className="text-sm text-gray-500 max-w-2xl mx-auto leading-relaxed">
                 Your clients log food, complete workouts, track habits, and submit check-ins — all in the same app you use to coach them. No tool-switching, no data gaps, no chasing screenshots on WhatsApp.
@@ -402,7 +402,7 @@ export default function LandingContent() {
       )}
 
       {/* ── How it works ────────────────────────────────────────────────────── */}
-      <section className={`py-24 px-6 ${isCoach ? 'bg-white' : ''}`} style={isCoach ? {} : { backgroundColor: '#FFFBF0' }}>
+      <section className={`py-24 px-6 ${isCoach ? 'bg-white' : ''}`} style={isCoach ? {} : { backgroundColor: '#EEF4F0' }}>
         <div className="max-w-4xl mx-auto space-y-12">
           <div className="text-center">
             <h2 className="text-3xl font-bold text-gray-900">
@@ -412,7 +412,7 @@ export default function LandingContent() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {(isCoach ? COACH_STEPS : INDIVIDUAL_STEPS).map((s) => (
               <div key={s.step} className="space-y-3">
-                <span className="text-4xl font-bold" style={{ color: '#FFD885' }}>{s.step}</span>
+                <span className="text-4xl font-bold" style={{ color: '#1D9E75' }}>{s.step}</span>
                 <h3 className="text-lg font-bold text-gray-900">{s.title}</h3>
                 <p className="text-sm text-gray-500 leading-relaxed">{s.desc}</p>
               </div>
@@ -424,7 +424,7 @@ export default function LandingContent() {
               <Link
                 href="/signup?type=coach"
                 className="inline-block text-base font-semibold px-10 py-4 rounded-2xl text-gray-900 hover:opacity-90 transition-colors"
-                style={{ backgroundColor: '#FFD885' }}
+                style={{ backgroundColor: '#1D9E75' }}
               >
                 Start coaching free →
               </Link>
@@ -443,7 +443,7 @@ export default function LandingContent() {
               <Link
                 href="/signup?type=coach"
                 className="inline-block text-base font-semibold px-10 py-4 rounded-2xl text-gray-900 hover:opacity-90 transition-colors"
-                style={{ backgroundColor: '#FFD885' }}
+                style={{ backgroundColor: '#1D9E75' }}
               >
                 Create coach account →
               </Link>
@@ -455,7 +455,7 @@ export default function LandingContent() {
               <Link
                 href="/signup"
                 className="inline-block text-base font-semibold px-10 py-4 rounded-2xl text-gray-900 hover:opacity-90 transition-colors"
-                style={{ backgroundColor: '#FFD885' }}
+                style={{ backgroundColor: '#1D9E75' }}
               >
                 Create free account →
               </Link>

@@ -132,14 +132,53 @@ export async function POST(
 
   const supabase = await createClient()
   const body = await req.json()
-  const { event_date, type, title, content } = body
+  const { event_date, type, title, content, repeat_rule } = body
+
+  // No repeat — single event
+  if (!repeat_rule) {
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .insert({ event_date, type, title, content, client_id: clientId, coach_id: coachId })
+      .select()
+      .single()
+    if (error) return Response.json({ error: error.message }, { status: 400 })
+    return Response.json(data)
+  }
+
+  // Recurring — generate all dates and batch insert
+  const recurrenceId = crypto.randomUUID()
+  const dates: string[] = []
+  const [y, m, d] = event_date.split('-').map(Number)
+  let current = new Date(Date.UTC(y, m - 1, d))
+  const limit = new Date(Date.UTC(y + 1, m - 1, d)) // 1 year from start
+
+  while (current <= limit) {
+    dates.push(current.toISOString().split('T')[0])
+    if (repeat_rule === 'weekly') {
+      current = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate() + 7))
+    } else if (repeat_rule === 'biweekly') {
+      current = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate() + 14))
+    } else if (repeat_rule === 'monthly') {
+      current = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth() + 1, current.getUTCDate()))
+    } else {
+      break
+    }
+  }
+
+  const rows = dates.map((date) => ({
+    event_date: date,
+    type,
+    title,
+    content: { ...(content ?? {}), recurrence_id: recurrenceId, repeat_rule },
+    client_id: clientId,
+    coach_id: coachId,
+  }))
 
   const { data, error } = await supabase
     .from('calendar_events')
-    .insert({ event_date, type, title, content, client_id: clientId, coach_id: coachId })
+    .insert(rows)
     .select()
-    .single()
 
   if (error) return Response.json({ error: error.message }, { status: 400 })
-  return Response.json(data)
+  return Response.json({ events: data })
 }

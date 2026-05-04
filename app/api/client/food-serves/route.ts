@@ -26,18 +26,27 @@ export async function GET(req: Request) {
 
   const { data: tags } = await admin
     .from('coach_food_serves')
-    .select('id, food_name, serve_category, secondary_categories, subcategory, serving_desc, calories_per_serve, protein_per_serve, carbs_per_serve, fat_per_serve')
+    .select('id, food_name, serve_category, secondary_categories, subcategory, serving_desc, household_measure, calories_per_serve, protein_per_serve, carbs_per_serve, fat_per_serve')
     .eq('coach_id', rel.coach_id)
     .order('serve_category')
     .order('food_name')
 
   if (list) return NextResponse.json({ foods: tags ?? [] })
 
-  const map: Record<string, { category: string; secondary: string[] }> = {}
+  const map: Record<string, {
+    category: string
+    secondary: string[]
+    protein_per_serve: number | null
+    carbs_per_serve: number | null
+    fat_per_serve: number | null
+  }> = {}
   for (const t of tags ?? []) {
     map[t.food_name.toLowerCase()] = {
       category: t.serve_category,
       secondary: t.secondary_categories ?? [],
+      protein_per_serve: t.protein_per_serve ?? null,
+      carbs_per_serve:   t.carbs_per_serve   ?? null,
+      fat_per_serve:     t.fat_per_serve     ?? null,
     }
   }
 

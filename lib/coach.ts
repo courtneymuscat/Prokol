@@ -19,8 +19,10 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
     .single()
 
   if (!invite) return
-  if (invite.status !== 'pending') return
-  if (new Date(invite.expires_at) < new Date()) return
+  // Revoked invites are completely invalid
+  if (invite.status === 'revoked') return
+  // Expired invites that were never accepted are invalid
+  if (new Date(invite.expires_at) < new Date() && invite.status !== 'accepted') return
 
   // Try to get optional columns separately (may not exist yet if migration hasn't run)
   let formId: string | null = null
@@ -37,7 +39,9 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
     autoflowId = (fi as { autoflow_id?: string | null })?.autoflow_id ?? null
   } catch { /* columns don't exist yet */ }
 
-  // Link client to coach and switch them to coached tier
+  // Always upsert coach_clients and set profile to coached — safe to run multiple times.
+  // This ensures the client gets the correct tier even if they sign up after the invite
+  // was already marked accepted (e.g. via a ghost-user activation on a prior attempt).
   const clientRow: Record<string, unknown> = {
     coach_id: invite.coach_id,
     client_id: clientId,
@@ -48,17 +52,22 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
   if (formId !== null) clientRow.form_id = formId
 
   await admin.from('coach_clients').upsert(clientRow, { onConflict: 'coach_id,client_id' })
-  await admin.from('profiles').update({ subscription_tier: 'coached' }).eq('id', clientId)
+  await admin.from('profiles').update({
+    subscription_tier: 'coached',
+    onboarding_completed: true,
+  }).eq('id', clientId)
 
   // Report seat usage for overage billing (non-blocking)
   reportSeatUsage(invite.coach_id).catch((err) =>
     console.error('reportSeatUsage error:', err instanceof Error ? err.message : String(err))
   )
 
+  // One-time actions — only run on the first acceptance
+  if (invite.status !== 'pending') return
+
   // Auto-assign autoflow if one was specified in the invite
   if (autoflowId) {
     try {
-      // Fetch template to get total_steps
       const { data: tpl } = await admin
         .from('autoflow_templates')
         .select('id, name, total_steps')
@@ -80,7 +89,6 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
           .select('id')
           .single()
 
-        // Generate calendar events for each step
         if (flow) {
           const { data: steps } = await admin
             .from('autoflow_template_steps')
@@ -107,7 +115,6 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
     } catch { /* autoflow assignment is non-critical */ }
   }
 
-  // Mark invite accepted
   await admin.from('coach_invites').update({ status: 'accepted' }).eq('id', invite.id)
 }
 

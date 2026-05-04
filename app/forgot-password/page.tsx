@@ -26,7 +26,7 @@ export default function ForgotPasswordPage() {
               <p className="text-sm text-gray-500">
                 We&apos;ve sent a password reset link. Check your inbox and click the link to set a new password.
               </p>
-              <Link href="/login" className="block text-sm text-blue-600 font-medium hover:underline pt-2">
+              <Link href="/login" className="block text-sm text-[#1D9E75] font-medium hover:underline pt-2">
                 Back to log in
               </Link>
             </div>
@@ -50,7 +50,7 @@ export default function ForgotPasswordPage() {
                     type="email"
                     required
                     placeholder="you@example.com"
-                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D9E75]"
                   />
                 </div>
 
@@ -61,14 +61,14 @@ export default function ForgotPasswordPage() {
                 <button
                   type="submit"
                   disabled={pending}
-                  className="w-full bg-blue-600 text-white rounded-xl px-4 py-2.5 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="w-full bg-[#1D9E75] text-white rounded-xl px-4 py-2.5 text-sm font-semibold hover:bg-[#178A64] disabled:opacity-50 transition-colors"
                 >
                   {pending ? 'Sending…' : 'Send reset link'}
                 </button>
               </form>
 
               <p className="text-center text-sm text-gray-500">
-                <Link href="/login" className="text-blue-600 font-medium hover:underline">
+                <Link href="/login" className="text-[#1D9E75] font-medium hover:underline">
                   Back to log in
                 </Link>
               </p>

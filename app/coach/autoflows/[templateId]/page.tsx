@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type QuestionType = 'text' | 'textarea' | 'scale' | 'yesno' | 'choice' | 'note' | 'section'
+type QuestionType = 'text' | 'textarea' | 'number' | 'scale' | 'yesno' | 'radio' | 'choice' | 'dropdown' | 'file_upload' | 'signature' | 'note' | 'section'
 
 type Question = {
   id: string
@@ -64,11 +64,16 @@ type CoachForm = {
 }
 
 const TYPE_LABELS: Record<Exclude<QuestionType, 'note' | 'section'>, string> = {
-  text: 'Short answer',
-  textarea: 'Long answer',
+  text: 'Short text',
+  textarea: 'Long text',
+  number: 'Number',
   scale: 'Scale 1–10',
   yesno: 'Yes / No',
+  radio: 'Single choice',
   choice: 'Multiple choice',
+  dropdown: 'Dropdown',
+  file_upload: 'File upload',
+  signature: 'Signature',
 }
 
 // ── Question builder ───────────────────────────────────────────────────────────

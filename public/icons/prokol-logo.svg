@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 60" width="300" height="60">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#25c18a"/>
+      <stop offset="100%" stop-color="#1D9E75"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Icon mark (60×60) -->
+  <rect x="0" y="0" width="60" height="60" rx="13" fill="url(#g)"/>
+  <!--
+    Scale factor 60/512 ≈ 0.117
+    Stem: x 138→16.2, 214→25.1  y 108→12.7, 404→47.4, 306→35.9
+    Bowl outer right: 382→44.9  mid-y 207→24.3
+    Bowl inner: 178→20.9, 277→32.5, 310→36.4, 236→27.7
+  -->
+  <path
+    fill="white"
+    fill-rule="evenodd"
+    d="M16,13 L16,47 L25,47 L25,36
+       L33,36 Q45,36 45,24 Q45,13 33,13 Z
+       M25,21 L32,21 Q36,21 36,24 Q36,28 32,28 L25,28 Z"
+  />
+
+  <!-- "Prokol" wordmark -->
+  <text
+    x="74"
+    y="44"
+    font-family="'DM Sans','Inter','Helvetica Neue',Arial,sans-serif"
+    font-size="38"
+    font-weight="800"
+    letter-spacing="-1.5"
+    fill="#111827"
+  >Prokol<tspan fill="#1D9E75">.</tspan></text>
+</svg>

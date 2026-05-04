@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
 import { sendEmail } from '@/lib/email'
+import { INCLUDED_SEATS } from '@/lib/billing'
 import type { NextRequest } from 'next/server'
 
 export async function POST(req: NextRequest) {
@@ -11,8 +12,46 @@ export async function POST(req: NextRequest) {
   const { email, service_id, form_id, form_save_to_file, autoflow_id } = await req.json()
   if (!email) return Response.json({ error: 'Email required' }, { status: 400 })
 
-  const supabase = await createClient()
   const admin = createAdminClient()
+
+  // ── Seat enforcement ───────────────────────────────────────────────────────
+  // Fetch coach's subscription tier and current active+pending client count.
+  const [profileResult, clientCountResult] = await Promise.all([
+    admin
+      .from('profiles')
+      .select('subscription_tier')
+      .eq('id', coachId)
+      .single(),
+    admin
+      .from('coach_clients')
+      .select('id', { count: 'exact', head: true })
+      .eq('coach_id', coachId)
+      .in('status', ['active', 'pending_invite']),
+  ])
+
+  const tier = (profileResult.data as Record<string, unknown>)?.subscription_tier as string | null
+  const activeCount = clientCountResult.count ?? 0
+  const includedSeats = tier ? (INCLUDED_SEATS[tier] ?? null) : null
+
+  // If the coach's tier is not a recognised coaching plan, block entirely.
+  if (includedSeats === null) {
+    return Response.json(
+      { error: 'An active coaching subscription is required to invite clients.', requiresUpgrade: true },
+      { status: 403 },
+    )
+  }
+
+  // For valid coaching tiers, overages are metered (billed per extra client) —
+  // we don't hard-block, but we include seat usage in the response so the UI
+  // can surface a warning. Stripe meter events fire at acceptance via reportSeatUsage().
+  const seatInfo = {
+    used: activeCount,
+    included: includedSeats,
+    tier,
+    overCapacity: activeCount >= includedSeats,
+  }
+
+  const supabase = await createClient()
 
   // Fetch coach name/brand for the invite email
   const { data: coachProfile } = await supabase
@@ -110,5 +149,5 @@ export async function POST(req: NextRequest) {
       )
   }
 
-  return Response.json({ url, token })
+  return Response.json({ url, token, seatInfo })
 }

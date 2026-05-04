@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 export default function DeleteAccount() {
   const router = useRouter()
@@ -21,7 +22,10 @@ export default function DeleteAccount() {
       setLoading(false)
       return
     }
-    router.push('/login?deleted=1')
+    // Clear the local session — the auth user no longer exists server-side
+    const supabase = createClient()
+    await supabase.auth.signOut({ scope: 'local' })
+    router.push('/')
   }
 
   return (
@@ -29,7 +33,7 @@ export default function DeleteAccount() {
       <div>
         <p className="text-sm font-bold text-red-700">Delete account</p>
         <p className="text-xs text-red-600 mt-1">
-          Permanently deletes your account and all data — food logs, weight, cycle logs, and check-ins. This cannot be undone.
+          Permanently deletes your account and all associated data — food logs, workouts, check-ins, cycle logs, progress photos, meal plans, habits, coaching relationships, messages, and any active subscription. This cannot be undone.
         </p>
       </div>
 

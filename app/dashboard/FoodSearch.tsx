@@ -91,6 +91,10 @@ export type FoodResult = {
   unit?: string
   custom?: boolean
   source?: string
+  serving_size?: string | null       // e.g. "160 g" or "1 pot (160g)"
+  serving_quantity?: number | null   // grams per serving, e.g. 160
+  barcode?: string | null            // EAN/UPC code from OFD search
+  image_url?: string | null
 }
 
 type BarcodeState =
@@ -99,8 +103,27 @@ type BarcodeState =
   | { status: 'not_found'; code: string }
   | { status: 'saving' }
 
-type ServingUnit = 'g' | 'ml' | 'oz' | 'cup' | 'tbsp' | 'tsp'
+type ServingUnit = 'g' | 'ml' | 'oz' | 'cup' | 'tbsp' | 'tsp' | 'piece'
 type VolumeUnit = 'cup' | 'tbsp' | 'tsp'
+
+const PIECE_WEIGHTS: Array<[RegExp, number]> = [
+  [/\begg\b/i, 50],
+  [/\bapple\b/i, 182],
+  [/\bbanana\b/i, 118],
+  [/\borange\b/i, 131],
+  [/\btomato\b/i, 123],
+  [/\bstrawberr/i, 12],
+  [/\bpotato\b/i, 150],
+  [/\bcarrot\b/i, 61],
+  [/\bslice\b|\btoast\b/i, 28],
+]
+
+function getPieceWeight(name: string): number | null {
+  for (const [re, g] of PIECE_WEIGHTS) {
+    if (re.test(name)) return g
+  }
+  return null
+}
 
 // Gram-per-unit lookup for common whole foods. Most-specific patterns first.
 const FOOD_UNIT_GRAMS: Array<[RegExp, Partial<Record<VolumeUnit, number>>]> = [
@@ -157,6 +180,7 @@ function buildServingDescription(qty: number, unit: ServingUnit): string {
   if (unit === 'tsp') return `${qty} tsp`
   if (unit === 'cup') return `${qty} cup${qty !== 1 ? 's' : ''}`
   if (unit === 'oz') return `${qty}oz`
+  if (unit === 'piece') return `${qty} piece${qty !== 1 ? 's' : ''}`
   return `${qty}${unit}`
 }
 
@@ -416,12 +440,40 @@ export default function FoodSearch({ onSelect }: Props) {
             fat_per_100g: food.fat_per_100g,
           }),
         })
-        if (res.ok) resolvedFood = await res.json()
+        if (res.ok) {
+          const saved = await res.json()
+          // Merge back extra fields the save endpoint doesn't store
+          resolvedFood = {
+            ...saved,
+            serving_quantity: food.serving_quantity ?? saved.serving_quantity,
+            serving_size:     food.serving_size     ?? saved.serving_size,
+            barcode:          food.barcode          ?? saved.barcode,
+            image_url:        food.image_url        ?? saved.image_url ?? null,
+          }
+        }
       } catch {
-        // save failed — use food as-is (food_id will be null-ish, that's acceptable)
+        // save failed — use food as-is
       }
     }
+    // If serving_quantity is still missing but we have a barcode, fetch from the product API
+    if (!resolvedFood.serving_quantity && resolvedFood.barcode) {
+      try {
+        const r = await fetch(`/api/foods/barcode?code=${encodeURIComponent(resolvedFood.barcode)}`)
+        if (r.ok) {
+          const full = await r.json()
+          if (full?.serving_quantity) {
+            resolvedFood = { ...resolvedFood, serving_quantity: full.serving_quantity, serving_size: full.serving_size ?? resolvedFood.serving_size }
+          }
+        }
+      } catch { /* non-critical */ }
+    }
+
     const initUnit: ServingUnit = resolvedFood.unit === 'ml' ? 'ml' : 'g'
+    const nameGrams = (() => {
+      const m = resolvedFood.name.match(/\b(\d{2,4})\s*g\b/i) ?? resolvedFood.name.match(/\s(\d{3,4})$/)
+      return m ? parseFloat(m[1]) : null
+    })()
+    const initGrams = resolvedFood.serving_quantity ?? nameGrams ?? 100
     setSelected(resolvedFood)
     setHighlightedId(resolvedFood.id)
     setQuery(resolvedFood.name)
@@ -429,10 +481,10 @@ export default function FoodSearch({ onSelect }: Props) {
     setBarcode({ status: 'idle' })
     setUnit(resolvedFood.unit === 'ml' ? 'ml' : 'g')
     setServingUnit(initUnit)
-    setServingQty(100)
+    setServingQty(initGrams)
     setGramsPerUnit('')
-    setGrams(100)
-    onSelect(resolvedFood, 100, buildServingDescription(100, initUnit))
+    setGrams(initGrams)
+    onSelect(resolvedFood, initGrams, buildServingDescription(initGrams, initUnit))
   }
 
   function handleGramsChange(val: number) {
@@ -452,6 +504,12 @@ export default function FoodSearch({ onSelect }: Props) {
       effG = newQty
     } else if (newUnit === 'oz') {
       effG = Math.round(newQty * 28.35)
+    } else if (newUnit === 'piece') {
+      if (selected) {
+        const pw = getPieceWeight(selected.name)
+        if (pw) newGPU = String(pw)
+      }
+      effG = newGPU ? Math.round(newQty * Number(newGPU)) : 0
     } else {
       if (selected) {
         const staticG = getStaticGramsPerUnit(selected.name, newUnit as VolumeUnit)
@@ -465,7 +523,7 @@ export default function FoodSearch({ onSelect }: Props) {
     setGrams(effG)
     if (selected) onSelect(selected, effG, buildServingDescription(newQty, newUnit))
     // Keep unit badge in sync for g/ml
-    if (!isVolume && newUnit !== 'oz') setUnit(newUnit as 'g' | 'ml')
+    if (!isVolume && newUnit !== 'oz' && newUnit !== 'piece') setUnit(newUnit as 'g' | 'ml')
   }
 
   function handleServingQtyChange(newQty: number) {
@@ -894,6 +952,25 @@ export default function FoodSearch({ onSelect }: Props) {
             </div>
             <p className="text-sm font-semibold text-gray-900 leading-tight">{selected.name}</p>
 
+            {/* Quick serving buttons */}
+            {(() => {
+              const nameG = (() => { const m = selected.name.match(/\b(\d{2,4})\s*g\b/i) ?? selected.name.match(/\s(\d{3,4})$/); return m ? parseFloat(m[1]) : null })()
+              const servingG = selected.serving_quantity ?? nameG
+              if (!servingG || servingG === 100) return null
+              return (
+                <div className="flex gap-1.5 flex-wrap">
+                  <button type="button" onClick={() => handleGramsChange(100)}
+                    className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${grams === 100 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}>
+                    100g
+                  </button>
+                  <button type="button" onClick={() => handleGramsChange(servingG)}
+                    className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${grams === servingG ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-300'}`}>
+                    {selected.serving_size ? `1 serving (${selected.serving_size})` : `1 serving (${servingG}g)`}
+                  </button>
+                </div>
+              )
+            })()}
+
             {/* Serving size */}
             <div className="flex items-center gap-2 flex-wrap">
               <label className="text-xs text-gray-600 whitespace-nowrap">Serving size:</label>
@@ -916,11 +993,12 @@ export default function FoodSearch({ onSelect }: Props) {
                 <option value="cup">cup</option>
                 <option value="tbsp">tbsp</option>
                 <option value="tsp">tsp</option>
+                <option value="piece">piece</option>
               </select>
             </div>
 
-            {/* Volume unit gram-equivalent: auto-populated from lookup, editable */}
-            {(servingUnit === 'cup' || servingUnit === 'tbsp' || servingUnit === 'tsp') && grams === 0 && (
+            {/* Volume / piece unit gram-equivalent: auto-populated from lookup, editable */}
+            {(servingUnit === 'cup' || servingUnit === 'tbsp' || servingUnit === 'tsp' || servingUnit === 'piece') && grams === 0 && (
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs text-gray-500">1 {servingUnit} =</span>
                 <input
@@ -951,7 +1029,7 @@ export default function FoodSearch({ onSelect }: Props) {
                     </div>
                   ))}
                 </div>
-                {(servingUnit === 'cup' || servingUnit === 'tbsp' || servingUnit === 'tsp') && gramsPerUnit && (
+                {(servingUnit === 'cup' || servingUnit === 'tbsp' || servingUnit === 'tsp' || servingUnit === 'piece') && gramsPerUnit && (
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-xs text-gray-400">1 {servingUnit} ≈ {gramsPerUnit}g</span>
                     <button

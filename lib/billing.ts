@@ -9,8 +9,8 @@ export const INCLUDED_SEATS: Record<string, number> = {
   coach_solo:                5,  // legacy
   coach_pt_solo:             5,
   coach_nutritionist_solo:   5,
-  coach_pro:                 20,
-  coach_business:            100,
+  coach_pro:                 15,
+  coach_business:            75,
 }
 
 export const INCLUDED_COACHES: Record<string, number> = {
@@ -25,7 +25,7 @@ export const CLIENT_OVERAGE_PRICE: Record<string, number> = {
   coach_pt_solo:             4,
   coach_nutritionist_solo:   4,
   coach_pro:                 3,
-  coach_business:            2,
+  coach_business:            3,
 }
 
 // AUD per extra coach per month (business plans only)

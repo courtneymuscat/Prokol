@@ -11,24 +11,34 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { event_date } = body
-  if (!event_date) return Response.json({ error: 'event_date required' }, { status: 400 })
+  const { event_date, feedback_seen } = body as { event_date?: string; feedback_seen?: boolean }
+
+  if (!event_date && feedback_seen === undefined) {
+    return Response.json({ error: 'event_date or feedback_seen required' }, { status: 400 })
+  }
 
   const admin = createAdminClient()
 
   // Verify the event belongs to this user
   const { data: existing } = await admin
     .from('calendar_events')
-    .select('id')
+    .select('id, content')
     .eq('id', eventId)
     .eq('client_id', user.id)
     .single()
 
   if (!existing) return Response.json({ error: 'Not found' }, { status: 404 })
 
+  const patch: Record<string, unknown> = {}
+  if (event_date) patch.event_date = event_date
+  if (feedback_seen !== undefined) {
+    const existingContent = (existing.content as Record<string, unknown>) ?? {}
+    patch.content = { ...existingContent, feedback_seen }
+  }
+
   const { data, error } = await admin
     .from('calendar_events')
-    .update({ event_date, updated_at: new Date().toISOString() })
+    .update(patch)
     .eq('id', eventId)
     .select()
     .single()

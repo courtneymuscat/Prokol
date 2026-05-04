@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from 'react'
 
-type QuestionType = 'text' | 'textarea' | 'scale' | 'yesno' | 'choice' | 'note' | 'section'
+type QuestionType = 'text' | 'textarea' | 'number' | 'scale' | 'yesno' | 'radio' | 'choice' | 'dropdown' | 'file_upload' | 'signature' | 'note' | 'section'
 
 type Question = {
   id: string
@@ -114,6 +114,34 @@ function QuestionInput({
       </div>
     )
   }
+  if (q.type === 'number') {
+    return (
+      <input
+        type="number"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
+      />
+    )
+  }
+  if (q.type === 'radio') {
+    return (
+      <div className="space-y-2">
+        {(q.options ?? []).map(opt => (
+          <button
+            key={opt}
+            onClick={() => onChange(opt)}
+            className={`w-full text-left px-3 py-2 rounded-xl text-sm border transition-colors flex items-center gap-2 ${value === opt ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-700 hover:border-gray-400'}`}
+          >
+            <span className={`w-4 h-4 rounded-full border-2 flex-shrink-0 ${value === opt ? 'border-white bg-white' : 'border-gray-400'}`}>
+              {value === opt && <span className="block w-2 h-2 rounded-full bg-gray-900 m-auto" />}
+            </span>
+            {opt}
+          </button>
+        ))}
+      </div>
+    )
+  }
   if (q.type === 'choice') {
     return (
       <div className="flex flex-col gap-1.5">
@@ -126,6 +154,36 @@ function QuestionInput({
             {opt}
           </button>
         ))}
+      </div>
+    )
+  }
+  if (q.type === 'dropdown') {
+    return (
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none bg-white"
+      >
+        <option value="">Select an option…</option>
+        {(q.options ?? []).map(opt => (
+          <option key={opt} value={opt}>{opt}</option>
+        ))}
+      </select>
+    )
+  }
+  if (q.type === 'file_upload') {
+    return (
+      <input
+        type="file"
+        onChange={e => { const f = e.target.files?.[0]; if (f) onChange(f.name) }}
+        className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 cursor-pointer"
+      />
+    )
+  }
+  if (q.type === 'signature') {
+    return (
+      <div className="border border-gray-200 rounded-xl px-3 py-6 text-center text-sm text-gray-400">
+        Signature capture not available in autoflow steps — use the Forms builder for signatures.
       </div>
     )
   }
@@ -207,7 +265,8 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
   async function submit() {
     if (!data) return
     const allQuestions = [...data.core_questions, ...data.questions]
-    const missing = allQuestions.filter(q => q.type !== 'note' && q.type !== 'section' && q.required && !answers[q.id]?.trim())
+    const NON_ANSWERABLE = new Set(['note', 'section', 'file_upload', 'signature'])
+    const missing = allQuestions.filter(q => !NON_ANSWERABLE.has(q.type) && q.required && !answers[q.id]?.trim())
     if (missing.length > 0) {
       setError(`Please answer all required questions (${missing.length} remaining).`)
       return

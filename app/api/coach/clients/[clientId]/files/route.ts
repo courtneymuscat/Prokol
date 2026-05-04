@@ -17,7 +17,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     .select('id')
     .eq('coach_id', coachId)
     .eq('client_id', clientId)
-    .in('status', ['active', 'archived'])
+    .in('status', ['active', 'archived', 'pending_invite'])
     .single()
   if (!rel) return Response.json({ error: 'Forbidden' }, { status: 403 })
 

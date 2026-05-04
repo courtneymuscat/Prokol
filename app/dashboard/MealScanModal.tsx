@@ -43,6 +43,8 @@ async function resizeToBase64(file: File): Promise<{ base64: string; mimeType: s
   })
 }
 
+const MONTHLY_LIMIT = 50
+
 export default function MealScanModal({ mealKey, date, onLogged, onClose }: Props) {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
@@ -50,7 +52,23 @@ export default function MealScanModal({ mealKey, date, onLogged, onClose }: Prop
   const [items, setItems] = useState<ScannedItem[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [logging, setLogging] = useState(false)
+  const [scansUsed, setScansUsed] = useState<number | null>(null)
+  const [resetsAt, setResetsAt] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Load current scan usage on mount
+  useState(() => {
+    const supabase = createClient()
+    const month = new Date().toISOString().slice(0, 7)
+    supabase
+      .from('ai_scan_usage')
+      .select('scan_count, month_year')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.month_year === month) setScansUsed(data.scan_count)
+        else setScansUsed(0)
+      })
+  })
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -75,8 +93,17 @@ export default function MealScanModal({ mealKey, date, onLogged, onClose }: Prop
         body: JSON.stringify({ image: base64, mimeType }),
       })
       const data = await res.json()
+
+      // Update usage display from response
+      if (typeof data.scans_used === 'number') setScansUsed(data.scans_used)
+      if (data.resets_at) setResetsAt(data.resets_at)
+
+      if (data.error === 'scan_limit_reached') {
+        setError(data.message)
+        return
+      }
       if (data.error) throw new Error(data.error)
-      if (!data.items?.length) throw new Error('No foods detected — try a clearer photo.')
+      if (!data.items?.length) throw new Error('No foods detected — try a clearer photo or move closer to the food.')
       setItems(data.items)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to scan image')
@@ -229,32 +256,50 @@ export default function MealScanModal({ mealKey, date, onLogged, onClose }: Prop
             onChange={handleFile}
           />
 
-          {/* Scan button */}
-          {imagePreview && !items && (
-            <button
-              type="button"
-              onClick={handleScan}
-              disabled={scanning}
-              className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-            >
-              {scanning ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  Analysing…
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
-                  Analyse with AI
-                </>
-              )}
-            </button>
+          {/* Scan usage counter */}
+          {scansUsed !== null && (
+            <div className="flex items-center justify-between text-xs text-gray-400">
+              <span>AI scans this month</span>
+              <span className={scansUsed >= MONTHLY_LIMIT ? 'text-red-500 font-semibold' : scansUsed >= 40 ? 'text-amber-500 font-semibold' : ''}>
+                {scansUsed}/{MONTHLY_LIMIT}
+              </span>
+            </div>
           )}
+
+          {/* Scan button */}
+          {imagePreview && !items && (() => {
+            const limitReached = scansUsed !== null && scansUsed >= MONTHLY_LIMIT
+            return limitReached ? (
+              <div className="w-full py-3 bg-red-50 border border-red-100 rounded-xl text-center">
+                <p className="text-sm font-semibold text-red-600">Scan limit reached ({MONTHLY_LIMIT}/{MONTHLY_LIMIT})</p>
+                <p className="text-xs text-red-400 mt-0.5">Resets on {resetsAt ?? 'the 1st of next month'}</p>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleScan}
+                disabled={scanning}
+                className="w-full py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              >
+                {scanning ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Analysing…
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    Analyse with AI
+                  </>
+                )}
+              </button>
+            )
+          })()}
 
           {scanning && (
             <p className="text-xs text-center text-gray-400">Identifying foods and estimating portions…</p>

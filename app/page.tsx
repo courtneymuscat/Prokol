@@ -1,69 +1,24 @@
-import Link from 'next/link'
-import PricingCards from './pricing/PricingCards'
-import LandingContent from './LandingContent'
+import type { Metadata } from 'next'
+import LandingPage from './LandingPage'
 
-export default function LandingPage() {
-  return (
-    <div className="min-h-screen bg-white text-gray-900">
+export const metadata: Metadata = {
+  title: 'Prokol Health — Nutrition, Training & Health Data Coaching Platform',
+  description:
+    'The all-in-one coaching platform for nutritionists, personal trainers, and dietitians. Meal plans, training programs, autoflows, cycle tracking, and white-label for gyms. From $39/month.',
+  openGraph: {
+    title: 'Prokol Health — Coaching Platform for Coaches & Practitioners',
+    description:
+      'Meal plans, training, autoflows, cycle tracking, and white-label for gyms. One platform. No add-ons. From $39/month.',
+    images: [{ url: '/og-image.png', width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Prokol Health — Coaching Platform',
+    description: 'Everything your coaching practice needs. From $39/month.',
+    images: ['/og-image.png'],
+  },
+}
 
-      {/* ── Nav ─────────────────────────────────────────────────────────────── */}
-      <nav className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-gray-100 px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <span className="text-xl font-bold tracking-tight">Prokol</span>
-          <div className="hidden md:flex items-center gap-6 text-sm text-gray-600">
-            <a href="#features" className="hover:text-gray-900 transition-colors">Features</a>
-            <a href="#pricing" className="hover:text-gray-900 transition-colors">Pricing</a>
-            <a href="#coach-platform" className="hover:text-gray-900 transition-colors">For Coaches</a>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
-              Log in
-            </Link>
-            <Link
-              href="/signup"
-              className="text-sm font-semibold px-4 py-2 rounded-xl text-gray-900 transition-colors hover:opacity-90"
-              style={{ backgroundColor: '#FFD885' }}
-            >
-              Start free
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* ── Audience-aware content (toggle + hero + features + how it works + CTA) */}
-      <LandingContent />
-
-      {/* ── Pricing ─────────────────────────────────────────────────────────── */}
-      <section id="pricing" className="py-24 px-6 bg-white">
-        <div className="max-w-6xl mx-auto space-y-12">
-          <div className="text-center space-y-3">
-            <h2 className="text-3xl font-bold text-gray-900">Simple, transparent pricing</h2>
-            <p className="text-gray-500 text-lg">Start free. Upgrade when you&apos;re ready. Cancel anytime.</p>
-          </div>
-          <PricingCards currentTier={null} currentUserType={null} />
-        </div>
-      </section>
-
-      {/* ── Footer ──────────────────────────────────────────────────────────── */}
-      <footer className="bg-gray-900 border-t border-gray-800 px-6 py-8">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-500">
-          <span className="font-bold text-white">Prokol</span>
-          <div className="flex items-center gap-6">
-            <a href="#features" className="hover:text-gray-300 transition-colors">Features</a>
-            <a href="#pricing" className="hover:text-gray-300 transition-colors">Pricing</a>
-            <Link href="/login" className="hover:text-gray-300 transition-colors">Log in</Link>
-            <Link href="/signup" className="hover:text-gray-300 transition-colors">Sign up</Link>
-          </div>
-          <div className="flex flex-col items-center md:items-end gap-1.5">
-            <span>© {new Date().getFullYear()} Prokol Health (ABN 33 972 014 877) trading as Prokol</span>
-            <div className="flex items-center gap-4 text-xs">
-              <Link href="/privacy" className="hover:text-gray-300 transition-colors">Privacy Policy</Link>
-              <Link href="/terms" className="hover:text-gray-300 transition-colors">Terms of Service</Link>
-            </div>
-          </div>
-        </div>
-      </footer>
-
-    </div>
-  )
+export default function Page() {
+  return <LandingPage />
 }

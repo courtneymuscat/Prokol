@@ -133,7 +133,7 @@ function ProgressBar({ step, total }: { step: number; total: number }) {
       <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${(step / total) * 100}%`, backgroundColor: '#FFD885' }}
+          style={{ width: `${(step / total) * 100}%`, backgroundColor: '#1D9E75' }}
         />
       </div>
     </div>
@@ -319,7 +319,7 @@ export default function OnboardingPage() {
                 onClick={() => setStep(2)}
                 disabled={!form.goal}
                 className="w-full py-3 rounded-2xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-900"
-                style={{ backgroundColor: '#FFD885' }}
+                style={{ backgroundColor: '#1D9E75' }}
               >
                 Continue
               </button>
@@ -430,7 +430,7 @@ export default function OnboardingPage() {
                   onClick={() => setStep(3)}
                   disabled={!form.first_name.trim() || !form.sex || !form.age || !form.height_cm || !form.weight_kg}
                   className="flex-[2] py-3 rounded-2xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-900"
-                  style={{ backgroundColor: '#FFD885' }}
+                  style={{ backgroundColor: '#1D9E75' }}
                 >
                   Continue
                 </button>
@@ -545,7 +545,7 @@ export default function OnboardingPage() {
                 <button
                   onClick={() => setStep(4)}
                   className="flex-[2] py-3 rounded-2xl text-sm font-semibold transition-colors text-gray-900"
-                  style={{ backgroundColor: '#FFD885' }}
+                  style={{ backgroundColor: '#1D9E75' }}
                 >
                   Calculate my targets
                 </button>
@@ -710,7 +710,7 @@ export default function OnboardingPage() {
                   onClick={handleComplete}
                   disabled={submitting}
                   className="flex-[2] py-3 rounded-2xl text-sm font-semibold disabled:opacity-50 transition-colors text-gray-900"
-                  style={{ backgroundColor: '#FFD885' }}
+                  style={{ backgroundColor: '#1D9E75' }}
                 >
                   {submitting ? 'Saving…' : 'Save & go to dashboard →'}
                 </button>
@@ -771,9 +771,9 @@ export default function OnboardingPage() {
               <button
                 onClick={() => router.push(nextUrl ?? '/dashboard')}
                 className="w-full py-3 rounded-2xl text-sm font-semibold transition-colors text-gray-900"
-                style={{ backgroundColor: '#FFD885' }}
+                style={{ backgroundColor: '#1D9E75' }}
               >
-                {nextUrl?.includes('/forms/') ? 'Continue to your form →' : 'Go to dashboard →'}
+                {nextUrl?.includes('/forms/') ? 'Continue to your form →' : nextUrl?.includes('/autoflows/') ? 'Start your program →' : 'Go to dashboard →'}
               </button>
             </div>
           )}

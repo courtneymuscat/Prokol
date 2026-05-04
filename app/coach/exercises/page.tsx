@@ -121,6 +121,14 @@ function VideoRow({ ex, onSaved }: { ex: Exercise; onSaved: (id: string, url: st
   )
 }
 
+type AutoResult = { id: string; name: string; url: string | null }
+type AutoState = 'idle' | 'searching' | 'reviewing'
+
+function getYouTubeThumbnail(url: string) {
+  const id = getYouTubeId(url)
+  return id ? `https://img.youtube.com/vi/${id}/mqdefault.jpg` : null
+}
+
 export default function CoachExercisesPage() {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [query, setQuery] = useState('')
@@ -129,6 +137,12 @@ export default function CoachExercisesPage() {
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(0)
   const PAGE_SIZE = 30
+
+  // Auto-fill state
+  const [autoState, setAutoState] = useState<AutoState>('idle')
+  const [autoResults, setAutoResults] = useState<AutoResult[]>([])
+  const [autoProgress, setAutoProgress] = useState({ done: 0, total: 0 })
+  const [savingId, setSavingId] = useState<string | null>(null)
 
   const fetchExercises = useCallback(async () => {
     setLoading(true)
@@ -150,14 +164,102 @@ export default function CoachExercisesPage() {
     setExercises((prev) => prev.map((e) => e.id === id ? { ...e, video_url: url } : e))
   }
 
+  async function startAutoFill() {
+    // Fetch ALL exercises without videos (no pagination limit)
+    const res = await fetch('/api/exercises/library?has_video=false&limit=100&offset=0')
+    const noVideo: Exercise[] = await res.json()
+    if (!noVideo.length) { alert('All exercises already have videos!'); return }
+
+    setAutoState('searching')
+    setAutoResults([])
+    setAutoProgress({ done: 0, total: noVideo.length })
+
+    // Search in batches of 5 so we can show progress
+    const BATCH = 5
+    const all: AutoResult[] = []
+    for (let i = 0; i < noVideo.length; i += BATCH) {
+      const batch = noVideo.slice(i, i + BATCH)
+      const r = await fetch('/api/exercises/auto-videos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exercise_ids: batch.map(e => e.id) }),
+      })
+      const { results } = await r.json()
+      all.push(...(results ?? []))
+      setAutoProgress({ done: Math.min(i + BATCH, noVideo.length), total: noVideo.length })
+    }
+
+    setAutoResults(all.filter(r => r.url)) // only show results with a found video
+    setAutoState('reviewing')
+  }
+
+  async function approveVideo(result: AutoResult) {
+    setSavingId(result.id)
+    const res = await fetch('/api/exercises/auto-videos', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exercise_id: result.id, video_url: result.url }),
+    })
+    if (res.ok) {
+      setExercises(prev => prev.map(e => e.id === result.id ? { ...e, video_url: result.url } : e))
+      setAutoResults(prev => prev.filter(r => r.id !== result.id))
+    } else {
+      const d = await res.json()
+      alert(`Failed to save ${result.name}: ${d.error ?? res.status}`)
+    }
+    setSavingId(null)
+  }
+
+  function skipVideo(id: string) {
+    setAutoResults(prev => prev.filter(r => r.id !== id))
+  }
+
+  async function approveAll() {
+    let saved = 0, failed = 0
+    for (const result of autoResults) {
+      setSavingId(result.id)
+      const res = await fetch('/api/exercises/auto-videos', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exercise_id: result.id, video_url: result.url }),
+      })
+      if (res.ok) {
+        saved++
+        setExercises(prev => prev.map(e => e.id === result.id ? { ...e, video_url: result.url } : e))
+      } else {
+        failed++
+      }
+    }
+    setSavingId(null)
+    setAutoResults([])
+    setAutoState('idle')
+    fetchExercises()
+    if (failed > 0) alert(`${saved} videos saved. ${failed} failed — check console.`)
+  }
+
   return (
     <div className="flex-1 flex flex-col">
-      <div className="bg-white border-b px-6 py-4">
-        <h1 className="text-lg font-bold text-gray-900">Exercise Library</h1>
-        <p className="text-xs text-gray-400 mt-0.5">Add YouTube demo videos to exercises so clients can see proper form.</p>
+      <div className="bg-white border-b px-6 py-4 flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-lg font-bold text-gray-900">Exercise Library</h1>
+          <p className="text-xs text-gray-400 mt-0.5">Add YouTube demo videos to exercises so clients can see proper form.</p>
+        </div>
+        {autoState === 'idle' && (
+          <button
+            onClick={startAutoFill}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors"
+            style={{ backgroundColor: '#1D9E75' }}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Auto-fill videos
+          </button>
+        )}
       </div>
 
-      <main className="flex-1 p-6 space-y-4 max-w-4xl w-full mx-auto">
+      <main className="flex-1 p-6 space-y-4 w-full">
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           <input
@@ -195,6 +297,105 @@ export default function CoachExercisesPage() {
             </button>
           ))}
         </div>
+
+        {/* Auto-fill progress */}
+        {autoState === 'searching' && (
+          <div className="bg-teal-50 border border-teal-200 rounded-2xl p-5 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-5 h-5 rounded-full border-2 border-teal-500 border-t-transparent animate-spin flex-shrink-0" />
+              <p className="text-sm font-semibold text-teal-800">
+                Searching YouTube… {autoProgress.done} / {autoProgress.total} exercises
+              </p>
+            </div>
+            <div className="w-full bg-teal-100 rounded-full h-2">
+              <div
+                className="bg-teal-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${autoProgress.total > 0 ? (autoProgress.done / autoProgress.total) * 100 : 0}%` }}
+              />
+            </div>
+            <p className="text-xs text-teal-600">Using 100 YouTube API units per batch — free quota: 100 searches/day</p>
+          </div>
+        )}
+
+        {/* Auto-fill review panel */}
+        {autoState === 'reviewing' && autoResults.length > 0 && (
+          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <p className="text-sm font-bold text-gray-900">Review suggested videos</p>
+                <p className="text-xs text-gray-400 mt-0.5">{autoResults.length} videos found — approve or skip each one</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setAutoState('idle'); setAutoResults([]) }}
+                  className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg border border-gray-200"
+                >
+                  Dismiss all
+                </button>
+                <button
+                  onClick={approveAll}
+                  disabled={!!savingId}
+                  className="text-xs font-semibold text-white px-4 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
+                  style={{ backgroundColor: '#1D9E75' }}
+                >
+                  {savingId ? 'Saving…' : `Approve all (${autoResults.length})`}
+                </button>
+              </div>
+            </div>
+            <div className="divide-y divide-gray-50 max-h-[600px] overflow-y-auto">
+              {autoResults.map(result => {
+                const thumb = getYouTubeThumbnail(result.url!)
+                return (
+                  <div key={result.id} className="flex items-center gap-4 px-5 py-4">
+                    {/* Thumbnail */}
+                    {thumb && (
+                      <a href={result.url!} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                        <img src={thumb} alt={result.name} className="w-28 h-16 object-cover rounded-lg border border-gray-100" />
+                      </a>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">{result.name}</p>
+                      <a
+                        href={result.url!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-500 hover:underline truncate block"
+                      >
+                        {result.url}
+                      </a>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => skipVideo(result.id)}
+                        className="text-xs border border-gray-200 text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-50"
+                      >
+                        Skip
+                      </button>
+                      <button
+                        onClick={() => approveVideo(result)}
+                        disabled={savingId === result.id}
+                        className="text-xs font-semibold text-white px-4 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
+                        style={{ backgroundColor: '#1D9E75' }}
+                      >
+                        {savingId === result.id ? 'Saving…' : '✓ Approve'}
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {autoState === 'reviewing' && autoResults.length === 0 && (
+          <div className="bg-teal-50 border border-teal-200 rounded-2xl px-5 py-4 flex items-center gap-3">
+            <span className="text-teal-600 text-lg">✓</span>
+            <div>
+              <p className="text-sm font-semibold text-teal-800">All done! Videos saved.</p>
+              <button onClick={() => { setAutoState('idle'); fetchExercises() }} className="text-xs text-teal-600 hover:underline">Close</button>
+            </div>
+          </div>
+        )}
 
         {/* List */}
         {loading ? (

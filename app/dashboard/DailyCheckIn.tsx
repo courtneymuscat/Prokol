@@ -443,7 +443,7 @@ export default function DailyCheckIn({ fullAccess = true }: { fullAccess?: boole
           ) : (
             <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 flex items-center justify-between">
               <p className="text-xs text-gray-400">Sleep quality, HRV, RHR &amp; notes available on Optimiser</p>
-              <a href="/pricing" className="text-xs font-semibold px-3 py-1.5 rounded-lg text-gray-900 hover:opacity-90" style={{ backgroundColor: '#FFD885' }}>Upgrade</a>
+              <a href="/pricing" className="text-xs font-semibold px-3 py-1.5 rounded-lg text-gray-900 hover:opacity-90" style={{ backgroundColor: '#1D9E75' }}>Upgrade</a>
             </div>
           )}
           {error && <p className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{error}</p>}

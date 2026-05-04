@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#25c18a"/>
+      <stop offset="100%" stop-color="#1D9E75"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="108" fill="url(#g)"/>
+
+  <!--
+    P letterform:
+    Stem:  x 138–214, y 108–404
+    Bowl outer: from (214,108) curves right to (382,207) back to (214,306)
+    Bowl inner (cutout): (214,178)→(277,178) curves to (310,207) back to (277,236)→(214,236)
+    fill-rule=evenodd punches the inner hole
+  -->
+  <path
+    fill="white"
+    fill-rule="evenodd"
+    d="M138,108 L138,404 L214,404 L214,306
+       L283,306 Q382,306 382,207 Q382,108 283,108 Z
+       M214,178 L277,178 Q310,178 310,207 Q310,236 277,236 L214,236 Z"
+  />
+</svg>

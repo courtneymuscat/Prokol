@@ -31,6 +31,26 @@ export async function POST(req: NextRequest) {
       'http://localhost:3000'
     )
 
+    // If they already have an active subscription, send them to the portal to upgrade/change plan
+    // (avoids duplicate subscriptions — Stripe handles proration natively in the portal)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('stripe_customer_id, stripe_subscription_id')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.stripe_subscription_id) {
+      try {
+        const portalSession = await stripe.billingPortal.sessions.create({
+          customer: profile.stripe_customer_id as string,
+          return_url: `${baseUrl}/settings`,
+        })
+        return NextResponse.json({ url: portalSession.url })
+      } catch {
+        // Fall through to new checkout if portal fails (e.g. test/live mode mismatch)
+      }
+    }
+
     // For coach plans include both the flat price and the metered overage price
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [
       { price: priceId, quantity: 1 },
@@ -45,7 +65,10 @@ export async function POST(req: NextRequest) {
     const checkoutSession = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
-      ...(user?.email ? { customer_email: user.email } : {}),
+      // Attach to existing Stripe customer if available, otherwise pre-fill email
+      ...(profile?.stripe_customer_id
+        ? { customer: profile.stripe_customer_id as string }
+        : user?.email ? { customer_email: user.email } : {}),
       line_items: lineItems,
       metadata: {
         userId: user?.id ?? '',

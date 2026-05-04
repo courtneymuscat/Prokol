@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
 
   // Notify platform admin
   await sendEmail({
-    to: 'courtney@prokol.io',
+    to: 'court@prokol.io',
     subject: `New white-label application: ${appName}`,
     html: `
       <h2>New white-label application</h2>

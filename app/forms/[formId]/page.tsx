@@ -3,8 +3,9 @@
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import SignaturePad from '../SignaturePad'
 
-type QuestionType = 'text' | 'textarea' | 'number' | 'select' | 'radio' | 'checkbox' | 'dropdown' | 'file_upload' | 'image'
+type QuestionType = 'text' | 'textarea' | 'number' | 'scale' | 'yesno' | 'select' | 'radio' | 'checkbox' | 'dropdown' | 'file_upload' | 'image' | 'signature'
 
 type Question = {
   id: string
@@ -31,6 +32,7 @@ export default function FormFillPage({ params }: { params: Promise<{ formId: str
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [checkboxAnswers, setCheckboxAnswers] = useState<Record<string, string[]>>({})
   const [fileAnswers, setFileAnswers] = useState<Record<string, File>>({})
+  const [signatureAnswers, setSignatureAnswers] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -56,7 +58,10 @@ export default function FormFillPage({ params }: { params: Promise<{ formId: str
             setIsEditing(true)
             const preAnswers: Record<string, string> = {}
             const preCheckbox: Record<string, string[]> = {}
+            const preSig: Record<string, string> = {}
+            const sigQIds = new Set((formData.questions ?? []).filter((q: { type: string }) => q.type === 'signature').map((q: { id: string }) => q.id))
             for (const [qId, val] of Object.entries(subData.answers as Record<string, string>)) {
+              if (sigQIds.has(qId)) { preSig[qId] = val; continue }
               try {
                 const parsed = JSON.parse(val)
                 if (Array.isArray(parsed)) { preCheckbox[qId] = parsed; continue }
@@ -65,6 +70,7 @@ export default function FormFillPage({ params }: { params: Promise<{ formId: str
             }
             setAnswers(preAnswers)
             setCheckboxAnswers(preCheckbox)
+            setSignatureAnswers(preSig)
           }
         }
       } finally {
@@ -88,7 +94,10 @@ export default function FormFillPage({ params }: { params: Promise<{ formId: str
         } else if (q.type === 'checkbox' && !(checkboxAnswers[q.id]?.length)) {
           setError(`"${q.label}" requires at least one selection.`)
           return
-        } else if (q.type !== 'file_upload' && q.type !== 'checkbox' && !answers[q.id]?.trim()) {
+        } else if (q.type === 'signature' && !signatureAnswers[q.id]) {
+          setError(`"${q.label}" requires a signature.`)
+          return
+        } else if (q.type !== 'file_upload' && q.type !== 'checkbox' && q.type !== 'signature' && !answers[q.id]?.trim()) {
           setError(`"${q.label}" is required.`)
           return
         }
@@ -104,6 +113,10 @@ export default function FormFillPage({ params }: { params: Promise<{ formId: str
     // Serialize checkbox selections as JSON
     for (const [qId, selected] of Object.entries(checkboxAnswers)) {
       if (selected.length) finalAnswers[qId] = JSON.stringify(selected)
+    }
+    // Include signature data URLs directly
+    for (const [qId, dataUrl] of Object.entries(signatureAnswers)) {
+      if (dataUrl) finalAnswers[qId] = dataUrl
     }
 
     for (const [questionId, file] of Object.entries(fileAnswers)) {
@@ -249,6 +262,36 @@ export default function FormFillPage({ params }: { params: Promise<{ formId: str
                 />
               )}
 
+              {q.type === 'scale' && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  {Array.from({ length: 10 }, (_, i) => String(i + 1)).map(n => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setAnswers((a) => ({ ...a, [q.id]: n }))}
+                      className={`w-10 h-10 rounded-xl text-sm font-semibold border transition-colors ${answers[q.id] === n ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600 hover:border-gray-400'}`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {q.type === 'yesno' && (
+                <div className="flex gap-3">
+                  {['Yes', 'No'].map(opt => (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() => setAnswers((a) => ({ ...a, [q.id]: opt }))}
+                      className={`px-8 py-2.5 rounded-xl text-sm font-medium border transition-colors ${answers[q.id] === opt ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600 hover:border-gray-400'}`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {(q.type === 'select' || q.type === 'radio') && (
                 <div className="space-y-2">
                   {(q.options ?? []).map((opt) => (
@@ -331,6 +374,15 @@ export default function FormFillPage({ params }: { params: Promise<{ formId: str
                     <p className="text-xs text-green-600">{fileAnswers[q.id].name} ready to upload</p>
                   )}
                 </div>
+              )}
+
+              {q.type === 'signature' && (
+                <SignaturePad
+                  value={signatureAnswers[q.id] ?? ''}
+                  onChange={(dataUrl) =>
+                    setSignatureAnswers((prev) => ({ ...prev, [q.id]: dataUrl }))
+                  }
+                />
               )}
             </div>
           )})}

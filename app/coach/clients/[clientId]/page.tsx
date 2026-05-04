@@ -125,6 +125,11 @@ export default async function ClientProfilePage({
                     <p className="text-xs text-gray-400">{profile?.email}</p>
                     {phone && <p className="text-xs text-gray-400">{phone}</p>}
                     {age !== null && <p className="text-xs text-gray-400">Age {age}</p>}
+                    {dob && (
+                      <p className="text-xs text-gray-400">
+                        🎂 {new Date(dob + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                    )}
                     {rel.accepted_at && (
                       <p className="text-xs text-gray-400">
                         Client since {new Date(rel.accepted_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
@@ -153,7 +158,7 @@ export default async function ClientProfilePage({
         <InvitePendingBanner inviteUrl={inviteUrl} token={inviteToken} />
       )}
 
-      <div className="flex-1 p-6 max-w-4xl w-full">
+      <div className="flex-1 p-6 w-full">
         <ClientTabs clientId={clientId} initialTab={initialTab} />
       </div>
     </main>

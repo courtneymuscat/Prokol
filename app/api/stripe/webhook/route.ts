@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStripe } from '@/lib/stripe'
+import { getStripe, buildPriceToTierMap, OVERAGE_PRICE_IDS, TIER_TO_USER_TYPE } from '@/lib/stripe'
 import { createServiceClient } from '@/lib/supabase/service'
 import { TIER_TO_METER_EVENT } from '@/lib/billing'
 import { sendEmail } from '@/lib/email'
@@ -40,24 +40,11 @@ const PLAN_KEY_TO_USER_TYPE: Record<string, string> = {
   wl_pro:                      'business',
 }
 
-// Authoritative tier → user_type mapping
-const TIER_TO_USER_TYPE: Record<string, string> = {
-  individual_free:           'individual',
-  individual_optimiser:      'individual',
-  individual_elite:          'individual',
-  coached:                   'individual',
-  coach_solo:                'coach',
-  coach_pt_solo:             'coach',
-  coach_nutritionist_solo:   'coach',
-  coach_pro:                 'coach',
-  coach_business:            'coach',
-  wl_starter:                'business',
-  wl_pro:                    'business',
-}
-
 // Overage meter price ID → meter event name
 const OVERAGE_PRICE_TO_EVENT: Record<string, string> = {
   'price_1TLdMADCfk3knikLyYyCzBOZ': TIER_TO_METER_EVENT.coach_solo,
+  'price_1TNAvnDCfk3knikL3Y1AOjaw': TIER_TO_METER_EVENT.coach_pt_solo,
+  'price_1TNB42DCfk3knikLJv971zNr': TIER_TO_METER_EVENT.coach_nutritionist_solo,
   'price_1TLdVnDCfk3knikL5PqNQgqH': TIER_TO_METER_EVENT.coach_pro,
   'price_1TLdalDCfk3knikLPjnHAWQ9': TIER_TO_METER_EVENT.coach_business,
   // White-label overages
@@ -67,33 +54,6 @@ const OVERAGE_PRICE_TO_EVENT: Record<string, string> = {
   'price_1TMSTxDCfk3knikLneM05qz8': 'wl_pro_client_overage',
 }
 
-// Built at request time so env vars are loaded. Maps flat (non-overage) price ID → tier.
-function buildPriceToTierMap(): Record<string, string> {
-  const entries: [string | undefined, string][] = [
-    [process.env.STRIPE_PRICE_INDIVIDUAL_TIER_2_MONTHLY, 'individual_optimiser'],
-    [process.env.STRIPE_PRICE_INDIVIDUAL_TIER_2_ANNUAL,  'individual_optimiser'],
-    [process.env.STRIPE_PRICE_INDIVIDUAL_TIER_3_MONTHLY, 'individual_elite'],
-    [process.env.STRIPE_PRICE_INDIVIDUAL_TIER_3_ANNUAL,  'individual_elite'],
-    // Legacy coach prices
-    [process.env.STRIPE_PRICE_COACH_STARTER_MONTHLY,     'coach_solo'],
-    [process.env.STRIPE_PRICE_COACH_GROWTH_MONTHLY,      'coach_pro'],
-    [process.env.STRIPE_PRICE_COACH_SOLO_MONTHLY,        'coach_solo'],
-    // New solo specialisation prices
-    [process.env.STRIPE_PRICE_COACH_PT_SOLO_MONTHLY,             'coach_pt_solo'],
-    [process.env.STRIPE_PRICE_COACH_NUTRITIONIST_SOLO_MONTHLY,   'coach_nutritionist_solo'],
-    // Pro / business
-    [process.env.STRIPE_PRICE_COACH_PRO_MONTHLY,         'coach_pro'],
-    [process.env.STRIPE_PRICE_COACH_BUSINESS_MONTHLY,    'coach_business'],
-    // White-label
-    [process.env.STRIPE_PRICE_WL_STARTER_MONTHLY,        'wl_starter'],
-    [process.env.STRIPE_PRICE_WL_PRO_MONTHLY,            'wl_pro'],
-  ]
-  const map: Record<string, string> = {}
-  for (const [priceId, tier] of entries) {
-    if (priceId) map[priceId] = tier
-  }
-  return map
-}
 
 const COACH_TIER_ORDER = ['coach_solo', 'coach_pt_solo', 'coach_nutritionist_solo', 'coach_pro', 'coach_business', 'wl_starter', 'wl_pro']
 
@@ -150,14 +110,47 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Subscription updated (upgrade / downgrade) ─────────────────────────────
+    // ── Subscription created (covers portal trial conversions and manual Stripe creations) ──
+    if (event.type === 'customer.subscription.created') {
+      const subscription = event.data.object as Stripe.Subscription
+      const customerId = subscription.customer as string
+      const priceToTier = buildPriceToTierMap()
+
+      // Find the flat (non-metered) price to determine tier
+      const flatItem = subscription.items.data.find(
+        (item) => !OVERAGE_PRICE_IDS.has(item.price.id)
+      )
+      const tier = flatItem ? priceToTier[flatItem.price.id] : undefined
+
+      if (tier) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, subscription_tier')
+          .eq('stripe_customer_id', customerId)
+          .single()
+
+        if (profile) {
+          const resolvedUserType = TIER_TO_USER_TYPE[tier]
+          const updates: Record<string, unknown> = {
+            subscription_tier: tier,
+            stripe_subscription_id: subscription.id,
+          }
+          if (resolvedUserType) updates.user_type = resolvedUserType
+
+          await supabase.from('profiles').update(updates).eq('id', profile.id)
+          console.log('Webhook: subscription.created — set tier', tier, 'for', profile.id)
+        }
+      }
+    }
+
+    // ── Subscription updated (upgrade / downgrade / cancel-at-period-end) ──────
     if (event.type === 'customer.subscription.updated') {
       const subscription = event.data.object as Stripe.Subscription
       const customerId = subscription.customer as string
       const priceToTier = buildPriceToTierMap()
 
       const flatItem = subscription.items.data.find(
-        (item) => !OVERAGE_PRICE_TO_EVENT[item.price.id]
+        (item) => !OVERAGE_PRICE_IDS.has(item.price.id)
       )
       const tier = flatItem ? priceToTier[flatItem.price.id] : undefined
 
@@ -232,11 +225,12 @@ export async function POST(req: NextRequest) {
       if (profile) {
         const wasCoach = COACH_TIERS.has(profile.subscription_tier as string)
 
-        // Downgrade the account to free individual
+        // Downgrade the account to free individual and clear any payment failure flag
         await supabase.from('profiles').update({
           subscription_tier: 'individual_free',
           user_type: 'individual',
           stripe_subscription_id: null,
+          payment_failed_at: null,
         }).eq('id', profile.id)
 
         console.log('Webhook: subscription cancelled, downgraded', profile.id, 'to individual_free')
@@ -284,6 +278,82 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+
+    // ── Payment failed ─────────────────────────────────────────────────────────
+    // Fires when a renewal charge fails (e.g. expired card). Stripe will retry
+    // automatically per the dunning settings; we just send a notification email.
+    // Access is NOT removed here — Stripe handles the grace period and will fire
+    // customer.subscription.deleted if all retries fail.
+    if (event.type === 'invoice.payment_failed') {
+      const invoice = event.data.object as Stripe.Invoice
+      const customerId = invoice.customer as string
+
+      // Only notify on subscription renewals, not first-time payments (those go through checkout)
+      if (invoice.billing_reason === 'subscription_cycle' || invoice.billing_reason === 'subscription_update') {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, payment_failed_at')
+          .eq('stripe_customer_id', customerId)
+          .single()
+
+        if (profile) {
+          // Record the first failure time (don't overwrite on subsequent retries)
+          if (!profile.payment_failed_at) {
+            await supabase
+              .from('profiles')
+              .update({ payment_failed_at: new Date().toISOString() })
+              .eq('id', profile.id)
+          }
+        }
+
+        if (profile?.email) {
+          const name = profile.full_name ?? 'there'
+          const amount = invoice.amount_due
+            ? `A$${(invoice.amount_due / 100).toFixed(2)}`
+            : 'your subscription fee'
+
+          await sendEmail({
+            to: profile.email,
+            subject: 'Action required: payment failed for your Prokol subscription',
+            html: `
+              <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;padding:40px 24px;background:#fff;">
+                <p style="font-size:22px;font-weight:700;color:#111;margin:0 0 8px;">Payment failed</p>
+                <p style="font-size:15px;color:#555;line-height:1.6;margin:0 0 16px;">
+                  Hi ${name}, we couldn&apos;t charge <strong>${amount}</strong> for your Prokol subscription.
+                </p>
+                <p style="font-size:15px;color:#555;line-height:1.6;margin:0 0 24px;">
+                  Please update your payment method to keep your subscription active.
+                  Stripe will automatically retry — if the payment continues to fail, your account will be downgraded to the free plan.
+                </p>
+                <a href="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://prokol.io'}/settings"
+                   style="display:inline-block;background:#1D9E75;color:#fff;font-weight:700;font-size:15px;text-decoration:none;padding:13px 28px;border-radius:10px;margin-bottom:24px;">
+                  Update payment method →
+                </a>
+                <p style="font-size:13px;color:#888;line-height:1.6;margin:0;">
+                  Questions? Reply to this email and we&apos;ll help you sort it out.
+                </p>
+              </div>
+            `,
+          })
+
+          console.log('Webhook: payment_failed email sent to', profile.email)
+        }
+      }
+    }
+
+    // ── Payment succeeded — clear any payment failure flag ────────────────────
+    if (event.type === 'invoice.payment_succeeded') {
+      const invoice = event.data.object as Stripe.Invoice
+      const customerId = invoice.customer as string
+      if (customerId) {
+        await supabase
+          .from('profiles')
+          .update({ payment_failed_at: null })
+          .eq('stripe_customer_id', customerId)
+          .not('payment_failed_at', 'is', null)
+      }
+    }
+
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('Webhook handler error:', message)

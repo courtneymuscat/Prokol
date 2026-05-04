@@ -316,11 +316,10 @@ type HistorySession = {
 }
 
 function ExerciseHistory({ exerciseId, metrics }: { exerciseId: string; metrics: Metrics }) {
-  const [open, setOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const [history, setHistory] = useState<HistorySession[]>([])
   const [loaded, setLoaded] = useState(false)
 
-  // Prefetch silently on mount so data is instant when user opens
   useEffect(() => {
     fetch(`/api/exercises/history?exerciseId=${exerciseId}`)
       .then((r) => r.json())
@@ -335,69 +334,238 @@ function ExerciseHistory({ exerciseId, metrics }: { exerciseId: string; metrics:
     const c = set.calories
     const wLabel = w != null ? `${w}` : null
     switch (metrics) {
-      case 'weight+reps': return [wLabel ?? '—', r != null ? `${r} reps` : '—'].join(' × ')
+      case 'weight+reps': return [wLabel ? `${wLabel}kg` : '—', r != null ? `${r} reps` : '—'].join(' × ')
       case 'reps':        return r != null ? `${r} reps` : '—'
-      case 'weight+time': return [wLabel ?? '—', d != null ? `${d}s` : '—'].join(' × ')
+      case 'weight+time': return [wLabel ? `${wLabel}kg` : '—', d != null ? `${d}s` : '—'].join(' × ')
       case 'time':        return d != null ? `${d}s` : '—'
       case 'calories':    return [c != null ? `${c} cal` : null, d != null ? `${d}s` : null].filter(Boolean).join(' · ') || '—'
     }
   }
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
-      >
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        {loaded && history.length > 0 ? `Previous performance (${history.length})` : 'Previous performance'}
-      </button>
-    )
-  }
+  // Don't render anything while loading
+  if (!loaded) return null
+
+  // No history yet
+  if (history.length === 0) return (
+    <div className="flex items-center gap-1.5 mt-1">
+      <svg className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <p className="text-xs text-gray-400">No previous sessions yet</p>
+    </div>
+  )
+
+  const last = history[0]
+  const lastDate = new Date(last.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })
 
   return (
-    <div className="space-y-2">
-      <button onClick={() => setOpen(false)} className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1">
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-        </svg>
-        Hide history
+    <div className="mt-2 rounded-xl border border-gray-200 overflow-hidden">
+      {/* Always-visible last session summary */}
+      <button
+        type="button"
+        onClick={() => setExpanded(v => !v)}
+        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-xs font-semibold text-gray-600">Last session</span>
+          <span className="text-xs text-gray-400">{lastDate}</span>
+          {/* Inline set chips for the most recent session */}
+          <div className="flex items-center gap-1 flex-wrap">
+            {last.sets.slice(0, 4).map((set) => (
+              <span key={set.set_number} className="text-xs bg-white border border-gray-200 rounded px-1.5 py-0.5 text-gray-600 font-medium">
+                {formatSet(set)}
+              </span>
+            ))}
+            {last.sets.length > 4 && (
+              <span className="text-xs text-gray-400">+{last.sets.length - 4}</span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {history.length > 1 && (
+            <span className="text-[10px] text-gray-400">{history.length} sessions</span>
+          )}
+          <svg
+            className={`w-3.5 h-3.5 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
       </button>
-      {!loaded ? (
-        <p className="text-xs text-gray-400">Loading...</p>
-      ) : history.length === 0 ? (
-        <p className="text-xs text-gray-400 italic">No previous sessions recorded</p>
-      ) : (
-        <div className="space-y-2">
+
+      {/* Expanded: all sessions */}
+      {expanded && (
+        <div className="divide-y divide-gray-100">
           {history.map((session, i) => (
-            <div key={i} className="bg-gray-50 rounded-lg px-3 py-2.5 space-y-2">
+            <div key={i} className="px-3 py-2.5 space-y-2 bg-white">
               <div className="flex items-baseline justify-between gap-2">
-                <p className="text-xs font-semibold text-gray-700">{session.workoutName}</p>
-                <p className="text-xs font-medium text-blue-500 flex-shrink-0">
-                  {new Date(session.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                <p className="text-xs font-semibold text-gray-700 truncate">{session.workoutName}</p>
+                <p className="text-xs text-gray-400 flex-shrink-0">
+                  {new Date(session.date).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })}
                 </p>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {session.sets.map((set) => (
-                  <span key={set.set_number} className="text-xs bg-white border border-gray-200 rounded px-2 py-0.5 text-gray-700 font-medium">
+                  <span key={set.set_number} className="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-0.5 text-gray-700 font-medium">
                     <span className="text-gray-400 mr-1">{set.set_number}.</span>{formatSet(set)}
                   </span>
                 ))}
               </div>
               {session.notes && (
-                <div className="flex items-start gap-1.5 border-t border-gray-200 pt-1.5">
-                  <svg className="w-3 h-3 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  <p className="text-xs text-gray-500 italic">{session.notes}</p>
-                </div>
+                <p className="text-xs text-gray-500 italic border-t border-gray-100 pt-1.5">{session.notes}</p>
               )}
             </div>
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Video trim modal ─────────────────────────────────────────────────────────
+
+function VideoTrimModal({ file, onUpload, onCancel }: {
+  file: File
+  onUpload: (blob: Blob | File) => void
+  onCancel: () => void
+}) {
+  const [videoUrl] = useState(() => URL.createObjectURL(file))
+  const [duration, setDuration] = useState(0)
+  const [startTime, setStartTime] = useState(0)
+  const [endTime, setEndTime] = useState(0)
+  const [processing, setProcessing] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+
+  useEffect(() => () => URL.revokeObjectURL(videoUrl), [videoUrl])
+
+  function onLoaded() {
+    const d = videoRef.current?.duration ?? 0
+    setDuration(d)
+    setEndTime(d)
+  }
+
+  function fmt(s: number) {
+    const m = Math.floor(s / 60)
+    const sec = Math.floor(s % 60)
+    return `${m}:${sec.toString().padStart(2, '0')}`
+  }
+
+  async function handleUpload() {
+    setProcessing(true)
+    const video = videoRef.current
+    const trimDuration = endTime - startTime
+
+    // Try captureStream for trimming; fall back to uploading the full file
+    if (video && typeof (video as unknown as Record<string, unknown>).captureStream === 'function' && trimDuration < duration - 0.5) {
+      try {
+        const stream = (video as unknown as { captureStream: () => MediaStream }).captureStream()
+        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9'
+          : MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : 'video/mp4'
+        const recorder = new MediaRecorder(stream, { mimeType })
+        const chunks: Blob[] = []
+        recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data) }
+        recorder.onstop = () => {
+          const blob = new Blob(chunks, { type: mimeType })
+          onUpload(blob)
+        }
+        video.currentTime = startTime
+        await video.play()
+        recorder.start()
+        setTimeout(() => { video.pause(); recorder.stop() }, trimDuration * 1000)
+        return
+      } catch {
+        // fall through to full upload
+      }
+    }
+    // Fallback: upload original
+    onUpload(file)
+  }
+
+  const trimDuration = endTime - startTime
+  const startPct = duration > 0 ? (startTime / duration) * 100 : 0
+  const endPct = duration > 0 ? (endTime / duration) * 100 : 100
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 bg-black/60 safe-area-top">
+        <button onClick={onCancel} className="text-white/70 hover:text-white text-sm font-medium px-2 py-1">Cancel</button>
+        <p className="text-white font-semibold text-sm">Trim Video</p>
+        <button
+          onClick={handleUpload}
+          disabled={processing || trimDuration <= 0.1}
+          className="text-orange-400 font-semibold text-sm px-2 py-1 disabled:opacity-40"
+        >
+          {processing ? 'Processing…' : 'Upload'}
+        </button>
+      </div>
+
+      {/* Video */}
+      <div className="flex-1 flex items-center justify-center bg-black p-2">
+        <video
+          ref={videoRef}
+          src={videoUrl}
+          onLoadedMetadata={onLoaded}
+          className="max-h-full max-w-full rounded-xl"
+          playsInline
+          controls
+        />
+      </div>
+
+      {/* Trim controls */}
+      <div className="bg-gray-900 px-5 pt-4 pb-8 space-y-4">
+        <div className="flex justify-between text-xs text-white/60">
+          <span>Start: {fmt(startTime)}</span>
+          <span className="text-orange-400 font-semibold">{fmt(trimDuration)} selected</span>
+          <span>End: {fmt(endTime)}</span>
+        </div>
+
+        {/* Visual timeline */}
+        <div className="relative h-3 bg-white/10 rounded-full overflow-hidden">
+          <div
+            className="absolute h-full bg-orange-500/70 rounded-full"
+            style={{ left: `${startPct}%`, width: `${endPct - startPct}%` }}
+          />
+        </div>
+
+        {/* Sliders */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-white/50 w-10 flex-shrink-0">Start</span>
+            <input
+              type="range" min={0} max={duration} step={0.1} value={startTime}
+              onChange={e => {
+                const v = Math.min(parseFloat(e.target.value), endTime - 0.5)
+                setStartTime(v)
+                if (videoRef.current) videoRef.current.currentTime = v
+              }}
+              className="flex-1 accent-orange-500"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-white/50 w-10 flex-shrink-0">End</span>
+            <input
+              type="range" min={0} max={duration} step={0.1} value={endTime}
+              onChange={e => {
+                const v = Math.max(parseFloat(e.target.value), startTime + 0.5)
+                setEndTime(v)
+                if (videoRef.current) videoRef.current.currentTime = v
+              }}
+              className="flex-1 accent-orange-500"
+            />
+          </div>
+        </div>
+
+        <p className="text-[11px] text-white/40 text-center">
+          {typeof (document.createElement('video') as unknown as Record<string, unknown>).captureStream === 'function'
+            ? 'Drag sliders to trim, then tap Upload'
+            : 'Trimming not supported on this browser — full video will upload'}
+        </p>
+      </div>
     </div>
   )
 }
@@ -417,6 +585,8 @@ function ExerciseNotes({
 }) {
   const [open, setOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [trimFile, setTrimFile] = useState<File | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -430,18 +600,26 @@ function ExerciseNotes({
     }).catch(() => {})
   }, [weId])
 
-  async function handleVideoUpload(file: File) {
+  async function uploadBlob(blob: Blob | File) {
+    setTrimFile(null)
     setUploading(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setUploading(false); return }
-    const ext = file.name.split('.').pop() ?? 'mp4'
+    const ext = blob instanceof File ? (blob.name.split('.').pop() ?? 'mp4') : 'webm'
     const path = `${user.id}/${weId}-${Date.now()}.${ext}`
-    const { error } = await supabase.storage.from('exercise-videos').upload(path, file, { upsert: true })
+    const { error } = await supabase.storage.from('exercise-videos').upload(path, blob, { upsert: true })
     if (!error) {
       const { data: signed } = await supabase.storage.from('exercise-videos').createSignedUrl(path, 315360000)
       if (signed?.signedUrl) onFormVideoChange(signed.signedUrl)
     }
     setUploading(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0]
+    if (!f) return
+    setTrimFile(f)
   }
 
   if (!open) {
@@ -457,6 +635,13 @@ function ExerciseNotes({
 
   return (
     <div className="space-y-2">
+      {trimFile && (
+        <VideoTrimModal
+          file={trimFile}
+          onUpload={uploadBlob}
+          onCancel={() => { setTrimFile(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
+        />
+      )}
       <textarea
         autoFocus={!note && !formVideoUrl}
         value={note}
@@ -474,17 +659,16 @@ function ExerciseNotes({
             <a href={formVideoUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-purple-700 font-medium flex-1 truncate">
               View form video
             </a>
-            <button onClick={() => onFormVideoChange(null)} className="text-xs text-gray-400 hover:text-red-500 transition-colors flex-shrink-0">
-              Remove
-            </button>
+            <button onClick={() => onFormVideoChange(null)} className="text-xs text-gray-400 hover:text-red-500 transition-colors flex-shrink-0">Remove</button>
           </div>
         ) : (
           <label className="cursor-pointer flex items-center gap-1.5 text-xs text-purple-600 hover:text-purple-800 transition-colors">
             <input
+              ref={fileInputRef}
               type="file"
               accept="video/*"
               className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleVideoUpload(f) }}
+              onChange={handleFileSelected}
             />
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -673,7 +857,7 @@ function ExerciseBlock({ we, canUp, canDown, onMoveUp, onMoveDown, onAddSet, onR
 // ─── Main component ───────────────────────────────────────────────────────────
 
 type Props = {
-  onFinish: () => void
+  onFinish: (workoutId?: string, workoutName?: string) => void
   onBack: () => void
   template?: { name: string; exercises: Exercise[]; sections: FreestyleSection[] }
   canUploadVideo?: boolean
@@ -690,9 +874,31 @@ export default function ActiveWorkout({ onFinish, onBack, template, canUploadVid
   const [elapsed, setElapsed] = useState(0)
   const [finishing, setFinishing] = useState(false)
   const [discarding, setDiscarding] = useState(false)
+  const [restCountdown, setRestCountdown] = useState<number | null>(null)
+  const restTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startedAt = useRef(new Date())
   const nameRef = useRef(workoutName)
   nameRef.current = workoutName
+
+  function startRestTimer(seconds: number) {
+    if (seconds <= 0) return
+    if (restTimerRef.current) clearInterval(restTimerRef.current)
+    setRestCountdown(seconds)
+    restTimerRef.current = setInterval(() => {
+      setRestCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          if (restTimerRef.current) clearInterval(restTimerRef.current)
+          return null
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }
+
+  function stopRestTimer() {
+    if (restTimerRef.current) clearInterval(restTimerRef.current)
+    setRestCountdown(null)
+  }
 
   useEffect(() => {
     async function createWorkout() {
@@ -714,7 +920,7 @@ export default function ActiveWorkout({ onFinish, onBack, template, canUploadVid
               .insert({ workout_id: data.id, exercise_id: exercise.id, order_index: i })
               .select('id').single()
             if (we) {
-              templateItems.push({ type: 'exercise', weId: we.id, exercise, sets: [newSet(1)], metrics: defaultMetrics(exercise.category), showRest: false, note: '', formVideoUrl: null })
+              templateItems.push({ type: 'exercise', weId: we.id, exercise, sets: [newSet(1)], metrics: defaultMetrics(exercise.category), showRest: true, note: '', formVideoUrl: null })
             }
           }
           // Restore freestyle sections with fresh IDs
@@ -822,6 +1028,13 @@ export default function ActiveWorkout({ onFinish, onBack, template, canUploadVid
     updateSet(weId, set.id, 'completed', nowComplete)
 
     if (nowComplete) {
+      const restSecs = parseInt(set.restSeconds || '0') || 0
+      if (restSecs > 0) startRestTimer(restSecs)
+    } else {
+      stopRestTimer()
+    }
+
+    if (nowComplete) {
       const { data } = await supabase.from('exercise_sets').insert({
         workout_exercise_id: weId,
         set_number: set.setNumber,
@@ -911,7 +1124,7 @@ export default function ActiveWorkout({ onFinish, onBack, template, canUploadVid
       setFinishing(false)
       return
     }
-    onFinish()
+    onFinish(workoutId ?? undefined, nameRef.current)
   }
 
   const exercises = items.filter((i): i is WorkoutExercise => i.type === 'exercise')
@@ -919,6 +1132,25 @@ export default function ActiveWorkout({ onFinish, onBack, template, canUploadVid
 
   return (
     <div className="space-y-4 pb-28">
+
+      {/* Rest countdown banner */}
+      {restCountdown !== null && (
+        <div className="fixed bottom-24 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
+          <div className="bg-orange-500 text-white rounded-2xl px-5 py-4 shadow-2xl flex items-center gap-4 max-w-sm w-full pointer-events-auto">
+            <div className="w-14 h-14 rounded-full bg-orange-600 flex items-center justify-center flex-shrink-0">
+              <span className="text-xl font-bold tabular-nums">{restCountdown}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">Rest time</p>
+              <p className="text-xs text-orange-100">{restCountdown === 1 ? 'Next set in 1 second' : `Next set in ${restCountdown}s`}</p>
+            </div>
+            <button onClick={stopRestTimer} className="text-white/80 hover:text-white text-xs font-semibold bg-orange-600 px-3 py-1.5 rounded-lg transition-colors">
+              Skip
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">

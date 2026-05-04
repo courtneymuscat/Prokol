@@ -48,7 +48,7 @@ export default async function FormResponsesPage({ params }: Ctx) {
         </div>
       </div>
 
-      <main className="max-w-3xl mx-auto w-full p-6 space-y-3">
+      <main className="w-full p-6 space-y-3">
         {(!submissions || submissions.length === 0) && (
           <div className="bg-white rounded-2xl border p-10 text-center">
             <p className="text-gray-500 font-medium">No responses yet</p>

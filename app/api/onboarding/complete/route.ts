@@ -4,8 +4,9 @@ import type { NextRequest } from 'next/server'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return Response.json({ error: 'Unauthorised' }, { status: 401 })
+  // Use getUser() — verifies against auth.users, not just cookie cache
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return Response.json({ error: 'Unauthorised' }, { status: 401 })
 
   const {
     goal, first_name, age, sex, height_cm, weight_kg,
@@ -22,13 +23,13 @@ export async function POST(req: NextRequest) {
   const { data: existing } = await admin
     .from('profiles')
     .select('subscription_tier, full_name')
-    .eq('id', session.user.id)
+    .eq('id', user.id)
     .single()
 
   const { error } = await admin
     .from('profiles')
     .upsert({
-      id:                   session.user.id,
+      id:                   user.id,
       goal,
       first_name:           first_name ?? null,
       // Seed full_name from first_name if not already set (coach display uses full_name)

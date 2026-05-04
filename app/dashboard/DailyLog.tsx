@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import FoodSearch, { type FoodResult } from './FoodSearch'
+import EditFoodLogForm from './EditFoodLogForm'
 import MealScanModal from './MealScanModal'
 import { calcServes, sumServes, isFruitByName, fmt as fmtServe, type ServeTargets } from '@/lib/serves'
 
@@ -89,7 +90,6 @@ export default function DailyLog({
   const [justAdded, setJustAdded] = useState(false)
   const [searchKey, setSearchKey] = useState(0)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editValues, setEditValues] = useState({ food_name: '', calories: '', protein: '', carbs: '', fat: '' })
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null)
   const [scanningMeal, setScanningMeal] = useState<MealKey | null>(null)
   const [noteOpenId, setNoteOpenId] = useState<string | null>(null)
@@ -103,7 +103,10 @@ export default function DailyLog({
   const [uploadingMealNote, setUploadingMealNote] = useState<MealKey | null>(null)
   // Serve tracking
   const [serveTargets, setServeTargets] = useState<ServeTargets | null>(null)
-  const [foodServeMap, setFoodServeMap] = useState<Record<string, { category: string; secondary: string[] }>>({})
+  const [foodServeMap, setFoodServeMap] = useState<Record<string, {
+    category: string; secondary: string[]
+    protein_per_serve: number | null; carbs_per_serve: number | null; fat_per_serve: number | null
+  }>>({})
 
   // Copy meal (copy current day/meal TO another date)
   const [copyingMeal, setCopyingMeal] = useState<MealKey | 'all' | null>(null)
@@ -219,13 +222,6 @@ export default function DailyLog({
 
   function startEdit(log: FoodLog) {
     setEditingId(log.id)
-    setEditValues({
-      food_name: log.food_name ?? log.notes ?? '',
-      calories: String(log.calories),
-      protein: String(log.protein),
-      carbs: String(log.carbs),
-      fat: String(log.fat),
-    })
   }
 
   async function handleDelete(id: string) {
@@ -320,16 +316,17 @@ export default function DailyLog({
     if (sourceLogs?.length) fetchLogs()
   }
 
-  async function handleUpdate() {
+  async function handleUpdate(update: {
+    food_name: string | null
+    serving_description: string | null
+    calories: number
+    protein: number
+    carbs: number
+    fat: number
+  }) {
     if (!editingId) return
     const supabase = createClient()
-    await supabase.from('food_logs').update({
-      food_name: editValues.food_name || null,
-      calories: Number(editValues.calories) || 0,
-      protein: Number(editValues.protein) || 0,
-      carbs: Number(editValues.carbs) || 0,
-      fat: Number(editValues.fat) || 0,
-    }).eq('id', editingId)
+    await supabase.from('food_logs').update(update).eq('id', editingId)
     setEditingId(null)
     fetchLogs()
   }
@@ -451,10 +448,19 @@ export default function DailyLog({
   const totals = sumMacros(allLogs)
   const isToday = date === todayString()
 
-  const allLogsWithCategory = allLogs.map(l => ({
-    protein: l.protein, carbs: l.carbs, fat: l.fat,
-    serve_category: getFoodCategory(l.food_name),
-  }))
+  // Only count serves for cheat-sheet tagged foods — never fall back to keyword guessing
+  const allLogsWithCategory = allLogs.map(l => {
+    const tag = foodServeMap[l.food_name?.toLowerCase() ?? '']
+    if (!tag) return { protein: l.protein, carbs: l.carbs, fat: l.fat, serve_category: null, secondary_categories: null, protein_per_serve: null, carbs_per_serve: null, fat_per_serve: null }
+    return {
+      protein: l.protein, carbs: l.carbs, fat: l.fat,
+      serve_category: tag.category,
+      secondary_categories: tag.secondary,
+      protein_per_serve: tag.protein_per_serve,
+      carbs_per_serve:   tag.carbs_per_serve,
+      fat_per_serve:     tag.fat_per_serve,
+    }
+  })
   const serveUsed = sumServes(allLogsWithCategory)
 
   if (foodLogAccess === 'off') {
@@ -659,8 +665,8 @@ export default function DailyLog({
       {/* Serve targets progress */}
       {!noteOnly && serveTargets && (() => {
         const rows = [
-          { label: 'Protein', used: serveUsed.protein, target: serveTargets.protein_serves, bar: 'bg-pink-400', text: 'text-pink-600' },
-          { label: 'Carbs',   used: serveUsed.carb,    target: serveTargets.carb_serves,    bar: 'bg-purple-400', text: 'text-purple-600' },
+          { label: 'Protein', used: serveUsed.protein, target: serveTargets.protein_serves, bar: 'bg-rose-400',  text: 'text-rose-500'  },
+          { label: 'Carbs',   used: serveUsed.carb,    target: serveTargets.carb_serves,    bar: 'bg-teal-400',  text: 'text-teal-600'  },
           { label: 'Fruit',   used: serveUsed.fruit,   target: serveTargets.fruit_serves,   bar: 'bg-orange-400', text: 'text-orange-500' },
           { label: 'Fat',     used: serveUsed.fat,     target: serveTargets.fat_serves,     bar: 'bg-green-400', text: 'text-green-600' },
         ].filter(r => r.target > 0)
@@ -687,16 +693,25 @@ export default function DailyLog({
               🥦 Aim for at least 5 fistfuls of vegetables today (unlimited)
             </p>
             {serveTargets.notes && (
-              <p className="text-xs text-gray-400 italic">{serveTargets.notes}</p>
+              <p className="text-xs text-gray-400 italic whitespace-pre-wrap">{serveTargets.notes}</p>
             )}
+            <p className="text-[11px] text-gray-400 leading-relaxed border-t border-gray-50 pt-2">
+              💡 Serve counts only track foods from your coach&apos;s <a href="/cheat-sheet" className="underline hover:text-gray-600">Food Cheat Sheet</a>. Foods logged from general search don&apos;t count towards these targets.
+            </p>
             <a
               href="/cheat-sheet"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors pt-1"
+              className="flex items-center justify-between gap-2 mt-1 px-3 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 transition-colors group"
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              <div className="flex items-center gap-2">
+                <span className="text-base">📋</span>
+                <div>
+                  <p className="text-xs font-semibold text-emerald-800">Food Cheat Sheet</p>
+                  <p className="text-[11px] text-emerald-600">See what counts as 1 serve of each food</p>
+                </div>
+              </div>
+              <svg className="w-4 h-4 text-emerald-500 flex-shrink-0 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
-              Food Cheat Sheet
             </a>
           </div>
         )
@@ -893,58 +908,74 @@ export default function DailyLog({
                     {logs.map((log) => (
                       <div key={log.id}>
                         {editingId === log.id ? (
-                          /* Inline edit form */
-                          <div className="px-4 py-3 space-y-2 bg-gray-50/60">
-                            <input
-                              type="text"
-                              value={editValues.food_name}
-                              onChange={(e) => setEditValues((v) => ({ ...v, food_name: e.target.value }))}
-                              placeholder="Food name"
-                              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                            />
-                            <div className="grid grid-cols-4 gap-2">
-                              {([
-                                { key: 'calories', label: 'kcal' },
-                                { key: 'protein', label: 'P (g)' },
-                                { key: 'carbs', label: 'C (g)' },
-                                { key: 'fat', label: 'F (g)' },
-                              ] as const).map(({ key, label }) => (
-                                <div key={key}>
-                                  <p className="text-xs text-gray-400 mb-0.5">{label}</p>
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    step="any"
-                                    value={editValues[key]}
-                                    onChange={(e) => setEditValues((v) => ({ ...v, [key]: e.target.value }))}
-                                    className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-400"
-                                  />
+                          foodServeMap[log.food_name?.toLowerCase() ?? ''] ? (
+                            /* Cheat sheet food — locked, no editing */
+                            <div className="px-4 py-3 bg-amber-50/60 border-t border-amber-100 space-y-2.5">
+                              <div className="flex items-start gap-2">
+                                <span className="text-base flex-shrink-0">📋</span>
+                                <div>
+                                  <p className="text-sm font-semibold text-amber-800">Added from the Food Cheat Sheet</p>
+                                  <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                                    To change the serving size or food, delete this entry and re-add it from your{' '}
+                                    <a href="/cheat-sheet" className="underline font-medium hover:text-amber-900">Food Cheat Sheet</a>.
+                                    This keeps your serve counts accurate.
+                                  </p>
                                 </div>
-                              ))}
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => { handleDelete(log.id); setEditingId(null) }}
+                                  className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 text-xs font-semibold rounded-lg border border-red-100 transition-colors"
+                                >
+                                  Delete entry
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingId(null)}
+                                  className="px-3 py-1.5 text-gray-500 hover:text-gray-700 text-xs rounded-lg hover:bg-gray-100 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex gap-2 pt-1">
-                              <button
-                                type="button"
-                                onClick={handleUpdate}
-                                className="flex-1 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors"
-                              >
-                                Save
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEditingId(null)}
-                                className="px-3 py-1.5 text-gray-500 hover:text-gray-700 text-xs rounded-lg hover:bg-gray-100 transition-colors"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
+                          ) : (
+                          <EditFoodLogForm
+                            log={log}
+                            onSave={(update) => handleUpdate(update)}
+                            onCancel={() => setEditingId(null)}
+                          />
+                          )
                         ) : (() => {
                           const ingredients = parseMealIngredients(log.notes)
                           const isExpanded = expandedLogId === log.id
+                          const tag = foodServeMap[log.food_name?.toLowerCase() ?? '']
+                          // Exact hex colours matching serve badge text colours
+                          const CAT_HEX: Record<string, string> = {
+                            protein: '#f43f5e', // rose-500  — matches text-rose-500 badge
+                            carb:    '#0d9488', // teal-600  — matches text-teal-600 badge
+                            fruit:   '#f97316', // orange-500 — matches text-orange-500 badge
+                            fat:     '#16a34a', // green-600 — matches text-green-600 badge
+                          }
+                          const SEC_HEX: Record<string, string> = {
+                            protein: '#f43f5e', protein_half: '#f43f5e',
+                            carb:    '#0d9488', carb_half:    '#0d9488',
+                            fat:     '#16a34a', fat_half:     '#16a34a',
+                          }
+                          const primHex = tag ? (CAT_HEX[tag.category] ?? null) : null
+                          const secHexes = tag ? (tag.secondary ?? []).map(s => SEC_HEX[s]).filter(Boolean) : []
                           return (
                             <div>
                               <div className="flex items-center gap-2 px-4 py-2.5 group">
+                                {/* Cheat-sheet category dots — primary (larger) + secondary (smaller, same colour) */}
+                                {tag && primHex && (
+                                  <div className="flex flex-col gap-1 flex-shrink-0 items-center">
+                                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: primHex }} />
+                                    {secHexes.map((hex, i) => (
+                                      <span key={i} className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: hex }} />
+                                    ))}
+                                  </div>
+                                )}
                                 {/* Expand toggle if this is a saved meal */}
                                 {ingredients && (
                                   <button
@@ -961,6 +992,9 @@ export default function DailyLog({
                                   <p className="text-sm text-gray-800 font-medium truncate">
                                     {log.food_name ?? 'Food entry'}
                                   </p>
+                                  {log.serving_description && (
+                                    <p className="text-xs text-gray-400 truncate">{log.serving_description}</p>
+                                  )}
                                   {ingredients && (
                                     <p className="text-xs text-gray-400 truncate">
                                       {ingredients.map((i) => i.name).join(', ')}
@@ -982,13 +1016,15 @@ export default function DailyLog({
                                   <span className="text-macro-c hidden sm:inline">C {log.carbs}g</span>
                                   <span className="text-macro-f hidden sm:inline">F {log.fat}g</span>
                                 </div>
-                                {/* Serve badges */}
+                                {/* Serve badges — only for cheat-sheet tagged foods */}
                                 {(() => {
-                                  const cat = getFoodCategory(log.food_name)
-                                  const s = calcServes(log.protein, log.carbs, log.fat, cat)
+                                  const tag = foodServeMap[log.food_name?.toLowerCase() ?? '']
+                                  if (!tag) return null
+                                  const ps = { protein: tag.protein_per_serve, carbs: tag.carbs_per_serve, fat: tag.fat_per_serve }
+                                  const s = calcServes(log.protein, log.carbs, log.fat, tag.category, tag.secondary, ps)
                                   const badges: { label: string; color: string }[] = []
-                                  if (s.protein > 0) badges.push({ label: `${fmtServe(s.protein)}P`, color: 'bg-pink-50 text-pink-600 border-pink-100' })
-                                  if (s.carb > 0)    badges.push({ label: `${fmtServe(s.carb)}C`,    color: 'bg-purple-50 text-purple-600 border-purple-100' })
+                                  if (s.protein > 0) badges.push({ label: `${fmtServe(s.protein)}P`, color: 'bg-rose-50 text-rose-500 border-rose-100' })
+                                  if (s.carb > 0)    badges.push({ label: `${fmtServe(s.carb)}C`,    color: 'bg-teal-50 text-teal-600 border-teal-100' })
                                   if (s.fruit > 0)   badges.push({ label: `${fmtServe(s.fruit)} fruit`, color: 'bg-orange-50 text-orange-500 border-orange-100' })
                                   if (s.fat > 0)     badges.push({ label: `${fmtServe(s.fat)}F`,    color: 'bg-green-50 text-green-600 border-green-100' })
                                   if (badges.length === 0) return null
@@ -1017,11 +1053,11 @@ export default function DailyLog({
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                                     </svg>
                                   </button>
-                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <div className="flex items-center gap-1">
                                     <button
                                       type="button"
                                       onClick={() => startEdit(log)}
-                                      className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                      className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                       aria-label="Edit"
                                     >
                                       <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1031,7 +1067,7 @@ export default function DailyLog({
                                     <button
                                       type="button"
                                       onClick={() => handleDelete(log.id)}
-                                      className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                       aria-label="Delete"
                                     >
                                       <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

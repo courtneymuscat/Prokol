@@ -69,7 +69,7 @@ export async function POST(
           <p>Hi ${ownerProfile.full_name ?? 'there'},</p>
           <p>Your white-label application for <strong>${app.app_name}</strong> was not approved at this time.</p>
           <p><strong>Reason:</strong> ${reason.trim()}</p>
-          <p>If you have questions or would like to reapply, please contact <a href="mailto:courtney@prokol.io">courtney@prokol.io</a>.</p>
+          <p>If you have questions or would like to reapply, please contact <a href="mailto:info@prokol.io">info@prokol.io</a>.</p>
         `,
       })
     }

@@ -5,6 +5,7 @@ import { FEATURES } from '@/lib/features'
 import { logout } from '@/app/actions/auth'
 import CycleTracker from '@/app/dashboard/CycleTracker'
 import CyclePhaseBar from '@/app/dashboard/CyclePhaseBar'
+import CycleReminderToggle from '@/app/dashboard/CycleReminderToggle'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +16,7 @@ export default async function CyclePage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('sex')
+    .select('sex, cycle_reminders')
     .eq('id', session.user.id)
     .single()
 
@@ -75,6 +76,7 @@ export default async function CyclePage() {
 
         <CycleTracker advancedAccess={canCycleAdv} />
         <CyclePhaseBar />
+        <CycleReminderToggle initialEnabled={profile?.cycle_reminders !== false} />
 
         {!canCycleIntelligence && (
           <div className="flex items-center gap-4 bg-purple-50 border border-purple-100 rounded-2xl px-5 py-4">

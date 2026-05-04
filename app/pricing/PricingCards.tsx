@@ -6,7 +6,7 @@ import { INDIVIDUAL_PLANS, COACH_SOLO_PLANS, COACH_PLANS, type PricingPlan } fro
 
 function CheckIcon() {
   return (
-    <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="#FFD885" strokeWidth={2.5} viewBox="0 0 24 24">
+    <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="#1D9E75" strokeWidth={2.5} viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
     </svg>
   )
@@ -63,11 +63,11 @@ function PlanCard({
 
   return (
     <div className={`relative flex flex-col rounded-2xl border p-6 bg-white ${
-      plan.highlighted ? 'border-[#FFD885] shadow-lg' : 'border-gray-200'
+      plan.highlighted ? 'border-[#1D9E75] shadow-lg' : 'border-gray-200'
     }`}>
       {plan.highlighted && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className="text-xs font-semibold px-3 py-1 rounded-full text-gray-900" style={{ backgroundColor: '#FFD885' }}>
+          <span className="text-xs font-semibold px-3 py-1 rounded-full text-gray-900" style={{ backgroundColor: '#1D9E75' }}>
             {plan.tagline}
           </span>
         </div>
@@ -147,7 +147,7 @@ function PlanCard({
               ? 'text-gray-900 hover:opacity-90'
               : 'bg-gray-900 text-white hover:bg-gray-800'
           }`}
-          style={plan.highlighted ? { backgroundColor: '#FFD885' } : undefined}
+          style={plan.highlighted ? { backgroundColor: '#1D9E75' } : undefined}
         >
           {loading ? 'Loading…' : isFree ? 'Get started free' : `Get ${plan.name.split(' — ')[0]}`}
         </button>
@@ -185,7 +185,7 @@ function SoloSection({
         )}
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-bold text-gray-900">Solo — $39 AUD/mo</h3>
+            <h3 className="text-lg font-bold text-gray-900">Solo — $49 AUD/mo</h3>
             <p className="text-xs text-gray-400 mt-0.5">5 clients included · +$4/mo per extra client</p>
             <p className="text-xs text-gray-500 mt-2">Choose your specialisation: Personal Trainer or Nutritionist</p>
           </div>
@@ -257,7 +257,7 @@ export default function PricingCards({
             }`}
           >
             Annual
-            <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ backgroundColor: '#FFF5D0', color: '#B08000' }}>
+            <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ backgroundColor: 'rgba(29,158,117,0.08)', color: '#B08000' }}>
               Save 10%
             </span>
           </button>

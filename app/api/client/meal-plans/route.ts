@@ -7,7 +7,7 @@ export async function GET() {
 
   const { data } = await supabase
     .from('client_meal_plans')
-    .select('*')
+    .select('id, name, total_calories, content, status, start_date, end_date, notes, show_macros, created_at, updated_at')
     .eq('client_id', user.id)
     .eq('status', 'active')
     .order('created_at', { ascending: false })

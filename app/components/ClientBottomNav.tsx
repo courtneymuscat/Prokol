@@ -56,7 +56,9 @@ function ProfileIcon({ active }: { active: boolean }) {
 type Tab = { href: string; label: string; icon: (active: boolean) => React.ReactNode }
 
 function buildTabs(sex: string | null, tier: string | null): Tab[] {
-  const isCoached = tier === 'coached'
+  // Coaches get full coached-tier tabs (Calendar + Messages) — they have Elite access included
+  const COACH_TIERS = new Set(['coached', 'coach_solo', 'coach_pt_solo', 'coach_nutritionist_solo', 'coach_pro', 'coach_business', 'wl_starter', 'wl_pro'])
+  const isCoached = tier !== null && COACH_TIERS.has(tier)
   const isFemale = sex !== 'male'
 
   const home: Tab     = { href: '/dashboard', label: 'Home',     icon: (a) => <HomeIcon active={a} /> }
@@ -64,17 +66,17 @@ function buildTabs(sex: string | null, tier: string | null): Tab[] {
   const workouts: Tab = { href: '/workouts',  label: 'Workouts', icon: (a) => <WorkoutsIcon active={a} /> }
   const calendar: Tab = { href: '/calendar',  label: 'Calendar', icon: (a) => <CalendarIcon active={a} /> }
   const messages: Tab = { href: '/messages',  label: 'Messages', icon: (a) => <MessagesIcon active={a} /> }
-  const profile: Tab  = { href: '/settings',  label: 'Profile',  icon: (a) => <ProfileIcon active={a} /> }
+  const more: Tab = { href: '/more', label: 'More', icon: (a) => <ProfileIcon active={a} /> }
 
-  if (isFemale && isCoached)  return [home, cycle, calendar, messages, profile]
-  if (isFemale && !isCoached) return [home, cycle, workouts, profile]
-  if (!isFemale && isCoached) return [home, calendar, messages, profile]
-  return [home, workouts, profile]
+  if (isFemale && isCoached)  return [home, cycle, calendar, messages, more]
+  if (isFemale && !isCoached) return [home, cycle, workouts, more]
+  if (!isFemale && isCoached) return [home, calendar, messages, more]
+  return [home, workouts, more]
 }
 
 // ── Pages where the nav should appear ─────────────────────────────────────────
 
-const SHOW_ON = ['/dashboard', '/workouts', '/calendar', '/progress', '/cycle', '/messages', '/settings', '/cheat-sheet']
+const SHOW_ON = ['/dashboard', '/workouts', '/calendar', '/progress', '/cycle', '/messages', '/settings', '/cheat-sheet', '/more', '/resources']
 
 const HIDE_PREFIXES = ['/coach', '/onboarding', '/login', '/signup', '/forms', '/invite', '/pricing', '/checkout', '/subscribe']
 
@@ -110,11 +112,14 @@ export default function ClientBottomNav() {
       >
         <div className="flex items-stretch">
           {tabs.map((tab) => {
-            const active = path === tab.href || (tab.href !== '/dashboard' && path.startsWith(tab.href + '/'))
+            const active = path === tab.href
+              || (tab.href !== '/dashboard' && path.startsWith(tab.href + '/'))
+              || (tab.href === '/more' && (path.startsWith('/settings') || path.startsWith('/resources')))
             return (
               <Link
                 key={tab.href}
                 href={tab.href}
+                prefetch={true}
                 className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 min-w-0"
               >
                 {tab.icon(active)}

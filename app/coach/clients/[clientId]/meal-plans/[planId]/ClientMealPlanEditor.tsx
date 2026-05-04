@@ -14,6 +14,66 @@ type MealFood = {
   carbs: number
   fat: number
   swapped_from?: string
+  _calories_per_100g?: number
+  _protein_per_100g?: number
+  _carbs_per_100g?: number
+  _fat_per_100g?: number
+  serving_qty?: number
+  unit?: string
+  _key?: string
+  image_url?: string | null
+  coach_note?: string | null
+}
+
+type ServingUnit = 'g' | 'ml' | 'oz' | 'cup' | 'tbsp' | 'tsp' | 'piece'
+
+const VOLUME_GRAMS: Array<[RegExp, Partial<Record<'cup' | 'tbsp' | 'tsp', number>>]> = [
+  [/\b(rolled |steel[- ]cut |instant )?oats?\b|\boatmeal\b/i, { cup: 90, tbsp: 10, tsp: 3 }],
+  [/\bbasmati\b|\blong[- ]grain rice\b/i, { cup: 185 }],
+  [/\bbrown rice\b/i, { cup: 190 }],
+  [/\bwhite rice\b|\brice\b/i, { cup: 185 }],
+  [/\bquinoa\b/i, { cup: 170, tbsp: 11 }],
+  [/\balmond flour\b|\bcoconut flour\b|\bflour\b/i, { cup: 120, tbsp: 8, tsp: 3 }],
+  [/\bgreek yogh?urt\b|\bgreek yogurt\b/i, { cup: 245, tbsp: 15 }],
+  [/\byogh?urt\b|\byogurt\b/i, { cup: 245, tbsp: 15 }],
+  [/\balmond milk\b|\boat milk\b|\bsoy milk\b|\bcoconut milk\b|\bmilk\b/i, { cup: 240, tbsp: 15 }],
+  [/\bpeanut butter\b|\balmond butter\b|\bnut butter\b/i, { cup: 256, tbsp: 16, tsp: 5 }],
+  [/\bcoconut oil\b|\bolive oil\b|\bvegetable oil\b|\boil\b/i, { cup: 218, tbsp: 14, tsp: 4 }],
+  [/\bbutter\b/i, { cup: 227, tbsp: 14, tsp: 5 }],
+  [/\bhoney\b/i, { cup: 340, tbsp: 21, tsp: 7 }],
+  [/\bmaple syrup\b/i, { cup: 322, tbsp: 20, tsp: 7 }],
+  [/\bsugar\b/i, { cup: 200, tbsp: 12, tsp: 4 }],
+  [/\bcocoa powder\b/i, { cup: 85, tbsp: 7, tsp: 2 }],
+  [/\bchia seeds?\b/i, { cup: 160, tbsp: 12, tsp: 4 }],
+  [/\bprotein powder\b|\bwhey protein\b|\bpea protein\b|\bplant protein\b/i, { cup: 120, tbsp: 15 }],
+  [/\bcinnamon\b/i, { tbsp: 8, tsp: 3 }],
+  [/\bsalt\b/i, { tbsp: 18, tsp: 6 }],
+]
+
+const PIECE_WEIGHTS: Array<[RegExp, number]> = [
+  [/\begg\b/i, 50],
+  [/\bapple\b/i, 182],
+  [/\bbanana\b/i, 118],
+  [/\borange\b/i, 131],
+  [/\btomato\b/i, 123],
+  [/\bstrawberr/i, 12],
+  [/\bpotato\b/i, 150],
+  [/\bcarrot\b/i, 61],
+  [/\bslice\b|\btoast\b/i, 28],
+]
+
+function gramsPerVolumeUnit(name: string, unit: 'cup' | 'tbsp' | 'tsp'): number | null {
+  for (const [re, map] of VOLUME_GRAMS) {
+    if (re.test(name)) return map[unit] ?? null
+  }
+  return null
+}
+
+function pieceWeightFor(name: string): number | null {
+  for (const [re, g] of PIECE_WEIGHTS) {
+    if (re.test(name)) return g
+  }
+  return null
 }
 
 type MealSlot = {
@@ -31,9 +91,16 @@ type ClientPlanRecord = {
   status: string
   start_date?: string | null
   end_date?: string | null
+  notes?: string | null
+  coach_notes?: string | null
+  show_macros?: boolean
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function withKey(food: MealFood): MealFood {
+  return food._key ? food : { ...food, _key: crypto.randomUUID() }
+}
 
 function computeMacros(content: MealSlot[]) {
   let calories = 0, protein = 0, carbs = 0, fat = 0
@@ -59,49 +126,212 @@ function FoodRow({
   onChange: (updated: MealFood) => void
   onRemove: () => void
 }) {
-  function handleGramsChange(val: string) {
-    const g = parseFloat(val) || 0
-    onChange({ ...food, grams: g })
+  const p100 = useRef({
+    cal: food._calories_per_100g ?? (food.grams > 0 ? (food.calories / food.grams) * 100 : 0),
+    pro: food._protein_per_100g ?? (food.grams > 0 ? (food.protein / food.grams) * 100 : 0),
+    carb: food._carbs_per_100g ?? (food.grams > 0 ? (food.carbs / food.grams) * 100 : 0),
+    fat: food._fat_per_100g ?? (food.grams > 0 ? (food.fat / food.grams) * 100 : 0),
+  })
+
+  const [unit, setUnit] = useState<ServingUnit>(() => (food.unit as ServingUnit) || 'g')
+  const [qty, setQty] = useState<number>(food.serving_qty ?? food.grams)
+  const [customPieceG, setCustomPieceG] = useState('')
+
+  // Safety net: if a different food lands in this slot (key missed or _key absent), sync state from new props
+  const foodIdentity = food._key ?? food.food_id ?? food.food_name
+  useEffect(() => {
+    setUnit((food.unit as ServingUnit) || 'g')
+    setQty(food.serving_qty ?? food.grams)
+    setCustomPieceG('')
+    p100.current = {
+      cal: food._calories_per_100g ?? (food.grams > 0 ? (food.calories / food.grams) * 100 : 0),
+      pro: food._protein_per_100g ?? (food.grams > 0 ? (food.protein / food.grams) * 100 : 0),
+      carb: food._carbs_per_100g ?? (food.grams > 0 ? (food.carbs / food.grams) * 100 : 0),
+      fat: food._fat_per_100g ?? (food.grams > 0 ? (food.fat / food.grams) * 100 : 0),
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [foodIdentity])
+
+  function macrosForGrams(g: number) {
+    const f = g / 100
+    return {
+      calories: Math.round(p100.current.cal * f),
+      protein: Math.round(p100.current.pro * f * 10) / 10,
+      carbs: Math.round(p100.current.carb * f * 10) / 10,
+      fat: Math.round(p100.current.fat * f * 10) / 10,
+    }
+  }
+
+  function effG(q: number, u: ServingUnit, pgStr: string): number {
+    if (u === 'g' || u === 'ml') return q
+    if (u === 'oz') return Math.round(q * 28.35)
+    if (u === 'piece') {
+      const pg = Number(pgStr) || pieceWeightFor(food.food_name) || 0
+      return Math.round(q * pg)
+    }
+    const gpu = gramsPerVolumeUnit(food.food_name, u as 'cup' | 'tbsp' | 'tsp')
+    return gpu ? Math.round(q * gpu) : 0
+  }
+
+  function commit(q: number, u: ServingUnit, pgStr: string) {
+    const g = effG(q, u, pgStr)
+    onChange({ ...food, ...macrosForGrams(g), grams: g, serving_qty: q, unit: u })
+  }
+
+  function handleQtyChange(val: string) {
+    const q = parseFloat(val) || 0
+    setQty(q)
+    commit(q, unit, customPieceG)
+  }
+
+  function handleUnitChange(u: ServingUnit) {
+    setUnit(u)
+    let q = qty
+    if (u === 'g' || u === 'ml') {
+      q = food.grams || 100
+    } else if (u === 'oz') {
+      q = Math.round((food.grams / 28.35) * 10) / 10 || 1
+    } else {
+      q = 1
+    }
+    setQty(q)
+    commit(q, u, customPieceG)
+  }
+
+  function handleCustomPieceGChange(val: string) {
+    setCustomPieceG(val)
+    commit(qty, unit, val)
+  }
+
+  const knownPieceG = pieceWeightFor(food.food_name)
+  const showCustomPieceInput = unit === 'piece' && !knownPieceG
+  const displayGrams = effG(qty, unit, customPieceG)
+
+  const [showNoteEditor, setShowNoteEditor] = useState(false)
+  const [noteDraft, setNoteDraft] = useState(food.coach_note ?? '')
+  const [imgDraft, setImgDraft] = useState(food.image_url ?? '')
+
+  function saveNote() {
+    onChange({ ...food, coach_note: noteDraft.trim() || null, image_url: imgDraft.trim() || null })
+    setShowNoteEditor(false)
   }
 
   return (
-    <div className="flex items-center gap-2 py-2 group">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-gray-900 truncate">{food.food_name}</p>
-        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-          <span className="text-[11px] bg-orange-50 text-orange-500 font-semibold px-1.5 py-0.5 rounded-full">
-            {Math.round(food.calories)} kcal
-          </span>
-          <span className="text-[11px] bg-purple-50 text-purple-500 font-semibold px-1.5 py-0.5 rounded-full">
-            P {food.protein.toFixed(1)}g
-          </span>
-          <span className="text-[11px] bg-green-50 text-green-500 font-semibold px-1.5 py-0.5 rounded-full">
-            C {food.carbs.toFixed(1)}g
-          </span>
-          <span className="text-[11px] bg-blue-50 text-blue-400 font-semibold px-1.5 py-0.5 rounded-full">
-            F {food.fat.toFixed(1)}g
-          </span>
+    <div className="py-2 group">
+      <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-gray-900 truncate">{food.food_name}</p>
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            <span className="text-[11px] bg-orange-50 text-orange-500 font-semibold px-1.5 py-0.5 rounded-full">
+              {Math.round(food.calories)} kcal
+            </span>
+            <span className="text-[11px] bg-purple-50 text-purple-500 font-semibold px-1.5 py-0.5 rounded-full">
+              P {food.protein.toFixed(1)}g
+            </span>
+            <span className="text-[11px] bg-green-50 text-green-500 font-semibold px-1.5 py-0.5 rounded-full">
+              C {food.carbs.toFixed(1)}g
+            </span>
+            <span className="text-[11px] bg-blue-50 text-blue-400 font-semibold px-1.5 py-0.5 rounded-full">
+              F {food.fat.toFixed(1)}g
+            </span>
+          </div>
         </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <input
+            type="number"
+            value={qty}
+            min={0.1}
+            step={unit === 'g' || unit === 'ml' ? 1 : 0.25}
+            onChange={(e) => handleQtyChange(e.target.value)}
+            className="w-14 text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <select
+            value={unit}
+            onChange={(e) => handleUnitChange(e.target.value as ServingUnit)}
+            className="text-xs border border-gray-200 rounded-lg px-1.5 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600"
+          >
+            <option value="g">g</option>
+            <option value="ml">ml</option>
+            <option value="oz">oz</option>
+            <option value="cup">cup</option>
+            <option value="tbsp">tbsp</option>
+            <option value="tsp">tsp</option>
+            <option value="piece">piece</option>
+          </select>
+        </div>
+        <button
+          onClick={onRemove}
+          className="text-gray-200 hover:text-red-400 transition-colors ml-1 opacity-0 group-hover:opacity-100 flex-shrink-0"
+          title="Remove food"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       </div>
-      <div className="flex items-center gap-1 flex-shrink-0">
-        <input
-          type="number"
-          value={food.grams}
-          min={1}
-          onChange={(e) => handleGramsChange(e.target.value)}
-          className="w-16 text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <span className="text-xs text-gray-400">g</span>
+      {unit !== 'g' && unit !== 'ml' && displayGrams > 0 && (
+        <p className="text-[10px] text-gray-400 mt-0.5 pl-0.5">≈ {displayGrams}g</p>
+      )}
+      {showCustomPieceInput && (
+        <div className="flex items-center gap-1.5 mt-1.5 pl-0.5">
+          <span className="text-[11px] text-gray-500">1 piece =</span>
+          <input
+            type="number"
+            min={1}
+            value={customPieceG}
+            onChange={(e) => handleCustomPieceGChange(e.target.value)}
+            placeholder="g"
+            className="w-14 text-xs border border-gray-200 rounded-lg px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <span className="text-[11px] text-gray-400">g</span>
+        </div>
+      )}
+
+      {/* Note / image toggle */}
+      <div className="mt-1">
+        {!showNoteEditor ? (
+          <button
+            type="button"
+            onClick={() => setShowNoteEditor(true)}
+            className={`text-[11px] transition-colors ${food.coach_note || food.image_url ? 'text-blue-500 hover:text-blue-700' : 'text-gray-300 opacity-0 group-hover:opacity-100 hover:text-gray-500'}`}
+          >
+            {food.coach_note || food.image_url ? '📝 Note / photo →' : '+ add note or photo for client'}
+          </button>
+        ) : (
+          <div className="mt-1.5 space-y-2 bg-gray-50 rounded-xl p-3 border border-gray-100">
+            <div>
+              <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">Coach note for client</label>
+              <textarea
+                value={noteDraft}
+                onChange={(e) => setNoteDraft(e.target.value)}
+                placeholder="e.g. Find this in the dairy fridge at Woolworths — grab the vanilla flavour"
+                rows={2}
+                className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">Product link <span className="font-normal normal-case text-gray-300">(Woolworths, Coles, brand website, or direct image URL)</span></label>
+              <input
+                type="url"
+                value={imgDraft}
+                onChange={(e) => setImgDraft(e.target.value)}
+                placeholder="https://…"
+                className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              />
+            </div>
+            {imgDraft && (
+              <img src={imgDraft} alt="preview" className="h-16 w-auto rounded-lg object-contain border border-gray-100" onError={(e) => (e.currentTarget.style.display = 'none')} />
+            )}
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={saveNote} className="px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors">Save</button>
+              <button type="button" onClick={() => { setShowNoteEditor(false); setNoteDraft(food.coach_note ?? ''); setImgDraft(food.image_url ?? '') }} className="px-3 py-1.5 text-gray-500 text-xs rounded-lg hover:bg-gray-100 transition-colors">Cancel</button>
+              {(food.coach_note || food.image_url) && (
+                <button type="button" onClick={() => { onChange({ ...food, coach_note: null, image_url: null }); setShowNoteEditor(false) }} className="px-3 py-1.5 text-red-400 text-xs rounded-lg hover:bg-red-50 transition-colors ml-auto">Remove</button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
-      <button
-        onClick={onRemove}
-        className="text-gray-200 hover:text-red-400 transition-colors ml-1 opacity-0 group-hover:opacity-100"
-        title="Remove food"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
     </div>
   )
 }
@@ -148,7 +378,7 @@ function MealSlotCard({
   }
 
   function addFood(food: MealFood) {
-    onChange({ ...slot, foods: [...slot.foods, food] })
+    onChange({ ...slot, foods: [...slot.foods, withKey(food)] })
   }
 
   return (
@@ -225,7 +455,7 @@ function MealSlotCard({
       <div className="divide-y divide-gray-50">
         {slot.foods.map((food, fi) => (
           <FoodRow
-            key={fi}
+            key={food._key ?? fi}
             food={food}
             onChange={(updated) => updateFood(fi, updated)}
             onRemove={() => removeFood(fi)}
@@ -273,7 +503,9 @@ export default function ClientMealPlanEditor({
   const [plan, setPlan] = useState<ClientPlanRecord>({
     ...initialPlan,
     total_calories: initialPlan.total_calories ?? 0,
-    content: Array.isArray(initialPlan.content) ? initialPlan.content : [],
+    content: Array.isArray(initialPlan.content)
+      ? initialPlan.content.map(slot => ({ ...slot, foods: slot.foods.map(withKey) }))
+      : [],
   })
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -300,6 +532,9 @@ export default function ClientMealPlanEditor({
           content: updated.content,
           start_date: updated.start_date ?? undefined,
           end_date: updated.end_date ?? null,
+          notes: updated.notes ?? null,
+          coach_notes: updated.coach_notes ?? null,
+          show_macros: updated.show_macros !== false,
         }),
       })
       if (res.ok) {
@@ -364,6 +599,8 @@ export default function ClientMealPlanEditor({
         content: plan.content,
         start_date: plan.start_date ?? undefined,
         end_date: plan.end_date ?? null,
+        notes: plan.notes ?? null,
+        coach_notes: plan.coach_notes ?? null,
       }),
     })
     if (res.ok) {
@@ -600,6 +837,69 @@ export default function ClientMealPlanEditor({
                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+            </div>
+
+            {/* Show macros toggle */}
+            <div className="flex items-center justify-between py-1">
+              <div>
+                <p className="text-sm font-medium text-gray-900">Show calories &amp; macros to client</p>
+                <p className="text-xs text-gray-400 mt-0.5">When off, the client sees meal foods but not the numbers</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={plan.show_macros !== false}
+                onClick={() => {
+                  const updated = { ...plan, show_macros: plan.show_macros === false ? true : false }
+                  setPlan(updated)
+                  scheduleSave(updated)
+                }}
+                className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${plan.show_macros !== false ? 'bg-blue-600' : 'bg-gray-200'}`}
+              >
+                <span className={`inline-block h-5 w-5 rounded-full bg-white shadow ring-0 transition-transform duration-200 ${plan.show_macros !== false ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Notes</p>
+                <span className="text-[10px] font-medium text-green-600 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">Visible to client</span>
+              </div>
+              <textarea
+                value={plan.notes ?? ''}
+                onChange={(e) => {
+                  const updated = { ...plan, notes: e.target.value || null }
+                  setPlan(updated)
+                  scheduleSave(updated)
+                }}
+                placeholder="Add notes for the client about this meal plan…"
+                rows={3}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none placeholder:text-gray-300"
+              />
+            </div>
+            <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 flex gap-2">
+              <span className="text-base flex-shrink-0">💡</span>
+              <p className="text-xs text-blue-700 leading-relaxed">
+                If this plan is selected as the <strong>daily targets source</strong> in the client&apos;s App Preview tab, the client will see the calorie &amp; macro totals from this plan on their home screen. Switch between plans there to preview how the numbers change.
+              </p>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">Coach Notes</p>
+                <span className="text-[10px] font-medium text-amber-700 bg-amber-100 border border-amber-300 rounded-full px-2 py-0.5">Not visible to client</span>
+              </div>
+              <textarea
+                value={plan.coach_notes ?? ''}
+                onChange={(e) => {
+                  const updated = { ...plan, coach_notes: e.target.value || null }
+                  setPlan(updated)
+                  scheduleSave(updated)
+                }}
+                placeholder="Internal notes, clinical context, adjustments to watch…"
+                rows={3}
+                className="w-full border border-amber-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none placeholder:text-gray-300"
+              />
             </div>
           </div>
 

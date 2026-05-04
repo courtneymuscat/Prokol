@@ -118,10 +118,20 @@ export async function POST(
     })
   }
 
-  // Update the coach's profile org_id
+  // Update the coach's profile — set org_id and upgrade to coach_business tier
+  // so they get full business feature access via the org owner's subscription
+  const { data: coachProfile } = await admin
+    .from('profiles')
+    .select('subscription_tier, stripe_subscription_id')
+    .eq('id', session.user.id)
+    .single()
+
+  const hadOwnSubscription = !!(coachProfile?.stripe_subscription_id)
+  const previousTier = coachProfile?.subscription_tier as string | null
+
   await admin
     .from('profiles')
-    .update({ org_id: orgId })
+    .update({ org_id: orgId, subscription_tier: 'coach_business' })
     .eq('id', session.user.id)
 
   // Mark invite accepted
@@ -149,5 +159,12 @@ export async function POST(
     }
   }
 
-  return Response.json({ success: true, redirect: '/coach/dashboard' })
+  return Response.json({
+    success: true,
+    redirect: '/coach/dashboard',
+    // Warn if they had their own active subscription — they should cancel it in Stripe
+    // to avoid double billing (their seat is now covered by the org owner's Business plan)
+    had_own_subscription: hadOwnSubscription,
+    previous_tier: previousTier,
+  })
 }

@@ -12,7 +12,7 @@ async function verifyCoachClient(coachId: string, clientId: string): Promise<boo
     .select('client_id')
     .eq('coach_id', coachId)
     .eq('client_id', clientId)
-    .in('status', ['active', 'archived'])
+    .in('status', ['active', 'archived', 'pending_invite'])
     .single()
   return !!data
 }

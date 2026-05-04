@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { requireOrgRole } from '@/lib/org'
+import { requireOrgRole, getCoachPermissions } from '@/lib/org'
 
 function weekStart(date: Date): Date {
   const d = new Date(date)
@@ -24,6 +24,14 @@ export async function GET() {
   let membership
   try { membership = await requireOrgRole(session.user.id, 'coach') }
   catch { return Response.json({ error: 'Forbidden' }, { status: 403 }) }
+
+  // Non-admin coaches must have can_view_org_analytics
+  if (membership.role === 'coach') {
+    const perms = await getCoachPermissions(session.user.id, membership.org_id)
+    if (!perms.can_view_org_analytics) {
+      return Response.json({ error: 'Insufficient permissions to view org analytics' }, { status: 403 })
+    }
+  }
 
   const admin = createAdminClient()
   const now = new Date()

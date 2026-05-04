@@ -35,9 +35,9 @@ export default function GoalsPanel() {
           <p className="text-xs font-medium text-gray-500 mb-1.5">This week</p>
           <ul className="space-y-1.5">
             {goals.mini_goals.map((g, i) => (
-              <li key={i} className="flex items-start gap-2">
+              <li key={i} className="flex items-start gap-2 overflow-hidden">
                 <span className="mt-0.5 w-4 h-4 rounded-full border-2 border-blue-300 flex-shrink-0" />
-                <span className="text-sm text-gray-800">{g}</span>
+                <span className="text-sm text-gray-800 break-words overflow-hidden">{g}</span>
               </li>
             ))}
           </ul>

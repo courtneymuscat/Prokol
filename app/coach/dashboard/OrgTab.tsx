@@ -33,6 +33,14 @@ type Coach = {
   permissions: Permissions
 }
 
+type PendingInvite = {
+  token: string
+  email: string
+  role: string
+  created_at: string
+  expires_at: string
+}
+
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
 const TIER_LABEL: Record<string, string> = {
@@ -456,7 +464,9 @@ function InviteCoachModal({ onClose, onDone }: { onClose: () => void; onDone: ()
 export default function OrgTab() {
   const [clients, setClients] = useState<Client[]>([])
   const [coaches, setCoaches] = useState<Coach[]>([])
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([])
   const [loading, setLoading] = useState(true)
+  const [copiedToken, setCopiedToken] = useState<string | null>(null)
 
   // Filters + sort
   const [search, setSearch] = useState('')
@@ -477,7 +487,11 @@ export default function OrgTab() {
       fetch('/api/org/coaches'),
     ])
     if (cr.ok) setClients(await cr.json())
-    if (or.ok) setCoaches(await or.json())
+    if (or.ok) {
+      const orgData = await or.json()
+      setCoaches(orgData.coaches ?? [])
+      setPendingInvites(orgData.pending_invites ?? [])
+    }
     setLoading(false)
   }, [])
 
@@ -547,7 +561,7 @@ export default function OrgTab() {
           </button>
         </div>
 
-        {coaches.length === 0 ? (
+        {coaches.length === 0 && pendingInvites.length === 0 ? (
           <p className="text-sm text-gray-400">No coaches yet. Invite your team to get started.</p>
         ) : (
           <div className="divide-y divide-gray-50">
@@ -561,9 +575,6 @@ export default function OrgTab() {
                   <p className="text-xs text-gray-500">
                     {coach.client_count} client{coach.client_count !== 1 ? 's' : ''} ·{' '}
                     <span className="capitalize">{coach.role}</span>
-                    {!coach.accepted_at && (
-                      <span className="ml-1.5 text-[11px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">Pending</span>
-                    )}
                   </p>
                 </div>
                 <button
@@ -574,6 +585,46 @@ export default function OrgTab() {
                 </button>
               </div>
             ))}
+            {pendingInvites.map((inv) => {
+              const inviteUrl = `${window.location.origin}/org/invite/${inv.token}`
+              const isCopied = copiedToken === inv.token
+              return (
+                <div key={inv.token} className="flex items-center gap-3 py-3">
+                  <div className="w-9 h-9 rounded-full bg-gray-100 text-gray-400 font-semibold text-sm flex items-center justify-center shrink-0">
+                    {inv.email[0].toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-700 truncate">{inv.email}</p>
+                    <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                      <span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded text-[11px] font-medium">Invite pending</span>
+                      <span className="capitalize">{inv.role}</span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(inviteUrl)
+                        setCopiedToken(inv.token)
+                        setTimeout(() => setCopiedToken(null), 2000)
+                      }}
+                      className="text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      {isCopied ? '✓ Copied' : 'Copy link'}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Revoke invite for ${inv.email}?`)) return
+                        await fetch(`/api/org/invites/${inv.token}`, { method: 'DELETE' })
+                        setPendingInvites((prev) => prev.filter((i) => i.token !== inv.token))
+                      }}
+                      className="text-xs border border-red-200 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                    >
+                      Revoke
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

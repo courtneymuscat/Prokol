@@ -88,6 +88,26 @@ function AnswerDisplay({ value, type }: { value: string; type: string }) {
     )
   }
 
+  // Signature — stored as base64 PNG data URL
+  if (type === 'signature') {
+    return (
+      <div className="border border-gray-200 rounded-2xl overflow-hidden inline-block">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={value} alt="Client signature" className="max-w-xs w-full object-contain" style={{ maxHeight: 160 }} />
+      </div>
+    )
+  }
+
+  // File upload / image URL — clickable link
+  if (type === 'file_upload' && value.startsWith('http')) {
+    return (
+      <a href={value} target="_blank" rel="noopener noreferrer"
+        className="text-blue-600 hover:underline text-sm break-all">
+        View uploaded file ↗
+      </a>
+    )
+  }
+
   // Text / textarea / number / default — plain
   return <p className="text-gray-900 text-sm whitespace-pre-wrap leading-relaxed">{value}</p>
 }

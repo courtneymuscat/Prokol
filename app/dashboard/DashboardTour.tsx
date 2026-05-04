@@ -217,7 +217,7 @@ export default function DashboardTour() {
           {/* Right */}
           <div className="fixed pointer-events-none" style={{ zIndex: 49, top: sp.top, left: sp.left + sp.width, right: 0, height: sp.height, backgroundColor: 'rgba(0,0,0,0.55)' }} />
           {/* Spotlight ring */}
-          <div className="fixed pointer-events-none" style={{ zIndex: 50, top: sp.top, left: sp.left, width: sp.width, height: sp.height, borderRadius: 16, boxShadow: '0 0 0 3px #FFD885', transition: 'all 0.35s ease' }} />
+          <div className="fixed pointer-events-none" style={{ zIndex: 50, top: sp.top, left: sp.left, width: sp.width, height: sp.height, borderRadius: 16, boxShadow: '0 0 0 3px #1D9E75', transition: 'all 0.35s ease' }} />
         </>
       ) : (
         // Full backdrop for intro/outro step
@@ -235,7 +235,7 @@ export default function DashboardTour() {
             {STEPS.map((_, i) => (
               <div key={i} className="h-1.5 rounded-full transition-all duration-300" style={{
                 width: i === stepIndex ? '18px' : '6px',
-                backgroundColor: i <= stepIndex ? '#FFD885' : '#e5e7eb',
+                backgroundColor: i <= stepIndex ? '#1D9E75' : '#e5e7eb',
               }} />
             ))}
           </div>
@@ -258,7 +258,7 @@ export default function DashboardTour() {
               <button
                 onClick={advance}
                 className="flex-[2] py-2 rounded-xl text-sm font-bold text-gray-900 transition-colors"
-                style={{ backgroundColor: '#FFD885' }}
+                style={{ backgroundColor: '#1D9E75' }}
               >
                 {step.cta}
               </button>

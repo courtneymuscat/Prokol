@@ -55,13 +55,16 @@ export async function PATCH(
 
   const supabase = await createClient()
   const body = await req.json()
-  const { name, content, status, total_calories, start_date, end_date } = body
+  const { name, content, status, total_calories, start_date, end_date, notes, coach_notes, show_macros } = body
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (name !== undefined) updates.name = name
   if (content !== undefined) updates.content = content
   if (total_calories !== undefined) updates.total_calories = total_calories
   if (start_date !== undefined) updates.start_date = start_date
   if (end_date !== undefined) updates.end_date = end_date ?? null
+  if (notes !== undefined) updates.notes = notes ?? null
+  if (coach_notes !== undefined) updates.coach_notes = coach_notes ?? null
+  if (show_macros !== undefined) updates.show_macros = show_macros
 
   // Auto-expire: if end_date is being set to a past date, force inactive
   const today = new Date().toISOString().split('T')[0]
@@ -80,13 +83,12 @@ export async function PATCH(
     .select()
     .single()
 
-  // Graceful fallback: if end_date column doesn't exist yet (migration not run),
-  // retry without it so the rest of the save still succeeds.
-  if (error && error.message?.includes('end_date')) {
-    const { end_date: _removed, ...updatesWithoutEndDate } = updates
+  // Graceful fallback: strip unknown columns if migration hasn't run yet
+  if (error && (error.message?.includes('end_date') || error.message?.includes('notes') || error.message?.includes('coach_notes'))) {
+    const { end_date: _ed, notes: _n, coach_notes: _cn, ...coreUpdates } = updates
     const retry = await supabase
       .from('client_meal_plans')
-      .update(updatesWithoutEndDate)
+      .update(coreUpdates)
       .eq('id', planId)
       .eq('client_id', clientId)
       .eq('coach_id', coachId)
