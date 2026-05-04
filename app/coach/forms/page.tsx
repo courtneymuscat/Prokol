@@ -73,44 +73,56 @@ export default async function CoachFormsPage() {
           <p className="text-sm text-gray-400 text-center py-4">No forms yet — use a template above or create from scratch.</p>
         )}
 
-        {(forms ?? []).map((form) => (
-          <div key={form.id} className="bg-white rounded-2xl border p-4 flex items-center gap-4">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-sm font-semibold text-gray-900">{form.title}</p>
-                <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                  {TYPE_LABELS[form.type] ?? form.type}
-                </span>
-                {!form.is_active && (
-                  <span className="text-xs bg-yellow-50 text-yellow-600 px-2 py-0.5 rounded-full">Inactive</span>
-                )}
-                {(unreadMap[form.id] ?? 0) > 0 && (
-                  <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-semibold">
-                    {unreadMap[form.id]} new
+        {(forms ?? []).map((form) => {
+          const unreadCount = unreadMap[form.id] ?? 0
+          return (
+            <div key={form.id} className={`bg-white rounded-2xl border p-4 flex items-center gap-4 ${unreadCount > 0 ? 'border-green-300 bg-green-50/40' : ''}`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-semibold text-gray-900">{form.title}</p>
+                  <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                    {TYPE_LABELS[form.type] ?? form.type}
                   </span>
-                )}
+                  {!form.is_active && (
+                    <span className="text-xs bg-yellow-50 text-yellow-600 px-2 py-0.5 rounded-full">Inactive</span>
+                  )}
+                  {unreadCount > 0 && (
+                    <span className="text-xs bg-green-600 text-white px-2 py-0.5 rounded-full font-semibold">
+                      {unreadCount} unread
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Created {new Date(form.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
               </div>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Created {new Date(form.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </p>
+              <div className="flex gap-2 flex-shrink-0">
+                <a
+                  href={`/coach/forms/${form.id}/responses`}
+                  className={`relative text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                    unreadCount > 0
+                      ? 'bg-green-600 text-white hover:bg-green-700'
+                      : 'text-gray-600 border border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  Responses
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white text-green-700 border border-green-300 rounded-full text-[9px] font-bold flex items-center justify-center">
+                      {unreadCount}
+                    </span>
+                  )}
+                </a>
+                <a
+                  href={`/coach/forms/${form.id}/edit`}
+                  className="text-xs font-medium text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                >
+                  Edit
+                </a>
+                <DeleteFormButton formId={form.id} />
+              </div>
             </div>
-            <div className="flex gap-2 flex-shrink-0">
-              <a
-                href={`/coach/forms/${form.id}/responses`}
-                className="text-xs font-medium text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Responses
-              </a>
-              <a
-                href={`/coach/forms/${form.id}/edit`}
-                className="text-xs font-medium text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
-              >
-                Edit
-              </a>
-              <DeleteFormButton formId={form.id} />
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </main>
     </div>
   )
