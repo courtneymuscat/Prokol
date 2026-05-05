@@ -6584,6 +6584,7 @@ function ClientServeGuide({ clientId }: { clientId: string }) {
   const [editingTargets, setEditingTargets] = useState(false)
   const [draft, setDraft] = useState({ protein_serves: 0, carb_serves: 0, fat_serves: 0, fruit_serves: 0, veg_unlimited: true, notes: '' })
   const [savingTargets, setSavingTargets] = useState(false)
+  const [removingTargets, setRemovingTargets] = useState(false)
   const [autoAssign, setAutoAssign] = useState(false)
 
   useEffect(() => {
@@ -6604,6 +6605,15 @@ function ClientServeGuide({ clientId }: { clientId: string }) {
     setDraft(d => ({ ...d, ...serves }))
     setEditingTargets(true)
     setAutoAssign(true)
+  }
+
+  async function removeTargets() {
+    if (!confirm('Remove serve targets for this client? They will no longer see the serve guide in their app.')) return
+    setRemovingTargets(true)
+    await fetch(`/api/coach/clients/serve-targets?clientId=${clientId}`, { method: 'DELETE' })
+    setTargets(null)
+    setEditingTargets(false)
+    setRemovingTargets(false)
   }
 
   async function saveTargets() {
@@ -6634,9 +6644,16 @@ function ClientServeGuide({ clientId }: { clientId: string }) {
             <h3 className="text-sm font-semibold text-gray-900">Daily Serve Targets</h3>
             <p className="text-xs text-gray-400 mt-0.5">Set how many serves per day for this client</p>
           </div>
-          <button onClick={() => setEditingTargets(v => !v)} className="text-xs text-blue-600 hover:text-blue-700 font-medium">
-            {editingTargets ? 'Cancel' : targets ? 'Edit' : 'Set Targets'}
-          </button>
+          <div className="flex items-center gap-3">
+            {targets && !editingTargets && (
+              <button onClick={removeTargets} disabled={removingTargets} className="text-xs text-red-500 hover:text-red-600 font-medium disabled:opacity-50">
+                {removingTargets ? 'Removing…' : 'Remove'}
+              </button>
+            )}
+            <button onClick={() => setEditingTargets(v => !v)} className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+              {editingTargets ? 'Cancel' : targets ? 'Edit' : 'Set Targets'}
+            </button>
+          </div>
         </div>
 
         {editingTargets ? (
