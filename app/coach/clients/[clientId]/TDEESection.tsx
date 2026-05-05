@@ -84,10 +84,12 @@ export default function TDEESection({
   clientId,
   onApplyToWeek,
   onApplyToServes,
+  onOverrideMealPlan,
 }: {
   clientId: string
   onApplyToWeek?: (macros: MacroResult) => void
   onApplyToServes?: (macros: MacroResult) => void
+  onOverrideMealPlan?: () => void
 }) {
   const [loading, setLoading] = useState(true)
   const [savingTdee, setSavingTdee] = useState(false)
@@ -218,7 +220,8 @@ export default function TDEESection({
     setSavedProtein(effectiveMacros.proteinG)
     setSavedCarbs(effectiveMacros.carbG)
     setSavedFat(effectiveMacros.fatG)
-    setHasActiveMealPlan(false) // targets now override the meal plan
+    setHasActiveMealPlan(false)
+    onOverrideMealPlan?.()
     setSavingTargets(false)
     setSavedMsg('Targets saved')
     setTimeout(() => { setSavedMsg(null); setExpanded(false) }, 1500)

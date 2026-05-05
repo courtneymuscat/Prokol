@@ -6635,7 +6635,17 @@ function ClientServeGuide({ clientId }: { clientId: string }) {
   return (
     <div className="space-y-5">
       {/* TDEE calculator */}
-      <TDEESection clientId={clientId} onApplyToServes={applyMacrosToServes} />
+      <TDEESection
+        clientId={clientId}
+        onApplyToServes={applyMacrosToServes}
+        onOverrideMealPlan={() => {
+          fetch(`/api/coach/clients/${clientId}/settings`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targets_source: 'tdee', targets_meal_plan_id: null }),
+          })
+        }}
+      />
 
       {/* Serve targets panel */}
       <div className="bg-white rounded-2xl border border-gray-200 p-5">
