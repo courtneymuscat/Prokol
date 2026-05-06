@@ -800,16 +800,7 @@ export default function GuidesPage() {
                 <Step n={3} title="Complete payment (if required)">
                   If your coach has set up a paid service, you&apos;ll be shown a payment page after signup. Complete the payment through the link provided. Once paid, your coach will activate your account and you&apos;re in.
                 </Step>
-                <Step n={4} title="Set up your profile (3–4 minutes)">
-                  After signup you&apos;ll be prompted to complete a short profile setup. You&apos;ll be asked:
-                  <ul style={{ marginTop: 8, paddingLeft: 20, lineHeight: 2 }}>
-                    <li><strong>Your goal</strong>: Fat Loss, Muscle Gain, Performance, or General Health</li>
-                    <li><strong>Your details</strong>: name, sex, age, height, current weight, and dietary preference</li>
-                    <li><strong>Your activity level</strong>: average daily steps and any weekly exercise sessions</li>
-                    <li><strong>Your targets</strong>: the app calculates your daily calorie and macro targets based on your stats. You can review and adjust before saving.</li>
-                  </ul>
-                </Step>
-                <Step n={5} title="You're in">
+                <Step n={4} title="You're in">
                   Your dashboard is now live. You&apos;ll see your daily nutrition targets, a food log, and anything your coach has already set up for you (meal plan, habits, forms, autoflow steps). Start exploring.
                 </Step>
                 <Tip>
