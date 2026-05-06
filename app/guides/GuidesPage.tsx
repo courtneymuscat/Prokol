@@ -90,6 +90,58 @@ function Note({ children }: { children: React.ReactNode }) {
   )
 }
 
+function VideoEmbed({ src, title }: { src: string; title: string }) {
+  return (
+    <div style={{
+      position: 'relative', paddingBottom: '56.25%', height: 0,
+      overflow: 'hidden', borderRadius: 12, marginBottom: 28,
+      background: T.dark,
+    }}>
+      <iframe
+        src={src}
+        title={title}
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+      />
+    </div>
+  )
+}
+
+function IPhoneFrame({ src, title }: { src: string; title: string }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
+      <div style={{
+        width: 260, background: '#0A0A0A', borderRadius: 44,
+        padding: '14px 10px', boxShadow: '0 32px 80px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(255,255,255,0.08)',
+        border: '2px solid #222',
+      }}>
+        {/* Notch */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+          <div style={{ width: 80, height: 20, background: '#111', borderRadius: 20 }} />
+        </div>
+        {/* Screen */}
+        <div style={{
+          position: 'relative', paddingBottom: '177.78%', height: 0,
+          overflow: 'hidden', borderRadius: 28, background: '#000',
+        }}>
+          <iframe
+            src={src}
+            title={title}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 'none' }}
+          />
+        </div>
+        {/* Home bar */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 10 }}>
+          <div style={{ width: 80, height: 4, background: '#333', borderRadius: 4 }} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function GuideSection({
   id, number, title, readTime, children, isClient,
 }: {
@@ -349,6 +401,7 @@ export default function GuidesPage() {
             <>
               {/* G01 — Getting Started */}
               <GuideSection id="getting-started" number="01" title="Getting Started as a Coach" readTime="10 min read">
+                <VideoEmbed src="https://www.youtube.com/embed/Ysso7rJSSdE" title="Getting Started as a Coach" />
                 <p style={{ fontSize: '0.9rem', color: T.textSec, lineHeight: 1.75, marginBottom: 20 }}>
                   Before you invite your first client, take 10 minutes to set yourself up properly. A complete profile means clients land in a polished experience from day one.
                 </p>
@@ -411,6 +464,7 @@ export default function GuidesPage() {
 
               {/* G03 — Training Programs */}
               <GuideSection id="training-programs" number="03" title="Building Training Programs" readTime="12 min read">
+                <VideoEmbed src="https://www.youtube.com/embed/6suzsV89YBY" title="Building Training Programs" />
                 <p style={{ fontSize: '0.9rem', color: T.textSec, lineHeight: 1.75, marginBottom: 20 }}>
                   Available on PT Solo, Coach Pro, and White-Label plans. Build reusable week-by-week programs, assign them to clients, and push changes automatically.
                 </p>
@@ -457,6 +511,7 @@ export default function GuidesPage() {
 
               {/* G04 — Meal Plans */}
               <GuideSection id="meal-plans" number="04" title="Building and Assigning Meal Plans" readTime="6 min read">
+                <VideoEmbed src="https://www.youtube.com/embed/c8GqAMXGQGI" title="Building and Assigning Meal Plans" />
                 <p style={{ fontSize: '0.9rem', color: T.textSec, lineHeight: 1.75, marginBottom: 20 }}>
                   Available on Nutritionist Solo, Coach Pro, and White-Label plans. Create structured meal plans with food-level detail and assign them to clients.
                 </p>
@@ -536,6 +591,7 @@ export default function GuidesPage() {
 
               {/* G06 — Autoflows */}
               <GuideSection id="autoflows" number="06" title="Building Autoflows" readTime="10 min read">
+                <VideoEmbed src="https://www.youtube.com/embed/tyt1S2qE9do" title="Building Autoflows" />
                 <p style={{ fontSize: '0.9rem', color: T.textSec, lineHeight: 1.75, marginBottom: 20 }}>
                   Autoflows are automated sequences of steps that unlock for clients over time. They&apos;re ideal for onboarding, habit-building challenges, and structured program introductions — tasks that currently fall through the cracks.
                 </p>
@@ -599,6 +655,7 @@ export default function GuidesPage() {
 
               {/* G08 — Check-ins */}
               <GuideSection id="check-ins" number="08" title="The Check-in Feed" readTime="5 min read">
+                <VideoEmbed src="https://www.youtube.com/embed/HtwyNXKQytI" title="The Check-in Feed" />
                 <p style={{ fontSize: '0.9rem', color: T.textSec, lineHeight: 1.75, marginBottom: 20 }}>
                   The Check-ins page gives you a single feed of all client check-ins across your entire roster — so you never miss a response.
                 </p>
@@ -701,6 +758,23 @@ export default function GuidesPage() {
           {/* ─────────── CLIENT GUIDES ─────────── */}
           {activeTab === 'client' && (
             <>
+              {/* Client walkthrough video */}
+              <div style={{
+                background: T.white, borderRadius: 16, border: `1px solid ${T.border}`,
+                padding: '32px 36px', marginBottom: 24, textAlign: 'center',
+              }}>
+                <p style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', color: T.teal, textTransform: 'uppercase', marginBottom: 8 }}>
+                  Watch First
+                </p>
+                <h2 style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 'clamp(1.2rem, 3vw, 1.6rem)', color: T.textPrimary, marginBottom: 6, letterSpacing: '-0.02em' }}>
+                  App Walkthrough
+                </h2>
+                <p style={{ fontSize: '0.88rem', color: T.textSec, marginBottom: 24, maxWidth: 400, margin: '0 auto 24px' }}>
+                  A quick tour of everything you&apos;ll find in your Prokol app.
+                </p>
+                <IPhoneFrame src="https://www.youtube.com/embed/ZaEZjPiMKRg" title="Client App Walkthrough" />
+              </div>
+
               <div style={{
                 background: T.tealBg, border: `1px solid ${T.tealBorder}`,
                 borderRadius: 12, padding: '14px 18px', marginBottom: 20,
