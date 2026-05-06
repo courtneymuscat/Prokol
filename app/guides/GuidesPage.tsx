@@ -824,7 +824,7 @@ export default function GuidesPage() {
                   </ul>
                 </Step>
                 <Step n={3} title="Adjusting your targets">
-                  If your coach has set your targets, check with them before changing anything. If you&apos;re self-managing: go to <strong>Settings</strong> (tap your profile icon, or find Settings in the navigation). Under Macro Targets, you can manually adjust your daily calorie and macro goals.
+                  Your coach sets and manages your targets. Check with them before changing anything — they may have already planned an adjustment based on your recent data.
                 </Step>
                 <Step n={4} title="When to consider adjusting">
                   <ul style={{ paddingLeft: 20, lineHeight: 2 }}>
@@ -901,9 +901,6 @@ export default function GuidesPage() {
                 </Step>
                 <Step n={3} title="Autoflow steps">
                   If your coach has set up an onboarding or ongoing sequence for you, you&apos;ll see it on your dashboard under <strong>Coaching</strong>. Each step has a checklist of tasks and questions to complete. Some steps unlock automatically after a set number of days — you&apos;ll see a countdown if one isn&apos;t available yet. Complete tasks, answer questions, and tap Submit when done.
-                </Step>
-                <Step n={4} title="Daily check-in (self-tracking users)">
-                  If you don&apos;t have a coach, or your coach hasn&apos;t set up a check-in form, use the <strong>Daily Check-in</strong> section on your dashboard. Log your sleep hours, sleep quality, energy level, resting heart rate, and any notes. This data tracks over time so you can spot patterns.
                 </Step>
                 <Tip>
                   Honest check-ins give your coach the real picture. Don&apos;t round up your adherence or hide a hard week — your coach isn&apos;t grading you. The more accurate your data, the better the advice they can give.
