@@ -53,8 +53,19 @@ export default async function DashboardPage() {
   const canMealScanner        = sub.canAccess(FEATURES.MEAL_SCANNER)
   const canAdvancedAnalytics  = sub.canAccess(FEATURES.ADVANCED_ANALYTICS)
 
-  const isCoach   = sub.userType === 'coach'
-  const isCoached = sub.tier === 'coached'
+  const isCoach = sub.userType === 'coach'
+
+  // Use admin client to check for an active coach relationship — bypasses RLS so this
+  // is never blocked regardless of policy, ensuring coached layout always appears correctly.
+  const adminForCoachCheck = createAdminClient()
+  const { data: activeCoachRel } = await adminForCoachCheck
+    .from('coach_clients')
+    .select('id')
+    .eq('client_id', user.id)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  const isCoached = sub.tier === 'coached' || !!activeCoachRel
   let coachEmail: string | null = null
 
   let showDailyTargets = true
