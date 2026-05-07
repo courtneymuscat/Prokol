@@ -62,39 +62,54 @@ export async function POST(req: NextRequest) {
 
     const isCoachPlan = ['coach_solo', 'coach_pt_solo', 'coach_nutritionist_solo', 'coach_pro', 'coach_business', 'wl_starter', 'wl_pro'].includes(planKey)
 
-    const checkoutSession = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      payment_method_types: ['card'],
-      // Attach to existing Stripe customer if available, otherwise pre-fill email
-      ...(profile?.stripe_customer_id
-        ? { customer: profile.stripe_customer_id as string }
-        : user?.email ? { customer_email: user.email } : {}),
-      line_items: lineItems,
-      metadata: {
-        userId: user?.id ?? '',
-        planKey,
-        billing,
-        userType,
-      },
-      subscription_data: {
-        ...(isCoachPlan && {
-          trial_period_days: 14,
-          trial_settings: {
-            end_behavior: {
-              missing_payment_method: 'cancel',
-            },
-          },
-        }),
+    const mkSession = (cp: { customer?: string; customer_email?: string }) =>
+      stripe.checkout.sessions.create({
+        mode: 'subscription',
+        payment_method_types: ['card'],
+        ...cp,
+        line_items: lineItems,
         metadata: {
           userId: user?.id ?? '',
           planKey,
+          billing,
           userType,
         },
-      },
-      success_url: `${baseUrl}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`,
-      allow_promotion_codes: true,
-      cancel_url: `${baseUrl}/pricing`,
-    })
+        subscription_data: {
+          ...(isCoachPlan && {
+            trial_period_days: 14,
+            trial_settings: {
+              end_behavior: {
+                missing_payment_method: 'cancel',
+              },
+            },
+          }),
+          metadata: {
+            userId: user?.id ?? '',
+            planKey,
+            userType,
+          },
+        },
+        success_url: `${baseUrl}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`,
+        allow_promotion_codes: true,
+        cancel_url: `${baseUrl}/pricing`,
+      })
+
+    const hasCustomer = !!profile?.stripe_customer_id
+    const emailFallback = user?.email ? { customer_email: user.email } : {}
+    let checkoutSession: Stripe.Checkout.Session
+    try {
+      checkoutSession = await mkSession(
+        hasCustomer ? { customer: profile.stripe_customer_id as string } : emailFallback
+      )
+    } catch (err) {
+      // Stale customer ID from test mode — clear it and retry with just the email
+      if (hasCustomer && err instanceof Error && err.message.includes('No such customer')) {
+        await supabase.from('profiles').update({ stripe_customer_id: null }).eq('id', user.id)
+        checkoutSession = await mkSession(emailFallback)
+      } else {
+        throw err
+      }
+    }
 
     return NextResponse.json({ url: checkoutSession.url })
   } catch (err) {

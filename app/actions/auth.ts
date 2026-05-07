@@ -19,9 +19,11 @@ const PLAN_TO_PROFILE: Record<string, { user_type: string; subscription_tier: st
   individual_free:      { user_type: 'individual', subscription_tier: 'individual_free' },
   individual_optimiser: { user_type: 'individual', subscription_tier: 'individual_optimiser' },
   individual_elite:     { user_type: 'individual', subscription_tier: 'individual_elite' },
-  coach_solo:           { user_type: 'coach', subscription_tier: 'coach_solo' },
-  coach_pro:            { user_type: 'coach', subscription_tier: 'coach_pro' },
-  coach_business:       { user_type: 'coach', subscription_tier: 'coach_business' },
+  coach_solo:                { user_type: 'coach', subscription_tier: 'coach_solo' },
+  coach_pt_solo:             { user_type: 'coach', subscription_tier: 'coach_pt_solo' },
+  coach_nutritionist_solo:   { user_type: 'coach', subscription_tier: 'coach_nutritionist_solo' },
+  coach_pro:                 { user_type: 'coach', subscription_tier: 'coach_pro' },
+  coach_business:            { user_type: 'coach', subscription_tier: 'coach_business' },
 }
 
 export async function signup(prevState: AuthState, formData: FormData): Promise<AuthState> {
