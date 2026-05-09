@@ -69,6 +69,17 @@ export async function proxy(req: NextRequest) {
   }
 
   if (isAuthPage && session) {
+    // Honour ?next= and ?org_invite= so a logged-in user clicking an
+    // invite/signup link from email lands on the right destination instead of
+    // being dumped on /dashboard with the context stripped.
+    const nextParam = req.nextUrl.searchParams.get('next')
+    const orgInvite = req.nextUrl.searchParams.get('org_invite')
+    if (orgInvite) {
+      return NextResponse.redirect(new URL(`/org/invite/${orgInvite}`, req.url))
+    }
+    if (nextParam && nextParam.startsWith('/')) {
+      return NextResponse.redirect(new URL(nextParam, req.url))
+    }
     return NextResponse.redirect(new URL('/dashboard', req.url))
   }
 
