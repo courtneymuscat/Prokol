@@ -1,6 +1,7 @@
 import { requireCoach } from '@/lib/coach'
 import { createClient } from '@/lib/supabase/server'
 import { getOrgForUser } from '@/lib/org'
+import { enforceCoachGrace } from '@/lib/coachGrace'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import InviteForm from './InviteForm'
@@ -24,13 +25,25 @@ export default async function CoachDashboard({
   const coachId = await requireCoach()
   if (!coachId) redirect('/dashboard')
 
+  // Apply any pending coach grace expiration before reading the profile so
+  // we don't render the coach dashboard for a coach who should already be
+  // downgraded.
+  try {
+    await enforceCoachGrace(coachId)
+  } catch (err) {
+    console.error('coach dashboard: enforceCoachGrace failed', err)
+  }
+
   const supabase = await createClient()
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('subscription_tier, org_id')
+    .select('subscription_tier, org_id, coach_grace_until')
     .eq('id', coachId)
     .single()
+
+  const graceUntil = (profile as { coach_grace_until?: string | null })?.coach_grace_until ?? null
+  const inGrace = !!graceUntil && new Date(graceUntil) > new Date()
 
   // Only org owners/admins (and solo coach_business holders without an org)
   // get the Biz dashboard tabs. Invited coaches are also on coach_business
@@ -107,8 +120,37 @@ export default async function CoachDashboard({
   const tabOrgActive = 'border-teal-500 text-teal-600'
   const tabInactive = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-200'
 
+  const graceDaysLeft = graceUntil
+    ? Math.max(0, Math.ceil((new Date(graceUntil).getTime() - Date.now()) / 86400000))
+    : 0
+  const graceDate = graceUntil
+    ? new Date(graceUntil).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null
+
   return (
     <main className="flex-1 p-6 space-y-5 w-full">
+
+      {inGrace && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 flex items-start gap-3">
+          <svg className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-amber-900">
+              Your organisation access has ended — {graceDaysLeft === 0 ? 'expires today' : `${graceDaysLeft} day${graceDaysLeft === 1 ? '' : 's'} left`}
+            </p>
+            <p className="text-xs text-amber-800 mt-0.5">
+              Subscribe before {graceDate} to keep coaching your existing clients. After that your account moves to the free Tracker plan and your coached clients revert to free.
+            </p>
+          </div>
+          <a
+            href="/pricing#coach"
+            className="flex-shrink-0 bg-amber-600 text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-700 transition-colors"
+          >
+            Choose a plan
+          </a>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-center justify-between">

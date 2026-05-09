@@ -7,6 +7,7 @@ import { acceptInvite } from '@/lib/coach'
 import { STARTER_NOTE_TEMPLATES } from '@/lib/noteTemplates'
 import { sendEmail, sendConfirmationEmail } from '@/lib/email'
 import { syncProfileFromStripe } from '@/lib/billing'
+import { enforceCoachGrace } from '@/lib/coachGrace'
 
 type AuthState = { error?: string; success?: boolean } | null
 
@@ -204,7 +205,14 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
 
   // Reconcile the profile against Stripe before any redirect — protects against
   // webhook failures where a paid coach was left stranded on individual_free.
+  // Also enforce the coach grace period: if a coach was removed from an org
+  // more than 3 days ago without subscribing, downgrade them now.
   if (data.session?.user) {
+    try {
+      await enforceCoachGrace(data.session.user.id)
+    } catch (err) {
+      console.error('login: enforceCoachGrace failed', err)
+    }
     try {
       await syncProfileFromStripe(data.session.user.id)
     } catch (err) {
