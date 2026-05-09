@@ -15,23 +15,48 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const admin = createAdminClient()
   const { data: form } = await admin
     .from('forms')
-    .select('id, coach_id, is_active')
+    .select('id, coach_id, is_active, is_org_template, org_id')
     .eq('id', formId)
     .single()
 
   if (!form) return Response.json({ error: 'Form not found' }, { status: 404 })
 
-  // Verify client belongs to this coach (admin client — RLS may block client reading coach_clients)
-  // Accept any non-removed status so onboarding forms work before the client is fully 'active'
-  const { data: rel } = await admin
+  // Resolve which coach is actually assigning this form to the client. For
+  // an own-form it's the form owner; for an org-template form it's whichever
+  // coach in the org has an active relationship with the client (the form's
+  // coach_id is the org owner, not the assigning coach).
+  let assigningCoachId: string | null = null
+  const { data: ownRel } = await admin
     .from('coach_clients')
-    .select('id')
+    .select('coach_id')
     .eq('coach_id', form.coach_id)
     .eq('client_id', session.user.id)
     .in('status', ['active', 'pending', 'archived'])
     .maybeSingle()
+  if (ownRel) {
+    assigningCoachId = form.coach_id as string
+  } else if (form.is_org_template && form.org_id) {
+    // Find a coach in the same org who's actually assigned to this client.
+    const { data: clientRel } = await admin
+      .from('coach_clients')
+      .select('coach_id')
+      .eq('client_id', session.user.id)
+      .in('status', ['active', 'pending', 'archived'])
+    const orgCoachIds = clientRel?.map((r) => r.coach_id as string) ?? []
+    if (orgCoachIds.length) {
+      const { data: orgMember } = await admin
+        .from('org_members')
+        .select('user_id')
+        .eq('org_id', form.org_id)
+        .in('user_id', orgCoachIds)
+        .eq('is_active', true)
+        .limit(1)
+        .maybeSingle()
+      if (orgMember?.user_id) assigningCoachId = orgMember.user_id as string
+    }
+  }
 
-  if (!rel) return Response.json({ error: 'Not authorised to submit this form' }, { status: 403 })
+  if (!assigningCoachId) return Response.json({ error: 'Not authorised to submit this form' }, { status: 403 })
 
   const { answers, submission_id: existingSubmissionId }: { answers: Record<string, string>; submission_id?: string } = await req.json()
 
@@ -57,10 +82,11 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     await admin.from('form_answers').delete().eq('submission_id', existingSubmissionId)
     submissionId = existingSubmissionId
   } else {
-    // Create new submission
+    // Create new submission. Attribute it to the assigning coach so the
+    // assigning coach (not the form owner) sees it in their inbox.
     const { data: submission, error: subError } = await admin
       .from('form_submissions')
-      .insert({ form_id: formId, client_id: session.user.id, coach_id: form.coach_id, submitted_at: new Date().toISOString() })
+      .insert({ form_id: formId, client_id: session.user.id, coach_id: assigningCoachId, submitted_at: new Date().toISOString() })
       .select('id')
       .single()
     if (subError) return Response.json({ error: subError.message }, { status: 500 })
