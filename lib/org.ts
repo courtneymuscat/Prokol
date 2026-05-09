@@ -146,6 +146,7 @@ export type OrgTemplateTable =
   | 'forms'
   | 'note_templates'
   | 'coach_services'
+  | 'coach_resources'
 
 /**
  * Resolves which user's data should back this coach's "shared at org level"

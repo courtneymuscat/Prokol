@@ -22,6 +22,7 @@ type Resource = {
   folder_id: string | null
   coach_resource_folders: Folder | null
   created_at: string
+  is_org_template?: boolean
 }
 
 // ── Template presets coaches can import ───────────────────────────────────────
@@ -497,11 +498,29 @@ export default function ResourcesManager() {
     setTimeout(() => setImportedPresets(false), 3000)
   }
 
+  // Org-shared resources are surfaced in their own section above the
+  // coach's own list. They're filtered out of the per-folder views since
+  // they don't belong to any of the coach's folders.
+  const orgResources = resources.filter(r => r.is_org_template)
+  const ownResources = resources.filter(r => !r.is_org_template)
+
   const visibleResources = selectedFolder === null
-    ? resources
+    ? ownResources
     : selectedFolder === '__unfiled'
-    ? resources.filter(r => !r.folder_id)
-    : resources.filter(r => r.folder_id === selectedFolder)
+    ? ownResources.filter(r => !r.folder_id)
+    : ownResources.filter(r => r.folder_id === selectedFolder)
+
+  async function handleMakeCopy(id: string) {
+    const res = await fetch('/api/coach/templates/clone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table: 'coach_resources', source_id: id }),
+    })
+    if (res.ok) {
+      // Refresh the list so the cloned resource appears under "your" section
+      await load()
+    }
+  }
 
   if (loading) return (
     <div className="flex-1 flex items-center justify-center">
@@ -613,7 +632,48 @@ export default function ResourcesManager() {
             </div>
           )}
 
-          {visibleResources.length === 0 ? (
+          {orgResources.length > 0 && selectedFolder === null && (
+            <div className="space-y-3 mb-6">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-gray-900">Organisation resources</h2>
+                <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">Read-only</span>
+              </div>
+              <p className="text-xs text-gray-500 -mt-1">Shared by your organisation. Use directly with clients, or make a copy to customise.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {orgResources.map(resource => (
+                  <div key={resource.id} className="bg-white rounded-2xl border border-blue-100 p-4 flex flex-col gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{resource.name}</p>
+                      {resource.description && (
+                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{resource.description}</p>
+                      )}
+                      <p className="text-[11px] text-gray-400 mt-1 capitalize">{resource.type}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {resource.url && (
+                        <a
+                          href={resource.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 text-center text-xs font-medium text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
+                          Open
+                        </a>
+                      )}
+                      <button
+                        onClick={() => handleMakeCopy(resource.id)}
+                        className="flex-1 text-xs font-medium text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                      >
+                        Make a copy
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {visibleResources.length === 0 && orgResources.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="text-4xl mb-3">📚</div>
               <p className="text-base font-semibold text-gray-700 mb-1">No resources yet</p>
@@ -623,7 +683,7 @@ export default function ResourcesManager() {
                 + Add first resource
               </button>
             </div>
-          ) : (
+          ) : visibleResources.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {visibleResources.map(resource => (
                 <ResourceCard key={resource.id} resource={resource}
@@ -631,7 +691,7 @@ export default function ResourcesManager() {
                   onDelete={() => handleDeleteResource(resource.id)} />
               ))}
             </div>
-          )}
+          ) : null}
         </div>
       </main>
 

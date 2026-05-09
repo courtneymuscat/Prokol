@@ -11,6 +11,7 @@ type TemplateTable =
   | 'forms'
   | 'note_templates'
   | 'coach_services'
+  | 'coach_resources'
 
 const VALID_TABLES: TemplateTable[] = [
   'autoflow_templates',
@@ -19,9 +20,10 @@ const VALID_TABLES: TemplateTable[] = [
   'forms',
   'note_templates',
   'coach_services',
+  'coach_resources',
 ]
 
-const EMPTY = { autoflows: [], programs: [], meal_plans: [], forms: [], note_templates: [], services: [] }
+const EMPTY = { autoflows: [], programs: [], meal_plans: [], forms: [], note_templates: [], services: [], resources: [] }
 
 export async function GET() {
   const supabase = await createClient()
@@ -52,13 +54,14 @@ export async function GET() {
     }
   }
 
-  const [autoflows, programs, mealPlans, forms, noteTemplates, services] = await Promise.all([
+  const [autoflows, programs, mealPlans, forms, noteTemplates, services, resources] = await Promise.all([
     admin.from('autoflow_templates').select('id, name, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
     admin.from('programs').select('id, name, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
     admin.from('meal_plans').select('id, name, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
     admin.from('forms').select('id, name, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
     admin.from('note_templates').select('id, name, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
     admin.from('coach_services').select('id, name, price_label, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
+    admin.from('coach_resources').select('id, name, type, url, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
   ])
 
   function filter<T extends { id: string }>(items: T[] | null, table: string): T[] {
@@ -74,6 +77,7 @@ export async function GET() {
     forms: filter(forms.data, 'forms'),
     note_templates: filter(noteTemplates.data, 'note_templates'),
     services: filter(services.data, 'coach_services'),
+    resources: filter(resources.data, 'coach_resources'),
   })
 }
 

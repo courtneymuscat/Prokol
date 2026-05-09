@@ -37,20 +37,41 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const supabase = await createClient()
   const admin = createAdminClient()
 
-  const [{ data: template }, { data: steps }] = await Promise.all([
-    supabase
-      .from('autoflow_templates')
-      .select('id, name, total_steps')
-      .eq('id', template_id)
-      .eq('coach_id', coachId)
-      .single(),
-    supabase
-      .from('autoflow_template_steps')
-      .select('step_number, title, day_offset, trigger_type, automated_message')
-      .eq('template_id', template_id)
-      .order('step_number'),
-  ])
+  // Allow assigning either the coach's own template OR an org-published one
+  // they have access to. We use the admin client for the org-template fallback
+  // because the row is owned by the org owner.
+  const { getOrgForUser } = await import('@/lib/org')
+
+  let template: { id: string; name: string; total_steps: number } | null = null
+  const { data: ownTemplate } = await supabase
+    .from('autoflow_templates')
+    .select('id, name, total_steps')
+    .eq('id', template_id)
+    .eq('coach_id', coachId)
+    .maybeSingle()
+  if (ownTemplate) {
+    template = ownTemplate
+  } else {
+    const membership = await getOrgForUser(coachId)
+    if (membership) {
+      const { data: orgTemplate } = await admin
+        .from('autoflow_templates')
+        .select('id, name, total_steps')
+        .eq('id', template_id)
+        .eq('org_id', membership.org_id)
+        .eq('is_org_template', true)
+        .maybeSingle()
+      if (orgTemplate) template = orgTemplate
+    }
+  }
   if (!template) return Response.json({ error: 'Template not found' }, { status: 404 })
+
+  // Steps fetch always uses admin so org-template steps come through
+  const { data: steps } = await admin
+    .from('autoflow_template_steps')
+    .select('step_number, title, day_offset, trigger_type, automated_message')
+    .eq('template_id', template_id)
+    .order('step_number')
 
   const { data: flow, error } = await supabase
     .from('client_autoflows')

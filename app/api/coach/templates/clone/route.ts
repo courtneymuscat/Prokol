@@ -10,6 +10,7 @@ const CLONABLE_TABLES = new Set([
   'forms',
   'note_templates',
   'coach_services',
+  'coach_resources',
 ])
 
 type TableName =
@@ -19,6 +20,7 @@ type TableName =
   | 'forms'
   | 'note_templates'
   | 'coach_services'
+  | 'coach_resources'
 
 /**
  * Clone an org-published template into the coach's own list. The copy is
@@ -69,6 +71,12 @@ export async function POST(req: NextRequest) {
   copy.org_id = null
   copy.is_org_template = false
   copy.created_by = coachId
+
+  // Resources reference the owner's folder by id — drop it so the cloned row
+  // lands in the cloning coach's "uncategorised" bucket.
+  if (tbl === 'coach_resources') {
+    copy.folder_id = null
+  }
 
   const nameField = tbl === 'forms' ? 'title' : 'name'
   const originalName = (sourceRow[nameField] as string | undefined) ?? 'Template'

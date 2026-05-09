@@ -63,15 +63,38 @@ export async function POST(
   let insertContent: unknown
 
   if (program_id) {
-    // Fetch the source program to snapshot name + content
-    const { data: program, error: progError } = await supabase
+    // Fetch the source program to snapshot name + content. Allow either the
+    // coach's own program OR an org-published program they have access to.
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    const { getOrgForUser } = await import('@/lib/org')
+    const admin = createAdminClient()
+
+    let program: { name: string; content: unknown } | null = null
+
+    const { data: own } = await supabase
       .from('programs')
       .select('name, content')
       .eq('id', program_id)
       .eq('coach_id', coachId)
-      .single()
+      .maybeSingle()
 
-    if (progError || !program) {
+    if (own) {
+      program = own
+    } else {
+      const membership = await getOrgForUser(coachId)
+      if (membership) {
+        const { data: orgRow } = await admin
+          .from('programs')
+          .select('name, content')
+          .eq('id', program_id)
+          .eq('org_id', membership.org_id)
+          .eq('is_org_template', true)
+          .maybeSingle()
+        if (orgRow) program = orgRow
+      }
+    }
+
+    if (!program) {
       return Response.json({ error: 'Program not found' }, { status: 404 })
     }
     insertName = program.name
