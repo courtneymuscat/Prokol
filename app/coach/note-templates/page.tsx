@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { noteBodyToHtml } from '@/lib/noteUtils'
 
-type Template = { id: string; name: string; body: string; created_at: string }
+type Template = { id: string; name: string; body: string; created_at: string; is_org_template?: boolean }
 
 // ── Rich toolbar (same as ClientTabs NotesTab) ────────────────────────────────
 
@@ -167,6 +167,29 @@ export default function NoteTemplatesPage() {
     if (editing?.id === id) closePanel()
   }
 
+  async function handleMakeCopy(t: Template) {
+    setError(null)
+    const res = await fetch('/api/coach/templates/clone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table: 'note_templates', source_id: t.id }),
+    })
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}))
+      setError(j.error ?? 'Failed to copy template')
+      return
+    }
+    // Refresh the list and open the new copy for editing
+    const fresh = await fetch('/api/coach/note-templates').then((r) => r.json())
+    const list: Template[] = Array.isArray(fresh) ? fresh : []
+    setTemplates(list)
+    const { id: newId } = await res.json()
+    const created = list.find((x) => x.id === newId)
+    if (created) openEdit(created)
+  }
+
+  const orgTemplates = templates.filter((t) => t.is_org_template)
+  const ownTemplates = templates.filter((t) => !t.is_org_template)
   const panelOpen = creating || !!editing
 
   return (
@@ -194,25 +217,59 @@ export default function NoteTemplatesPage() {
             </div>
           )}
 
-          {!loading && templates.length > 0 && templates.map((t) => (
-            <div key={t.id}
-              className={`bg-white rounded-2xl border p-4 cursor-pointer transition-all hover:shadow-sm ${editing?.id === t.id ? 'border-blue-400 bg-blue-50' : ''}`}
-              onClick={() => openEdit(t)}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900">{t.name}</p>
-                  <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{stripHtml(t.body).slice(0, 120)}{stripHtml(t.body).length > 120 ? '…' : ''}</p>
-                </div>
-                <button onClick={(e) => { e.stopPropagation(); handleDelete(t.id) }}
-                  className="text-gray-300 hover:text-red-400 flex-shrink-0 mt-0.5 transition-colors">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
+          {!loading && orgTemplates.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Organisation templates</p>
+                <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">Read-only</span>
               </div>
+              {orgTemplates.map((t) => (
+                <div key={t.id}
+                  className="bg-white rounded-2xl border border-blue-100 p-4 transition-all hover:shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">{t.name}</p>
+                      <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{stripHtml(t.body).slice(0, 120)}{stripHtml(t.body).length > 120 ? '…' : ''}</p>
+                    </div>
+                    <button
+                      onClick={() => handleMakeCopy(t)}
+                      className="flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg border border-blue-200 text-blue-700 hover:bg-blue-50 transition-colors"
+                    >
+                      Make a copy
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+
+          {!loading && ownTemplates.length > 0 && (
+            <div className="space-y-2">
+              {orgTemplates.length > 0 && (
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider pt-2">Your templates</p>
+              )}
+              {ownTemplates.map((t) => (
+                <div key={t.id}
+                  className={`bg-white rounded-2xl border p-4 cursor-pointer transition-all hover:shadow-sm ${editing?.id === t.id ? 'border-blue-400 bg-blue-50' : ''}`}
+                  onClick={() => openEdit(t)}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">{t.name}</p>
+                      <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{stripHtml(t.body).slice(0, 120)}{stripHtml(t.body).length > 120 ? '…' : ''}</p>
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); handleDelete(t.id) }}
+                      className="text-gray-300 hover:text-red-400 flex-shrink-0 mt-0.5 transition-colors">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Editor panel */}

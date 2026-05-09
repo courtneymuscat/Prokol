@@ -139,6 +139,14 @@ export async function isOrgTemplate(
   return !!(data?.is_org_template && data?.org_id === orgId)
 }
 
+export type OrgTemplateTable =
+  | 'autoflow_templates'
+  | 'programs'
+  | 'meal_plans'
+  | 'forms'
+  | 'note_templates'
+  | 'coach_services'
+
 /**
  * Fetches org-published templates from `table` that the given coach can see,
  * applying coach-level exclusions. Returns [] if the user is not in an org or
@@ -150,7 +158,7 @@ export async function isOrgTemplate(
  */
 export async function fetchOrgTemplatesForCoach<T extends { id: string }>(
   coachId: string,
-  table: 'autoflow_templates' | 'programs' | 'meal_plans' | 'forms' | 'note_templates',
+  table: OrgTemplateTable,
   selectFields: string,
 ): Promise<T[]> {
   const membership = await getOrgForUser(coachId)

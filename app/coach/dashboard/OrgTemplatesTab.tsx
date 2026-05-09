@@ -15,10 +15,11 @@ type OrgTemplates = {
   meal_plans: Template[]
   forms: Template[]
   note_templates: Template[]
+  services: Template[]
 }
 
 type GroupKey = keyof OrgTemplates
-type TableName = 'autoflow_templates' | 'programs' | 'meal_plans' | 'forms' | 'note_templates'
+type TableName = 'autoflow_templates' | 'programs' | 'meal_plans' | 'forms' | 'note_templates' | 'coach_services'
 
 type CoachAccess = {
   id: string
@@ -42,6 +43,7 @@ const GROUPS: {
   { key: 'meal_plans',     label: 'Meal Plans',     table: 'meal_plans',         emptyLink: '/coach/meal-plans',     emptyLinkLabel: 'Go to Meal Plans',     fetchUrl: '/api/coach/meal-plans',     nameField: 'name' },
   { key: 'forms',          label: 'Forms',          table: 'forms',              emptyLink: '/coach/forms',          emptyLinkLabel: 'Go to Forms',          fetchUrl: '/api/forms',                nameField: 'title' },
   { key: 'note_templates', label: 'Note Templates', table: 'note_templates',     emptyLink: '/coach/note-templates', emptyLinkLabel: 'Go to Note Templates', fetchUrl: '/api/coach/note-templates', nameField: 'name' },
+  { key: 'services',       label: 'Services',       table: 'coach_services',     emptyLink: '/coach/settings',       emptyLinkLabel: 'Go to Services',       fetchUrl: '/api/coach/services',       nameField: 'name' },
 ]
 
 // ─── Publish modal ────────────────────────────────────────────────────────────
