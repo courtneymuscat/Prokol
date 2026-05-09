@@ -58,7 +58,7 @@ export async function GET() {
     admin.from('autoflow_templates').select('id, name, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
     admin.from('programs').select('id, name, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
     admin.from('meal_plans').select('id, name, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
-    admin.from('forms').select('id, name, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
+    admin.from('forms').select('id, name:title, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
     admin.from('note_templates').select('id, name, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
     admin.from('coach_services').select('id, name, price_label, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
     admin.from('coach_resources').select('id, name, type, url, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
