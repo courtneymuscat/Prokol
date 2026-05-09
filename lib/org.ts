@@ -148,6 +148,36 @@ export type OrgTemplateTable =
   | 'coach_services'
 
 /**
+ * Resolves which user's data should back this coach's "shared at org level"
+ * resources (currently the food cheat sheet). For org members the owner is
+ * authoritative — invited coaches see the owner's customisations and can't
+ * mutate them. For solo coaches and org owners themselves this returns their
+ * own id.
+ *
+ * Returns { userId, isMember } where isMember is true when the resolved id
+ * is an org owner that's *not* the caller — so callers can use it to gate
+ * write endpoints.
+ */
+export async function resolveOrgSharedUserId(
+  coachId: string,
+): Promise<{ userId: string; isMember: boolean; orgName: string | null }> {
+  const membership = await getOrgForUser(coachId)
+  if (!membership || membership.role === 'owner') {
+    return { userId: coachId, isMember: false, orgName: membership?.org_name ?? null }
+  }
+  // Member coach — find the org owner
+  const admin = createAdminClient()
+  const { data: owner } = await admin
+    .from('org_members')
+    .select('user_id')
+    .eq('org_id', membership.org_id)
+    .eq('role', 'owner')
+    .maybeSingle()
+  if (!owner?.user_id) return { userId: coachId, isMember: false, orgName: membership.org_name }
+  return { userId: owner.user_id as string, isMember: true, orgName: membership.org_name }
+}
+
+/**
  * Fetches org-published templates from `table` that the given coach can see,
  * applying coach-level exclusions. Returns [] if the user is not in an org or
  * (for non-admin members) doesn't have `can_use_org_templates` enabled.

@@ -60,6 +60,7 @@ export default function CheatSheetEditor() {
   const [tagged, setTagged] = useState<TaggedFood[]>([])
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<'simple' | 'detailed'>('simple')
+  const [orgManaged, setOrgManaged] = useState<{ org_name: string | null } | null>(null)
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('')
@@ -81,7 +82,10 @@ export default function CheatSheetEditor() {
   useEffect(() => {
     fetch('/api/coach/food-serves')
       .then(r => r.json())
-      .then(d => setTagged(d.foods ?? []))
+      .then(d => {
+        setTagged(d.foods ?? [])
+        setOrgManaged(d.org_managed ?? null)
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -308,6 +312,57 @@ export default function CheatSheetEditor() {
             className="px-4 py-2 bg-white border border-gray-200 text-gray-600 text-xs font-medium rounded-lg hover:border-gray-300 transition-colors">
             Cancel
           </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (orgManaged) {
+    return (
+      <div className="space-y-6">
+        <div className="bg-blue-50 border border-blue-100 rounded-2xl px-5 py-4 flex items-start gap-3">
+          <svg className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-blue-900">
+              Managed by {orgManaged.org_name ?? 'your organisation'}
+            </p>
+            <p className="text-xs text-blue-700">
+              The food cheat sheet is shared across the whole organisation. Your administrator maintains it on behalf of all coaches — contact them to request changes.
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-200 p-5">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Cheat sheet ({tagged.length} foods)</h3>
+          {tagged.length === 0 ? (
+            <p className="text-sm text-gray-400 italic">Your organisation hasn&apos;t added any foods to the cheat sheet yet.</p>
+          ) : (
+            <div className="space-y-1">
+              {CATEGORIES.map((cat) => {
+                const items = tagged.filter((t) => t.serve_category === cat.id)
+                if (items.length === 0) return null
+                return (
+                  <div key={cat.id} className="py-2">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className={`w-2 h-2 rounded-full ${cat.dot}`} />
+                      <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider">{cat.label}</p>
+                      <span className="text-[10px] text-gray-400">{items.length}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {items.map((f) => (
+                        <span key={f.id} className={`text-xs px-2.5 py-1 rounded-lg ${cat.badge}`}>
+                          {f.food_name}
+                          {f.serving_desc && <span className="text-gray-500 ml-1">· {f.serving_desc}</span>}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
     )

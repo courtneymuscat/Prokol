@@ -1,18 +1,26 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
+import { resolveOrgSharedUserId } from '@/lib/org'
 import { NextResponse } from 'next/server'
 
 // GET /api/coach/cheat-sheet
-// Returns all default foods merged with coach's customisations
+// Returns all default foods merged with coach's customisations.
+// For invited org coaches the customisations come from the org owner so the
+// whole organisation sees the same cheat sheet.
 export async function GET() {
   const coachId = await requireCoach()
   if (!coachId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { userId: sourceUserId, isMember, orgName } = await resolveOrgSharedUserId(coachId)
   const supabase = await createClient()
+  const admin = createAdminClient()
 
   const [{ data: foods }, { data: overrides }] = await Promise.all([
     supabase.from('cheat_sheet_foods').select('*').order('display_order'),
-    supabase.from('coach_cheat_sheet').select('*').eq('coach_id', coachId),
+    // Use admin client when reading the owner's overrides — RLS would otherwise
+    // hide the owner's rows from the invited coach.
+    admin.from('coach_cheat_sheet').select('*').eq('coach_id', sourceUserId),
   ])
 
   const overrideMap = Object.fromEntries((overrides ?? []).map((o) => [o.food_id ?? `custom_${o.id}`, o]))
@@ -47,13 +55,25 @@ export async function GET() {
       is_custom: true,
     }))
 
-  return NextResponse.json({ foods: [...merged, ...customFoods] })
+  return NextResponse.json({
+    foods: [...merged, ...customFoods],
+    org_managed: isMember ? { org_name: orgName } : null,
+  })
 }
 
 // POST /api/coach/cheat-sheet — add a custom food
 export async function POST(req: Request) {
   const coachId = await requireCoach()
   if (!coachId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Member coaches don't get to edit the org-shared cheat sheet
+  const { isMember } = await resolveOrgSharedUserId(coachId)
+  if (isMember) {
+    return NextResponse.json(
+      { error: 'Cheat sheet is managed by your organisation' },
+      { status: 403 },
+    )
+  }
 
   const body = await req.json()
   const supabase = await createClient()

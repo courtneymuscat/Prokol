@@ -1,11 +1,20 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireCoach } from '@/lib/coach'
+import { resolveOrgSharedUserId } from '@/lib/org'
 import { NextResponse } from 'next/server'
 
 // PATCH /api/coach/food-serves/[id]
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const coachId = await requireCoach()
   if (!coachId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { isMember } = await resolveOrgSharedUserId(coachId)
+  if (isMember) {
+    return NextResponse.json(
+      { error: 'Food cheat sheet is managed by your organisation' },
+      { status: 403 },
+    )
+  }
 
   const { id } = await params
   const body = await req.json()
@@ -33,6 +42,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const coachId = await requireCoach()
   if (!coachId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { isMember } = await resolveOrgSharedUserId(coachId)
+  if (isMember) {
+    return NextResponse.json(
+      { error: 'Food cheat sheet is managed by your organisation' },
+      { status: 403 },
+    )
+  }
 
   const { id } = await params
   const supabase = await createClient()
