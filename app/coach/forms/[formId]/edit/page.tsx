@@ -56,6 +56,8 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
   const [clientName, setClientName] = useState<string | null>(null)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null)
+  const [readOnly, setReadOnly] = useState(false)
+  const [orgName, setOrgName] = useState<string | null>(null)
 
   useEffect(() => {
     if (isNew) return
@@ -65,6 +67,8 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
         setMeta({ title: d.title, description: d.description ?? '', type: d.type, is_active: d.is_active })
         setIsClientCopy(!!d.is_client_copy)
         setClientName(d.client_name ?? null)
+        setReadOnly(!!d.read_only)
+        setOrgName(d.org_name ?? null)
         // Normalise questions from DB: convert legacy 'select' → 'radio', ensure options is always array|null
         const qs = (d.questions ?? []).map((q: Question) => ({
           ...q,
@@ -77,6 +81,19 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
         setLoading(false)
       })
   }, [formId, isNew])
+
+  async function handleMakeCopy() {
+    if (!savedId) return
+    const res = await fetch('/api/coach/templates/clone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table: 'forms', source_id: savedId }),
+    })
+    if (res.ok) {
+      const { id } = await res.json()
+      router.push(`/coach/forms/${id}/edit`)
+    }
+  }
 
   // Warn on browser close/refresh when there are unsaved changes
   useEffect(() => {
@@ -192,6 +209,24 @@ export default function FormBuilderPage({ params }: { params: Promise<{ formId: 
 
   return (
     <div className="flex-1 flex flex-col">
+      {readOnly && (
+        <div className="bg-blue-50 border-b border-blue-100 px-6 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <svg className="w-5 h-5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+            <p className="text-sm text-gray-700">
+              <span className="font-semibold">View only.</span> {orgName ? `Shared by ${orgName}.` : 'Shared by your organisation.'} Make a copy to customise.
+            </p>
+          </div>
+          <button
+            onClick={handleMakeCopy}
+            className="flex-shrink-0 bg-blue-600 text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors"
+          >
+            Make a copy
+          </button>
+        </div>
+      )}
       <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <a

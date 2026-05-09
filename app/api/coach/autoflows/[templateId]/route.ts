@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
+import { getOrgForUser } from '@/lib/org'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ templateId: string }> }
@@ -10,22 +12,50 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   if (!coachId) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const supabase = await createClient()
-  const [{ data: template }, { data: steps }] = await Promise.all([
-    supabase
-      .from('autoflow_templates')
-      .select('id, name, description, type, total_steps, core_questions')
-      .eq('id', templateId)
-      .eq('coach_id', coachId)
-      .single(),
-    supabase
-      .from('autoflow_template_steps')
-      .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, form_save_to_file, tasks, automated_message')
-      .eq('template_id', templateId)
-      .order('step_number'),
-  ])
+  const { data: ownTemplate } = await supabase
+    .from('autoflow_templates')
+    .select('id, name, description, type, total_steps, core_questions')
+    .eq('id', templateId)
+    .eq('coach_id', coachId)
+    .maybeSingle()
 
+  let template = ownTemplate as Record<string, unknown> | null
+  let isOrgTemplate = false
+  let orgName: string | null = null
+  if (!template) {
+    const membership = await getOrgForUser(coachId)
+    if (membership && membership.role !== 'owner') {
+      const admin = createAdminClient()
+      const { data: orgRow } = await admin
+        .from('autoflow_templates')
+        .select('id, name, description, type, total_steps, core_questions')
+        .eq('id', templateId)
+        .eq('org_id', membership.org_id)
+        .eq('is_org_template', true)
+        .maybeSingle()
+      if (orgRow) {
+        template = orgRow
+        isOrgTemplate = true
+        orgName = membership.org_name
+      }
+    }
+  }
   if (!template) return Response.json({ error: 'Not found' }, { status: 404 })
-  return Response.json({ ...template, steps: steps ?? [] })
+
+  const stepsClient = isOrgTemplate ? createAdminClient() : supabase
+  const { data: steps } = await stepsClient
+    .from('autoflow_template_steps')
+    .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, form_save_to_file, tasks, automated_message')
+    .eq('template_id', templateId)
+    .order('step_number')
+
+  return Response.json({
+    ...template,
+    steps: steps ?? [],
+    is_org_template: isOrgTemplate,
+    read_only: isOrgTemplate,
+    org_name: orgName,
+  })
 }
 
 export async function PUT(req: NextRequest, { params }: Ctx) {

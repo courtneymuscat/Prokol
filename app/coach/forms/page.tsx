@@ -78,13 +78,19 @@ export default async function CoachFormsPage() {
               <div key={form.id} className="bg-white rounded-2xl border border-blue-100 p-4 flex items-center gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-semibold text-gray-900">{form.title}</p>
+                    <a href={`/coach/forms/${form.id}/edit`} className="text-sm font-semibold text-gray-900 hover:text-blue-700">{form.title}</a>
                     <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
                       {TYPE_LABELS[form.type] ?? form.type}
                     </span>
                   </div>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
+                  <a
+                    href={`/coach/forms/${form.id}/edit`}
+                    className="text-xs font-medium text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    View
+                  </a>
                   <OrgFormCopyButton formId={form.id} />
                 </div>
               </div>

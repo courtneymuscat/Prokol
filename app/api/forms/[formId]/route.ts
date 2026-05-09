@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
+import { getOrgForUser } from '@/lib/org'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ formId: string }> }
@@ -19,7 +20,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
   const { data: form } = await admin
     .from('forms')
-    .select('id, title, description, type, is_active, coach_id, is_client_copy, client_id')
+    .select('id, title, description, type, is_active, coach_id, is_client_copy, client_id, org_id, is_org_template')
     .eq('id', formId)
     .single()
 
@@ -42,7 +43,33 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     clientName = clientProfile?.full_name ?? clientProfile?.email ?? null
   }
 
-  return Response.json({ ...form, questions: questions ?? [], client_name: clientName })
+  // Determine read-only state for the calling coach. An org member viewing
+  // an org-published form they don't own gets read_only=true so the editor
+  // can render in view mode.
+  let readOnly = false
+  let orgName: string | null = null
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user && form.is_org_template && form.coach_id !== user.id) {
+      const membership = await getOrgForUser(user.id)
+      if (membership && membership.role !== 'owner' && membership.org_id === form.org_id) {
+        readOnly = true
+        orgName = membership.org_name
+      }
+    }
+  } catch {
+    // If we can't determine the user, default to non-read-only — existing
+    // RLS / per-route auth still gates writes.
+  }
+
+  return Response.json({
+    ...form,
+    questions: questions ?? [],
+    client_name: clientName,
+    read_only: readOnly,
+    org_name: orgName,
+  })
 }
 
 export async function PUT(req: NextRequest, { params }: Ctx) {
