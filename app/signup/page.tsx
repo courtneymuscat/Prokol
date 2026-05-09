@@ -100,7 +100,16 @@ function SignupForm() {
               {state.error === 'EMAIL_ALREADY_EXISTS' ? (
                 <>
                   An account with this email already exists.{' '}
-                  <Link href="/login?redirect=/pricing" className="underline font-medium">
+                  <Link
+                    href={
+                      orgInvite
+                        ? `/login?next=${encodeURIComponent('/org/invite/' + orgInvite)}`
+                        : invite
+                        ? `/login?invite=${invite}`
+                        : '/login?next=/pricing'
+                    }
+                    className="underline font-medium"
+                  >
                     Log in instead.
                   </Link>
                 </>
@@ -142,7 +151,16 @@ function SignupForm() {
 
         <p className="text-center text-sm text-gray-500">
           Already have an account?{' '}
-          <Link href={invite ? `/login?invite=${invite}` : '/login'} className="text-gray-900 font-medium hover:underline">Log in</Link>
+          <Link
+            href={
+              orgInvite
+                ? `/login?next=${encodeURIComponent('/org/invite/' + orgInvite)}`
+                : invite
+                ? `/login?invite=${invite}`
+                : '/login'
+            }
+            className="text-gray-900 font-medium hover:underline"
+          >Log in</Link>
         </p>
       </div>
     </div>

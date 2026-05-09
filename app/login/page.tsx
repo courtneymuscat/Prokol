@@ -136,7 +136,19 @@ function LoginForm() {
 
           <p className="text-center text-sm text-gray-500">
             Don&apos;t have an account?{' '}
-            <Link href="/signup" className="font-medium hover:underline" style={{ color: '#1D9E75' }}>
+            <Link
+              href={
+                next?.startsWith('/org/invite/')
+                  ? `/signup?org_invite=${next.slice('/org/invite/'.length).split('?')[0]}`
+                  : invite
+                  ? `/signup?invite=${invite}`
+                  : next
+                  ? `/signup?next=${encodeURIComponent(next)}`
+                  : '/signup'
+              }
+              className="font-medium hover:underline"
+              style={{ color: '#1D9E75' }}
+            >
               Sign up
             </Link>
           </p>

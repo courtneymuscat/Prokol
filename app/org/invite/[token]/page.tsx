@@ -48,10 +48,32 @@ export default function OrgInvitePage({
         // Not logged in — continue as guest
       }
 
+      // Auto-accept when the signed-in user matches the invited email so users
+      // who land here from an email-verification redirect don't end up stranded
+      // on a free-tier profile by navigating away before clicking Accept.
+      if (userEmail && userEmail.toLowerCase() === invite.email.toLowerCase()) {
+        setState({ status: 'accepting' })
+        const res = await fetch(`/api/org/invite/${token}`, { method: 'POST' })
+        const data = await res.json()
+        if (res.ok) {
+          if (data.had_own_subscription) {
+            setState({ status: 'error', message: '__subscription_warning__' })
+            setTimeout(() => router.push(data.redirect ?? '/coach/dashboard'), 5000)
+          } else {
+            setState({ status: 'accepted' })
+            router.push(data.redirect ?? '/coach/dashboard')
+          }
+          return
+        }
+        // Fall through to manual flow if auto-accept failed (e.g. already a member)
+        setState({ status: 'valid', invite, userEmail })
+        return
+      }
+
       setState({ status: 'valid', invite, userEmail })
     }
     load()
-  }, [token])
+  }, [token, router])
 
   async function signOutAndLogin(destination: string) {
     const supabase = createClient()
