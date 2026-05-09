@@ -131,7 +131,12 @@ export async function POST(
 
   await admin
     .from('profiles')
-    .update({ org_id: orgId, subscription_tier: 'coach_business' })
+    .update({
+      org_id: orgId,
+      subscription_tier: 'coach_business',
+      user_type: 'coach',
+      role: 'coach',
+    })
     .eq('id', session.user.id)
 
   // Mark invite accepted
