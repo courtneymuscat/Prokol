@@ -13,6 +13,7 @@ import OrgSetupPrompt from './OrgSetupPrompt'
 import OrgLeadsTab from './OrgLeadsTab'
 import OrgArchivedTab from './OrgArchivedTab'
 import OrgAnalyticsTab from './OrgAnalyticsTab'
+import PendingInvitesPanel from './PendingInvitesPanel'
 
 export default async function CoachDashboard({
   searchParams,
@@ -45,14 +46,29 @@ export default async function CoachDashboard({
 
   let clients: { id: string; email: string; name: string | null; tier: string; joinedAt: string | null }[] = []
   let activeClients = 0
+  type PendingInvite = { email: string; inviteUrl: string; sentAt: string; token: string }
+  let pendingInvites: PendingInvite[] = []
 
   if (activeTab === 'home') {
-    const { data: clientRows } = await supabase
-      .from('coach_clients')
-      .select('client_id, accepted_at')
-      .eq('coach_id', coachId)
-      .eq('status', 'active')
-      .order('accepted_at', { ascending: false })
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+      ?? (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000')
+
+    const [{ data: clientRows }, { data: rawPendingInvites }] = await Promise.all([
+      supabase
+        .from('coach_clients')
+        .select('client_id, accepted_at')
+        .eq('coach_id', coachId)
+        .eq('status', 'active')
+        .order('accepted_at', { ascending: false }),
+      // Active pending invites that haven't expired yet
+      supabase
+        .from('coach_invites')
+        .select('email, token, created_at')
+        .eq('coach_id', coachId)
+        .eq('status', 'pending')
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false }),
+    ])
 
     const clientIds = (clientRows ?? []).map((r) => r.client_id)
     activeClients = clientIds.length
@@ -73,6 +89,17 @@ export default async function CoachDashboard({
         joinedAt: r.accepted_at,
       }
     })
+
+    // Show pending invites whose email isn't already an active client
+    const activeEmails = new Set(clients.map((c) => c.email))
+    pendingInvites = (rawPendingInvites ?? [])
+      .filter((inv) => !activeEmails.has(inv.email))
+      .map((inv) => ({
+        email: inv.email,
+        inviteUrl: `${baseUrl}/invite/${inv.token}`,
+        sentAt: inv.created_at,
+        token: inv.token,
+      }))
   }
 
   const tabBase = 'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap'
@@ -163,6 +190,9 @@ export default async function CoachDashboard({
 
           {/* Row 2 — No check-in (full width, horizontal) */}
           <LapsedClients />
+
+          {/* Pending invites — shown for any coach who has unaccepted client invites */}
+          <PendingInvitesPanel invites={pendingInvites} />
 
           {/* Client summaries */}
           {clients.length > 0 && (
