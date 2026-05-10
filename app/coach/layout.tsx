@@ -8,6 +8,7 @@ export default async function CoachLayout({ children }: { children: React.ReactN
   let unreadMessages = 0
   let unreadCheckIns = 0
   let isBusinessTier = false
+  let tier: string = 'individual_free'
 
   try {
     const supabase = await createClient()
@@ -45,6 +46,7 @@ export default async function CoachLayout({ children }: { children: React.ReactN
       const isSoloBusiness =
         profileResult.data?.subscription_tier === 'coach_business' && !membership && !inGrace
       isBusinessTier = isOrgManager || isSoloBusiness
+      tier = (profileResult.data?.subscription_tier as string | null) ?? 'individual_free'
 
       const clientIds = (clientsResult.data ?? []).map((r) => r.client_id)
       const convoIds = (convosResult.data ?? []).map((c) => c.id)
@@ -160,6 +162,7 @@ export default async function CoachLayout({ children }: { children: React.ReactN
           unreadMessages={unreadMessages}
           unreadCheckIns={unreadCheckIns}
           isBusinessTier={isBusinessTier}
+          tier={tier}
         />
       </Suspense>
       <div className="flex-1 min-w-0 flex flex-col">

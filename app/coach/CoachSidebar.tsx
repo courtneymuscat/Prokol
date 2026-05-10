@@ -7,7 +7,12 @@ import { useBranding } from '@/app/components/BrandingProvider'
 import { logout } from '@/app/actions/auth'
 import Link from 'next/link'
 
-type NavItem = { href: string; label: string; icon: React.ReactNode; badge?: boolean; messageBadge?: boolean; checkinBadge?: boolean }
+type NavItem = { href: string; label: string; icon: React.ReactNode; badge?: boolean; messageBadge?: boolean; checkinBadge?: boolean; needs?: 'training' | 'nutrition' }
+
+// Tiers that include the training (programs / exercises) toolset
+const TRAINING_TIERS = new Set(['coach_solo', 'coach_pt_solo', 'coach_pro', 'coach_business', 'wl_starter', 'wl_pro'])
+// Tiers that include the nutrition (meal plans / cheat sheet) toolset
+const NUTRITION_TIERS = new Set(['coach_solo', 'coach_nutritionist_solo', 'coach_pro', 'coach_business', 'wl_starter', 'wl_pro'])
 
 const NAV: NavItem[] = [
   {
@@ -79,6 +84,7 @@ const NAV: NavItem[] = [
   {
     href: '/coach/exercises',
     label: 'Exercises',
+    needs: 'training',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 16h4m10 0h4M4 12h16" />
@@ -88,6 +94,7 @@ const NAV: NavItem[] = [
   {
     href: '/coach/programs',
     label: 'Programs',
+    needs: 'training',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -97,6 +104,7 @@ const NAV: NavItem[] = [
   {
     href: '/coach/meal-plans',
     label: 'Meal Plans',
+    needs: 'nutrition',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
@@ -106,6 +114,7 @@ const NAV: NavItem[] = [
   {
     href: '/coach/cheat-sheet',
     label: 'Food Cheat Sheet',
+    needs: 'nutrition',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -162,17 +171,27 @@ export default function CoachSidebar({
   unreadMessages,
   unreadCheckIns,
   isBusinessTier,
+  tier,
 }: {
   unreadCount: number
   unreadMessages: number
   unreadCheckIns: number
   isBusinessTier: boolean
+  tier: string
 }) {
   const branding = useBranding()
   const path = usePathname()
   const searchParams = useSearchParams()
   const activeTab = searchParams.get('tab')
   const [moreOpen, setMoreOpen] = useState(false)
+
+  const hasTraining = TRAINING_TIERS.has(tier)
+  const hasNutrition = NUTRITION_TIERS.has(tier)
+  const visibleNav = NAV.filter((item) => {
+    if (item.needs === 'training') return hasTraining
+    if (item.needs === 'nutrition') return hasNutrition
+    return true
+  })
 
   return (
     <>
@@ -190,7 +209,7 @@ export default function CoachSidebar({
         </div>
 
         <nav className="flex-1 px-3 pb-4 space-y-0.5 overflow-y-auto">
-          {NAV.map((item) => {
+          {visibleNav.map((item) => {
             const active = path === item.href || (item.href !== '/coach/dashboard' && path.startsWith(item.href))
             return (
               <Link
@@ -330,16 +349,11 @@ export default function CoachSidebar({
               </button>
             </div>
             <div className="grid grid-cols-3 gap-px bg-gray-100">
-              {[
-                NAV[4], // Forms
-                NAV[5], // Autoflows
-                NAV[6], // Resources
-                NAV[7], // Exercises
-                NAV[8], // Programs
-                NAV[9], // Meal Plans
-                NAV[10], // Food Cheat Sheet
-                NAV[11], // Note Templates
-              ].map((item) => {
+              {visibleNav
+                .filter((item) =>
+                  ['/coach/forms', '/coach/autoflows', '/coach/resources', '/coach/exercises', '/coach/programs', '/coach/meal-plans', '/coach/cheat-sheet', '/coach/note-templates'].includes(item.href),
+                )
+                .map((item) => {
                 const active = path === item.href || path.startsWith(item.href)
                 return (
                   <Link

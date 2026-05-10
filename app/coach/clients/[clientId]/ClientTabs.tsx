@@ -7686,7 +7686,19 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'files', label: 'Files' },
 ]
 
-export default function ClientTabs({ clientId, initialTab }: { clientId: string; initialTab?: string }) {
+// Tiers that include the training (programs) toolset
+const TRAINING_TIERS = new Set(['coach_solo', 'coach_pt_solo', 'coach_pro', 'coach_business', 'wl_starter', 'wl_pro'])
+// Tiers that include the nutrition (meal plans / serve guide) toolset
+const NUTRITION_TIERS = new Set(['coach_solo', 'coach_nutritionist_solo', 'coach_pro', 'coach_business', 'wl_starter', 'wl_pro'])
+
+export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pro' }: { clientId: string; initialTab?: string; coachTier?: string }) {
+  const hasTraining = TRAINING_TIERS.has(coachTier)
+  const hasNutrition = NUTRITION_TIERS.has(coachTier)
+  const visibleTabs = TABS.filter((t) => {
+    if (t.id === 'program') return hasTraining
+    if (t.id === 'mealplan' || t.id === 'cheatsheet') return hasNutrition
+    return true
+  })
   const validTabs: TabId[] = ['overview', 'checkins', 'nutrition', 'training', 'program', 'calendar', 'mealplan', 'habits', 'notes', 'files', 'flows', 'preview', 'resources', 'cheatsheet', 'supplements', 'protocol', 'cycle', 'plan']
   const [tab, setTab] = useState<TabId>(validTabs.includes(initialTab as TabId) ? initialTab as TabId : 'overview')
   const [autoflowRefreshKey, setAutoflowRefreshKey] = useState(0)
@@ -7814,7 +7826,7 @@ export default function ClientTabs({ clientId, initialTab }: { clientId: string;
     <div className="space-y-5">
       {/* Tab bar */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl overflow-x-auto">
-        {TABS.map((t) => (
+        {visibleTabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}

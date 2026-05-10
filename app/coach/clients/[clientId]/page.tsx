@@ -23,6 +23,15 @@ export default async function ClientProfilePage({
 
   const supabase = await createClient()
 
+  // Read the coach's tier so we can hide tabs they can't use (PT solo has no
+  // meal plans / serve guide; nutritionist solo has no programs).
+  const { data: coachProfile } = await supabase
+    .from('profiles')
+    .select('subscription_tier')
+    .eq('id', coachId)
+    .single()
+  const coachTier = (coachProfile?.subscription_tier as string | null) ?? 'individual_free'
+
   const { data: rel } = await supabase
     .from('coach_clients')
     .select('accepted_at, status')
@@ -159,7 +168,7 @@ export default async function ClientProfilePage({
       )}
 
       <div className="flex-1 p-6 w-full">
-        <ClientTabs clientId={clientId} initialTab={initialTab} />
+        <ClientTabs clientId={clientId} initialTab={initialTab} coachTier={coachTier} />
       </div>
     </main>
   )

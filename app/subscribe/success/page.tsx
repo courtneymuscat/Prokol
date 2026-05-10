@@ -13,9 +13,13 @@ const PLAN_KEY_TO_TIER: Record<string, string> = {
   individual_elite: 'individual_elite',
   coach_starter:     'coach_solo',
   coach_solo:        'coach_solo',
+  coach_pt_solo:             'coach_pt_solo',
+  coach_nutritionist_solo:   'coach_nutritionist_solo',
   coach_pro:         'coach_pro',
   coach_growth:      'coach_pro',
   coach_business:    'coach_business',
+  wl_starter:        'wl_starter',
+  wl_pro:            'wl_pro',
 }
 
 const PLAN_KEY_TO_USER_TYPE: Record<string, string> = {
@@ -26,9 +30,13 @@ const PLAN_KEY_TO_USER_TYPE: Record<string, string> = {
   individual_elite: 'individual',
   coach_starter: 'coach',
   coach_solo:    'coach',
+  coach_pt_solo: 'coach',
+  coach_nutritionist_solo: 'coach',
   coach_growth:  'coach',
   coach_pro:     'coach',
   coach_business: 'coach',
+  wl_starter:    'business',
+  wl_pro:        'business',
 }
 
 function fmt(ts: number) {
