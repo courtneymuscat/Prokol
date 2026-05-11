@@ -57,26 +57,11 @@ export default async function CheckoutPage({
     lineItems.push({ price: overagePriceId })
   }
 
-  // Rename the overage product to something descriptive the first time we see it
-  // so that Stripe Checkout shows a clear label instead of the generic product name.
-  if (overagePriceId) {
-    const includedSeats = INCLUDED_SEATS[plan] ?? 0
-    const overageRate = CLIENT_OVERAGE_PRICE[plan] ?? 3
-    const planLabel = PLAN_LABELS[plan] ?? plan
-    const descriptiveName = `Extra coaching clients — A$${overageRate}/client/month`
-
-    try {
-      const overagePrice = await stripe.prices.retrieve(overagePriceId, { expand: ['product'] })
-      const product = overagePrice.product as Stripe.Product
-      // Only update if the product name doesn't already look customised
-      if (product?.active && !product.name.toLowerCase().includes('extra')) {
-        await stripe.products.update(product.id, {
-          name: descriptiveName,
-          description: `Your ${planLabel} plan includes ${includedSeats} clients. Each additional client beyond that limit is charged at A$${overageRate}/month, added automatically to your next invoice.`,
-        })
-      }
-    } catch { /* non-fatal — checkout proceeds regardless */ }
-  }
+  // (Removed: auto-rename of the overage product. It was a one-time setup
+  // helper that misfired whenever STRIPE_PRICE_<plan>_OVERAGE pointed at the
+  // wrong price — it would rename the *main* product to "Extra coaching
+  // clients…", which then broke tier resolution and stranded paid users on
+  // the free Tracker plan. Product names should be set manually in Stripe.)
 
   // Build a clear custom note for the checkout page explaining overage billing
   const includedSeats = INCLUDED_SEATS[plan] ?? 0
