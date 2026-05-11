@@ -123,7 +123,23 @@ export async function syncProfileFromStripe(userId: string): Promise<{
     return { changed: false, tier, reason: 'already in sync' }
   }
 
-  await admin.from('profiles').update(updates).eq('id', userId)
+  // Capture supabase-js error explicitly. Previously we awaited without
+  // checking `.error`, so a failed update (RLS, missing service-role key,
+  // trigger reverting, etc.) silently looked like success — stranding paid
+  // users on individual_free with no signal in any log.
+  const { error: updateError, data: updatedRows, count } = await admin
+    .from('profiles')
+    .update(updates)
+    .eq('id', userId)
+    .select('id, user_type, subscription_tier, stripe_customer_id, stripe_subscription_id')
+  if (updateError) {
+    console.error('syncProfileFromStripe update error:', updateError.message, updateError)
+    return { changed: false, tier, reason: `update failed: ${updateError.message}` }
+  }
+  if (!updatedRows || updatedRows.length === 0) {
+    console.error('syncProfileFromStripe update affected 0 rows', { userId, updates, count })
+    return { changed: false, tier, reason: 'update affected 0 rows (RLS or stale id?)' }
+  }
   return { changed: true, tier }
 }
 
