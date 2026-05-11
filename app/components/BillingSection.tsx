@@ -389,16 +389,31 @@ export default function BillingSection({ returnPath = '/settings' }: { returnPat
             <h3 className="text-base font-bold text-gray-900">Before you manage your subscription</h3>
             <div className="space-y-3 text-sm text-gray-600">
               <p>
-                If you <strong>cancel or downgrade</strong> your coaching plan:
+                Just switching plans?{' '}
+                <button
+                  onClick={() => { setShowCancelWarning(false); setShowChangePlan(true) }}
+                  className="font-semibold underline"
+                  style={{ color: '#1D9E75' }}
+                >
+                  Use Change plan instead
+                </button>
+                {' '}— it&apos;s instant, prorated, and doesn&apos;t touch your clients.
+              </p>
+              <p className="border-t border-gray-100 pt-3">
+                If you <strong>cancel</strong> your coaching plan:
               </p>
               <ul className="space-y-1.5 list-none">
                 <li className="flex items-start gap-2">
                   <span className="text-amber-500 mt-0.5">⚠</span>
-                  Your clients on the <strong>Coached plan</strong> will be moved to the free <strong>Tracker plan</strong>.
+                  Clients on the <strong>Coached plan</strong> will temporarily move to the free <strong>Tracker plan</strong>.
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-green-500 mt-0.5">✓</span>
-                  All client data (food logs, check-ins, weight, workouts) is saved and will be available again if they or you resubscribe.
+                  All client data (food logs, check-ins, weight, workouts) is saved.
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-green-500 mt-0.5">✓</span>
+                  When you resubscribe, your clients are <strong>automatically restored</strong> to the Coached plan — no manual reactivation needed.
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-green-500 mt-0.5">✓</span>
