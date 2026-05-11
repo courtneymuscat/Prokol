@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getStripe, OVERAGE_PRICE_IDS } from '@/lib/stripe'
-import { resolveTierFromPrice } from '@/lib/billing'
+import { resolveTierFromPrice, syncProfileFromStripe } from '@/lib/billing'
 import { NextResponse, type NextRequest } from 'next/server'
 
 /**
@@ -128,6 +128,25 @@ export async function GET(req: NextRequest) {
         }))
     } catch (err) {
       out.events_error = err instanceof Error ? err.message : String(err)
+    }
+  }
+
+  // 6. Optionally run the same reconcile the dashboard runs, and report the
+  //    actual result + any error. Visit with &run_sync=1 to both fix the user
+  //    AND see what syncProfileFromStripe returns.
+  if (req.nextUrl.searchParams.get('run_sync') === '1' && profile?.id) {
+    try {
+      const result = await syncProfileFromStripe(profile.id as string)
+      out.sync_result = result
+      const { data: postProfile } = await admin
+        .from('profiles')
+        .select('user_type, subscription_tier, stripe_customer_id, stripe_subscription_id')
+        .eq('id', profile.id as string)
+        .single()
+      out.profile_after_sync = postProfile
+    } catch (err) {
+      out.sync_error = err instanceof Error ? err.message : String(err)
+      out.sync_stack = err instanceof Error ? err.stack : undefined
     }
   }
 
