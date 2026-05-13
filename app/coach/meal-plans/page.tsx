@@ -23,5 +23,5 @@ export default async function MealPlansPage() {
   const own = ((data ?? []) as Record<string, unknown>[]).map((p) => ({ ...p, is_org_template: false }))
   const org = orgItems.map((p) => ({ ...p, is_org_template: true }))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return <MealPlansList plans={[...org, ...own] as any} orgName={membership?.org_name ?? null} />
+  return <MealPlansList plans={[...org, ...own] as any} orgName={membership?.org_name ?? null} orgRole={membership?.role ?? null} />
 }

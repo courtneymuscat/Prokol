@@ -87,7 +87,11 @@ export default async function CoachAutoflowsPage() {
                 {orgName ? `From ${orgName}` : 'Org template'}
               </span>
             </div>
-            <p className="text-xs text-gray-500 -mt-1">Shared by your organisation. To customise, make a copy first.</p>
+            <p className="text-xs text-gray-500 -mt-1">
+              {membership?.role === 'owner' || membership?.role === 'admin'
+                ? `Published to ${orgName ?? 'your organisation'}. Editing here updates the version every coach sees — your private flows below are unaffected.`
+                : 'Shared with your organisation. View only — make a copy to customise without affecting other coaches.'}
+            </p>
             <AutoflowList templates={orgTemplatesWithCount} />
           </div>
         )}
@@ -96,6 +100,11 @@ export default async function CoachAutoflowsPage() {
         {templatesWithCount.length > 0 && (
           <div className="space-y-3">
             <h2 className="text-sm font-semibold text-gray-900">Your flows</h2>
+            <p className="text-xs text-gray-500 -mt-1">
+              {orgName
+                ? `Private to you. Other coaches in ${orgName} can't see these unless you publish them.`
+                : 'Private to you. Only your own clients can be assigned these flows.'}
+            </p>
             <AutoflowList templates={templatesWithCount} />
           </div>
         )}

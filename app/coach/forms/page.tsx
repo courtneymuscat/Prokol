@@ -74,7 +74,11 @@ export default async function CoachFormsPage() {
                 {membership?.org_name ? `From ${membership.org_name}` : 'Org template'}
               </span>
             </div>
-            <p className="text-xs text-gray-500 -mt-1">Read-only. Make a copy to customise.</p>
+            <p className="text-xs text-gray-500 -mt-1">
+              {membership?.role === 'owner' || membership?.role === 'admin'
+                ? `Published to ${membership?.org_name ?? 'your organisation'}. Editing here updates the version every coach sees — your private forms below are unaffected.`
+                : 'Shared with your organisation. View only — make a copy to customise without affecting other coaches.'}
+            </p>
             {orgForms.map((form) => (
               <div key={form.id} className="bg-white rounded-2xl border border-blue-100 p-4 flex items-center gap-4">
                 <div className="flex-1 min-w-0">
@@ -110,10 +114,17 @@ export default async function CoachFormsPage() {
 
         {/* Divider */}
         {(forms ?? []).length > 0 && (
-          <div className="flex items-center gap-3">
-            <div className="flex-1 border-t" />
-            <span className="text-xs text-gray-400 font-medium">Your forms</span>
-            <div className="flex-1 border-t" />
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <div className="flex-1 border-t" />
+              <span className="text-xs text-gray-400 font-medium">Your forms</span>
+              <div className="flex-1 border-t" />
+            </div>
+            <p className="text-xs text-gray-500 text-center">
+              {membership?.org_name
+                ? `Private to you. Other coaches in ${membership.org_name} can't see these unless you publish them.`
+                : 'Private to you. Only your own clients can submit these.'}
+            </p>
           </div>
         )}
 

@@ -175,9 +175,11 @@ function AssignMealPlanModal({
 export default function MealPlansList({
   plans: initialPlans,
   orgName,
+  orgRole = null,
 }: {
   plans: MealPlan[]
   orgName?: string | null
+  orgRole?: 'owner' | 'admin' | 'coach' | null
 }) {
   const router = useRouter()
   const [plans, setPlans] = useState<MealPlan[]>(initialPlans)
@@ -308,7 +310,11 @@ export default function MealPlansList({
                       {orgName ? `From ${orgName}` : 'Org template'}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 -mt-1">Read-only. Make a copy to customise.</p>
+                  <p className="text-xs text-gray-500 -mt-1">
+                    {orgRole === 'owner' || orgRole === 'admin'
+                      ? `Published to ${orgName ?? 'your organisation'}. Editing here updates the version every coach sees — your private plans below are unaffected.`
+                      : 'Shared with your organisation. View only — make a copy to customise without affecting other coaches.'}
+                  </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {orgPlans.map((plan) => {
                       const badge = DIET_BADGE[plan.goal] ?? DIET_BADGE.other
@@ -360,7 +366,16 @@ export default function MealPlansList({
 
               {ownPlans.length > 0 && (
                 <div className="space-y-3">
-                  {orgPlans.length > 0 && <h2 className="text-sm font-semibold text-gray-900">Your meal plans</h2>}
+                  {orgPlans.length > 0 && (
+                    <>
+                      <h2 className="text-sm font-semibold text-gray-900">Your meal plans</h2>
+                      <p className="text-xs text-gray-500 -mt-1">
+                        {orgName
+                          ? `Private to you. Other coaches in ${orgName} can't see these unless you publish them.`
+                          : 'Private to you. Only your own clients can be assigned these.'}
+                      </p>
+                    </>
+                  )}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {ownPlans.map((plan) => {
                       const badge = DIET_BADGE[plan.goal] ?? DIET_BADGE.other

@@ -133,11 +133,19 @@ export default function ProgramsPage() {
   const [error, setError] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [assigningProgram, setAssigningProgram] = useState<ProgramSummary | null>(null)
+  const [orgName, setOrgName] = useState<string | null>(null)
+  const [orgRole, setOrgRole] = useState<'owner' | 'admin' | 'coach' | null>(null)
 
   useEffect(() => {
-    fetch('/api/coach/programs')
-      .then((r) => r.json())
-      .then((d) => setPrograms(Array.isArray(d) ? d : []))
+    Promise.all([
+      fetch('/api/coach/programs').then((r) => r.json()),
+      fetch('/api/coach/me/org').then((r) => r.json()),
+    ])
+      .then(([progs, org]) => {
+        setPrograms(Array.isArray(progs) ? progs : [])
+        setOrgName(org?.org_name ?? null)
+        setOrgRole(org?.org_role ?? null)
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -227,9 +235,15 @@ export default function ProgramsPage() {
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <h2 className="text-sm font-semibold text-gray-900">Organisation programs</h2>
-                  <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">Org template</span>
+                  <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                    {orgName ? `From ${orgName}` : 'Org template'}
+                  </span>
                 </div>
-                <p className="text-xs text-gray-500 -mt-1">Read-only. Make a copy to customise.</p>
+                <p className="text-xs text-gray-500 -mt-1">
+                  {orgRole === 'owner' || orgRole === 'admin'
+                    ? `Published to ${orgName ?? 'your organisation'}. Editing here updates the version every coach sees — your private programs below are unaffected.`
+                    : 'Shared with your organisation. View only — make a copy to customise without affecting other coaches.'}
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {orgPrograms.map((p) => (
                     <div key={p.id} className="bg-white rounded-2xl border border-blue-100 p-5 flex flex-col">
@@ -272,7 +286,16 @@ export default function ProgramsPage() {
 
             {ownPrograms.length > 0 && (
               <div className="space-y-3">
-                {orgPrograms.length > 0 && <h2 className="text-sm font-semibold text-gray-900">Your programs</h2>}
+                {orgPrograms.length > 0 && (
+                  <>
+                    <h2 className="text-sm font-semibold text-gray-900">Your programs</h2>
+                    <p className="text-xs text-gray-500 -mt-1">
+                      {orgName
+                        ? `Private to you. Other coaches in ${orgName} can't see these unless you publish them.`
+                        : 'Private to you. Only your own clients can be assigned these.'}
+                    </p>
+                  </>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {ownPrograms.map((p) => (
               <div
