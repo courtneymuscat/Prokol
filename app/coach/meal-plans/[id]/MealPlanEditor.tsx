@@ -736,6 +736,18 @@ export default function MealPlanEditor({
               </div>
             </div>
           </label>
+          <a
+            href={`/print/meal-plan/${plan.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="border border-gray-200 text-gray-600 px-3 py-2 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-colors hidden sm:flex items-center gap-1.5"
+            title="Open a printable view and save as PDF"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+            </svg>
+            PDF
+          </a>
           <button
             onClick={() => setAssignOpen(true)}
             className="border border-blue-200 text-blue-600 px-3 py-2 rounded-xl text-xs font-semibold hover:bg-blue-50 transition-colors hidden sm:block"
