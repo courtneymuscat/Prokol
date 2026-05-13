@@ -284,6 +284,17 @@ export async function POST(req: NextRequest, { params }: Ctx) {
           .from('conversations')
           .update({ last_message_at: new Date().toISOString() })
           .eq('id', convo.id)
+        // Mark sent so the hourly cron never resends these on-complete messages
+        // if they later happen to also match a day_offset window.
+        await adminClient
+          .from('client_autoflow_message_log')
+          .upsert(
+            stepsWithMessages.map((s) => ({
+              client_autoflow_id: (flow as unknown as Record<string, unknown>).id as string,
+              step_number: s.step_number,
+            })),
+            { onConflict: 'client_autoflow_id,step_number', ignoreDuplicates: true },
+          )
       }
     }
   }

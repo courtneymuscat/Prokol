@@ -121,6 +121,18 @@ export async function POST(req: NextRequest, { params }: Ctx) {
           .from('conversations')
           .update({ last_message_at: new Date().toISOString() })
           .eq('id', convo.id)
+        // Mark these as sent so the hourly cron doesn't resend them.
+        // ignoreDuplicates lets older flows (where the log row already exists
+        // because of a retry) pass through cleanly.
+        await admin
+          .from('client_autoflow_message_log')
+          .upsert(
+            immediateSteps.map((s) => ({
+              client_autoflow_id: flow.id,
+              step_number: s.step_number,
+            })),
+            { onConflict: 'client_autoflow_id,step_number', ignoreDuplicates: true },
+          )
       }
     }
   }

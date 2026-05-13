@@ -88,6 +88,7 @@ export async function GET(req: NextRequest) {
     .select(`
       id,
       client_id,
+      coach_id,
       template_id,
       start_date,
       autoflow_responses ( step_number ),
@@ -111,14 +112,16 @@ export async function GET(req: NextRequest) {
 
       const { data: steps } = await supabase
         .from('autoflow_template_steps')
-        .select('step_number, day_offset, trigger_type')
+        .select('step_number, day_offset, trigger_type, automated_message')
         .eq('template_id', flow.template_id)
 
       if (!steps?.length) continue
 
       const startDate = new Date(flow.start_date + 'T00:00:00Z')
 
-      const hasDueToday = steps.some((step) => {
+      // Steps whose day_offset puts their due date at or before today (in the
+      // client's timezone) AND that the client hasn't submitted yet.
+      const dueSteps = steps.filter((step) => {
         if (respondedSteps.has(step.step_number)) return false
         const s = step as Record<string, unknown>
         if (s.trigger_type === 'on_step_complete') return false
@@ -126,7 +129,7 @@ export async function GET(req: NextRequest) {
         return dueDate.toISOString().split('T')[0] <= dateStr
       })
 
-      if (hasDueToday) {
+      if (dueSteps.length > 0) {
         sendPushToUser(flow.client_id, {
           title: 'You have tasks due today',
           body: 'Tap to view your tasks on your dashboard',
@@ -135,6 +138,56 @@ export async function GET(req: NextRequest) {
           tag: 'autoflow-due-today',
         }).catch(() => {/* silent */})
         pushed++
+
+        // Deliver any per-step automated_message that hasn't been sent yet.
+        const stepsWithMessage = dueSteps.filter((s) =>
+          ((s as unknown as Record<string, unknown>).automated_message as string | null)?.trim()
+        )
+        if (stepsWithMessage.length > 0) {
+          const { data: alreadySent } = await supabase
+            .from('client_autoflow_message_log')
+            .select('step_number')
+            .eq('client_autoflow_id', flow.id)
+          const sentSet = new Set((alreadySent ?? []).map((r) => r.step_number))
+          const toSend = stepsWithMessage.filter((s) => !sentSet.has(s.step_number))
+
+          if (toSend.length > 0) {
+            const coachId = (flow as unknown as Record<string, unknown>).coach_id as string | null
+            if (coachId) {
+              const { data: convo } = await supabase
+                .from('conversations')
+                .upsert(
+                  { coach_id: coachId, client_id: flow.client_id },
+                  { onConflict: 'coach_id,client_id', ignoreDuplicates: false },
+                )
+                .select('id')
+                .single()
+
+              if (convo?.id) {
+                await supabase.from('messages').insert(
+                  toSend.map((s) => ({
+                    conversation_id: convo.id,
+                    sender_id: coachId,
+                    body: (s as unknown as Record<string, unknown>).automated_message as string,
+                  })),
+                )
+                await supabase
+                  .from('conversations')
+                  .update({ last_message_at: new Date().toISOString() })
+                  .eq('id', convo.id)
+                await supabase
+                  .from('client_autoflow_message_log')
+                  .upsert(
+                    toSend.map((s) => ({
+                      client_autoflow_id: flow.id,
+                      step_number: s.step_number,
+                    })),
+                    { onConflict: 'client_autoflow_id,step_number', ignoreDuplicates: true },
+                  )
+              }
+            }
+          }
+        }
       }
     }
   }

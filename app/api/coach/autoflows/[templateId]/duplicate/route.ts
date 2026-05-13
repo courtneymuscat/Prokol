@@ -21,7 +21,7 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
       .single(),
     supabase
       .from('autoflow_template_steps')
-      .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, form_save_to_file, tasks')
+      .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, form_save_to_file, tasks, automated_message')
       .eq('template_id', templateId)
       .order('step_number'),
   ])
@@ -59,6 +59,7 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
       form_id: s.form_id ?? null,
       form_save_to_file: (s as Record<string, unknown>).form_save_to_file ?? false,
       tasks: s.tasks ?? [],
+      automated_message: (s as Record<string, unknown>).automated_message ?? null,
     }))
     await supabase.from('autoflow_template_steps').insert(stepRows)
   }
