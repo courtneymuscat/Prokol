@@ -267,7 +267,7 @@ export default function LandingPage({
             ))}
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/login" className="hidden sm:block text-sm font-medium" style={{ color: T.textSec }}>Log in</Link>
+            <Link href="/login" className="text-sm font-medium" style={{ color: T.textSec }}>Log in</Link>
             <Link href="/signup" className="text-sm font-bold px-5 py-2.5 rounded-xl text-white hover:opacity-90 transition-opacity" style={{ background: T.teal }}>
               Start Free
             </Link>
@@ -298,9 +298,12 @@ export default function LandingPage({
             {navLinks.map(l => (
               <a key={l.label} href={l.href} onClick={() => setMobileOpen(false)} className="py-3 px-4 rounded-xl text-sm font-medium" style={{ color: T.textPrimary, textDecoration: 'none' }}>{l.label}</a>
             ))}
-            <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(10,26,20,0.08)' }}>
+            <div className="mt-4 pt-4 space-y-2" style={{ borderTop: '1px solid rgba(10,26,20,0.08)' }}>
               <Link href="/signup" onClick={() => setMobileOpen(false)} className="block text-center py-3 rounded-xl text-sm font-bold text-white" style={{ background: T.teal }}>
                 Start Free
+              </Link>
+              <Link href="/login" onClick={() => setMobileOpen(false)} className="block text-center py-3 rounded-xl text-sm font-semibold" style={{ color: T.textPrimary, border: '1px solid rgba(10,26,20,0.12)' }}>
+                Log in
               </Link>
             </div>
           </div>
