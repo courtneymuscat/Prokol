@@ -18,18 +18,33 @@ type MetricLog = {
   logged_at: string
 }
 
-type PresetMetric = { name: string; unit: string }
+type PresetMetric = { name: string; unit: string; paired?: boolean }
 
+// Paired body parts (arms / legs) are tracked per side. Tapping them
+// surfaces a Left / Right / Both chooser so users can pick the side(s)
+// they want without typing.
 const PRESETS: PresetMetric[] = [
   { name: 'Body Fat',  unit: '%' },
   { name: 'Waist',     unit: 'cm' },
   { name: 'Hips',      unit: 'cm' },
   { name: 'Chest',     unit: 'cm' },
-  { name: 'Biceps',    unit: 'cm' },
-  { name: 'Thighs',    unit: 'cm' },
   { name: 'Neck',      unit: 'cm' },
+  { name: 'Bicep',     unit: 'cm', paired: true },
+  { name: 'Forearm',   unit: 'cm', paired: true },
+  { name: 'Thigh',     unit: 'cm', paired: true },
+  { name: 'Calf',      unit: 'cm', paired: true },
   { name: 'Resting HR',unit: 'bpm' },
 ]
+
+// Heuristic: warn the user that custom names matching paired body parts
+// (e.g. "Quad", "Hamstring") usually need Left/Right tracking.
+const PAIRED_KEYWORDS = ['arm', 'leg', 'bicep', 'tricep', 'forearm', 'shoulder', 'thigh', 'quad', 'hamstring', 'calf', 'ankle', 'wrist', 'knee', 'elbow', 'glute']
+
+function looksPaired(name: string): boolean {
+  const lower = name.toLowerCase()
+  if (/\b(left|right|l\.|r\.)\b/.test(lower)) return false
+  return PAIRED_KEYWORDS.some((k) => lower.includes(k))
+}
 
 function todayLocal() {
   const d = new Date()
@@ -544,17 +559,51 @@ function AddMetricModal({
   const [customName, setCustomName] = useState('')
   const [customUnit, setCustomUnit] = useState('')
   const [busy, setBusy] = useState(false)
+  const [pendingPaired, setPendingPaired] = useState<PresetMetric | null>(null)
 
   async function addPreset(p: PresetMetric) {
+    if (p.paired) {
+      setPendingPaired(p)
+      return
+    }
     setBusy(true)
     await onAdd(p.name, p.unit)
     setBusy(false)
   }
 
-  async function addCustom() {
-    if (!customName.trim() || !customUnit.trim()) return
+  async function addSided(base: string, unit: string, side: 'Left' | 'Right' | 'Both') {
     setBusy(true)
-    await onAdd(customName, customUnit)
+    if (side === 'Both') {
+      await onAdd(`Left ${base}`, unit)
+      if (!usedNames.has(`right ${base.toLowerCase()}`)) {
+        await onAdd(`Right ${base}`, unit)
+      }
+    } else {
+      await onAdd(`${side} ${base}`, unit)
+    }
+    setBusy(false)
+    setPendingPaired(null)
+  }
+
+  const customLooksPaired = looksPaired(customName)
+
+  async function addCustom(side?: 'Left' | 'Right' | 'Both') {
+    const name = customName.trim()
+    const unit = customUnit.trim()
+    if (!name || !unit) return
+    setBusy(true)
+    if (side === 'Both') {
+      await onAdd(`Left ${name}`, unit)
+      if (!usedNames.has(`right ${name.toLowerCase()}`)) {
+        await onAdd(`Right ${name}`, unit)
+      }
+    } else if (side) {
+      await onAdd(`${side} ${name}`, unit)
+    } else {
+      await onAdd(name, unit)
+    }
+    setCustomName('')
+    setCustomUnit('')
     setBusy(false)
   }
 
@@ -585,7 +634,9 @@ function AddMetricModal({
             <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Common</p>
             <div className="flex flex-wrap gap-2">
               {PRESETS.map((p) => {
-                const already = usedNames.has(p.name.toLowerCase())
+                const already = p.paired
+                  ? usedNames.has(`left ${p.name.toLowerCase()}`) && usedNames.has(`right ${p.name.toLowerCase()}`)
+                  : usedNames.has(p.name.toLowerCase())
                 return (
                   <button
                     key={p.name}
@@ -598,11 +649,47 @@ function AddMetricModal({
                         : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400 hover:bg-gray-50'
                     }`}
                   >
-                    {p.name} <span className="text-gray-400">({p.unit})</span>
+                    {p.name}{p.paired && <span className="text-gray-400"> (L/R)</span>} <span className="text-gray-400">({p.unit})</span>
                   </button>
                 )
               })}
             </div>
+
+            {pendingPaired && (
+              <div className="mt-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+                <p className="text-xs font-semibold text-blue-900 mb-2">
+                  Which side(s) of <span className="font-bold">{pendingPaired.name}</span>?
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {(['Left', 'Right', 'Both'] as const).map((side) => {
+                    const dupName = `${side === 'Both' ? 'Left' : side} ${pendingPaired.name}`.toLowerCase()
+                    const taken = side !== 'Both' && usedNames.has(dupName)
+                    return (
+                      <button
+                        key={side}
+                        type="button"
+                        disabled={busy || taken}
+                        onClick={() => addSided(pendingPaired.name, pendingPaired.unit, side)}
+                        className={`text-xs font-semibold px-3 py-2 rounded-full border transition-colors ${
+                          taken
+                            ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+                            : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-100'
+                        }`}
+                      >
+                        {side === 'Both' ? 'Both (Left + Right)' : `${side} ${pendingPaired.name}`}
+                      </button>
+                    )
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => setPendingPaired(null)}
+                    className="text-xs font-medium text-gray-500 hover:text-gray-700 px-2"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="pt-4 border-t border-gray-100">
@@ -614,7 +701,7 @@ function AddMetricModal({
                   type="text"
                   value={customName}
                   onChange={(e) => setCustomName(e.target.value)}
-                  placeholder="e.g. Calf"
+                  placeholder="e.g. Blood pressure"
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -628,16 +715,47 @@ function AddMetricModal({
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <button
-                type="button"
-                onClick={addCustom}
-                disabled={busy || !customName.trim() || !customUnit.trim()}
-                className="text-sm font-semibold px-4 py-2 rounded-lg text-white disabled:opacity-40"
-                style={{ backgroundColor: '#1D9E75' }}
-              >
-                Add
-              </button>
+              {!customLooksPaired && (
+                <button
+                  type="button"
+                  onClick={() => addCustom()}
+                  disabled={busy || !customName.trim() || !customUnit.trim()}
+                  className="text-sm font-semibold px-4 py-2 rounded-lg text-white disabled:opacity-40"
+                  style={{ backgroundColor: '#1D9E75' }}
+                >
+                  Add
+                </button>
+              )}
             </div>
+
+            {customLooksPaired && customName.trim() && customUnit.trim() && (
+              <div className="mt-3 rounded-2xl border border-blue-200 bg-blue-50 p-3">
+                <p className="text-xs text-blue-900 mb-2">
+                  This looks like a paired body part — which side(s)?
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {(['Left', 'Right', 'Both'] as const).map((side) => (
+                    <button
+                      key={side}
+                      type="button"
+                      disabled={busy}
+                      onClick={() => addCustom(side)}
+                      className="text-xs font-semibold px-3 py-2 rounded-full border bg-white text-blue-700 border-blue-200 hover:bg-blue-100"
+                    >
+                      {side === 'Both' ? 'Both (Left + Right)' : `${side} ${customName.trim()}`}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => addCustom()}
+                    disabled={busy}
+                    className="text-xs font-medium text-gray-600 hover:text-gray-800 px-2"
+                  >
+                    Skip — just &ldquo;{customName.trim()}&rdquo;
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
