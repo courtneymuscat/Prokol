@@ -339,40 +339,44 @@ function MetricCard({
         </button>
       </div>
 
-      <form onSubmit={submit} className="mt-4 flex items-end gap-2">
-        <div className="flex-1">
-          <label className="block text-[11px] font-medium text-gray-500 mb-1">Date</label>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            max={todayLocal()}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div className="flex-1">
-          <label className="block text-[11px] font-medium text-gray-500 mb-1">Value</label>
-          <div className="relative">
+      <form onSubmit={submit} className="mt-4 space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-[11px] font-medium text-gray-500 mb-1">Date</label>
             <input
-              type="number"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              step="0.1"
-              placeholder="—"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm pr-12 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              max={todayLocal()}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium">
-              {metric.unit}
-            </span>
+          </div>
+          <div>
+            <label className="block text-[11px] font-medium text-gray-500 mb-1">Value</label>
+            <div className="relative">
+              <input
+                type="text"
+                inputMode="decimal"
+                pattern="[0-9]*\.?[0-9]*"
+                value={value}
+                onChange={(e) => setValue(e.target.value.replace(/[^0-9.]/g, ''))}
+                placeholder="—"
+                aria-label={`${metric.name} value in ${metric.unit}`}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm pr-12 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium pointer-events-none">
+                {metric.unit}
+              </span>
+            </div>
           </div>
         </div>
         <button
           type="submit"
           disabled={saving || !value}
-          className="text-sm font-semibold px-4 py-2 rounded-lg text-white disabled:opacity-40 transition-colors"
+          className="w-full text-sm font-semibold px-4 py-2.5 rounded-lg text-white disabled:opacity-40 transition-colors"
           style={{ backgroundColor: '#1D9E75' }}
         >
-          {saving ? '…' : 'Log'}
+          {saving ? 'Saving…' : `Log ${metric.name}`}
         </button>
       </form>
 
