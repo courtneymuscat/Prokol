@@ -103,12 +103,17 @@ export default function MetricsClient() {
 
   useEffect(() => { load() }, [load])
 
-  async function addMetric(name: string, unit: string) {
-    if (!userId) return
+  async function addMetric(name: string, unit: string): Promise<{ ok: boolean; duplicate?: boolean }> {
+    if (!userId) return { ok: false }
     const supabase = createClient()
     const trimmedName = name.trim()
     const trimmedUnit = unit.trim()
-    if (!trimmedName || !trimmedUnit) return
+    if (!trimmedName || !trimmedUnit) return { ok: false }
+    // Skip the insert entirely if we already have this metric — avoids a
+    // pointless DB round-trip and Postgres error when state is fresh.
+    if (metrics.some(m => m.name.toLowerCase() === trimmedName.toLowerCase())) {
+      return { ok: true, duplicate: true }
+    }
     const nextSort = metrics.length ? Math.max(...metrics.map(m => m.sort_order)) + 1 : 0
     const { error } = await supabase.from('custom_metrics').insert({
       user_id: userId,
@@ -117,11 +122,19 @@ export default function MetricsClient() {
       sort_order: nextSort,
     })
     if (error) {
+      // 23505 = unique_violation. Stale local state caught up to the DB —
+      // treat as a no-op rather than alarming the user.
+      const isDuplicate = error.code === '23505' || /duplicate key/i.test(error.message)
+      if (isDuplicate) {
+        await load()
+        return { ok: true, duplicate: true }
+      }
       alert(error.message)
-      return
+      return { ok: false }
     }
     setShowAdd(false)
     await load()
+    return { ok: true }
   }
 
   async function archiveMetric(id: string) {
@@ -554,7 +567,7 @@ function AddMetricModal({
 }: {
   usedNames: Set<string>
   onCancel: () => void
-  onAdd: (name: string, unit: string) => Promise<void>
+  onAdd: (name: string, unit: string) => Promise<{ ok: boolean; duplicate?: boolean }>
 }) {
   const [customName, setCustomName] = useState('')
   const [customUnit, setCustomUnit] = useState('')
@@ -574,10 +587,10 @@ function AddMetricModal({
   async function addSided(base: string, unit: string, side: 'Left' | 'Right' | 'Both') {
     setBusy(true)
     if (side === 'Both') {
+      // Add both sides; addMetric silently skips duplicates so the second
+      // call won't error even if the user already has one side tracked.
       await onAdd(`Left ${base}`, unit)
-      if (!usedNames.has(`right ${base.toLowerCase()}`)) {
-        await onAdd(`Right ${base}`, unit)
-      }
+      await onAdd(`Right ${base}`, unit)
     } else {
       await onAdd(`${side} ${base}`, unit)
     }
@@ -594,9 +607,7 @@ function AddMetricModal({
     setBusy(true)
     if (side === 'Both') {
       await onAdd(`Left ${name}`, unit)
-      if (!usedNames.has(`right ${name.toLowerCase()}`)) {
-        await onAdd(`Right ${name}`, unit)
-      }
+      await onAdd(`Right ${name}`, unit)
     } else if (side) {
       await onAdd(`${side} ${name}`, unit)
     } else {
