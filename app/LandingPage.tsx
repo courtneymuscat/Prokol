@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 const T = {
   bg:           '#F4F7F5',
@@ -50,19 +51,23 @@ function Cross() {
   )
 }
 
-function Placeholder({ file, dims, desc, className = '' }: { file: string; dims: string; desc: string; className?: string }) {
+function Placeholder({ file, dims, desc, className = '', priority = false }: { file: string; dims: string; desc: string; className?: string; priority?: boolean }) {
   const src = file.replace(/^\/public/, '')
   return (
-    <img
+    <Image
       src={src}
       alt={desc}
+      width={2940}
+      height={1660}
+      sizes="(max-width: 1024px) 100vw, 1024px"
+      priority={priority}
       className={`rounded-2xl w-full object-cover shadow-lg ${className}`}
-      style={{ display: 'block' }}
+      style={{ display: 'block', height: 'auto' }}
     />
   )
 }
 
-function PhoneFrame({ src, alt, maxWidth = 220 }: { src: string; alt: string; maxWidth?: number }) {
+function PhoneFrame({ src, alt, maxWidth = 220, priority = false }: { src: string; alt: string; maxWidth?: number; priority?: boolean }) {
   return (
     <div style={{
       position: 'relative',
@@ -86,7 +91,15 @@ function PhoneFrame({ src, alt, maxWidth = 220 }: { src: string; alt: string; ma
           width: '35%', height: 28, background: '#000', borderRadius: 16, zIndex: 10,
           boxShadow: '0 0 0 1px #1a1a1a',
         }} />
-        <img src={src} alt={alt} style={{ width: '100%', display: 'block', aspectRatio: '390/844', objectFit: 'cover' }} />
+        <Image
+          src={src}
+          alt={alt}
+          width={1284}
+          height={2778}
+          sizes="(max-width: 768px) 200px, 260px"
+          priority={priority}
+          style={{ width: '100%', height: 'auto', display: 'block', aspectRatio: '390/844', objectFit: 'cover' }}
+        />
       </div>
     </div>
   )
@@ -337,7 +350,7 @@ export default function LandingPage({
           <div style={{ transform: 'perspective(1200px) rotateX(3deg)', transformOrigin: '50% 0%' }}>
             <BrowserFrame>
               <Placeholder file="/public/screenshots/client-overview.png" dims="1280×800px"
-                desc="Client file overview — goals, progress photos, weight, check-in history, and client activity visible" className="rounded-none" />
+                desc="Client file overview — goals, progress photos, weight, check-in history, and client activity visible" className="rounded-none" priority />
             </BrowserFrame>
           </div>
         </div>
