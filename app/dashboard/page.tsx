@@ -72,6 +72,8 @@ export default async function DashboardPage() {
     weightLogsRes,
     foodLogsRes,
     mealNotesRes,
+    mealPlanCountRes,
+    habitsCountRes,
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -118,6 +120,20 @@ export default async function DashboardPage() {
       .select('meal_type, note, photo_url')
       .eq('user_id', user.id)
       .eq('log_date', todayLocal),
+    // Meal plan + habits counts — independent of the coachRel settings row
+    // (a client may have a meal plan even if the coach relationship row is
+    // momentarily missing), so they live at the top level rather than gated
+    // on coachRel below.
+    supabase
+      .from('client_meal_plans')
+      .select('id', { count: 'exact', head: true })
+      .eq('client_id', user.id)
+      .eq('status', 'active'),
+    supabase
+      .from('habits')
+      .select('id', { count: 'exact', head: true })
+      .eq('client_id', user.id)
+      .eq('active', true),
   ])
 
   const profile = profileRes.data
@@ -126,6 +142,8 @@ export default async function DashboardPage() {
   const initialWeightLogs = weightLogsRes.data ?? []
   const initialFoodLogs = foodLogsRes.data ?? []
   const initialMealNotes = mealNotesRes.data ?? []
+  const hasMealPlan = (mealPlanCountRes.count ?? 0) > 0
+  const hasHabits = (habitsCountRes.count ?? 0) > 0
 
   // Pending org invite — redirect if not already a member. Kept synchronous
   // because a redirect must complete before render; the membership check is
@@ -205,8 +223,6 @@ export default async function DashboardPage() {
   let foodLogAccess = 'full'
   let showMealBuilder = true
   let showSavedMeals = true
-  let hasMealPlan = false
-  let hasHabits = false
 
   let pendingFormId: string | null = null
   let pendingFeedbacks: { eventId: string; dayName: string }[] = []
@@ -224,14 +240,12 @@ export default async function DashboardPage() {
     const coachFormId = (rel.form_id as string | null) ?? null
 
     // ── Coached-branch parallel batch ──────────────────────────────────────────
-    // Six independent reads collapsed into a single round-trip group.
+    // Four independent coach-relationship-dependent reads.
     const [
       coachProfileRes,
       planRes,
       submissionRes,
       feedbackEventsRes,
-      mealPlanCountRes,
-      habitsCountRes,
     ] = await Promise.all([
       admin
         .from('profiles')
@@ -261,16 +275,6 @@ export default async function DashboardPage() {
         .eq('type', 'program_workout_result')
         .order('event_date', { ascending: false })
         .limit(30),
-      supabase
-        .from('client_meal_plans')
-        .select('id', { count: 'exact', head: true })
-        .eq('client_id', user.id)
-        .eq('status', 'active'),
-      supabase
-        .from('habits')
-        .select('id', { count: 'exact', head: true })
-        .eq('client_id', user.id)
-        .eq('active', true),
     ])
 
     const coachProfile = coachProfileRes.data
@@ -315,9 +319,6 @@ export default async function DashboardPage() {
           dayName: (c.day_name as string | undefined) ?? 'your workout',
         }
       })
-
-    hasMealPlan = (mealPlanCountRes.count ?? 0) > 0
-    hasHabits = (habitsCountRes.count ?? 0) > 0
   }
 
   // For coached clients on the main domain, apply coach's branding over defaults
