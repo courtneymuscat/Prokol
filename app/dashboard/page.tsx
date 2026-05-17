@@ -74,6 +74,7 @@ export default async function DashboardPage() {
     mealNotesRes,
     mealPlanCountRes,
     habitsCountRes,
+    feedbackEventsRes,
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -134,6 +135,16 @@ export default async function DashboardPage() {
       .select('id', { count: 'exact', head: true })
       .eq('client_id', user.id)
       .eq('active', true),
+    // Unseen coach workout feedback — keyed only on client_id, so independent
+    // of the coachRel settings row. The original code computed this whenever
+    // isCoached, not gated on coachRel, so we mirror that here.
+    supabase
+      .from('calendar_events')
+      .select('id, content, event_date')
+      .eq('client_id', user.id)
+      .eq('type', 'program_workout_result')
+      .order('event_date', { ascending: false })
+      .limit(30),
   ])
 
   const profile = profileRes.data
@@ -144,6 +155,18 @@ export default async function DashboardPage() {
   const initialMealNotes = mealNotesRes.data ?? []
   const hasMealPlan = (mealPlanCountRes.count ?? 0) > 0
   const hasHabits = (habitsCountRes.count ?? 0) > 0
+  const pendingFeedbacks: { eventId: string; dayName: string }[] = (feedbackEventsRes.data ?? [])
+    .filter((e) => {
+      const c = e.content as Record<string, unknown>
+      return c.feedback_left_at && !c.feedback_seen
+    })
+    .map((e) => {
+      const c = e.content as Record<string, unknown>
+      return {
+        eventId: e.id,
+        dayName: (c.day_name as string | undefined) ?? 'your workout',
+      }
+    })
 
   // Pending org invite — redirect if not already a member. Kept synchronous
   // because a redirect must complete before render; the membership check is
@@ -225,7 +248,6 @@ export default async function DashboardPage() {
   let showSavedMeals = true
 
   let pendingFormId: string | null = null
-  let pendingFeedbacks: { eventId: string; dayName: string }[] = []
   let coachBrandColour: string | null = null
   let coachLogoUrl: string | null = null
   let coachBrandName: string | null = null
@@ -240,12 +262,11 @@ export default async function DashboardPage() {
     const coachFormId = (rel.form_id as string | null) ?? null
 
     // ── Coached-branch parallel batch ──────────────────────────────────────────
-    // Four independent coach-relationship-dependent reads.
+    // Three independent coach-relationship-dependent reads.
     const [
       coachProfileRes,
       planRes,
       submissionRes,
-      feedbackEventsRes,
     ] = await Promise.all([
       admin
         .from('profiles')
@@ -268,13 +289,6 @@ export default async function DashboardPage() {
             .not('submitted_at', 'is', null)
             .maybeSingle()
         : Promise.resolve({ data: null }),
-      supabase
-        .from('calendar_events')
-        .select('id, content, event_date')
-        .eq('client_id', user.id)
-        .eq('type', 'program_workout_result')
-        .order('event_date', { ascending: false })
-        .limit(30),
     ])
 
     const coachProfile = coachProfileRes.data
@@ -306,19 +320,6 @@ export default async function DashboardPage() {
     }
 
     if (coachFormId && !submissionRes.data) pendingFormId = coachFormId
-
-    pendingFeedbacks = (feedbackEventsRes.data ?? [])
-      .filter((e) => {
-        const c = e.content as Record<string, unknown>
-        return c.feedback_left_at && !c.feedback_seen
-      })
-      .map((e) => {
-        const c = e.content as Record<string, unknown>
-        return {
-          eventId: e.id,
-          dayName: (c.day_name as string | undefined) ?? 'your workout',
-        }
-      })
   }
 
   // For coached clients on the main domain, apply coach's branding over defaults
