@@ -39,19 +39,58 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
     autoflowId = (fi as { autoflow_id?: string | null })?.autoflow_id ?? null
   } catch { /* columns don't exist yet */ }
 
-  // Always upsert coach_clients and set profile to coached — safe to run multiple times.
-  // This ensures the client gets the correct tier even if they sign up after the invite
-  // was already marked accepted (e.g. via a ghost-user activation on a prior attempt).
-  const clientRow: Record<string, unknown> = {
-    coach_id: invite.coach_id,
-    client_id: clientId,
+  // Always ensure coach_clients has an 'active' row for this pair and the
+  // profile is marked coached — safe to run multiple times.
+  //
+  // We deliberately UPDATE first then INSERT-if-missing rather than upserting,
+  // because the previous upsert relied on a unique constraint on
+  // (coach_id, client_id) that may not exist in every environment. Without
+  // that constraint, an upsert silently inserts a duplicate row alongside
+  // the original 'pending_invite' row — the coach then sees the client twice
+  // (once as Pending, once as Active). Explicit update-then-insert is
+  // deterministic and doesn't depend on a particular constraint shape.
+  const updatePatch: Record<string, unknown> = {
     accepted_at: new Date().toISOString(),
     status: 'active',
     service_id: invite.service_id ?? null,
   }
-  if (formId !== null) clientRow.form_id = formId
+  if (formId !== null) updatePatch.form_id = formId
 
-  await admin.from('coach_clients').upsert(clientRow, { onConflict: 'coach_id,client_id' })
+  const { data: updatedRows, error: updateError } = await admin
+    .from('coach_clients')
+    .update(updatePatch)
+    .eq('coach_id', invite.coach_id)
+    .eq('client_id', clientId)
+    .select('id')
+
+  if (updateError) {
+    console.error('acceptInvite: coach_clients update error:', updateError.message)
+  }
+
+  if (!updatedRows || updatedRows.length === 0) {
+    const insertRow: Record<string, unknown> = {
+      coach_id: invite.coach_id,
+      client_id: clientId,
+      accepted_at: new Date().toISOString(),
+      status: 'active',
+      service_id: invite.service_id ?? null,
+    }
+    if (formId !== null) insertRow.form_id = formId
+    const { error: insertError } = await admin.from('coach_clients').insert(insertRow)
+    if (insertError) {
+      console.error('acceptInvite: coach_clients insert error:', insertError.message)
+    }
+  }
+
+  // Belt-and-braces cleanup: if any duplicate 'pending_invite' rows exist for
+  // this pair (from past upsert misses), remove them so the coach view shows
+  // a single active client instead of one pending + one active.
+  await admin
+    .from('coach_clients')
+    .delete()
+    .eq('coach_id', invite.coach_id)
+    .eq('client_id', clientId)
+    .eq('status', 'pending_invite')
   await admin.from('profiles').update({
     subscription_tier: 'coached',
     onboarding_completed: true,

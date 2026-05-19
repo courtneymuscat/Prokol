@@ -9,14 +9,28 @@ export default async function CoachClientsPage() {
 
   const supabase = await createClient()
 
-  const { data: allRows } = await supabase
+  const { data: rawRows } = await supabase
     .from('coach_clients')
     .select('client_id, accepted_at, status')
     .eq('coach_id', coachId)
     .in('status', ['active', 'archived', 'pending_invite'])
     .order('accepted_at', { ascending: false })
 
-  const allIds = (allRows ?? []).map((r) => r.client_id)
+  // Dedup by client_id, preferring active > archived > pending_invite. This
+  // protects the coach view from showing a client twice if some legacy
+  // duplicate rows exist (e.g. one pending_invite + one active for the same
+  // pair — caused by an old non-conflict-safe upsert path).
+  const statusRank: Record<string, number> = { active: 3, archived: 2, pending_invite: 1 }
+  const byClient = new Map<string, { client_id: string; accepted_at: string | null; status: string }>()
+  for (const row of rawRows ?? []) {
+    const existing = byClient.get(row.client_id)
+    if (!existing || (statusRank[row.status] ?? 0) > (statusRank[existing.status] ?? 0)) {
+      byClient.set(row.client_id, row)
+    }
+  }
+  const allRows = Array.from(byClient.values())
+
+  const allIds = allRows.map((r) => r.client_id)
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL
     ?? (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000')

@@ -65,20 +65,54 @@ export async function GET() {
         .filter(Boolean) as string[]
 
       const flowCoachId = (flow as Record<string, unknown>).coach_id as string | null
+
+      // Resolve the assigning coach's org so we can also surface org-template
+      // resources that belong to the org owner rather than the assigning
+      // coach. The step-detail endpoint already does this; without the same
+      // filter here, dashboard tiles for org-template autoflows hide their
+      // resources even though the underlying step page shows them.
+      let assigningCoachOrgId: string | null = null
+      if (allResourceIds.length > 0 && flowCoachId) {
+        const { data: coachProfile } = await admin
+          .from('profiles')
+          .select('org_id')
+          .eq('id', flowCoachId)
+          .single()
+        assigningCoachOrgId = (coachProfile?.org_id as string | null) ?? null
+      }
+
       const [resourcesResult, formsResult] = await Promise.all([
         allResourceIds.length > 0
-          ? (() => {
-              const q = admin.from('coach_resources').select('id, name, type, url').in('id', allResourceIds)
-              return flowCoachId ? q.eq('coach_id', flowCoachId) : q
-            })()
+          ? admin
+              .from('coach_resources')
+              .select('id, name, description, type, url, coach_id, org_id, is_org_template')
+              .in('id', allResourceIds)
           : Promise.resolve({ data: [] }),
         allFormIds.length > 0
           ? admin.from('forms').select('id, title').in('id', allFormIds)
           : Promise.resolve({ data: [] }),
       ])
 
+      type ResourceCandidate = {
+        id: string
+        name: string
+        description: string | null
+        type: string
+        url: string | null
+        coach_id: string
+        org_id: string | null
+        is_org_template: boolean
+      }
+
       const resourceMap: Record<string, { id: string; name: string; type: string; url: string | null }> = Object.fromEntries(
-        (resourcesResult.data ?? []).map((r) => [r.id, r])
+        ((resourcesResult.data as ResourceCandidate[] | null) ?? [])
+          .filter((r) => {
+            if (!flowCoachId) return false
+            if (r.coach_id === flowCoachId) return true
+            if (r.is_org_template && r.org_id && assigningCoachOrgId && r.org_id === assigningCoachOrgId) return true
+            return false
+          })
+          .map((r) => [r.id, { id: r.id, name: r.name, type: r.type, url: r.url }])
       )
       const formMap: Record<string, { id: string; title: string }> = Object.fromEntries(
         (formsResult.data ?? []).map((f) => [f.id, f])
