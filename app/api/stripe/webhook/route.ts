@@ -5,6 +5,11 @@ import { TIER_TO_METER_EVENT, resolveTierFromPrice } from '@/lib/billing'
 import { sendEmail } from '@/lib/email'
 import type Stripe from 'stripe'
 
+// Stripe waits for our ack before retrying. If we exceed Vercel's default
+// timeout the platform 504s and Stripe sees a delivery failure — bump the
+// budget so subscription/customer.retrieve chains have enough headroom.
+export const maxDuration = 60
+
 // planKey (Stripe metadata) → subscription_tier (DB column)
 const PLAN_KEY_TO_TIER: Record<string, string> = {
   individual_tier_1: 'individual_free',
@@ -489,9 +494,20 @@ export async function POST(req: NextRequest) {
     }
 
   } catch (err) {
+    // Log loudly but ack 200 anyway. Returning 500 here causes Stripe to
+    // retry up to 8 times, after which it disables the endpoint entirely —
+    // worse than dropping a single event. Whoever handles the failure
+    // should replay it from the Stripe dashboard once the underlying bug
+    // is fixed.
     const message = err instanceof Error ? err.message : String(err)
-    console.error('Webhook handler error:', message)
-    return NextResponse.json({ error: message }, { status: 500 })
+    const stack = err instanceof Error ? err.stack : undefined
+    console.error('Webhook handler error (acking 200 to avoid disable):', {
+      type: event.type,
+      id: event.id,
+      message,
+      stack,
+    })
+    return NextResponse.json({ received: true, processing_error: message })
   }
 
   return NextResponse.json({ received: true })
