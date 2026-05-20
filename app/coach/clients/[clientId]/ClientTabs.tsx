@@ -105,6 +105,9 @@ type AutoflowCheckIn = {
   questions: { id: string; label: string; type: string }[]
   reviewed_by_coach?: boolean
   coach_feedback?: string | null
+  resources?: { id: string; name: string; type: string; url: string | null }[]
+  tasks?: { id: string; label: string; link_type?: string | null; link_url?: string | null; link_label?: string | null; completed: boolean }[]
+  linked_form?: { id: string; title: string; submission_id: string | null } | null
 }
 
 type CustomMetric = {
@@ -2130,23 +2133,101 @@ function ExpandableAutoflowCheckIn({ item, clientId, onDelete }: { item: Autoflo
           </button>
         </div>
       </div>
-      {/* Always-visible preview of what the client answered, so the coach
-          can see the step's content at a glance without expanding. */}
-      {!open && hasAnswers && (
-        <div className="px-5 pb-4 -mt-1 space-y-1.5">
-          {previewItems.map((q) => {
-            const value = item.answers[q.id]
-            const text = typeof value === 'string' ? value : String(value ?? '')
-            const trimmed = text.length > 120 ? text.slice(0, 117) + '…' : text
-            return (
-              <div key={q.id} className="text-xs leading-snug">
-                <span className="text-gray-400">{q.label}: </span>
-                <span className="text-gray-700">{trimmed || <em className="text-gray-300">empty</em>}</span>
+      {/* Always-visible step artefacts: linked form (with link to the
+          submission viewer), resources, tasks (with completion status),
+          and a short preview of answered questions. Lets the coach see
+          what the step contained without expanding. */}
+      {(item.linked_form || (item.resources?.length ?? 0) > 0 || (item.tasks?.length ?? 0) > 0 || (!open && hasAnswers)) && (
+        <div className="px-5 pb-4 -mt-1 space-y-2.5">
+          {item.linked_form && (
+            <div className="flex items-center justify-between gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-sm">📋</span>
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wide">Linked form</p>
+                  <p className="text-xs font-semibold text-amber-900 truncate">{item.linked_form.title}</p>
+                </div>
               </div>
-            )
-          })}
-          {previewCount > previewItems.length && (
-            <p className="text-[11px] text-gray-400 italic">+ {previewCount - previewItems.length} more answer{previewCount - previewItems.length === 1 ? '' : 's'} — tap “View responses” to see all</p>
+              {item.linked_form.submission_id ? (
+                <a
+                  href={`/coach/forms/${item.linked_form.id}/responses/${item.linked_form.submission_id}`}
+                  className="text-[11px] font-semibold text-amber-800 underline whitespace-nowrap hover:text-amber-900 flex-shrink-0"
+                >
+                  View submission →
+                </a>
+              ) : (
+                <span className="text-[10px] text-amber-700 italic flex-shrink-0">Not submitted</span>
+              )}
+            </div>
+          )}
+
+          {(item.tasks?.length ?? 0) > 0 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 space-y-1">
+              <p className="text-[10px] font-semibold text-yellow-700 uppercase tracking-wide">Tasks</p>
+              <div className="space-y-0.5">
+                {(item.tasks ?? []).map((task) => (
+                  <div key={task.id} className="flex items-center gap-2 text-xs">
+                    <span className={`inline-flex w-3.5 h-3.5 rounded border items-center justify-center flex-shrink-0 ${task.completed ? 'bg-yellow-600 border-yellow-600' : 'border-yellow-300 bg-white'}`}>
+                      {task.completed && (
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className={task.completed ? 'text-gray-500 line-through' : 'text-gray-800'}>{task.label}</span>
+                    {task.link_url && (
+                      <a
+                        href={task.link_url}
+                        target={task.link_type === 'form' ? '_self' : '_blank'}
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-yellow-700 underline hover:text-yellow-900"
+                      >
+                        {task.link_label || (task.link_type === 'form' ? 'form' : task.link_type === 'resource' ? 'resource' : 'link')}
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(item.resources?.length ?? 0) > 0 && (
+            <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 space-y-1">
+              <p className="text-[10px] font-semibold text-blue-700 uppercase tracking-wide">Resources</p>
+              <div className="flex flex-wrap gap-1.5">
+                {(item.resources ?? []).map((r) => (
+                  <a
+                    key={r.id}
+                    href={r.url ?? '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 bg-white border border-blue-200 rounded-full px-2 py-0.5 text-[11px] font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                  >
+                    <span>{r.type === 'video' ? '🎬' : r.type === 'pdf' ? '📄' : r.type === 'document' ? '📝' : '🔗'}</span>
+                    {r.name}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!open && hasAnswers && (
+            <div className="space-y-1.5 pt-1">
+              {previewItems.map((q) => {
+                const value = item.answers[q.id]
+                const text = typeof value === 'string' ? value : String(value ?? '')
+                const trimmed = text.length > 120 ? text.slice(0, 117) + '…' : text
+                return (
+                  <div key={q.id} className="text-xs leading-snug">
+                    <span className="text-gray-400">{q.label}: </span>
+                    <span className="text-gray-700">{trimmed || <em className="text-gray-300">empty</em>}</span>
+                  </div>
+                )
+              })}
+              {previewCount > previewItems.length && (
+                <p className="text-[11px] text-gray-400 italic">+ {previewCount - previewItems.length} more answer{previewCount - previewItems.length === 1 ? '' : 's'} — tap “View responses” to see all</p>
+              )}
+            </div>
           )}
         </div>
       )}
