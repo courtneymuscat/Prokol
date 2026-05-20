@@ -25,6 +25,7 @@ type OrgTemplatesData = {
   note_templates: Template[]
   services: Template[]
   resources: Template[]
+  saved_workouts: Template[]
 }
 
 type OrgTemplates = OrgTemplatesData & {
@@ -73,7 +74,7 @@ function AccessAvatars({ access }: { access: AccessSummary[] | undefined }) {
 }
 
 type GroupKey = keyof OrgTemplatesData
-type TableName = 'autoflow_templates' | 'programs' | 'meal_plans' | 'forms' | 'note_templates' | 'coach_services' | 'coach_resources'
+type TableName = 'autoflow_templates' | 'programs' | 'meal_plans' | 'forms' | 'note_templates' | 'coach_services' | 'coach_resources' | 'coach_saved_workouts'
 
 type CoachAccess = {
   id: string
@@ -91,6 +92,8 @@ const GROUPS: {
   emptyLinkLabel: string
   fetchUrl: string
   nameField: string
+  // Optional extractor for endpoints that don't return a bare array.
+  extractList?: (raw: unknown) => Record<string, unknown>[]
 }[] = [
   { key: 'autoflows',      label: 'Autoflows',      table: 'autoflow_templates', emptyLink: '/coach/autoflows',      emptyLinkLabel: 'Go to Autoflows',      fetchUrl: '/api/coach/autoflows',      nameField: 'name' },
   { key: 'programs',       label: 'Programs',       table: 'programs',           emptyLink: '/coach/programs',       emptyLinkLabel: 'Go to Programs',       fetchUrl: '/api/coach/programs',       nameField: 'name' },
@@ -99,6 +102,11 @@ const GROUPS: {
   { key: 'note_templates', label: 'Note Templates', table: 'note_templates',     emptyLink: '/coach/note-templates', emptyLinkLabel: 'Go to Note Templates', fetchUrl: '/api/coach/note-templates', nameField: 'name' },
   { key: 'services',       label: 'Services',       table: 'coach_services',     emptyLink: '/coach/settings',       emptyLinkLabel: 'Go to Services',       fetchUrl: '/api/coach/services',       nameField: 'name' },
   { key: 'resources',      label: 'Resources',      table: 'coach_resources',    emptyLink: '/coach/resources',      emptyLinkLabel: 'Go to Resources',      fetchUrl: '/api/coach/resources',      nameField: 'name' },
+  { key: 'saved_workouts', label: 'Saved Workouts', table: 'coach_saved_workouts', emptyLink: '/coach/programs?tab=saved', emptyLinkLabel: 'Go to Saved Workouts', fetchUrl: '/api/coach/saved-workouts', nameField: 'name',
+    extractList: (raw) => {
+      const own = (raw as { own?: unknown[] })?.own
+      return Array.isArray(own) ? (own as Record<string, unknown>[]) : []
+    } },
 ]
 
 // ─── Publish modal ────────────────────────────────────────────────────────────
@@ -151,7 +159,10 @@ function PublishModal({
     setLoadingList(true)
     fetch(activeGroup.fetchUrl)
       .then((r) => r.json())
-      .then((data: Record<string, unknown>[]) => {
+      .then((raw: unknown) => {
+        const data = activeGroup.extractList
+          ? activeGroup.extractList(raw)
+          : (Array.isArray(raw) ? (raw as Record<string, unknown>[]) : [])
         const orgKey = activeGroup.key
         const publishedIds = new Set(orgTemplates[orgKey].map((t) => t.id))
         const list = data

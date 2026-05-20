@@ -25,14 +25,23 @@ export async function GET() {
 
   let orgTemplates: unknown[] = []
   if (membership) {
-    const { data } = await admin
-      .from('coach_saved_workouts')
-      .select('id, name, description, content, is_org_template, org_id, coach_id, created_at, updated_at')
-      .eq('is_org_template', true)
-      .eq('org_id', membership.org_id)
-      .neq('coach_id', coachId)
-      .order('created_at', { ascending: false })
-    orgTemplates = data ?? []
+    const [{ data }, { data: exclusions }] = await Promise.all([
+      admin
+        .from('coach_saved_workouts')
+        .select('id, name, description, content, is_org_template, org_id, coach_id, created_at, updated_at')
+        .eq('is_org_template', true)
+        .eq('org_id', membership.org_id)
+        .neq('coach_id', coachId)
+        .order('created_at', { ascending: false }),
+      admin
+        .from('org_template_exclusions')
+        .select('template_id')
+        .eq('org_id', membership.org_id)
+        .eq('template_table', 'coach_saved_workouts')
+        .eq('coach_id', coachId),
+    ])
+    const excluded = new Set((exclusions ?? []).map((e) => e.template_id as string))
+    orgTemplates = (data ?? []).filter((w) => !excluded.has((w as { id: string }).id))
   }
 
   return Response.json({
@@ -58,7 +67,7 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('coach_saved_workouts')
-    .insert({ coach_id: coachId, name, description, content })
+    .insert({ coach_id: coachId, created_by: coachId, name, description, content })
     .select('id, name, description, content, is_org_template, org_id, created_at, updated_at')
     .single()
 

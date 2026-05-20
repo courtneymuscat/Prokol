@@ -38,6 +38,9 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       }
       patch.is_org_template = true
       patch.org_id = membership.org_id
+      // Ensure created_by reflects the publisher so the org dashboard can
+      // attribute the row (mirrors the org templates POST flow).
+      patch.created_by = coachId
     } else {
       patch.is_org_template = false
       // Keep org_id so we know where it was published before; but it's no

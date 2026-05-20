@@ -15,12 +15,20 @@ CREATE TABLE IF NOT EXISTS coach_saved_workouts (
   coach_id          uuid NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   org_id            uuid REFERENCES organisations(id) ON DELETE SET NULL,
   is_org_template   boolean NOT NULL DEFAULT false,
+  -- Mirrors the other org-publishable tables (autoflow_templates, programs,
+  -- meal_plans, etc.) which all carry created_by — that column powers the
+  -- per-template "who published this" attribution in the org dashboard.
+  created_by        uuid REFERENCES profiles(id) ON DELETE SET NULL,
   name              text NOT NULL,
   description       text,
   content           jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at        timestamptz NOT NULL DEFAULT now(),
   updated_at        timestamptz NOT NULL DEFAULT now()
 );
+
+-- For environments that already have the table without created_by:
+ALTER TABLE coach_saved_workouts
+  ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES profiles(id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS coach_saved_workouts_coach_idx
   ON coach_saved_workouts (coach_id, created_at DESC);

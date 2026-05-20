@@ -326,7 +326,10 @@ function SavedWorkoutsTab({ orgName, orgRole }: { orgName: string | null; orgRol
 }
 
 export default function ProgramsPage() {
-  const [tab, setTab] = useState<'programs' | 'saved'>('programs')
+  const [tab, setTab] = useState<'programs' | 'saved'>(() => {
+    if (typeof window === 'undefined') return 'programs'
+    return new URLSearchParams(window.location.search).get('tab') === 'saved' ? 'saved' : 'programs'
+  })
   const [programs, setPrograms] = useState<ProgramSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)

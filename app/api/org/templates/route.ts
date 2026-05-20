@@ -12,6 +12,7 @@ type TemplateTable =
   | 'note_templates'
   | 'coach_services'
   | 'coach_resources'
+  | 'coach_saved_workouts'
 
 const VALID_TABLES: TemplateTable[] = [
   'autoflow_templates',
@@ -21,9 +22,10 @@ const VALID_TABLES: TemplateTable[] = [
   'note_templates',
   'coach_services',
   'coach_resources',
+  'coach_saved_workouts',
 ]
 
-const EMPTY = { autoflows: [], programs: [], meal_plans: [], forms: [], note_templates: [], services: [], resources: [] }
+const EMPTY = { autoflows: [], programs: [], meal_plans: [], forms: [], note_templates: [], services: [], resources: [], saved_workouts: [] }
 
 export async function GET() {
   const supabase = await createClient()
@@ -54,7 +56,7 @@ export async function GET() {
     }
   }
 
-  const [autoflows, programs, mealPlans, forms, noteTemplates, services, resources] = await Promise.all([
+  const [autoflows, programs, mealPlans, forms, noteTemplates, services, resources, savedWorkouts] = await Promise.all([
     admin.from('autoflow_templates').select('id, name, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
     admin.from('programs').select('id, name, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
     admin.from('meal_plans').select('id, name, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
@@ -62,6 +64,7 @@ export async function GET() {
     admin.from('note_templates').select('id, name, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
     admin.from('coach_services').select('id, name, price_label, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
     admin.from('coach_resources').select('id, name, type, url, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
+    admin.from('coach_saved_workouts').select('id, name, created_at, created_by').eq('org_id', membership.org_id).eq('is_org_template', true),
   ])
 
   function filter<T extends { id: string }>(items: T[] | null, table: string): T[] {
@@ -147,6 +150,7 @@ export async function GET() {
       ...buildAccess(noteTemplates.data, 'note_templates'),
       ...buildAccess(services.data, 'coach_services'),
       ...buildAccess(resources.data, 'coach_resources'),
+      ...buildAccess(savedWorkouts.data, 'coach_saved_workouts'),
     }
   }
 
@@ -158,6 +162,7 @@ export async function GET() {
     note_templates: filter(noteTemplates.data, 'note_templates'),
     services: filter(services.data, 'coach_services'),
     resources: filter(resources.data, 'coach_resources'),
+    saved_workouts: filter(savedWorkouts.data, 'coach_saved_workouts'),
     access: accessByTemplate,
   })
 }
