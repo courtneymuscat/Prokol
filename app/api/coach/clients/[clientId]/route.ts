@@ -28,32 +28,72 @@ export async function GET(
   // Use admin client — coach is reading another user's data, RLS would block the regular client
   const admin = createAdminClient()
 
-  // Fetch form submissions linked to this client's check-in schedules
+  // Form submissions surface in the coach's Check-ins tab from two sources:
+  //   1. Forms attached to a checkin_schedule the coach assigned to this client
+  //   2. Forms attached to a step inside any client_autoflow assigned to this
+  //      coach for this client (e.g. an onboarding form linked from an
+  //      autoflow step or task)
+  // Originally only (1) was included, which silently hid onboarding form
+  // submissions from the coach view — even though the data was sitting in
+  // form_submissions all along.
+  const titleByFormId: Record<string, string> = {}
+
   const { data: checkinSchedules } = await admin
     .from('checkin_schedules')
     .select('form_id, title')
     .eq('client_id', clientId)
     .eq('coach_id', coachId)
 
-  const scheduleFormIds = (checkinSchedules ?? []).map((s) => s.form_id).filter(Boolean) as string[]
-  const scheduleTitleByFormId: Record<string, string> = {}
   for (const s of checkinSchedules ?? []) {
-    if (s.form_id) scheduleTitleByFormId[s.form_id] = s.title
+    if (s.form_id) titleByFormId[s.form_id] = s.title
   }
 
+  // Forms attached to autoflow template steps. Works for both the assigning
+  // coach's own templates and org templates (the join is by template_id
+  // regardless of owner; we get the form rows via admin).
+  const { data: assignedFlows } = await admin
+    .from('client_autoflows')
+    .select('template_id')
+    .eq('client_id', clientId)
+    .eq('coach_id', coachId)
+  const assignedTemplateIds = [...new Set((assignedFlows ?? []).map((f) => f.template_id).filter(Boolean) as string[])]
+  if (assignedTemplateIds.length) {
+    const { data: stepRows } = await admin
+      .from('autoflow_template_steps')
+      .select('template_id, step_number, form_id, title')
+      .in('template_id', assignedTemplateIds)
+      .not('form_id', 'is', null)
+    const stepFormIds = [...new Set((stepRows ?? []).map((r) => (r as Record<string, unknown>).form_id as string | null).filter(Boolean) as string[])]
+    if (stepFormIds.length) {
+      const { data: stepForms } = await admin
+        .from('forms')
+        .select('id, title')
+        .in('id', stepFormIds)
+      const formTitleById = Object.fromEntries((stepForms ?? []).map((f) => [f.id, f.title]))
+      for (const r of stepRows ?? []) {
+        const fid = (r as Record<string, unknown>).form_id as string
+        if (!titleByFormId[fid]) {
+          titleByFormId[fid] = formTitleById[fid] ?? (r as Record<string, unknown>).title as string ?? 'Autoflow form'
+        }
+      }
+    }
+  }
+
+  const allRelevantFormIds = Object.keys(titleByFormId)
+
   let formCheckIns: { id: string; form_id: string; title: string; submitted_at: string; viewed_by_coach: boolean; coach_feedback: string | null }[] = []
-  if (scheduleFormIds.length) {
+  if (allRelevantFormIds.length) {
     const { data: subs } = await admin
       .from('form_submissions')
       .select('id, form_id, submitted_at, viewed_by_coach, coach_feedback')
-      .in('form_id', scheduleFormIds)
+      .in('form_id', allRelevantFormIds)
       .eq('client_id', clientId)
       .order('submitted_at', { ascending: false })
-      .limit(20)
+      .limit(40)
     formCheckIns = (subs ?? []).map((s) => ({
       id: s.id,
       form_id: s.form_id,
-      title: scheduleTitleByFormId[s.form_id] ?? 'Check-in',
+      title: titleByFormId[s.form_id] ?? 'Check-in',
       submitted_at: s.submitted_at,
       viewed_by_coach: (s as Record<string, unknown>).viewed_by_coach as boolean ?? false,
       coach_feedback: (s as Record<string, unknown>).coach_feedback as string | null ?? null,

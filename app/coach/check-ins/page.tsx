@@ -72,24 +72,53 @@ export default async function CoachCheckInsPage() {
       })
     }
 
-    // Form submissions linked to check-in schedules
+    // Form submissions surfaced from BOTH sources:
+    //   1. Forms attached to a checkin_schedule
+    //   2. Forms attached to an autoflow_template_step (e.g. onboarding form
+    //      linked from an autoflow step) — these were previously invisible
+    //      to the coach in this feed
+    const formMeta: Record<string, { title: string; client_id?: string }> = {}
+
     const { data: schedules } = await admin
       .from('checkin_schedules')
       .select('form_id, title, client_id')
       .in('client_id', clientIds)
       .eq('coach_id', coachId)
-
-    const scheduleFormIds = (schedules ?? []).map((s) => s.form_id).filter(Boolean) as string[]
-    const scheduleMeta: Record<string, { title: string; client_id: string }> = {}
     for (const s of schedules ?? []) {
-      if (s.form_id) scheduleMeta[s.form_id] = { title: s.title, client_id: s.client_id }
+      if (s.form_id) formMeta[s.form_id] = { title: s.title, client_id: s.client_id }
     }
 
-    if (scheduleFormIds.length) {
+    // Pull forms attached to autoflow steps in any flow this coach assigned
+    const { data: assignedFlowsForForms } = await admin
+      .from('client_autoflows')
+      .select('template_id')
+      .in('client_id', clientIds)
+      .eq('coach_id', coachId)
+    const flowTemplateIds = [...new Set((assignedFlowsForForms ?? []).map((f) => f.template_id).filter(Boolean) as string[])]
+    if (flowTemplateIds.length) {
+      const { data: stepRows } = await admin
+        .from('autoflow_template_steps')
+        .select('form_id')
+        .in('template_id', flowTemplateIds)
+        .not('form_id', 'is', null)
+      const stepFormIds = [...new Set((stepRows ?? []).map((r) => (r as Record<string, unknown>).form_id as string | null).filter(Boolean) as string[])]
+      if (stepFormIds.length) {
+        const { data: stepForms } = await admin
+          .from('forms')
+          .select('id, title')
+          .in('id', stepFormIds)
+        for (const f of stepForms ?? []) {
+          if (!formMeta[f.id]) formMeta[f.id] = { title: f.title }
+        }
+      }
+    }
+
+    const allFormIds = Object.keys(formMeta)
+    if (allFormIds.length) {
       const { data: subs } = await admin
         .from('form_submissions')
         .select('id, form_id, client_id, submitted_at, viewed_by_coach')
-        .in('form_id', scheduleFormIds)
+        .in('form_id', allFormIds)
         .in('client_id', clientIds)
         .or(`viewed_by_coach.eq.false,submitted_at.gte.${sevenDaysAgo}`)
         .order('submitted_at', { ascending: false })
@@ -101,7 +130,7 @@ export default async function CoachCheckInsPage() {
           client_id: s.client_id,
           date: s.submitted_at,
           form_id: s.form_id,
-          title: scheduleMeta[s.form_id]?.title ?? 'Check-in',
+          title: formMeta[s.form_id]?.title ?? 'Check-in',
           reviewed: (s as Record<string, unknown>).viewed_by_coach as boolean ?? false,
         })
       }
