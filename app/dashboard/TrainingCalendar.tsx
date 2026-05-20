@@ -268,14 +268,18 @@ function getWorkoutsForDate(
 
 function eventColour(type: string): string {
   switch (type) {
-    case 'workout':        return 'bg-blue-100 text-blue-800 border-blue-200'
+    // Workouts (manual log + scheduled program workouts) own indigo — high
+    // signal and visually distinct from the sky-blue used for travel.
+    case 'workout':        return 'bg-indigo-100 text-indigo-800 border-indigo-200'
+    // Autoflow (tasks + check-in prompts) → amber so they stand out from
+    // workouts and travel rather than blending into the blue family.
+    case 'autoflow':       return 'bg-amber-100 text-amber-800 border-amber-200'
     case 'steps':          return 'bg-green-100 text-green-800 border-green-200'
     case 'note':           return 'bg-yellow-100 text-yellow-800 border-yellow-200'
     case 'personal':       return 'bg-orange-100 text-orange-800 border-orange-200'
     case 'birthday':       return 'bg-pink-100 text-pink-800 border-pink-200'
     case 'travel':         return 'bg-sky-100 text-sky-800 border-sky-200'
     case 'extra_activity': return 'bg-emerald-100 text-emerald-800 border-emerald-200'
-    case 'autoflow':       return 'bg-indigo-100 text-indigo-800 border-indigo-200'
     default:               return 'bg-teal-100 text-teal-800 border-teal-200'
   }
 }
@@ -1499,13 +1503,13 @@ function DayDetailSheet({ date, workouts, events, onClose, onWorkoutTap, onAddEv
                   key={ev.id}
                   type="button"
                   onClick={() => { onClose(); onOwnWorkoutTap?.(ev) }}
-                  className="w-full text-left rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 hover:bg-blue-100 transition-colors active:scale-[0.98]"
+                  className="w-full text-left rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 hover:bg-indigo-100 transition-colors active:scale-[0.98]"
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-base flex-shrink-0">💪</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-blue-900 truncate">{ev.title}</p>
-                      <p className="text-xs text-blue-600 mt-0.5">Tap to view or edit</p>
+                      <p className="text-sm font-semibold text-indigo-900 truncate">{ev.title}</p>
+                      <p className="text-xs text-indigo-600 mt-0.5">Tap to view or edit</p>
                     </div>
                     <svg className="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
