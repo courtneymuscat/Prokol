@@ -174,7 +174,9 @@ export default async function CoachLayout({ children }: { children: React.ReactN
           tier={tier}
         />
       </Suspense>
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div
+        className="flex-1 min-w-0 flex flex-col md:pt-0 md:pb-0 pt-[calc(72px+env(safe-area-inset-top,0px))] pb-[calc(80px+env(safe-area-inset-bottom,0px))]"
+      >
         {children}
       </div>
     </div>
