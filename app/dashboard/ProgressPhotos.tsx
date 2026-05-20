@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
+import { notifyMyCoach } from '@/lib/notifyMyCoach'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 type Category = 'front' | 'back' | 'side_left' | 'side_right'
@@ -112,6 +113,7 @@ function UploadModal({ onClose, onUploaded }: {
     const { data: signed } = await supabase.storage.from('progress-photos').createSignedUrl(path, 3600)
 
     onUploaded({ ...row, url: signed?.signedUrl ?? '' })
+    notifyMyCoach('photo')
     setUploading(false)
     onClose()
   }

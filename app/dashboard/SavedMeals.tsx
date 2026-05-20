@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { notifyMyCoach } from '@/lib/notifyMyCoach'
 import { Card } from '@/components/ui/card'
 
 type MealItem = {
@@ -147,6 +148,7 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
 
     setLoggedId(meal.id)
     setTimeout(() => setLoggedId(null), 2500)
+    notifyMyCoach('food')
     // Signal DailyLog to re-fetch
     window.dispatchEvent(new CustomEvent('meal-logged'))
   }

@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { notifyMyCoach } from '@/lib/notifyMyCoach'
 
 type ScannedItem = {
   food_name: string
@@ -168,6 +169,7 @@ export default function MealScanModal({ mealKey, date, onLogged, onClose }: Prop
       setLogging(false)
       return
     }
+    notifyMyCoach('food')
 
     onLogged()
     onClose()

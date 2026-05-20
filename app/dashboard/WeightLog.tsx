@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { notifyMyCoach } from '@/lib/notifyMyCoach'
 import { Card } from '@/components/ui/card'
 
 function todayLocal() {
@@ -176,6 +177,7 @@ export default function WeightLog({ initialHistory = [] }: { initialHistory?: We
     setDate(todayLocal())
     setSuccess(true)
     setTimeout(() => setSuccess(false), 3000)
+    notifyMyCoach('weight')
     window.dispatchEvent(new Event('weight-logged'))
     router.refresh()
     setPending(false)

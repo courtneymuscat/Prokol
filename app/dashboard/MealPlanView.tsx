@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { notifyMyCoach } from '@/lib/notifyMyCoach'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -311,6 +312,7 @@ function LogMealModal({ slot, onClose }: { slot: MealSlot; onClose: () => void }
     const { error: insertErr } = await supabase.from('food_logs').insert(rows)
     if (insertErr) { setError(insertErr.message); setLogging(false); return }
 
+    notifyMyCoach('food')
     window.dispatchEvent(new CustomEvent('meal-logged'))
     setDone(true)
     setLogging(false)

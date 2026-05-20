@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { notifyCoachOfClientLog } from '@/lib/coach-notifications'
 import type { NextRequest } from 'next/server'
 
 export async function GET(req: NextRequest) {
@@ -69,5 +70,8 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return Response.json({ error: error.message }, { status: 400 })
+
+  notifyCoachOfClientLog(user.id, 'habit').catch(() => {})
+
   return Response.json(data)
 }

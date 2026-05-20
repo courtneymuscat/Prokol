@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { notifyCoachOfClientLog } from '@/lib/coach-notifications'
 import type { NextRequest } from 'next/server'
 
 // POST /api/workouts/program-session
@@ -50,7 +51,8 @@ export async function POST(req: NextRequest) {
   }
 
   if (existing) {
-    // Update existing result
+    // Update existing result — no notification, the coach was already pinged
+    // when the workout was first logged.
     const { data, error } = await admin
       .from('calendar_events')
       .update({ content, title: day_name })
@@ -76,5 +78,8 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (error) return Response.json({ error: error.message }, { status: 400 })
+
+  notifyCoachOfClientLog(user.id, 'workout').catch(() => {})
+
   return Response.json(data)
 }

@@ -94,6 +94,78 @@ function CycleReminderCard({ clientId }: { clientId: string }) {
   )
 }
 
+// ── Coach notification prefs ──────────────────────────────────────────────────
+
+type NotifyEvent = 'food' | 'weight' | 'cycle' | 'workout' | 'habit' | 'photo'
+
+const NOTIFY_ROWS: { key: NotifyEvent; label: string; sub: string }[] = [
+  { key: 'workout', label: 'Workout completed',  sub: 'When the client finishes a programmed workout' },
+  { key: 'food',    label: 'Food log',           sub: 'When the client logs a food entry, photo, or note' },
+  { key: 'photo',   label: 'Progress photo',     sub: 'When the client uploads a progress photo' },
+  { key: 'weight',  label: 'Weigh-in',           sub: 'When the client logs a body weight' },
+  { key: 'cycle',   label: 'Cycle log',          sub: 'When the client updates their cycle tracker' },
+  { key: 'habit',   label: 'Habit log',          sub: 'When the client checks off a daily habit' },
+]
+
+function CoachNotificationPrefsCard({ clientId }: { clientId: string }) {
+  const [prefs, setPrefs] = useState<Record<NotifyEvent, boolean> | null>(null)
+  const [saving, setSaving] = useState<NotifyEvent | null>(null)
+
+  useEffect(() => {
+    fetch(`/api/coach/clients/${clientId}/notification-prefs`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { if (d) setPrefs(d) })
+      .catch(() => {/* silent */})
+  }, [clientId])
+
+  async function toggle(event: NotifyEvent) {
+    if (!prefs) return
+    const next = { ...prefs, [event]: !prefs[event] }
+    setPrefs(next)
+    setSaving(event)
+    try {
+      const res = await fetch(`/api/coach/clients/${clientId}/notification-prefs`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [event]: next[event] }),
+      })
+      if (!res.ok) setPrefs(prefs) // revert
+    } catch {
+      setPrefs(prefs)
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border p-4">
+      <div className="mb-3">
+        <p className="text-sm font-semibold text-gray-900">Your notifications</p>
+        <p className="text-xs text-gray-400 mt-0.5">Get a push when this client logs activity. Each toggle only affects you.</p>
+      </div>
+      {!prefs ? (
+        <p className="text-xs text-gray-400">Loading…</p>
+      ) : (
+        <div className="space-y-3">
+          {NOTIFY_ROWS.map((row) => (
+            <div key={row.key} className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm text-gray-800">{row.label}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{row.sub}</p>
+              </div>
+              <Toggle
+                checked={prefs[row.key]}
+                onChange={() => toggle(row.key)}
+                disabled={saving === row.key}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Phone frame ───────────────────────────────────────────────────────────────
 
 function PhoneFrame({ children, bottomNav }: { children: React.ReactNode; bottomNav: React.ReactNode }) {
@@ -393,6 +465,9 @@ export default function AppPreviewTab({
 
         {/* Cycle tracking reminders */}
         <CycleReminderCard clientId={clientId} />
+
+        {/* Coach push notifications for this client's activity */}
+        <CoachNotificationPrefsCard clientId={clientId} />
 
         {/* Visible sections summary */}
         <div className="bg-white rounded-2xl border p-4 space-y-2">

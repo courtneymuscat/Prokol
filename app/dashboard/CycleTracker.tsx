@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { notifyMyCoach } from '@/lib/notifyMyCoach'
 import { Card } from '@/components/ui/card'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -863,6 +864,7 @@ export default function CycleTracker({ advancedAccess = true }: { advancedAccess
     }, { onConflict: 'user_id,log_date' })
     setLogs((prev) => ({ ...prev, [log.log_date]: log }))
     setHistoricLogs((prev) => ({ ...prev, [log.log_date]: log }))
+    notifyMyCoach('cycle')
     setSaving(false)
   }
 

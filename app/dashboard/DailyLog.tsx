@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
+import { notifyMyCoach } from '@/lib/notifyMyCoach'
 import FoodSearch, { type FoodResult } from './FoodSearch'
 import EditFoodLogForm from './EditFoodLogForm'
 import MealScanModal from './MealScanModal'
@@ -238,6 +239,8 @@ export default function DailyLog({
       return
     }
 
+    notifyMyCoach('food')
+
     // Save to history (non-blocking)
     supabase.from('user_food_history').insert({
       user_id: session.user.id,
@@ -300,7 +303,10 @@ export default function DailyLog({
           notes: log.notes,
         }))
 
-    if (logsToInsert.length) await supabase.from('food_logs').insert(logsToInsert)
+    if (logsToInsert.length) {
+      await supabase.from('food_logs').insert(logsToInsert)
+      notifyMyCoach('food')
+    }
     setIsCopying(false)
     setCopyingMeal(null)
     setCopyTargetDate('')

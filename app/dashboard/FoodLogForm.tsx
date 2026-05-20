@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import FoodSearch, { type FoodResult } from './FoodSearch'
 import { Card } from '@/components/ui/card'
+import { notifyMyCoach } from '@/lib/notifyMyCoach'
 
 export default function FoodLogForm() {
   const router = useRouter()
@@ -74,6 +75,7 @@ export default function FoodLogForm() {
       setCarbs('')
       setFat('')
       ;(e.target as HTMLFormElement).reset()
+      notifyMyCoach('food')
       router.refresh()
     }
 
