@@ -35,20 +35,14 @@ ALTER TABLE coach_saved_workouts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "coach_manage_own_saved_workouts" ON coach_saved_workouts
   FOR ALL USING (coach_id = auth.uid());
 
--- Coaches in the same org can read org templates published by anyone in
--- that org. They cannot edit/delete — that policy is the owner-manage
--- one above.
-CREATE POLICY "org_members_read_saved_workout_templates" ON coach_saved_workouts
-  FOR SELECT USING (
-    is_org_template = true
-    AND org_id IS NOT NULL
-    AND EXISTS (
-      SELECT 1 FROM org_members
-      WHERE org_members.org_id = coach_saved_workouts.org_id
-        AND org_members.user_id = auth.uid()
-        AND org_members.is_active = true
-    )
-  );
+-- NOTE: we intentionally do NOT add an "org members can read templates"
+-- RLS policy here. The natural way to write it (EXISTS SELECT FROM
+-- org_members WHERE ...) triggers infinite recursion against org_members'
+-- own policies, which in turn breaks the post-insert SELECT round-trip
+-- on this table. Instead, the API route GET /api/coach/saved-workouts
+-- fetches org templates via the service-role admin client, bypassing
+-- RLS for that read path. All writes still go through the owner-manage
+-- policy above.
 
 -- Touch trigger to keep updated_at fresh
 CREATE OR REPLACE FUNCTION touch_coach_saved_workouts_updated_at()
