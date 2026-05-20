@@ -49,6 +49,14 @@ function toDateStr(date: Date) {
   return `${y}-${m}-${d}`
 }
 
+type CalSectionExerciseRef = {
+  id: string
+  name: string
+  category?: string
+  equipment?: string
+  video_url?: string | null
+}
+
 type CalWorkoutItem = {
   type: 'exercise' | 'section'
   id: string
@@ -58,6 +66,7 @@ type CalWorkoutItem = {
   scoreType?: string
   scoreValue?: string
   sets?: Array<{ setNumber: number; reps: string; weight: string }>
+  exercises?: CalSectionExerciseRef[]
 }
 
 type CalWorkoutForDate = {
@@ -282,6 +291,36 @@ function CoachWorkoutModal({ workout, clientId, clientTimezone, onClose }: {
                     )}
                   </div>
                   {item.notes && <p className="text-xs text-indigo-800 whitespace-pre-line leading-relaxed">{item.notes}</p>}
+                  {/* Reference exercises listed by the coach for this section */}
+                  {(item.exercises?.length ?? 0) > 0 && (
+                    <div className="space-y-1 pt-0.5">
+                      {(item.exercises ?? []).map((ex) => (
+                        <div key={ex.id} className="flex items-center gap-2 bg-white/70 border border-indigo-100 rounded-lg px-2.5 py-1.5">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-indigo-900 truncate">{ex.name}</p>
+                            {(ex.category || ex.equipment) && (
+                              <p className="text-[10px] text-indigo-600/70 capitalize">
+                                {[ex.category, ex.equipment].filter(Boolean).join(' · ')}
+                              </p>
+                            )}
+                          </div>
+                          {ex.video_url && (
+                            <a
+                              href={ex.video_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-50 hover:bg-red-100 transition-colors"
+                              title="Watch demo"
+                            >
+                              <svg className="w-3 h-3 text-red-600 ml-0.5" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {hasScore && result && (
                     <div className="flex items-center gap-2 pt-1">
                       <span className="text-xs text-gray-500">Client score:</span>
