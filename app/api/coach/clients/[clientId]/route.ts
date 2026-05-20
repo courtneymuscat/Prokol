@@ -211,15 +211,33 @@ export async function GET(
       overrideMetaMap[ov.client_autoflow_id][ov.step_number] = patch
     }
 
+    // Helper: extract a form id from a task's link_url. The autoflow editor
+    // writes either a bare uuid, a /forms/<id> path, or a full URL with the
+    // id as the last path segment (sometimes followed by a return query).
+    function extractFormIdFromLink(url: string | null | undefined): string | null {
+      if (!url) return null
+      const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+      const match = url.match(uuidPattern)
+      return match ? match[0] : null
+    }
+
     // Pre-resolve resources + form titles + form submissions across all steps,
     // so each check-in entry can carry its linked artefacts forward without
-    // an N+1 lookup per row.
+    // an N+1 lookup per row. Also includes form IDs referenced from tasks
+    // (where link_type='form'), so those task links can be re-pointed at
+    // the actual submission viewer instead of the blank form.
     const allResourceIds = new Set<string>()
     const allFormIds = new Set<string>()
     for (const tplMap of Object.values(stepMetaByTemplate)) {
       for (const meta of Object.values(tplMap)) {
         for (const rid of meta.resource_ids) allResourceIds.add(rid)
         if (meta.form_id) allFormIds.add(meta.form_id)
+        for (const t of meta.tasks) {
+          if (t.link_type === 'form') {
+            const fid = extractFormIdFromLink(t.link_url)
+            if (fid) allFormIds.add(fid)
+          }
+        }
       }
     }
     const resourceById: Record<string, { id: string; name: string; type: string; url: string | null }> = {}
@@ -268,14 +286,42 @@ export async function GET(
 
       // Tasks with completion status derived from the response's answers
       // (the client UI writes `task_<id>: 'done' | 'skipped'` on submit).
-      const tasks = (tplMeta?.tasks ?? []).map((t) => ({
-        id: t.id,
-        label: t.label,
-        link_type: t.link_type ?? null,
-        link_url: t.link_url ?? null,
-        link_label: t.link_label ?? null,
-        completed: answers[`task_${t.id}`] === 'done',
-      }))
+      // For tasks that link to a form, swap the link to the actual response
+      // viewer if the client has submitted — so the coach lands on the
+      // filled-in form, not the blank template.
+      const tasks = (tplMeta?.tasks ?? []).map((t) => {
+        let linkUrl = t.link_url ?? null
+        let submissionId: string | null = null
+        if (t.link_type === 'form') {
+          const fid = extractFormIdFromLink(t.link_url)
+          if (fid) {
+            const subs = formSubmissionsByForm[fid] ?? []
+            const stepAt = new Date(r.submitted_at).getTime()
+            let best: { id: string; submitted_at: string } | null = null
+            for (const s of subs) {
+              const subAt = new Date(s.submitted_at).getTime()
+              if (subAt <= stepAt) {
+                if (!best || new Date(best.submitted_at).getTime() < subAt) best = s
+              }
+            }
+            if (!best && subs.length) best = subs[0]
+            if (best) {
+              submissionId = best.id
+              // Re-point coach link at the response viewer
+              linkUrl = `/coach/forms/${fid}/responses/${best.id}`
+            }
+          }
+        }
+        return {
+          id: t.id,
+          label: t.label,
+          link_type: t.link_type ?? null,
+          link_url: linkUrl,
+          link_label: t.link_label ?? null,
+          completed: answers[`task_${t.id}`] === 'done',
+          submission_id: submissionId,
+        }
+      })
 
       // Linked form: title + most relevant submission (nearest to the
       // step's submitted_at, falling back to the most recent submission).

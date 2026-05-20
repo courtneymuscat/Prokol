@@ -106,7 +106,7 @@ type AutoflowCheckIn = {
   reviewed_by_coach?: boolean
   coach_feedback?: string | null
   resources?: { id: string; name: string; type: string; url: string | null }[]
-  tasks?: { id: string; label: string; link_type?: string | null; link_url?: string | null; link_label?: string | null; completed: boolean }[]
+  tasks?: { id: string; label: string; link_type?: string | null; link_url?: string | null; link_label?: string | null; completed: boolean; submission_id?: string | null }[]
   linked_form?: { id: string; title: string; submission_id: string | null } | null
 }
 
@@ -2109,7 +2109,7 @@ function ExpandableAutoflowCheckIn({ item, clientId, onDelete }: { item: Autoflo
             {item.step_title ? <span className="text-gray-600">: {item.step_title}</span> : null}
           </p>
           {item.step_description ? (
-            <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{item.step_description}</p>
+            <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-wrap break-words">{item.step_description}</p>
           ) : (
             <p className="text-xs text-gray-400 mt-0.5">Autoflow check-in</p>
           )}
@@ -2165,28 +2165,43 @@ function ExpandableAutoflowCheckIn({ item, clientId, onDelete }: { item: Autoflo
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 space-y-1">
               <p className="text-[10px] font-semibold text-yellow-700 uppercase tracking-wide">Tasks</p>
               <div className="space-y-0.5">
-                {(item.tasks ?? []).map((task) => (
-                  <div key={task.id} className="flex items-center gap-2 text-xs">
-                    <span className={`inline-flex w-3.5 h-3.5 rounded border items-center justify-center flex-shrink-0 ${task.completed ? 'bg-yellow-600 border-yellow-600' : 'border-yellow-300 bg-white'}`}>
-                      {task.completed && (
-                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
+                {(item.tasks ?? []).map((task) => {
+                  // When this task linked to a form and the client has a
+                  // matching submission, the API already swapped link_url to
+                  // /coach/forms/<id>/responses/<submissionId>. Reflect that
+                  // in the visible label so the coach knows the click takes
+                  // them to the filled-in form, not a blank one.
+                  const isFormTaskWithSubmission = task.link_type === 'form' && !!task.submission_id
+                  const linkLabel = isFormTaskWithSubmission
+                    ? 'View response →'
+                    : task.link_label || (task.link_type === 'form' ? 'Open form' : task.link_type === 'resource' ? 'Open resource' : 'Open link')
+                  const linkTarget = task.link_type === 'resource' ? '_blank' : '_self'
+                  return (
+                    <div key={task.id} className="flex items-center gap-2 text-xs">
+                      <span className={`inline-flex w-3.5 h-3.5 rounded border items-center justify-center flex-shrink-0 ${task.completed ? 'bg-yellow-600 border-yellow-600' : 'border-yellow-300 bg-white'}`}>
+                        {task.completed && (
+                          <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </span>
+                      <span className={task.completed ? 'text-gray-500 line-through' : 'text-gray-800'}>{task.label}</span>
+                      {task.link_url && (
+                        <a
+                          href={task.link_url}
+                          target={linkTarget}
+                          rel="noopener noreferrer"
+                          className={`text-[10px] underline hover:text-yellow-900 ${isFormTaskWithSubmission ? 'text-amber-700 font-semibold' : 'text-yellow-700'}`}
+                        >
+                          {linkLabel}
+                        </a>
                       )}
-                    </span>
-                    <span className={task.completed ? 'text-gray-500 line-through' : 'text-gray-800'}>{task.label}</span>
-                    {task.link_url && (
-                      <a
-                        href={task.link_url}
-                        target={task.link_type === 'form' ? '_self' : '_blank'}
-                        rel="noopener noreferrer"
-                        className="text-[10px] text-yellow-700 underline hover:text-yellow-900"
-                      >
-                        {task.link_label || (task.link_type === 'form' ? 'form' : task.link_type === 'resource' ? 'resource' : 'link')}
-                      </a>
-                    )}
-                  </div>
-                ))}
+                      {task.link_type === 'form' && !task.submission_id && (
+                        <span className="text-[10px] text-yellow-600 italic">(not submitted)</span>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
