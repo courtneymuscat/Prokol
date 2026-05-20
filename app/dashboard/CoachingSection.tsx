@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import AutoflowTasksPanel from './AutoflowTasksPanel'
 import ScheduledCheckIns from './ScheduledCheckIns'
+import TodaysWorkoutCard from './TodaysWorkoutCard'
 
 export default function CoachingSection() {
   const [tasksEmpty, setTasksEmpty] = useState<boolean | null>(null)
@@ -13,6 +14,7 @@ export default function CoachingSection() {
 
   return (
     <>
+      <TodaysWorkoutCard />
       <AutoflowTasksPanel onEmpty={setTasksEmpty} />
       <ScheduledCheckIns onEmpty={setCheckInsEmpty} />
       {bothLoaded && bothEmpty && (

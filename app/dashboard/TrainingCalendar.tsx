@@ -969,7 +969,7 @@ function WorkoutModal({ workout, onClose, onSaved, onMoved }: {
             const inGroup = !!(meta?.supersetId && meta.groupSize >= 2)
             const groupLabel = inGroup && meta?.supersetId ? `${supersetLabelById.get(meta.supersetId)}${meta.positionInGroup}` : null
             const exerciseCard = (
-              <div className={`rounded-xl px-4 py-3 space-y-2 ${inGroup ? 'border-2 border-purple-200 bg-purple-50/40' : 'border border-gray-100'}`}>
+              <div className={`rounded-xl px-4 py-3 space-y-2 ${inGroup ? 'bg-transparent' : 'border border-gray-100'}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-800">
@@ -1139,14 +1139,31 @@ function WorkoutModal({ workout, onClose, onSaved, onMoved }: {
                 )}
               </div>
             )
-            // Wrap the card with a superset header on the first member so the
-            // client sees the group + alternation reminder before the block.
+            // Render each superset member inside a continuous purple-bordered
+            // container. The split-border + negative-margin trick collapses
+            // the parent's space-y-3 between members so the borders visually
+            // join into one rectangle around the whole group (header + all
+            // exercise cards).
             if (inGroup && meta?.isFirstInGroup) {
               return (
-                <div key={item.id} className="space-y-2">
+                <div key={item.id} className="rounded-t-2xl border-t-2 border-x-2 border-purple-200 bg-purple-50/40 px-2 pt-3 pb-1 space-y-2">
                   <p className="text-[10px] font-bold text-purple-700 uppercase tracking-widest px-1">
                     Superset {meta.supersetId ? supersetLabelById.get(meta.supersetId) : ''} — alternate sets between exercises
                   </p>
+                  {exerciseCard}
+                </div>
+              )
+            }
+            if (inGroup && meta?.isLastInGroup) {
+              return (
+                <div key={item.id} className="rounded-b-2xl border-b-2 border-x-2 border-purple-200 bg-purple-50/40 px-2 pb-2 -mt-3">
+                  {exerciseCard}
+                </div>
+              )
+            }
+            if (inGroup) {
+              return (
+                <div key={item.id} className="border-x-2 border-purple-200 bg-purple-50/40 px-2 -mt-3">
                   {exerciseCard}
                 </div>
               )
@@ -1686,6 +1703,7 @@ function DayCell({ date, workouts, events, isToday, isPast, compact, onWorkoutTa
 export default function TrainingCalendar() {
   const searchParams = useSearchParams()
   const deepLinkEventId = searchParams.get('event')
+  const openToday = searchParams.get('openToday') === '1'
 
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()))
   const [programs, setPrograms] = useState<ClientProgram[]>([])
@@ -1822,6 +1840,19 @@ export default function TrainingCalendar() {
       result: targetEvent,
     })
   }, [deepLinkEventId, loading, events, programs])
+
+  // ?openToday=1 — open today's program workout (if any) once we have data.
+  // Only fires once per mount; doesn't re-open if the modal is closed.
+  const openTodayHandled = useRef(false)
+  useEffect(() => {
+    if (!openToday || openTodayHandled.current || loading) return
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todaysWorkouts = getWorkoutsForDate(programs, today, events)
+    if (todaysWorkouts.length === 0) return
+    openTodayHandled.current = true
+    setViewingWorkout(todaysWorkouts[0])
+  }, [openToday, loading, programs, events])
 
   const goToPrevWeek = () => setWeekStart((d) => addDays(d, -7))
   const goToNextWeek = () => setWeekStart((d) => addDays(d, 7))
