@@ -135,7 +135,35 @@ export async function POST(
 
   const supabase = await createClient()
   const body = await req.json()
-  const { event_date, type, title, content, repeat_rule } = body
+  const { event_date, end_date, type, title, content, repeat_rule } = body
+
+  // Date range (consecutive days) — used for multi-day events like travel.
+  // Mutually exclusive with repeat_rule; if both arrive, range wins.
+  if (typeof end_date === 'string' && end_date > event_date) {
+    const [sy, sm, sd] = event_date.split('-').map(Number)
+    const [ey, em, ed] = end_date.split('-').map(Number)
+    let cursor = Date.UTC(sy, sm - 1, sd)
+    const last = Date.UTC(ey, em - 1, ed)
+    if (last - cursor > 366 * 86400000) {
+      return Response.json({ error: 'Range too long (max 1 year)' }, { status: 400 })
+    }
+    const rangeId = crypto.randomUUID()
+    const rows: Array<{ event_date: string; type: string; title: string; content: Record<string, unknown>; client_id: string; coach_id: string }> = []
+    while (cursor <= last) {
+      rows.push({
+        event_date: new Date(cursor).toISOString().split('T')[0],
+        type,
+        title,
+        content: { ...(content ?? {}), range_id: rangeId, range_start: event_date, range_end: end_date },
+        client_id: clientId,
+        coach_id: coachId,
+      })
+      cursor += 86400000
+    }
+    const { data, error } = await supabase.from('calendar_events').insert(rows).select()
+    if (error) return Response.json({ error: error.message }, { status: 400 })
+    return Response.json({ events: data })
+  }
 
   // No repeat — single event
   if (!repeat_rule) {

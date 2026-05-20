@@ -566,7 +566,7 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
   const [clientTimezone, setClientTimezone] = useState<string | null>(null)
   const datePickerRef = useRef<HTMLInputElement>(null)
   const [addingEvent, setAddingEvent] = useState<string | null>(null)
-  const [newEvent, setNewEvent] = useState({ type: 'task', title: '', content: '', repeat: 'none' })
+  const [newEvent, setNewEvent] = useState({ type: 'task', title: '', content: '', repeat: 'none', endDate: '' })
   const [saving, setSaving] = useState(false)
   const [deletingSeriesId, setDeletingSeriesId] = useState<string | null>(null)
   const [viewingWorkout, setViewingWorkout] = useState<CalWorkoutForDate | null>(null)
@@ -660,24 +660,29 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
   async function saveEvent(date: string) {
     if (!newEvent.title.trim()) return
     setSaving(true)
+    // Date range is only supported for travel for now. Only send end_date if
+    // it's strictly after the start so the API takes the single-event path
+    // for same-day "trips".
+    const usingRange = newEvent.type === 'travel' && !!newEvent.endDate && newEvent.endDate > date
     const res = await fetch(`/api/coach/clients/${clientId}/calendar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         event_date: date,
+        end_date: usingRange ? newEvent.endDate : undefined,
         type: newEvent.type,
         title: newEvent.title,
         content: newEvent.content ? { note: newEvent.content } : {},
-        repeat_rule: newEvent.repeat !== 'none' ? newEvent.repeat : undefined,
+        repeat_rule: !usingRange && newEvent.repeat !== 'none' ? newEvent.repeat : undefined,
       }),
     })
     if (res.ok) {
       const data = await res.json()
-      // API returns { events: [...] } for recurring, or a single event for one-off
+      // API returns { events: [...] } for recurring or range, or a single event
       const created = Array.isArray(data.events) ? data.events : [data]
       setEvents((prev) => [...prev, ...created])
     }
-    setAddingEvent(null); setNewEvent({ type: 'task', title: '', content: '', repeat: 'none' }); setSaving(false)
+    setAddingEvent(null); setNewEvent({ type: 'task', title: '', content: '', repeat: 'none', endDate: '' }); setSaving(false)
   }
 
   async function deleteEvent(id: string) {
@@ -1159,30 +1164,57 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
               } rows={2}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
 
-            {/* Repeat — available for all coach event types */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-gray-500">Repeat</label>
-              <select value={newEvent.repeat} onChange={(e) => setNewEvent((n) => ({ ...n, repeat: e.target.value }))}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                <option value="none">Does not repeat</option>
-                <option value="weekly">Every week</option>
-                <option value="biweekly">Every 2 weeks</option>
-                <option value="monthly">Every month</option>
-              </select>
-              {newEvent.repeat !== 'none' && (
-                <p className="text-[11px] text-gray-400">
-                  {newEvent.repeat === 'weekly' && `Repeats every ${new Date(addingEvent + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long' })} for 1 year`}
-                  {newEvent.repeat === 'biweekly' && `Repeats every 2 weeks on ${new Date(addingEvent + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long' })} for 1 year`}
-                  {newEvent.repeat === 'monthly' && `Repeats on the ${new Date(addingEvent + 'T00:00:00').getDate()}th of each month for 1 year`}
-                </p>
-              )}
-            </div>
+            {/* Travel-only: end date so the trip spans multiple days. */}
+            {newEvent.type === 'travel' && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-500">Return date <span className="text-gray-300">(optional)</span></label>
+                <input
+                  type="date"
+                  value={newEvent.endDate}
+                  min={addingEvent}
+                  onChange={(e) => setNewEvent((n) => ({ ...n, endDate: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {newEvent.endDate && newEvent.endDate > addingEvent && (
+                  <p className="text-[11px] text-gray-400">
+                    {`Marks every day from ${new Date(addingEvent + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })} to ${new Date(newEvent.endDate + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}.`}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Repeat — hidden when travel has a date range (mutually exclusive). */}
+            {!(newEvent.type === 'travel' && newEvent.endDate && newEvent.endDate > addingEvent) && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-500">Repeat</label>
+                <select value={newEvent.repeat} onChange={(e) => setNewEvent((n) => ({ ...n, repeat: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                  <option value="none">Does not repeat</option>
+                  <option value="weekly">Every week</option>
+                  <option value="biweekly">Every 2 weeks</option>
+                  <option value="monthly">Every month</option>
+                </select>
+                {newEvent.repeat !== 'none' && (
+                  <p className="text-[11px] text-gray-400">
+                    {newEvent.repeat === 'weekly' && `Repeats every ${new Date(addingEvent + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long' })} for 1 year`}
+                    {newEvent.repeat === 'biweekly' && `Repeats every 2 weeks on ${new Date(addingEvent + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long' })} for 1 year`}
+                    {newEvent.repeat === 'monthly' && `Repeats on the ${new Date(addingEvent + 'T00:00:00').getDate()}th of each month for 1 year`}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="flex gap-3">
               <button onClick={() => setAddingEvent(null)} className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50">Cancel</button>
               <button onClick={() => saveEvent(addingEvent)} disabled={!newEvent.title.trim() || saving}
                 className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
-                {saving ? 'Saving…' : newEvent.repeat !== 'none' ? 'Add recurring' : 'Add'}
+                {saving
+                  ? 'Saving…'
+                  : (newEvent.type === 'travel' && newEvent.endDate && newEvent.endDate > addingEvent)
+                    ? 'Add trip'
+                    : newEvent.repeat !== 'none'
+                      ? 'Add recurring'
+                      : 'Add'}
               </button>
             </div>
           </div>
