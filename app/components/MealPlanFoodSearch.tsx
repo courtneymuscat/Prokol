@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
+import { createClient } from '@/lib/supabase/client'
 
 const BarcodeScanner = dynamic(() => import('@/app/dashboard/BarcodeScanner'), { ssr: false })
 
@@ -633,6 +634,7 @@ function BarcodeLookupModal({ onFound, onClose }: {
 export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) => void }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<FoodResult[]>([])
+  const [recentFoods, setRecentFoods] = useState<FoodResult[]>([])
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
   const [showModal, setShowModal] = useState(false)
@@ -645,6 +647,16 @@ export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) 
   const [pendingMode, setPendingMode] = useState<'serving' | '100g' | 'custom'>('100g')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Pull the coach's most-recently-used foods so the dropdown can surface
+  // them before the coach types anything — same UX as the client food log,
+  // populated whenever they add a food to any meal plan (see confirmAdd).
+  useEffect(() => {
+    fetch('/api/foods/recent')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => { if (Array.isArray(d)) setRecentFoods(d) })
+      .catch(() => {/* silent */})
+  }, [])
 
   useEffect(() => {
     if (query.length < 2) { setResults([]); setOpen(false); return }
@@ -740,15 +752,43 @@ export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) 
     }
   }
 
-  function confirmAdd() {
+  async function confirmAdd() {
     if (!pendingFood) return
     const grams = effG(pendingFood.name, pendingQty, pendingUnit, pendingCustomPieceG)
-    onAdd(toMealFood(pendingFood, grams || 100))
+    const food = pendingFood
+    onAdd(toMealFood(food, grams || 100))
     setPendingFood(null)
     setPendingUnit('g')
     setPendingQty(100)
     setPendingCustomPieceG('')
     setPendingMode('100g')
+
+    // Fire-and-forget: stamp the coach's user_food_history so this food
+    // surfaces in the Recent dropdown next time. Same write pattern that
+    // populates the client-side recents from food logs.
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        await supabase.from('user_food_history').insert({
+          user_id: session.user.id,
+          food_id: food.id || null,
+          name: food.name,
+          calories_per_100g: food.calories_per_100g,
+          protein_per_100g: food.protein_per_100g,
+          carbs_per_100g: food.carbs_per_100g,
+          fat_per_100g: food.fat_per_100g,
+        })
+        // Optimistically prepend so the next dropdown opens with this food at top
+        setRecentFoods((prev) => {
+          const key = food.id || food.name
+          const filtered = prev.filter((f) => (f.id || f.name) !== key)
+          return [{ ...food }, ...filtered].slice(0, 10)
+        })
+      }
+    } catch {
+      // best-effort
+    }
   }
 
   return (
@@ -762,6 +802,7 @@ export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) 
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => { if (query.length < 2 && recentFoods.length > 0) setOpen(true) }}
             placeholder="Search foods to add…"
             className="w-full border border-gray-200 rounded-xl pl-9 pr-16 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -778,7 +819,19 @@ export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) 
         </div>
 
         {/* Inline dropdown */}
-        {open && results.length > 0 && (
+        {open && query.length < 2 && recentFoods.length > 0 && (
+          <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 max-h-72 overflow-y-auto">
+            <p className="px-4 pt-3 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wide">Recent foods</p>
+            <ul className="divide-y divide-gray-50 pb-1">
+              {recentFoods.map((food) => (
+                <li key={food.id || food.name}>
+                  <ResultRow food={food} onSelect={handleSelect} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {open && query.length >= 2 && results.length > 0 && (
           <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 max-h-72 overflow-y-auto divide-y divide-gray-50">
             {results.map((food, i) => (
               <ResultRow key={`${food.id}-${i}`} food={food} onSelect={handleSelect} />
