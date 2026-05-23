@@ -2,11 +2,25 @@
 
 import { useState, useEffect } from 'react'
 
+// Render a food's serving label as the coach intended it — keeping unit-based
+// servings (piece, cup, tbsp, etc.) visible alongside the gram total so the
+// coach sees the same thing the client sees.
+function formatServingLabel(food: { grams: number; serving_qty?: number; unit?: string }): string {
+  const u = food.unit
+  const g = food.grams
+  if (!u || u === 'g') return `${g}g`
+  if (u === 'ml') return `${g}ml`
+  const q = food.serving_qty
+  if (q == null) return `${g}g`
+  const unitLabel = u === 'piece' ? (q === 1 ? 'piece' : 'pieces') : u
+  return `${q} ${unitLabel} (${g}g)`
+}
+
 type ClientMealPlan = {
   id: string
   meal_plan_id: string | null
   name: string
-  content: { id: string; label: string; foods: { food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number }[] }[]
+  content: { id: string; label: string; foods: { food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number; serving_qty?: number; unit?: string }[] }[]
   start_date: string
   end_date: string | null
   status: string
@@ -353,7 +367,7 @@ export default function MealPlanTab({ clientId }: { clientId: string }) {
                         <div key={fi} className="flex items-center justify-between text-sm">
                           <span className="text-gray-800">{f.food_name}</span>
                           <div className="flex items-center gap-2 text-xs text-gray-400">
-                            <span>{f.grams}g</span>
+                            <span>{formatServingLabel(f)}</span>
                             <span className="font-medium text-gray-600">{f.calories} kcal</span>
                           </div>
                         </div>

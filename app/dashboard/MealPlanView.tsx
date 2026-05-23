@@ -10,6 +10,12 @@ type MealFood = {
   food_id?: string
   food_name: string
   grams: number
+  // When the coach builds the serving in a non-gram unit (piece, cup, tbsp,
+  // tsp, oz, ml), serving_qty + unit are persisted alongside grams so the
+  // client can see the recipe-style label ("2 pieces (150g)") instead of
+  // just the gram total.
+  serving_qty?: number
+  unit?: string
   calories: number
   protein: number
   carbs: number
@@ -17,6 +23,21 @@ type MealFood = {
   swapped_from?: string
   image_url?: string | null
   coach_note?: string | null
+}
+
+// Format a food's serving as the coach intended it. If the coach picked a
+// non-gram unit, show "<qty> <unit> (<grams>g)". Otherwise just "<grams>g".
+function formatServing(food: { grams: number; serving_qty?: number; unit?: string }): string {
+  const u = food.unit
+  const g = food.grams
+  if (!u || u === 'g') return `${g}g`
+  if (u === 'ml') return `${g}ml`
+  const q = food.serving_qty
+  if (q == null) return `${g}g`
+  // Pretty quantity: drop trailing .0 but keep .5/.25.
+  const qStr = Number.isInteger(q) ? String(q) : String(q)
+  const unitLabel = u === 'piece' ? (q === 1 ? 'piece' : 'pieces') : u
+  return `${qStr} ${unitLabel} (${g}g)`
 }
 
 type MealSlot = {
@@ -164,7 +185,7 @@ function SwapModal({ planId, mealIndex, foodIndex, original, onClose, onSwapped 
           <div className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3">
             <p className="text-xs text-gray-400 mb-1">Replacing</p>
             <p className="font-medium text-gray-800">{original.food_name}</p>
-            <p className="text-xs text-gray-500 mt-0.5">{original.grams}g · {original.calories} kcal</p>
+            <p className="text-xs text-gray-500 mt-0.5">{formatServing(original)} · {original.calories} kcal</p>
           </div>
 
           {/* Search */}
@@ -353,7 +374,7 @@ function LogMealModal({ slot, onClose }: { slot: MealSlot; onClose: () => void }
                 {slot.foods.map((f, i) => (
                   <div key={i} className="flex items-center justify-between text-xs">
                     <span className="text-gray-700 truncate mr-2">{f.food_name}</span>
-                    <span className="text-gray-400 flex-shrink-0">{f.grams}g · {f.calories} kcal</span>
+                    <span className="text-gray-400 flex-shrink-0">{formatServing(f)} · {f.calories} kcal</span>
                   </div>
                 ))}
               </div>
@@ -434,13 +455,13 @@ function FoodRow({ food, onSwap, showMacros }: FoodRowProps) {
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             {showMacros ? (
               <>
-                <span className="text-xs text-gray-400">{food.grams}g · {food.calories} kcal</span>
+                <span className="text-xs text-gray-400">{formatServing(food)} · {food.calories} kcal</span>
                 <MacroPill label="P" value={food.protein} colour="bg-rose-50 text-rose-600" />
                 <MacroPill label="C" value={food.carbs} colour="bg-indigo-50 text-indigo-500" />
                 <MacroPill label="F" value={food.fat} colour="bg-violet-50 text-violet-500" />
               </>
             ) : (
-              <span className="text-xs text-gray-400">{food.grams}g</span>
+              <span className="text-xs text-gray-400">{formatServing(food)}</span>
             )}
           </div>
         </div>
