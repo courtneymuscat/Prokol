@@ -1490,7 +1490,13 @@ function DayDetailSheet({ date, workouts, events, onClose, onWorkoutTap, onAddEv
           {/* Events */}
           {visibleEvents.map((ev) => {
             const isClientEvent = ['personal', 'travel', 'extra_activity', 'note'].includes(ev.type)
-            const autoflowLink = ev.type === 'autoflow' ? (ev.content as Record<string, unknown>)?.link as string | undefined : undefined
+            // Autoflow events carry their link as content.link (legacy).
+            // Coach-added events (task / note / custom) attach a resource
+            // via content.link_url (mirrors autoflow step task shape).
+            // Pick whichever is present so the card becomes tappable.
+            const contentRec = ev.content as Record<string, unknown>
+            const autoflowLink = (ev.type === 'autoflow' ? (contentRec?.link as string | undefined) : undefined)
+              ?? (contentRec?.link_url as string | undefined)
             const eventIcons: Record<string, string> = {
               personal: '🎉', travel: '✈️', extra_activity: '🏃', note: '📝',
               birthday: '🎂', autoflow: '📋', workout: '💪',

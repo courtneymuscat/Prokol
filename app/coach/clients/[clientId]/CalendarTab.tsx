@@ -566,7 +566,19 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
   const [clientTimezone, setClientTimezone] = useState<string | null>(null)
   const datePickerRef = useRef<HTMLInputElement>(null)
   const [addingEvent, setAddingEvent] = useState<string | null>(null)
-  const [newEvent, setNewEvent] = useState({ type: 'task', title: '', content: '', repeat: 'none', endDate: '' })
+  const [newEvent, setNewEvent] = useState({ type: 'task', title: '', content: '', repeat: 'none', endDate: '', resourceId: '' })
+  // Coach's resource library — lazy-loaded the first time the Add Event
+  // modal opens so the coach can attach a single resource to a task /
+  // note / custom event (mirrors autoflow step resources).
+  type CoachResource = { id: string; name: string; type: string; url: string | null }
+  const [coachResources, setCoachResources] = useState<CoachResource[] | null>(null)
+  useEffect(() => {
+    if (!addingEvent || coachResources !== null) return
+    fetch('/api/coach/resources')
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setCoachResources(Array.isArray(d) ? d : []))
+      .catch(() => setCoachResources([]))
+  }, [addingEvent, coachResources])
   const [saving, setSaving] = useState(false)
   const [deletingSeriesId, setDeletingSeriesId] = useState<string | null>(null)
   const [viewingWorkout, setViewingWorkout] = useState<CalWorkoutForDate | null>(null)
@@ -664,6 +676,22 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
     // it's strictly after the start so the API takes the single-event path
     // for same-day "trips".
     const usingRange = newEvent.type === 'travel' && !!newEvent.endDate && newEvent.endDate > date
+    // Build the content blob from optional note + optional resource link.
+    // The resource link mirrors the autoflow shape so the client app's
+    // existing link rendering picks it up without any further wiring.
+    const linkedResource = (coachResources ?? []).find((r) => r.id === newEvent.resourceId)
+    const content: Record<string, unknown> = {}
+    if (newEvent.content) content.note = newEvent.content
+    if (linkedResource) {
+      content.link_type = 'resource'
+      content.link_resource_id = linkedResource.id
+      content.link_label = linkedResource.name
+      // Prefer the resource's direct URL (videos / external links). For
+      // uploaded files where the URL is null, fall back to the client's
+      // resources hub so the tap-through still lands them somewhere
+      // useful.
+      content.link_url = linkedResource.url ?? '/resources'
+    }
     const res = await fetch(`/api/coach/clients/${clientId}/calendar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -672,7 +700,7 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
         end_date: usingRange ? newEvent.endDate : undefined,
         type: newEvent.type,
         title: newEvent.title,
-        content: newEvent.content ? { note: newEvent.content } : {},
+        content,
         repeat_rule: !usingRange && newEvent.repeat !== 'none' ? newEvent.repeat : undefined,
       }),
     })
@@ -682,7 +710,7 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
       const created = Array.isArray(data.events) ? data.events : [data]
       setEvents((prev) => [...prev, ...created])
     }
-    setAddingEvent(null); setNewEvent({ type: 'task', title: '', content: '', repeat: 'none', endDate: '' }); setSaving(false)
+    setAddingEvent(null); setNewEvent({ type: 'task', title: '', content: '', repeat: 'none', endDate: '', resourceId: '' }); setSaving(false)
   }
 
   async function deleteEvent(id: string) {
@@ -1163,6 +1191,31 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
                 'Notes (optional)'
               } rows={2}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+
+            {/* Optional resource attachment — for coach-driven event types
+                where a "do this thing" usually points the client at a
+                guide / video / handout. Same shape autoflow steps use, so
+                the client app's existing link rendering picks it up. */}
+            {['task', 'note', 'custom', 'habit', 'steps'].includes(newEvent.type) && coachResources && coachResources.length > 0 && (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-500">Attach resource <span className="text-gray-300">(optional)</span></label>
+                <select
+                  value={newEvent.resourceId}
+                  onChange={(e) => setNewEvent((n) => ({ ...n, resourceId: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">None</option>
+                  {coachResources.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}{r.type ? ` · ${r.type}` : ''}
+                    </option>
+                  ))}
+                </select>
+                {newEvent.resourceId && (
+                  <p className="text-[11px] text-gray-400">Client can tap the task to open the resource.</p>
+                )}
+              </div>
+            )}
 
             {/* Travel-only: end date so the trip spans multiple days. */}
             {newEvent.type === 'travel' && (
