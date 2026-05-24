@@ -133,16 +133,28 @@ function FoodRow({
     fat: food._fat_per_100g ?? (food.grams > 0 ? (food.fat / food.grams) * 100 : 0),
   })
 
+  // Restore the per-piece gram value from the saved row — customPieceG
+  // isn't persisted directly, it's derived from grams ÷ serving_qty when
+  // the food uses 'piece' without a known weight. Without this the row
+  // would reload with "1 piece = ___g" empty and effG would fall to 0.
+  function initialCustomPieceG(f: MealFood): string {
+    if (((f.unit as ServingUnit) || 'g') !== 'piece') return ''
+    if (pieceWeightFor(f.food_name)) return ''
+    const q = f.serving_qty ?? 0
+    if (q > 0 && f.grams > 0) return String(Math.round((f.grams / q) * 10) / 10)
+    return ''
+  }
+
   const [unit, setUnit] = useState<ServingUnit>(() => (food.unit as ServingUnit) || 'g')
   const [qty, setQty] = useState<number>(food.serving_qty ?? food.grams)
-  const [customPieceG, setCustomPieceG] = useState('')
+  const [customPieceG, setCustomPieceG] = useState(() => initialCustomPieceG(food))
 
   // Safety net: if a different food lands in this slot (key missed or _key absent), sync state from new props
   const foodIdentity = food._key ?? food.food_id ?? food.food_name
   useEffect(() => {
     setUnit((food.unit as ServingUnit) || 'g')
     setQty(food.serving_qty ?? food.grams)
-    setCustomPieceG('')
+    setCustomPieceG(initialCustomPieceG(food))
     p100.current = {
       cal: food._calories_per_100g ?? (food.grams > 0 ? (food.calories / food.grams) * 100 : 0),
       pro: food._protein_per_100g ?? (food.grams > 0 ? (food.protein / food.grams) * 100 : 0),
