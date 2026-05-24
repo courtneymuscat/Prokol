@@ -599,12 +599,12 @@ function WeeklySchedule({
                               placeholder="g"
                               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D9E75]"
                             />
-                            <input
-                              type="text"
+                            <textarea
                               value={wd[noteKey] ?? ''}
                               onChange={(e) => onUpdateWeekData(row.phase.id, row.weekIndexInPhase, { [noteKey]: e.target.value === '' ? null : e.target.value })}
                               placeholder="Note (e.g. why this target)"
-                              className="w-full border border-gray-100 bg-gray-50 rounded-xl px-3 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#1D9E75]/40 focus:bg-white placeholder:text-gray-400"
+                              rows={2}
+                              className="w-full border border-gray-100 bg-gray-50 rounded-xl px-3 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#1D9E75]/40 focus:bg-white placeholder:text-gray-400 resize-y break-words"
                             />
                           </div>
                         ))}

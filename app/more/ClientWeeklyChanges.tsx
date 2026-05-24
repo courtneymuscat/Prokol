@@ -302,7 +302,7 @@ export default function ClientWeeklyChanges() {
                                 <p className={`text-sm font-bold ${m.colour}`}>{m.value}g</p>
                                 <p className="text-[10px] text-gray-400">{m.label}</p>
                                 {m.note && (
-                                  <p className="text-[10px] text-gray-500 mt-1 leading-snug">{m.note}</p>
+                                  <p className="text-[10px] text-gray-500 mt-1 leading-snug whitespace-pre-wrap break-words">{m.note}</p>
                                 )}
                               </div>
                             ))}
