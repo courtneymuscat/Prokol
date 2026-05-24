@@ -704,6 +704,20 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
         repeat_rule: !usingRange && newEvent.repeat !== 'none' ? newEvent.repeat : undefined,
       }),
     })
+
+    // Auto-assign the resource to the client so it lands in their
+    // /resources hub too — not just as a one-off task link. Idempotent
+    // on the server (upsert by resource_id + client_id), and silent for
+    // org-template resources the coach doesn't own (the endpoint returns
+    // 404 in that case but those are already visible to the client via
+    // the org-share path, so nothing to do).
+    if (linkedResource) {
+      fetch(`/api/coach/clients/${clientId}/resources`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resource_id: linkedResource.id }),
+      }).catch(() => {/* best-effort */})
+    }
     if (res.ok) {
       const data = await res.json()
       // API returns { events: [...] } for recurring or range, or a single event
