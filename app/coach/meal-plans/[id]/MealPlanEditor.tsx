@@ -90,15 +90,27 @@ type MealSlot = {
   notes?: string
 }
 
+// 'goal' is the meal_plans.goal column — historically values like
+// cut/build/maintain, now used for diet type (omnivore/vegetarian/vegan/
+// pescatarian/other). Both forms still flow through the DB so we keep
+// the type loose.
 type MealPlan = {
   id: string
   name: string
-  goal: 'cut' | 'build' | 'maintain'
+  goal: string
   total_calories: number
   content: MealSlot[]
   created_at: string
   updated_at: string
 }
+
+const DIET_OPTIONS: { value: string; label: string }[] = [
+  { value: 'omnivore',    label: 'Omnivore' },
+  { value: 'vegetarian',  label: 'Vegetarian' },
+  { value: 'vegan',       label: 'Vegan' },
+  { value: 'pescatarian', label: 'Pescatarian' },
+  { value: 'other',       label: 'Other' },
+]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -575,6 +587,7 @@ export default function MealPlanEditor({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: updated.name,
+          goal: updated.goal,
           total_calories: Math.round(totals.calories),
           content: updated.content,
           push_to_clients: pushToClientsRef.current,
@@ -722,6 +735,26 @@ export default function MealPlanEditor({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                 </svg>
               </button>
+            )}
+            {!readOnly && (
+              <select
+                value={plan.goal}
+                onChange={(e) => {
+                  const next = { ...plan, goal: e.target.value }
+                  setPlan(next)
+                  scheduleSave(next)
+                }}
+                className="text-[11px] font-semibold border border-gray-200 rounded-full px-2 py-1 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                title="Diet type — controls the badge on the meal plan card"
+              >
+                {DIET_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+                {/* Surface any legacy value (e.g. 'cut') so it shows in the select instead of disappearing */}
+                {plan.goal && !DIET_OPTIONS.some((o) => o.value === plan.goal) && (
+                  <option value={plan.goal}>{plan.goal}</option>
+                )}
+              </select>
             )}
           </div>
           {orgContext && <CopiedFromOrgSubtitle ctx={orgContext} />}
