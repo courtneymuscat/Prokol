@@ -140,7 +140,11 @@ function mergeResults(local: FoodResult[], off: FoodResult[], query: string): Fo
   return [...combined].sort((a, b) => getRelevanceScore(b.name, terms) - getRelevanceScore(a.name, terms))
 }
 
-function toMealFood(r: FoodResult, grams?: number): MealFood {
+function toMealFood(
+  r: FoodResult,
+  grams?: number,
+  serving?: { qty: number; unit: ServingUnit },
+): MealFood {
   const defaultGrams = grams ?? r.serving_quantity ?? 100
   const factor = defaultGrams / 100
   return {
@@ -152,6 +156,10 @@ function toMealFood(r: FoodResult, grams?: number): MealFood {
     carbs:   Math.round(r.carbs_per_100g    * factor * 10) / 10,
     fat:     Math.round(r.fat_per_100g      * factor * 10) / 10,
     ...(r.image_url ? { image_url: r.image_url } : {}),
+    // Preserve the coach's serving choice (piece, cup, tbsp…) and quantity
+    // so the saved meal renders '2 pieces (150g)' on next load instead of
+    // collapsing back to bare grams.
+    ...(serving ? { serving_qty: serving.qty, unit: serving.unit } : {}),
     _calories_per_100g: r.calories_per_100g,
     _protein_per_100g: r.protein_per_100g,
     _carbs_per_100g: r.carbs_per_100g,
@@ -756,7 +764,7 @@ export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) 
     if (!pendingFood) return
     const grams = effG(pendingFood.name, pendingQty, pendingUnit, pendingCustomPieceG)
     const food = pendingFood
-    onAdd(toMealFood(food, grams || 100))
+    onAdd(toMealFood(food, grams || 100, { qty: pendingQty, unit: pendingUnit }))
     setPendingFood(null)
     setPendingUnit('g')
     setPendingQty(100)
