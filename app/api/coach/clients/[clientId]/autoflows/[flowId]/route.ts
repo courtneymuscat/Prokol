@@ -147,8 +147,11 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
       .eq('coach_id', coachId)
   }
 
-  // If due_date changed, update the corresponding calendar event
-  if (due_date !== undefined && due_date !== null) {
+  // Whenever the step title is touched OR the due_date changes, refresh
+  // the corresponding calendar event so the coach's calendar reflects
+  // the latest title. Effective title = client override ?? template
+  // step title.
+  if (title !== undefined || (due_date !== undefined && due_date !== null)) {
     const { data: templateStep } = await supabase
       .from('autoflow_template_steps')
       .select('title')
@@ -156,26 +159,48 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
       .eq('step_number', step_number)
       .single()
 
-    // Delete existing calendar event for this step
-    await supabase
-      .from('calendar_events')
-      .delete()
-      .eq('coach_id', coachId)
-      .eq('client_id', clientId)
-      .eq('type', 'autoflow')
-      .filter('content->>flow_id', 'eq', flowId)
-      .filter('content->>step_number', 'eq', String(step_number))
+    // Look up any title override we just upserted (might be null).
+    const { data: overrideRow } = await supabase
+      .from('client_autoflow_step_overrides')
+      .select('title')
+      .eq('client_autoflow_id', flowId)
+      .eq('step_number', step_number)
+      .maybeSingle()
 
-    // Create new calendar event on the override date
-    const title = `${flow.name} — Step ${step_number}${templateStep?.title ? `: ${templateStep.title}` : ''}`
-    await supabase.from('calendar_events').insert({
-      coach_id: coachId,
-      client_id: clientId,
-      event_date: due_date,
-      type: 'autoflow',
-      title,
-      content: { flow_id: flowId, step_number, link: `/autoflows/${flowId}/${step_number}` },
-    })
+    const effectiveStepTitle = overrideRow?.title ?? templateStep?.title ?? ''
+    const eventTitle = `${flow.name} — Step ${step_number}${effectiveStepTitle ? `: ${effectiveStepTitle}` : ''}`
+
+    if (due_date !== undefined && due_date !== null) {
+      // Date moved — recreate the event entirely on the new date.
+      await supabase
+        .from('calendar_events')
+        .delete()
+        .eq('coach_id', coachId)
+        .eq('client_id', clientId)
+        .eq('type', 'autoflow')
+        .filter('content->>flow_id', 'eq', flowId)
+        .filter('content->>step_number', 'eq', String(step_number))
+      await supabase.from('calendar_events').insert({
+        coach_id: coachId,
+        client_id: clientId,
+        event_date: due_date,
+        type: 'autoflow',
+        title: eventTitle,
+        content: { flow_id: flowId, step_number, link: `/autoflows/${flowId}/${step_number}` },
+      })
+    } else {
+      // Title-only change — update in place. Most steps have exactly one
+      // matching event but we use update (not single) so it tolerates
+      // edge cases (e.g. a duplicated row).
+      await supabase
+        .from('calendar_events')
+        .update({ title: eventTitle })
+        .eq('coach_id', coachId)
+        .eq('client_id', clientId)
+        .eq('type', 'autoflow')
+        .filter('content->>flow_id', 'eq', flowId)
+        .filter('content->>step_number', 'eq', String(step_number))
+    }
   }
 
   return Response.json({ ok: true })
@@ -214,7 +239,9 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     .eq('type', 'autoflow')
     .filter('content->>flow_id', 'eq', flowId)
 
-  // Fetch template steps + any per-step due_date overrides
+  // Fetch template steps + any per-step due_date / title overrides so the
+  // regenerated events reflect both the moved schedule AND any per-client
+  // title customisation the coach has applied.
   const [{ data: steps }, { data: overrides }] = await Promise.all([
     supabase
       .from('autoflow_template_steps')
@@ -223,12 +250,15 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       .order('step_number'),
     supabase
       .from('client_autoflow_step_overrides')
-      .select('step_number, due_date')
+      .select('step_number, due_date, title')
       .eq('client_autoflow_id', flowId),
   ])
 
   const overrideDates: Record<number, string> = Object.fromEntries(
     (overrides ?? []).filter(o => o.due_date).map(o => [o.step_number, o.due_date])
+  )
+  const overrideTitles: Record<number, string> = Object.fromEntries(
+    (overrides ?? []).filter(o => o.title).map(o => [o.step_number, o.title])
   )
 
   if (steps && steps.length > 0) {
@@ -239,12 +269,14 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
         // Prefer per-step override date; fall back to start_date + day_offset (UTC-safe)
         const eventDate = overrideDates[s.step_number]
           ?? new Date(Date.UTC(y, m - 1, d + s.day_offset)).toISOString().split('T')[0]
+        // Effective step title = client override ?? template's step title
+        const effectiveStepTitle = overrideTitles[s.step_number] ?? s.title ?? ''
         return {
           coach_id: coachId,
           client_id: clientId,
           event_date: eventDate,
           type: 'autoflow',
-          title: `${flow.name} — Step ${s.step_number}${s.title ? `: ${s.title}` : ''}`,
+          title: `${flow.name} — Step ${s.step_number}${effectiveStepTitle ? `: ${effectiveStepTitle}` : ''}`,
           content: { flow_id: flowId, step_number: s.step_number, link: `/autoflows/${flowId}/${s.step_number}` },
         }
       })

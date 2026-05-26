@@ -181,14 +181,19 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 
       if (activeFlows && activeFlows.length > 0) {
         for (const flow of activeFlows) {
-          // Fetch per-step due_date overrides for this client flow
+          // Fetch per-step due_date + title overrides for this client flow
+          // so the rebuilt calendar events keep any client-specific title
+          // customisation the coach previously applied.
           const { data: overrides } = await supabase
             .from('client_autoflow_step_overrides')
-            .select('step_number, due_date')
+            .select('step_number, due_date, title')
             .eq('client_autoflow_id', flow.id)
 
           const overrideDates: Record<number, string> = Object.fromEntries(
             (overrides ?? []).filter(o => o.due_date).map(o => [o.step_number, o.due_date])
+          )
+          const overrideTitles: Record<number, string> = Object.fromEntries(
+            (overrides ?? []).filter(o => o.title).map(o => [o.step_number, o.title])
           )
 
           // Delete old autoflow calendar events for this flow
@@ -204,15 +209,18 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
           const [y, m, d] = (flow.start_date as string).split('-').map(Number)
           const events = (steps as Array<{ step_number: number; title?: string; day_offset: number; trigger_type?: string }>)
             .filter((s) => s.trigger_type !== 'on_step_complete')
-            .map((s) => ({
-              coach_id: coachId,
-              client_id: flow.client_id,
-              event_date: overrideDates[s.step_number]
-                ?? new Date(Date.UTC(y, m - 1, d + s.day_offset)).toISOString().split('T')[0],
-              type: 'autoflow',
-              title: `${name} — Step ${s.step_number}${s.title ? `: ${s.title}` : ''}`,
-              content: { flow_id: flow.id, step_number: s.step_number, link: `/autoflows/${flow.id}/${s.step_number}` },
-            }))
+            .map((s) => {
+              const effectiveStepTitle = overrideTitles[s.step_number] ?? s.title ?? ''
+              return {
+                coach_id: coachId,
+                client_id: flow.client_id,
+                event_date: overrideDates[s.step_number]
+                  ?? new Date(Date.UTC(y, m - 1, d + s.day_offset)).toISOString().split('T')[0],
+                type: 'autoflow',
+                title: `${name} — Step ${s.step_number}${effectiveStepTitle ? `: ${effectiveStepTitle}` : ''}`,
+                content: { flow_id: flow.id, step_number: s.step_number, link: `/autoflows/${flow.id}/${s.step_number}` },
+              }
+            })
           if (events.length > 0) await supabase.from('calendar_events').insert(events)
         }
       }
