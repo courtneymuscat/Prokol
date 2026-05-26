@@ -358,6 +358,44 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
     }
   }
 
+  // Structural step edits from inside the client file. The server forks
+  // the template into a private clone on first use so the original
+  // template (and other clients on it) stays untouched.
+  const [busyStep, setBusyStep] = useState<{ action: 'dup' | 'del'; step: number } | null>(null)
+  async function duplicateStep(flowId: string, stepNumber: number) {
+    setBusyStep({ action: 'dup', step: stepNumber })
+    try {
+      const res = await fetch(`/api/coach/clients/${clientId}/autoflows/${flowId}/duplicate-step`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step_number: stepNumber }),
+      })
+      if (res.ok) {
+        const updated = await fetch(`/api/coach/clients/${clientId}/autoflows/${flowId}`).then(r => r.json())
+        if (!updated.error) setSelectedFlow(updated)
+      }
+    } finally {
+      setBusyStep(null)
+    }
+  }
+  async function deleteStep(flowId: string, stepNumber: number) {
+    if (!confirm(`Remove this step from the client's autoflow? Their responses for this step will be deleted. The original template and other clients on it are unaffected.`)) return
+    setBusyStep({ action: 'del', step: stepNumber })
+    try {
+      const res = await fetch(`/api/coach/clients/${clientId}/autoflows/${flowId}/delete-step`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step_number: stepNumber }),
+      })
+      if (res.ok) {
+        const updated = await fetch(`/api/coach/clients/${clientId}/autoflows/${flowId}`).then(r => r.json())
+        if (!updated.error) setSelectedFlow(updated)
+      }
+    } finally {
+      setBusyStep(null)
+    }
+  }
+
   if (loading) {
     return <div className="p-6 text-sm text-gray-400">Loading…</div>
   }
@@ -902,6 +940,33 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 11l6.536-6.536a2 2 0 012.828 2.828L11.828 13.828A2 2 0 0110 14H8v-2a2 2 0 01.586-1.414z" />
+                      </svg>
+                    </button>
+                  )}
+                  {/* Duplicate this step — forks the template into a
+                      private clone on first use so other clients aren't
+                      affected. */}
+                  <button
+                    onClick={() => duplicateStep(selectedFlow.id, s.step_number)}
+                    disabled={busyStep?.action === 'dup' && busyStep.step === s.step_number}
+                    className="text-gray-300 hover:text-blue-500 transition-colors disabled:opacity-40"
+                    title="Duplicate this step (just for this client)"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                  {/* Delete this step — also forks first, so only this
+                      client loses the step. */}
+                  {!s.response && (
+                    <button
+                      onClick={() => deleteStep(selectedFlow.id, s.step_number)}
+                      disabled={busyStep?.action === 'del' && busyStep.step === s.step_number}
+                      className="text-gray-300 hover:text-red-500 transition-colors disabled:opacity-40"
+                      title="Remove this step (just for this client)"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     </button>
                   )}

@@ -25,6 +25,8 @@ export default async function CoachAutoflowsPage() {
       .select('id, name, description, type, total_steps, created_at')
       .eq('coach_id', coachId)
       .eq('is_org_template', false)
+      // Hide per-client forked templates (see lib/autoflow-fork)
+      .eq('is_client_only', false)
       .is('archived_at', null)
       .order('created_at', { ascending: false }),
     fetchOrgTemplatesForCoach<AutoflowRow>(

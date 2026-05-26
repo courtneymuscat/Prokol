@@ -24,6 +24,9 @@ export async function GET(req: NextRequest) {
       .from('autoflow_templates')
       .select('id, name, description, type, total_steps, created_at, archived_at')
       .eq('coach_id', coachId)
+      // Hide per-client forked templates from the main library — they're
+      // bespoke clones tied to one client only.
+      .eq('is_client_only', false)
       .filter('archived_at', archivedView ? 'not.is' : 'is', null)
       .order('created_at', { ascending: false }),
     archivedView
