@@ -537,11 +537,16 @@ function MealSlotCard({
               />
             </label>
           </div>
+          <p className="text-[10px] text-gray-400 mt-1.5 leading-snug">
+            {slot.foods.length > 0
+              ? 'Plan total comes from the foods below. These targets are reference only while foods are present.'
+              : 'These targets count toward the plan total.'}
+          </p>
         </div>
       )}
 
       {/* Foods list */}
-      {slot.foods.length === 0 && (
+      {slot.foods.length === 0 && !hasAnyTarget(slot) && (
         <p className="text-xs text-gray-400 text-center py-3">No foods yet. Search below to add.</p>
       )}
       <div className="divide-y divide-gray-50">
@@ -555,16 +560,26 @@ function MealSlotCard({
         ))}
       </div>
 
-      {/* Macro totals row */}
-      {slot.foods.length > 0 && (
-        <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] text-gray-400 font-semibold uppercase tracking-wide">Total:</span>
-          <span className="text-[11px] text-orange-500 font-semibold">{Math.round(slotMacros.cal)} kcal</span>
-          <span className="text-[11px] text-teal-500 font-semibold">P {slotMacros.p.toFixed(1)}g</span>
-          <span className="text-[11px] text-green-500 font-semibold">C {slotMacros.c.toFixed(1)}g</span>
-          <span className="text-[11px] text-blue-400 font-semibold">F {slotMacros.f.toFixed(1)}g</span>
-        </div>
-      )}
+      {/* Macro totals row — always shown when meal has foods OR targets,
+          reflecting whichever contributes to the plan total. */}
+      {(slot.foods.length > 0 || hasAnyTarget(slot)) && (() => {
+        const fromFoods = slot.foods.length > 0
+        const totalCal = fromFoods ? slotMacros.cal : (slot.target_calories ?? 0)
+        const totalP = fromFoods ? slotMacros.p : (slot.target_protein ?? 0)
+        const totalC = fromFoods ? slotMacros.c : (slot.target_carbs ?? 0)
+        const totalF = fromFoods ? slotMacros.f : (slot.target_fat ?? 0)
+        return (
+          <div className="mt-2 pt-2 border-t border-gray-100 flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] text-gray-400 font-semibold uppercase tracking-wide">
+              Total{fromFoods ? '' : ' (from target)'}:
+            </span>
+            <span className="text-[11px] text-orange-500 font-semibold">{Math.round(totalCal)} kcal</span>
+            <span className="text-[11px] text-teal-500 font-semibold">P {totalP.toFixed(1)}g</span>
+            <span className="text-[11px] text-green-500 font-semibold">C {totalC.toFixed(1)}g</span>
+            <span className="text-[11px] text-blue-400 font-semibold">F {totalF.toFixed(1)}g</span>
+          </div>
+        )
+      })()}
 
       {/* Notes / recipe */}
       <div className="mt-3 pt-3 border-t border-gray-100">
