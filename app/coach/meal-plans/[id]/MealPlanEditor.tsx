@@ -88,6 +88,19 @@ type MealSlot = {
   label: string
   foods: MealFood[]
   notes?: string
+  target_calories?: number | null
+  target_protein?: number | null
+  target_carbs?: number | null
+  target_fat?: number | null
+}
+
+function hasAnyTarget(slot: MealSlot): boolean {
+  return (
+    (slot.target_calories ?? 0) > 0 ||
+    (slot.target_protein ?? 0) > 0 ||
+    (slot.target_carbs ?? 0) > 0 ||
+    (slot.target_fat ?? 0) > 0
+  )
 }
 
 // 'goal' is the meal_plans.goal column — historically values like
@@ -333,6 +346,8 @@ function MealSlotCard({
   onMoveDown: () => void
 }) {
   const [editingLabel, setEditingLabel] = useState(false)
+  const targetsAlreadySet = hasAnyTarget(slot)
+  const [showTargets, setShowTargets] = useState(targetsAlreadySet)
 
   const slotMacros = slot.foods.reduce(
     (acc, f) => ({
@@ -356,6 +371,11 @@ function MealSlotCard({
 
   function addFood(food: MealFood) {
     onChange({ ...slot, foods: [...slot.foods, withKey(food)] })
+  }
+
+  function updateTarget(field: 'target_calories' | 'target_protein' | 'target_carbs' | 'target_fat', val: string) {
+    const n = val === '' ? null : Math.max(0, Number(val) || 0)
+    onChange({ ...slot, [field]: n })
   }
 
   return (
@@ -390,7 +410,9 @@ function MealSlotCard({
         <div className="flex items-center gap-1 flex-shrink-0">
           {/* Macros summary */}
           <span className="text-[11px] text-gray-400 font-medium mr-1">
-            {Math.round(slotMacros.cal)} kcal
+            {(slot.target_calories ?? 0) > 0
+              ? `${Math.round(slotMacros.cal)} / ${slot.target_calories} kcal`
+              : `${Math.round(slotMacros.cal)} kcal`}
           </span>
 
           {/* Move up/down */}
@@ -427,6 +449,78 @@ function MealSlotCard({
           </button>
         </div>
       </div>
+
+      {/* Per-meal targets */}
+      {!showTargets ? (
+        <button
+          type="button"
+          onClick={() => setShowTargets(true)}
+          className="text-[11px] text-gray-300 hover:text-blue-600 transition-colors mb-3"
+        >
+          + Set meal target
+        </button>
+      ) : (
+        <div className="mb-3 bg-gray-50 rounded-xl px-3 py-2.5 border border-gray-100">
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Meal target</p>
+            {!targetsAlreadySet && (
+              <button
+                type="button"
+                onClick={() => setShowTargets(false)}
+                className="text-[10px] text-gray-300 hover:text-gray-500"
+              >
+                Hide
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            <label className="block">
+              <span className="text-[10px] text-gray-400 block mb-0.5">kcal</span>
+              <input
+                type="number"
+                min={0}
+                value={slot.target_calories ?? ''}
+                onChange={(e) => updateTarget('target_calories', e.target.value)}
+                placeholder="0"
+                className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[10px] text-teal-500 block mb-0.5">Protein (g)</span>
+              <input
+                type="number"
+                min={0}
+                value={slot.target_protein ?? ''}
+                onChange={(e) => updateTarget('target_protein', e.target.value)}
+                placeholder="0"
+                className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[10px] text-green-500 block mb-0.5">Carbs (g)</span>
+              <input
+                type="number"
+                min={0}
+                value={slot.target_carbs ?? ''}
+                onChange={(e) => updateTarget('target_carbs', e.target.value)}
+                placeholder="0"
+                className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              />
+            </label>
+            <label className="block">
+              <span className="text-[10px] text-blue-400 block mb-0.5">Fat (g)</span>
+              <input
+                type="number"
+                min={0}
+                value={slot.target_fat ?? ''}
+                onChange={(e) => updateTarget('target_fat', e.target.value)}
+                placeholder="0"
+                className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              />
+            </label>
+          </div>
+        </div>
+      )}
 
       {/* Foods list */}
       {slot.foods.length === 0 && (

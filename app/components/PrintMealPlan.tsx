@@ -21,6 +21,10 @@ type MealSlot = {
   label: string
   foods: MealFood[]
   notes?: string
+  target_calories?: number | null
+  target_protein?: number | null
+  target_carbs?: number | null
+  target_fat?: number | null
 }
 
 export type PrintablePlan = {
@@ -185,6 +189,12 @@ export default function PrintMealPlan({
             )}
             {plan.content.map((slot, i) => {
               const slotTotals = computeTotals([slot])
+              const hasCalTarget = (slot.target_calories ?? 0) > 0
+              const targetParts: string[] = []
+              if (hasCalTarget) targetParts.push(`${slot.target_calories} kcal`)
+              if ((slot.target_protein ?? 0) > 0) targetParts.push(`P ${slot.target_protein}g`)
+              if ((slot.target_carbs ?? 0) > 0) targetParts.push(`C ${slot.target_carbs}g`)
+              if ((slot.target_fat ?? 0) > 0) targetParts.push(`F ${slot.target_fat}g`)
               return (
                 <div key={slot.id ?? i} className="meal-slot">
                   <div className="flex items-baseline justify-between gap-3 mb-2">
@@ -195,6 +205,12 @@ export default function PrintMealPlan({
                       </p>
                     )}
                   </div>
+                  {showMacros && targetParts.length > 0 && (
+                    <p className="text-[11px] text-gray-500 mb-2">
+                      <span className="font-semibold uppercase tracking-wide text-gray-400">Target </span>
+                      {targetParts.join(' · ')}
+                    </p>
+                  )}
 
                   {slot.foods.length === 0 ? (
                     <p className="text-xs text-gray-400 italic pl-1">No foods added.</p>

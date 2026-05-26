@@ -45,6 +45,10 @@ type MealSlot = {
   label: string
   foods: MealFood[]
   notes?: string
+  target_calories?: number | null
+  target_protein?: number | null
+  target_carbs?: number | null
+  target_fat?: number | null
 }
 
 type ClientMealPlan = {
@@ -626,12 +630,23 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
       {/* Meal slots */}
       {plan.content.map((slot, mealIndex) => {
         const slotCalories = slot.foods.reduce((s, f) => s + f.calories, 0)
+        const hasCalTarget = (slot.target_calories ?? 0) > 0
+        const hasMacroTarget =
+          (slot.target_protein ?? 0) > 0 ||
+          (slot.target_carbs ?? 0) > 0 ||
+          (slot.target_fat ?? 0) > 0
         return (
           <div key={slot.id} className="rounded-xl border border-gray-200 overflow-hidden bg-white">
             <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
               <span className="font-semibold text-sm text-gray-800">{slot.label}</span>
               <div className="flex items-center gap-2">
-                {showMacros && <span className="text-xs text-gray-400">{Math.round(slotCalories)} kcal</span>}
+                {showMacros && (
+                  <span className="text-xs text-gray-400">
+                    {hasCalTarget
+                      ? `${Math.round(slotCalories)} / ${slot.target_calories} kcal`
+                      : `${Math.round(slotCalories)} kcal`}
+                  </span>
+                )}
                 {slot.foods.length > 0 && (
                   <button
                     onClick={() => setLogTarget(slot)}
@@ -642,6 +657,20 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
                 )}
               </div>
             </div>
+            {showMacros && hasMacroTarget && (
+              <div className="px-4 py-2 bg-gray-50/60 border-b border-gray-100 flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Target</span>
+                {(slot.target_protein ?? 0) > 0 && (
+                  <span className="text-[11px] text-rose-500 font-medium">P {slot.target_protein}g</span>
+                )}
+                {(slot.target_carbs ?? 0) > 0 && (
+                  <span className="text-[11px] text-indigo-500 font-medium">C {slot.target_carbs}g</span>
+                )}
+                {(slot.target_fat ?? 0) > 0 && (
+                  <span className="text-[11px] text-violet-500 font-medium">F {slot.target_fat}g</span>
+                )}
+              </div>
+            )}
             <div className="px-4 py-1">
               {slot.foods.length === 0 ? (
                 <p className="text-xs text-gray-300 italic py-3">No foods in this meal</p>
