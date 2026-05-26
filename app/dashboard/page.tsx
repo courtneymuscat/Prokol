@@ -301,14 +301,28 @@ export default async function DashboardPage() {
     const plan = planRes.data
     if (plan && profile) {
       type MealFood = { calories?: number; protein?: number; carbs?: number; fat?: number }
-      type MealSlot = { foods?: MealFood[] }
+      type MealSlot = {
+        foods?: MealFood[]
+        target_calories?: number | null
+        target_protein?: number | null
+        target_carbs?: number | null
+        target_fat?: number | null
+      }
       let cal = 0, pro = 0, carb = 0, fat = 0
       for (const slot of (Array.isArray(plan.content) ? plan.content : []) as MealSlot[]) {
-        for (const food of (Array.isArray(slot?.foods) ? slot.foods : []) as MealFood[]) {
-          cal  += Number(food?.calories) || 0
-          pro  += Number(food?.protein)  || 0
-          carb += Number(food?.carbs)    || 0
-          fat  += Number(food?.fat)      || 0
+        const foods = (Array.isArray(slot?.foods) ? slot.foods : []) as MealFood[]
+        if (foods.length > 0) {
+          for (const food of foods) {
+            cal  += Number(food?.calories) || 0
+            pro  += Number(food?.protein)  || 0
+            carb += Number(food?.carbs)    || 0
+            fat  += Number(food?.fat)      || 0
+          }
+        } else {
+          cal  += Number(slot?.target_calories) || 0
+          pro  += Number(slot?.target_protein)  || 0
+          carb += Number(slot?.target_carbs)    || 0
+          fat  += Number(slot?.target_fat)      || 0
         }
       }
       if (cal > 0 || (plan.total_calories ?? 0) > 0) {

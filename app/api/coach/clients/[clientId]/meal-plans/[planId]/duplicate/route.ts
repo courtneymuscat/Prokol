@@ -4,16 +4,30 @@ import { requireCoach } from '@/lib/coach'
 import type { NextRequest } from 'next/server'
 
 type MealFood = { calories?: number; protein?: number; carbs?: number; fat?: number }
-type MealSlot = { foods?: MealFood[] }
+type MealSlot = {
+  foods?: MealFood[]
+  target_calories?: number | null
+  target_protein?: number | null
+  target_carbs?: number | null
+  target_fat?: number | null
+}
 
 function computeMacros(content: unknown) {
   let calories = 0, protein = 0, carbs = 0, fat = 0
   for (const slot of (Array.isArray(content) ? content : []) as MealSlot[]) {
-    for (const food of (Array.isArray(slot?.foods) ? slot.foods : []) as MealFood[]) {
-      calories += Number(food?.calories) || 0
-      protein  += Number(food?.protein)  || 0
-      carbs    += Number(food?.carbs)    || 0
-      fat      += Number(food?.fat)      || 0
+    const foods = (Array.isArray(slot?.foods) ? slot.foods : []) as MealFood[]
+    if (foods.length > 0) {
+      for (const food of foods) {
+        calories += Number(food?.calories) || 0
+        protein  += Number(food?.protein)  || 0
+        carbs    += Number(food?.carbs)    || 0
+        fat      += Number(food?.fat)      || 0
+      }
+    } else {
+      calories += Number(slot?.target_calories) || 0
+      protein  += Number(slot?.target_protein)  || 0
+      carbs    += Number(slot?.target_carbs)    || 0
+      fat      += Number(slot?.target_fat)      || 0
     }
   }
   return {
