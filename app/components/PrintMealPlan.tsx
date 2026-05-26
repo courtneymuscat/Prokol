@@ -52,11 +52,18 @@ function formatServing(food: MealFood): string {
 function computeTotals(content: MealSlot[]) {
   let calories = 0, protein = 0, carbs = 0, fat = 0
   for (const slot of content) {
-    for (const food of slot.foods) {
-      calories += food.calories
-      protein += food.protein
-      carbs += food.carbs
-      fat += food.fat
+    if (slot.foods.length > 0) {
+      for (const food of slot.foods) {
+        calories += food.calories
+        protein += food.protein
+        carbs += food.carbs
+        fat += food.fat
+      }
+    } else {
+      calories += slot.target_calories ?? 0
+      protein += slot.target_protein ?? 0
+      carbs += slot.target_carbs ?? 0
+      fat += slot.target_fat ?? 0
     }
   }
   return { calories, protein, carbs, fat }

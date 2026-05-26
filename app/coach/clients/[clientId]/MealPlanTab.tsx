@@ -20,7 +20,7 @@ type ClientMealPlan = {
   id: string
   meal_plan_id: string | null
   name: string
-  content: { id: string; label: string; foods: { food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number; serving_qty?: number; unit?: string }[] }[]
+  content: { id: string; label: string; foods: { food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number; serving_qty?: number; unit?: string }[]; target_calories?: number | null; target_protein?: number | null; target_carbs?: number | null; target_fat?: number | null }[]
   start_date: string
   end_date: string | null
   status: string
@@ -254,7 +254,10 @@ export default function MealPlanTab({ clientId }: { clientId: string }) {
       )}
 
       {assignments.map((plan) => {
-        const totalCals = plan.content.reduce((a, slot) => a + slot.foods.reduce((b, f) => b + f.calories, 0), 0)
+        const totalCals = plan.content.reduce((a, slot) => {
+          if (slot.foods.length > 0) return a + slot.foods.reduce((b, f) => b + f.calories, 0)
+          return a + (slot.target_calories ?? 0)
+        }, 0)
         const isEditingDates = editingDatesId === plan.id
         return (
           <div key={plan.id} className={`bg-white rounded-2xl border overflow-hidden ${plan.status !== 'active' ? 'opacity-75' : ''}`}>

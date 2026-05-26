@@ -569,22 +569,36 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
   const [swapTarget, setSwapTarget] = useState<{ mealIndex: number; foodIndex: number } | null>(null)
   const [logTarget, setLogTarget] = useState<MealSlot | null>(null)
 
-  const totalCalories = plan.content.reduce(
-    (sum, slot) => sum + slot.foods.reduce((s, f) => s + f.calories, 0),
-    0
+  const slotContribution = (slot: MealSlot) => {
+    if (slot.foods.length > 0) {
+      return slot.foods.reduce(
+        (acc, f) => ({
+          cal: acc.cal + f.calories,
+          p: acc.p + f.protein,
+          c: acc.c + f.carbs,
+          f: acc.f + f.fat,
+        }),
+        { cal: 0, p: 0, c: 0, f: 0 }
+      )
+    }
+    return {
+      cal: slot.target_calories ?? 0,
+      p: slot.target_protein ?? 0,
+      c: slot.target_carbs ?? 0,
+      f: slot.target_fat ?? 0,
+    }
+  }
+  const dailyTotals = plan.content.reduce(
+    (acc, slot) => {
+      const s = slotContribution(slot)
+      return { cal: acc.cal + s.cal, p: acc.p + s.p, c: acc.c + s.c, f: acc.f + s.f }
+    },
+    { cal: 0, p: 0, c: 0, f: 0 }
   )
-  const totalProtein = plan.content.reduce(
-    (sum, slot) => sum + slot.foods.reduce((s, f) => s + f.protein, 0),
-    0
-  )
-  const totalCarbs = plan.content.reduce(
-    (sum, slot) => sum + slot.foods.reduce((s, f) => s + f.carbs, 0),
-    0
-  )
-  const totalFat = plan.content.reduce(
-    (sum, slot) => sum + slot.foods.reduce((s, f) => s + f.fat, 0),
-    0
-  )
+  const totalCalories = dailyTotals.cal
+  const totalProtein = dailyTotals.p
+  const totalCarbs = dailyTotals.c
+  const totalFat = dailyTotals.f
 
   const swapFood =
     swapTarget != null
