@@ -397,6 +397,15 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
                       placeholder={q.type === 'note' ? 'Note text…' : q.type === 'section' ? 'Section heading…' : 'Question…'}
                       className="w-full border border-blue-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
                     />
+                    {q.type !== 'note' && q.type !== 'section' && (
+                      <textarea
+                        value={q.description ?? ''}
+                        onChange={e => updateCoreQuestion(i, { description: e.target.value })}
+                        placeholder="Description (optional — shown under the question to give the client context)"
+                        rows={2}
+                        className="w-full border border-blue-100 rounded-lg px-3 py-1.5 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white resize-y placeholder:text-gray-400"
+                      />
+                    )}
                     <div className="flex items-center gap-3">
                       <select
                         value={q.type}
@@ -453,6 +462,15 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
                       placeholder={q.type === 'note' ? 'Note text…' : q.type === 'section' ? 'Section heading…' : 'Question…'}
                       className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
                     />
+                    {q.type !== 'note' && q.type !== 'section' && (
+                      <textarea
+                        value={q.description ?? ''}
+                        onChange={e => updateQuestion(i, { description: e.target.value })}
+                        placeholder="Description (optional — shown under the question to give the client context)"
+                        rows={2}
+                        className="w-full border border-gray-100 rounded-lg px-3 py-1.5 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-400 resize-y placeholder:text-gray-400"
+                      />
+                    )}
                     <div className="flex items-center gap-3">
                       <select
                         value={q.type}
