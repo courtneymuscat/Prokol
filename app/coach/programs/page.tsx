@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import DeleteTemplateDialog from '@/app/components/DeleteTemplateDialog'
 
 type ProgramSummary = {
   id: string
@@ -337,7 +338,7 @@ export default function ProgramsPage() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deletingTarget, setDeletingTarget] = useState<ProgramSummary | null>(null)
   const [assigningProgram, setAssigningProgram] = useState<ProgramSummary | null>(null)
   const [orgName, setOrgName] = useState<string | null>(null)
   const [orgRole, setOrgRole] = useState<'owner' | 'admin' | 'coach' | null>(null)
@@ -375,14 +376,6 @@ export default function ProgramsPage() {
     window.location.href = `/coach/programs/${data.id}`
   }
 
-  async function handleDelete(id: string) {
-    setDeleteId(id)
-    const res = await fetch(`/api/coach/programs/${id}`, { method: 'DELETE' })
-    if (res.ok) {
-      setPrograms((prev) => prev.filter((p) => p.id !== id))
-    }
-    setDeleteId(null)
-  }
 
   async function handleMakeCopy(id: string) {
     const res = await fetch('/api/coach/templates/clone', {
@@ -541,10 +534,9 @@ export default function ProgramsPage() {
                     {p.name}
                   </a>
                   <button
-                    onClick={() => handleDelete(p.id)}
-                    disabled={deleteId === p.id}
-                    className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5 disabled:opacity-50"
-                    title="Delete program"
+                    onClick={() => setDeletingTarget(p)}
+                    className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5"
+                    title="Archive or delete program"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -659,6 +651,21 @@ export default function ProgramsPage() {
       {/* Assign modal */}
       {assigningProgram && (
         <AssignProgramModal program={assigningProgram} onClose={() => setAssigningProgram(null)} />
+      )}
+
+      {/* Archive / delete modal */}
+      {deletingTarget && (
+        <DeleteTemplateDialog
+          table="programs"
+          templateId={deletingTarget.id}
+          templateName={deletingTarget.name}
+          hardDeleteUrl={`/api/coach/programs/${deletingTarget.id}`}
+          onClose={() => setDeletingTarget(null)}
+          onRemoved={() => {
+            setPrograms((prev) => prev.filter((p) => p.id !== deletingTarget.id))
+            setDeletingTarget(null)
+          }}
+        />
       )}
     </div>
   )

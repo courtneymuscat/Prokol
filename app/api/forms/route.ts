@@ -23,6 +23,7 @@ export async function GET() {
       .select('id, title, description, type, is_active, created_at')
       .eq('coach_id', coachId)
       .eq('is_client_copy', false)
+      .is('archived_at', null)
       .order('created_at', { ascending: false }),
     fetchOrgTemplatesForCoach<FormRow>(
       coachId,

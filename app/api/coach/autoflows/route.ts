@@ -22,6 +22,7 @@ export async function GET() {
       .from('autoflow_templates')
       .select('id, name, description, type, total_steps, created_at')
       .eq('coach_id', coachId)
+      .is('archived_at', null)
       .order('created_at', { ascending: false }),
     fetchOrgTemplatesForCoach<AutoflowRow>(
       coachId,

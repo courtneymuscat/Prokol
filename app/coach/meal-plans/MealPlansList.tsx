@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import DeleteTemplateDialog from '@/app/components/DeleteTemplateDialog'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -189,7 +190,7 @@ export default function MealPlansList({
   const [calories, setCalories] = useState('')
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deletingTarget, setDeletingTarget] = useState<MealPlan | null>(null)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
   const [assigningPlan, setAssigningPlan] = useState<MealPlan | null>(null)
   const [copying, setCopying] = useState<string | null>(null)
@@ -252,15 +253,10 @@ export default function MealPlansList({
     setDuplicatingId(null)
   }
 
-  async function handleDelete(id: string, planName: string) {
-    if (!confirm(`Delete "${planName}"? This cannot be undone.`)) return
-    setDeletingId(id)
-    const res = await fetch(`/api/coach/meal-plans/${id}`, { method: 'DELETE' })
-    if (res.ok) {
-      setPlans((prev) => prev.filter((p) => p.id !== id))
-    }
-    setDeletingId(null)
-  }
+  // Hard-delete + confirm flow is now handled inside DeleteTemplateDialog,
+  // which also offers archive-instead-of-delete. The list page just opens
+  // the dialog with the row, and removes the row from local state once
+  // the dialog reports completion.
 
   return (
     <div className="flex-1 flex flex-col">
@@ -415,11 +411,11 @@ export default function MealPlansList({
                                 {duplicatingId === plan.id ? 'Copying…' : 'Duplicate'}
                               </button>
                               <button
-                                onClick={() => handleDelete(plan.id, plan.name)}
-                                disabled={deletingId === plan.id}
-                                className="text-xs font-semibold text-red-400 border border-red-100 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                onClick={() => setDeletingTarget(plan)}
+                                className="text-xs font-semibold text-red-400 border border-red-100 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors"
+                                title="Archive or delete meal plan"
                               >
-                                {deletingId === plan.id ? '…' : 'Delete'}
+                                Delete
                               </button>
                             </div>
                           </div>
@@ -527,6 +523,21 @@ export default function MealPlansList({
       {/* Assign modal */}
       {assigningPlan && (
         <AssignMealPlanModal plan={assigningPlan} onClose={() => setAssigningPlan(null)} />
+      )}
+
+      {/* Archive / delete modal */}
+      {deletingTarget && (
+        <DeleteTemplateDialog
+          table="meal_plans"
+          templateId={deletingTarget.id}
+          templateName={deletingTarget.name}
+          hardDeleteUrl={`/api/coach/meal-plans/${deletingTarget.id}`}
+          onClose={() => setDeletingTarget(null)}
+          onRemoved={() => {
+            setPlans((prev) => prev.filter((p) => p.id !== deletingTarget.id))
+            setDeletingTarget(null)
+          }}
+        />
       )}
     </div>
   )

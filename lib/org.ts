@@ -201,13 +201,22 @@ export async function fetchOrgTemplatesForCoach<T extends { id: string }>(
   }
 
   const admin = createAdminClient()
+  // The four primary template tables now carry archived_at — exclude
+  // archived rows from org template listings too. Tables that don't
+  // have that column (e.g. coach_services, coach_resources) still
+  // accept the filter against a missing column gracefully if the
+  // column doesn't exist? No — they'd error. So branch.
+  const tablesWithArchive = new Set(['programs', 'meal_plans', 'autoflow_templates', 'forms'])
+  let itemsQuery = admin
+    .from(table)
+    .select(selectFields)
+    .eq('org_id', membership.org_id)
+    .eq('is_org_template', true)
+  if (tablesWithArchive.has(table)) {
+    itemsQuery = itemsQuery.is('archived_at', null)
+  }
   const [{ data: items }, exclusionsRes] = await Promise.all([
-    admin
-      .from(table)
-      .select(selectFields)
-      .eq('org_id', membership.org_id)
-      .eq('is_org_template', true)
-      .order('created_at', { ascending: false }),
+    itemsQuery.order('created_at', { ascending: false }),
     membership.role === 'coach'
       ? admin
           .from('org_template_exclusions')

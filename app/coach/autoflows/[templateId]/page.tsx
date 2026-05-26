@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { OrgPublisherBanner, CopiedFromOrgSubtitle } from '@/app/components/OrgTemplateBanner'
 import type { OrgTemplateContext } from '@/lib/org'
+import DeleteTemplateDialog from '@/app/components/DeleteTemplateDialog'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -515,6 +516,7 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
   const [loading, setLoading] = useState(!isNew)
   const [resources, setResources] = useState<CoachResource[]>([])
   const [forms, setForms] = useState<CoachForm[]>([])
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
 
   // New template state
   const [newName, setNewName] = useState('')
@@ -605,12 +607,8 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
     if (d.id) router.push(`/coach/autoflows/${d.id}`)
   }
 
-  async function deleteTemplate() {
-    if (!template) return
-    if (!confirm(`Delete "${template.name}"? This cannot be undone.`)) return
-    await fetch(`/api/coach/autoflows/${template.id}`, { method: 'DELETE' })
-    router.push('/coach/autoflows')
-  }
+  // Archive-or-delete now flows through DeleteTemplateDialog (state +
+  // mount in JSX below). The button just opens the dialog.
 
   function updateStep(stepNum: number, patch: Partial<Step>) {
     if (!template) return
@@ -810,8 +808,9 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
             Duplicate
           </button>
           <button
-            onClick={deleteTemplate}
+            onClick={() => setArchiveDialogOpen(true)}
             className="text-xs text-gray-400 hover:text-red-500 transition-colors px-2"
+            title="Archive or delete this autoflow"
           >
             Delete
           </button>
@@ -1141,6 +1140,20 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
           )}
         </main>
       </div>
+
+      {archiveDialogOpen && template && (
+        <DeleteTemplateDialog
+          table="autoflow_templates"
+          templateId={template.id}
+          templateName={template.name}
+          hardDeleteUrl={`/api/coach/autoflows/${template.id}`}
+          onClose={() => setArchiveDialogOpen(false)}
+          onRemoved={() => {
+            setArchiveDialogOpen(false)
+            router.push('/coach/autoflows')
+          }}
+        />
+      )}
     </div>
   )
 }

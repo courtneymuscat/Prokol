@@ -18,6 +18,7 @@ export async function GET() {
       .from('meal_plans')
       .select('*')
       .eq('coach_id', coachId)
+      .is('archived_at', null)
       .order('created_at', { ascending: false }),
     fetchOrgTemplatesForCoach<{ id: string }>(
       coachId,

@@ -177,7 +177,7 @@ export default async function CoachFormsPage() {
                 >
                   Edit
                 </a>
-                <DeleteFormButton formId={form.id} />
+                <DeleteFormButton formId={form.id} formName={form.title} />
               </div>
             </div>
           )
