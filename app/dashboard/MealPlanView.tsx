@@ -643,12 +643,23 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
 
       {/* Meal slots */}
       {plan.content.map((slot, mealIndex) => {
-        const slotCalories = slot.foods.reduce((s, f) => s + f.calories, 0)
+        const foodSum = slot.foods.reduce(
+          (acc, f) => ({
+            cal: acc.cal + f.calories,
+            p: acc.p + f.protein,
+            c: acc.c + f.carbs,
+            f: acc.f + f.fat,
+          }),
+          { cal: 0, p: 0, c: 0, f: 0 }
+        )
+        const slotCalories = foodSum.cal
         const hasCalTarget = (slot.target_calories ?? 0) > 0
-        const hasMacroTarget =
-          (slot.target_protein ?? 0) > 0 ||
-          (slot.target_carbs ?? 0) > 0 ||
-          (slot.target_fat ?? 0) > 0
+        // Per-meal target row: explicit targets take priority, otherwise the
+        // food sum stands in as the prescribed macros for that meal.
+        const targetP = (slot.target_protein ?? 0) > 0 ? slot.target_protein! : foodSum.p
+        const targetC = (slot.target_carbs ?? 0) > 0 ? slot.target_carbs! : foodSum.c
+        const targetF = (slot.target_fat ?? 0) > 0 ? slot.target_fat! : foodSum.f
+        const hasAnyMacro = targetP > 0 || targetC > 0 || targetF > 0
         return (
           <div key={slot.id} className="rounded-xl border border-gray-200 overflow-hidden bg-white">
             <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
@@ -671,18 +682,12 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
                 )}
               </div>
             </div>
-            {showMacros && hasMacroTarget && (
+            {showMacros && hasAnyMacro && (
               <div className="px-4 py-2 bg-gray-50/60 border-b border-gray-100 flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Target</span>
-                {(slot.target_protein ?? 0) > 0 && (
-                  <span className="text-[11px] text-rose-500 font-medium">P {slot.target_protein}g</span>
-                )}
-                {(slot.target_carbs ?? 0) > 0 && (
-                  <span className="text-[11px] text-indigo-500 font-medium">C {slot.target_carbs}g</span>
-                )}
-                {(slot.target_fat ?? 0) > 0 && (
-                  <span className="text-[11px] text-violet-500 font-medium">F {slot.target_fat}g</span>
-                )}
+                <span className="text-[11px] text-rose-500 font-medium">P {Math.round(targetP)}g</span>
+                <span className="text-[11px] text-indigo-500 font-medium">C {Math.round(targetC)}g</span>
+                <span className="text-[11px] text-violet-500 font-medium">F {Math.round(targetF)}g</span>
               </div>
             )}
             <div className="px-4 py-1">
