@@ -27,6 +27,87 @@ const CAT_CONFIG: Record<string, { label: string; serve: string; badge: string; 
 const SEC_LABELS: Record<string, string> = { fat: '+ 1 fat', carb: '+ 1 carb', fat_half: '+ ½ fat', carb_half: '+ ½ carb', protein_half: '+ ½ protein', protein: '+ 1 protein' }
 const SEC_COLORS: Record<string, string> = { fat: 'bg-green-100 text-green-700', carb: 'bg-teal-100 text-teal-700', fat_half: 'bg-green-50 text-green-600', carb_half: 'bg-teal-50 text-teal-600', protein_half: 'bg-pink-50 text-pink-600', protein: 'bg-pink-100 text-pink-700' }
 
+// Per-serve calorie / macro assumptions. Kept in one place so the
+// "How this is calculated" breakdown and the estimate totals can never
+// drift apart.
+const SERVE_BUDGET = {
+  protein: { kcal: 135, primaryG: 30, primaryMacro: 'P' as const, extras: '+ ~3g fat typical in lean meat/eggs' },
+  carb:    { kcal:  90, primaryG: 20, primaryMacro: 'C' as const, extras: '+ ~3g protein typical in grains/legumes' },
+  fat:     { kcal:  95, primaryG: 10, primaryMacro: 'F' as const, extras: '+ small protein/carbs in nuts/seeds' },
+  fruit:   { kcal:  80, primaryG: 20, primaryMacro: 'C' as const, extras: 'minimal other macros' },
+}
+const VEG_KCAL = 150
+
+function ServeMathBreakdown({
+  protein_serves, carb_serves, fat_serves, fruit_serves, veg_unlimited,
+}: {
+  protein_serves: number; carb_serves: number; fat_serves: number; fruit_serves: number; veg_unlimited: boolean
+}) {
+  const lines = [
+    { label: 'Protein', serves: protein_serves, ...SERVE_BUDGET.protein },
+    { label: 'Carbs',   serves: carb_serves,    ...SERVE_BUDGET.carb },
+    { label: 'Fats',    serves: fat_serves,     ...SERVE_BUDGET.fat },
+    { label: 'Fruit',   serves: fruit_serves,   ...SERVE_BUDGET.fruit },
+  ]
+  const totalKcal = lines.reduce((s, l) => s + l.serves * l.kcal, 0) + (veg_unlimited ? VEG_KCAL : 0)
+  return (
+    <details className="group">
+      <summary className="text-[11px] text-amber-700 underline cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+        <span className="group-open:hidden">How is this calculated?</span>
+        <span className="hidden group-open:inline">Hide calculation</span>
+      </summary>
+      <div className="mt-2 space-y-2.5 bg-white/60 rounded-lg p-2.5 border border-amber-100">
+        <div>
+          <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wide mb-1">Per-serve assumptions</p>
+          <ul className="text-[11px] text-amber-800 space-y-0.5">
+            {lines.map((l) => (
+              <li key={l.label}>
+                <span className="font-semibold">{l.label}:</span>{' '}
+                {l.kcal} kcal/serve = {l.primaryG}g {l.primaryMacro} ({l.primaryG * (l.primaryMacro === 'F' ? 9 : 4)} kcal) {l.extras}
+              </li>
+            ))}
+            {veg_unlimited && (
+              <li><span className="font-semibold">Veg (∞):</span> +{VEG_KCAL} kcal/day flat (~500g/day non-starchy veg)</li>
+            )}
+          </ul>
+        </div>
+        <div>
+          <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wide mb-1">This client&apos;s breakdown</p>
+          <table className="w-full text-[11px] text-amber-800">
+            <tbody>
+              {lines.filter(l => l.serves > 0).map((l) => (
+                <tr key={l.label}>
+                  <td className="py-0.5 pr-2 font-medium">{l.label}</td>
+                  <td className="py-0.5 pr-2 tabular-nums">{l.serves} × {l.kcal}</td>
+                  <td className="py-0.5 pr-2 tabular-nums">= {Math.round(l.serves * l.kcal)} kcal</td>
+                  <td className="py-0.5 tabular-nums text-amber-600">{Math.round(l.serves * l.primaryG)}g {l.primaryMacro}</td>
+                </tr>
+              ))}
+              {veg_unlimited && (
+                <tr>
+                  <td className="py-0.5 pr-2 font-medium">Veg</td>
+                  <td className="py-0.5 pr-2 tabular-nums">flat</td>
+                  <td className="py-0.5 pr-2 tabular-nums">= {VEG_KCAL} kcal</td>
+                  <td className="py-0.5 text-amber-600">—</td>
+                </tr>
+              )}
+              <tr className="border-t border-amber-100">
+                <td className="py-0.5 pr-2 font-semibold pt-1">Total</td>
+                <td className="py-0.5 pr-2" />
+                <td className="py-0.5 pr-2 tabular-nums font-semibold pt-1">= {Math.round(totalKcal)} kcal</td>
+                <td />
+              </tr>
+            </tbody>
+          </table>
+          <p className="text-[10px] text-amber-600 mt-1.5 leading-snug">
+            The macro figures shown above the breakdown count primary macros only ({SERVE_BUDGET.protein.primaryG}g P/serve, {SERVE_BUDGET.carb.primaryG}g C/serve, {SERVE_BUDGET.fat.primaryG}g F/serve). The kcal total is higher because per-serve kcal also covers the typical &quot;mixed&quot; macros found in real food (fat in protein foods, protein in grains, etc.) — that&apos;s why 120P + 240C + 60F ≠ kcal total exactly.
+          </p>
+        </div>
+      </div>
+    </details>
+  )
+}
+
 function macrosToServes(macros: { proteinG: number; carbG: number; fatG: number }) {
   const roundHalf = (n: number) => Math.round(n * 2) / 2
   const fruit_serves = 2
@@ -171,23 +252,17 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
             </div>
             {/* Estimated daily calories + macros */}
             {(draft.protein_serves > 0 || draft.carb_serves > 0 || draft.fat_serves > 0) && (() => {
-              // Real-food estimates per serve (primary macro + typical mixed macros in real food):
-              // Protein 135 kcal = 30g P (120) + ~3g fat typical in lean meat/eggs (+27, rounded down)
-              // Carb    90 kcal = 20g C (80)  + ~3g protein typical in grains/legumes (+12, rounded down)
-              // Fat     95 kcal = 10g F (90)  + small protein/carbs in nuts/seeds (+5)
-              // Fruit   80 kcal = 20g C (80), minimal other macros
-              // Veg     150 kcal = unlimited non-starchy veg (~500g typical day, accounts for variety incl. starchy veg)
-              const vegCal = draft.veg_unlimited ? 150 : 0
+              const vegCal = draft.veg_unlimited ? VEG_KCAL : 0
               const estCal = Math.round(
-                draft.protein_serves * 135 +
-                draft.carb_serves   *  90 +
-                draft.fat_serves    *  95 +
-                draft.fruit_serves  *  80 +
+                draft.protein_serves * SERVE_BUDGET.protein.kcal +
+                draft.carb_serves    * SERVE_BUDGET.carb.kcal +
+                draft.fat_serves     * SERVE_BUDGET.fat.kcal +
+                draft.fruit_serves   * SERVE_BUDGET.fruit.kcal +
                 vegCal
               )
-              const estP = Math.round(draft.protein_serves * 30)
-              const estC = Math.round(draft.carb_serves * 20 + draft.fruit_serves * 20)
-              const estF = Math.round(draft.fat_serves * 10)
+              const estP = Math.round(draft.protein_serves * SERVE_BUDGET.protein.primaryG)
+              const estC = Math.round(draft.carb_serves * SERVE_BUDGET.carb.primaryG + draft.fruit_serves * SERVE_BUDGET.fruit.primaryG)
+              const estF = Math.round(draft.fat_serves * SERVE_BUDGET.fat.primaryG)
               return (
                 <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 space-y-1.5">
                   <div className="flex items-center justify-between">
@@ -200,7 +275,14 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
                     <span className="text-green-600">~{estF}g F</span>
                     <span className="text-gray-400 font-normal">(primary macros only)</span>
                   </div>
-                  <p className="text-[11px] text-amber-600">Estimate includes real-food mixed macros (e.g. fat in protein foods, protein in grains) + ~150 kcal for veg. Note: the 150 kcal veg estimate is drawn from the carb budget when auto-assigning from TDEE.</p>
+                  <p className="text-[11px] text-amber-600">Estimate includes real-food mixed macros (e.g. fat in protein foods, protein in grains) + ~{VEG_KCAL} kcal for veg. Note: the {VEG_KCAL} kcal veg estimate is drawn from the carb budget when auto-assigning from TDEE.</p>
+                  <ServeMathBreakdown
+                    protein_serves={draft.protein_serves}
+                    carb_serves={draft.carb_serves}
+                    fat_serves={draft.fat_serves}
+                    fruit_serves={draft.fruit_serves}
+                    veg_unlimited={draft.veg_unlimited}
+                  />
                 </div>
               )
             })()}
@@ -232,8 +314,23 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
               ))}
             </div>
             <p className="text-xs text-gray-400">
-              ~{Math.round(targets.protein_serves * 135 + targets.carb_serves * 90 + targets.fat_serves * 95 + targets.fruit_serves * 80 + 150)} kcal/day estimated (real-food total incl. mixed macros + ~150 kcal veg) · Veg is unlimited and already included in this estimate.
+              ~{Math.round(
+                targets.protein_serves * SERVE_BUDGET.protein.kcal +
+                targets.carb_serves    * SERVE_BUDGET.carb.kcal +
+                targets.fat_serves     * SERVE_BUDGET.fat.kcal +
+                targets.fruit_serves   * SERVE_BUDGET.fruit.kcal +
+                (targets.veg_unlimited ? VEG_KCAL : 0)
+              )} kcal/day estimated (real-food total incl. mixed macros + ~{VEG_KCAL} kcal veg) · Veg is unlimited and already included in this estimate.
             </p>
+            <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
+              <ServeMathBreakdown
+                protein_serves={targets.protein_serves}
+                carb_serves={targets.carb_serves}
+                fat_serves={targets.fat_serves}
+                fruit_serves={targets.fruit_serves}
+                veg_unlimited={targets.veg_unlimited}
+              />
+            </div>
             <p className="text-xs text-blue-500">
               Client can now see the &quot;Food Cheat Sheet&quot; link in their food log.
             </p>
