@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import TrainingCalendar from '@/app/dashboard/TrainingCalendar'
+import UpcomingBookings from './UpcomingBookings'
 
 export default async function CalendarPage() {
   const supabase = await createClient()
@@ -18,6 +19,7 @@ export default async function CalendarPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <div className="max-w-5xl mx-auto px-4 pt-6">
+        <UpcomingBookings />
         <TrainingCalendar />
       </div>
     </div>
