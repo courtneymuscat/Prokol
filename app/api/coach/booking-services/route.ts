@@ -30,10 +30,11 @@ export async function POST(req: Request) {
 
   const billing_mode = BILLING_MODES.has(body?.billing_mode) ? body.billing_mode : 'separate'
   const duration_minutes = Math.max(5, Math.min(480, Number(body?.duration_minutes) || 60))
-  const quota_per_month =
-    body?.quota_per_month === null || body?.quota_per_month === undefined || body?.quota_per_month === ''
+  const quotaRaw = body?.quota_total ?? body?.quota_per_month
+  const quota_total =
+    quotaRaw === null || quotaRaw === undefined || quotaRaw === ''
       ? null
-      : Math.max(0, Math.floor(Number(body.quota_per_month) || 0))
+      : Math.max(0, Math.floor(Number(quotaRaw) || 0))
 
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
       duration_minutes,
       billing_mode,
       payment_link: body?.payment_link?.trim() || null,
-      quota_per_month,
+      quota_total,
       color: body?.color?.trim() || '#1D9E75',
     })
     .select()

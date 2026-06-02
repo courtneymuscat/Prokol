@@ -9,7 +9,7 @@ type Service = {
   duration_minutes: number
   billing_mode: 'subscription' | 'separate'
   payment_link: string | null
-  quota_per_month: number | null
+  quota_total: number | null
   color: string
   active: boolean
 }
@@ -23,7 +23,7 @@ function emptyDraft(): Partial<Service> {
     duration_minutes: 60,
     billing_mode: 'separate',
     payment_link: '',
-    quota_per_month: null,
+    quota_total: null,
     color: SWATCHES[0],
     active: true,
   }
@@ -202,16 +202,17 @@ export default function ServicesPage() {
           {draft.billing_mode === 'subscription' && (
             <div>
               <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">
-                Monthly quota <span className="text-gray-300 font-normal normal-case ml-1">included before extra billing kicks in (blank = unlimited)</span>
+                Total sessions included <span className="text-gray-300 font-normal normal-case ml-1">across the whole engagement (blank = unlimited)</span>
               </label>
               <input
                 type="number"
                 min={0}
-                value={draft.quota_per_month ?? ''}
-                onChange={(e) => setDraft((d) => ({ ...d, quota_per_month: e.target.value === '' ? null : parseInt(e.target.value) }))}
-                placeholder="e.g. 4 sessions/month"
+                value={draft.quota_total ?? ''}
+                onChange={(e) => setDraft((d) => ({ ...d, quota_total: e.target.value === '' ? null : parseInt(e.target.value) }))}
+                placeholder="e.g. 12 (a 12-session pack)"
                 className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+              <p className="text-[11px] text-gray-400 mt-1">Cancelled sessions free their slot — the count is recalculated automatically.</p>
             </div>
           )}
 
@@ -269,7 +270,7 @@ export default function ServicesPage() {
                     s.billing_mode === 'subscription' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'
                   }`}>
                     {s.billing_mode === 'subscription'
-                      ? s.quota_per_month != null ? `${s.quota_per_month}/mo` : 'Unlimited'
+                      ? s.quota_total != null ? `${s.quota_total} total` : 'Unlimited'
                       : 'Separate'}
                   </span>
                   {!s.active && <span className="text-[10px] uppercase text-gray-400">Archived</span>}

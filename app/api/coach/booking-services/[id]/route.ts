@@ -31,11 +31,13 @@ export async function PATCH(
     updates.billing_mode = body.billing_mode
   }
   if (body.payment_link !== undefined) updates.payment_link = body.payment_link?.trim() || null
-  if (body.quota_per_month !== undefined) {
-    updates.quota_per_month =
-      body.quota_per_month === null || body.quota_per_month === ''
+  // Accept either field name; the new one wins if both are present.
+  const quotaRaw = body.quota_total !== undefined ? body.quota_total : body.quota_per_month
+  if (quotaRaw !== undefined) {
+    updates.quota_total =
+      quotaRaw === null || quotaRaw === ''
         ? null
-        : Math.max(0, Math.floor(Number(body.quota_per_month) || 0))
+        : Math.max(0, Math.floor(Number(quotaRaw) || 0))
   }
   if (body.color !== undefined) updates.color = body.color?.trim() || '#1D9E75'
   if (body.active !== undefined) updates.active = !!body.active

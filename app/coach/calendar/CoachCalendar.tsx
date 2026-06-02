@@ -9,7 +9,7 @@ type Service = {
   duration_minutes: number
   billing_mode: 'subscription' | 'separate'
   payment_link: string | null
-  quota_per_month: number | null
+  quota_total: number | null
   color: string
   active: boolean
 }
@@ -384,9 +384,9 @@ function NewBookingModal({
             <textarea rows={2} value={coachNotes} onChange={(e) => setCoachNotes(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
-          {service && service.billing_mode === 'subscription' && service.quota_per_month != null && (
+          {service && service.billing_mode === 'subscription' && service.quota_total != null && (
             <p className="text-[11px] text-gray-500 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2">
-              This service is included in subscription up to {service.quota_per_month}/month. Bookings beyond that will be marked <span className="font-semibold text-amber-600">unpaid</span>.
+              This service includes {service.quota_total} total sessions. Bookings beyond that will be marked <span className="font-semibold text-amber-600">unpaid</span>. Cancelling a session frees the slot for the next pending booking.
             </p>
           )}
           {service && service.billing_mode === 'separate' && (

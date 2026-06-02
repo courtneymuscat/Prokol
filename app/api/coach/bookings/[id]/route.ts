@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireCoach } from '@/lib/coach'
+import { recomputeQuotaAssignment } from '@/lib/booking-quota'
 import { NextResponse } from 'next/server'
 
 const STATUSES = new Set(['confirmed', 'cancelled', 'completed', 'no_show'])
@@ -55,6 +56,20 @@ export async function PATCH(
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  // If status changed (typically to/from cancelled), or payment_status was
+  // moved off a coach override, re-walk the quota assignment so a freed
+  // slot is handed to the next pending booking.
+  if (data?.service_id && (body.status !== undefined || body.payment_status !== undefined)) {
+    await recomputeQuotaAssignment(supabase, {
+      coachId,
+      clientId: data.client_id,
+      serviceId: data.service_id,
+    })
+    const { data: fresh } = await supabase.from('bookings').select('*').eq('id', id).single()
+    if (fresh) return NextResponse.json({ booking: fresh })
+  }
+
   return NextResponse.json({ booking: data })
 }
 
@@ -70,29 +85,55 @@ export async function DELETE(
   const scope = searchParams.get('scope') ?? 'this'
 
   const supabase = await createClient()
-  if (scope === 'this') {
+  // Capture the affected (coach,client,service) tuples up front so we can
+  // recompute quota after the row is gone.
+  const { data: affectedRows } = await supabase
+    .from('bookings')
+    .select('id, client_id, service_id, series_id, start_at')
+    .eq('coach_id', coachId)
+    .eq(scope === 'this' ? 'id' : 'id', id)
+  const anchor = affectedRows?.[0]
+
+  if (scope === 'this' || !anchor?.series_id) {
     const { error } = await supabase.from('bookings').delete().eq('id', id).eq('coach_id', coachId)
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (anchor?.client_id && anchor?.service_id) {
+      await recomputeQuotaAssignment(supabase, {
+        coachId,
+        clientId: anchor.client_id,
+        serviceId: anchor.service_id,
+      })
+    }
     return NextResponse.json({ ok: true })
   }
 
-  // Resolve the series and the anchor row's start time.
-  const { data: anchor } = await supabase
+  // Series scope: gather affected client/service pairs before deleting so
+  // we can recompute each one.
+  let pairsQuery = supabase
     .from('bookings')
-    .select('series_id, start_at')
-    .eq('id', id)
+    .select('client_id, service_id')
     .eq('coach_id', coachId)
-    .single()
-  if (!anchor?.series_id) {
-    // Not part of a series — just delete the row.
-    const { error } = await supabase.from('bookings').delete().eq('id', id).eq('coach_id', coachId)
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-    return NextResponse.json({ ok: true })
-  }
+    .eq('series_id', anchor.series_id)
+  if (scope === 'future') pairsQuery = pairsQuery.gte('start_at', anchor.start_at)
+  const { data: pairs } = await pairsQuery
 
   let q = supabase.from('bookings').delete().eq('coach_id', coachId).eq('series_id', anchor.series_id)
   if (scope === 'future') q = q.gte('start_at', anchor.start_at)
   const { error } = await q
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+
+  const seen = new Set<string>()
+  for (const p of pairs ?? []) {
+    if (!p.client_id || !p.service_id) continue
+    const k = `${p.client_id}:${p.service_id}`
+    if (seen.has(k)) continue
+    seen.add(k)
+    await recomputeQuotaAssignment(supabase, {
+      coachId,
+      clientId: p.client_id,
+      serviceId: p.service_id,
+    })
+  }
+
   return NextResponse.json({ ok: true })
 }

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
+import { recomputeQuotaAssignment } from '@/lib/booking-quota'
 import { NextResponse } from 'next/server'
 
 type ServiceRow = {
@@ -10,7 +11,7 @@ type ServiceRow = {
   duration_minutes: number
   billing_mode: 'subscription' | 'separate'
   payment_link: string | null
-  quota_per_month: number | null
+  quota_total: number | null
 }
 
 // GET /api/coach/bookings?from=ISO&to=ISO&client_id=&status=&payment_status=
@@ -118,80 +119,43 @@ export async function POST(req: Request) {
     }
   }
 
-  // Quota: count confirmed bookings already in each occurrence's calendar
-  // month (client tz) to decide payment_status auto-flag.
-  const quota = service.quota_per_month
-  let usedByMonth: Map<string, number> | null = null
-  if (service.billing_mode === 'subscription' && quota != null && quota > 0) {
-    usedByMonth = new Map()
-    const { data: existing } = await supabase
-      .from('bookings')
-      .select('start_at')
-      .eq('coach_id', coachId)
-      .eq('client_id', clientId)
-      .eq('service_id', serviceId)
-      .eq('status', 'confirmed')
-    for (const b of existing ?? []) {
-      const key = monthKey(new Date(b.start_at), clientTz)
-      usedByMonth.set(key, (usedByMonth.get(key) ?? 0) + 1)
-    }
-  }
-
   const seriesId = occurrences.length > 1 ? crypto.randomUUID() : null
   const paymentLinkOverride = body?.payment_link?.trim() || null
 
-  const rows = occurrences.map((d, idx) => {
-    let paymentStatus: 'pending' | 'included' = 'pending'
-    if (service.billing_mode === 'subscription') {
-      if (quota == null) {
-        paymentStatus = 'included'
-      } else if (usedByMonth) {
-        const key = monthKey(d, clientTz)
-        const used = usedByMonth.get(key) ?? 0
-        if (used < quota) {
-          paymentStatus = 'included'
-          usedByMonth.set(key, used + 1)
-        }
-      }
-    }
-    return {
-      coach_id: coachId,
-      client_id: clientId,
-      service_id: service.id,
-      service_name: service.name,
-      service_color: service.color ?? '#1D9E75',
-      start_at: d.toISOString(),
-      duration_minutes: durationMinutes,
-      coach_tz: coachTz,
-      client_tz: clientTz,
-      status: 'confirmed',
-      payment_status: paymentStatus,
-      series_id: seriesId,
-      // RRULE only on the first row of a series so cancellations of later
-      // rows don't lose the series-level metadata.
-      recurrence_rule: idx === 0 ? recurrenceRule : null,
-      location: body?.location?.trim() || null,
-      meeting_url: body?.meeting_url?.trim() || null,
-      notes: body?.notes?.trim() || null,
-      coach_notes: body?.coach_notes?.trim() || null,
-      payment_link: paymentLinkOverride ?? service.payment_link,
-    }
-  })
+  // Insert all rows as 'pending' first; recomputeQuotaAssignment below
+  // walks every booking for this coach+client+service in start_at order
+  // and assigns 'included' to the first N where N = quota_total.
+  const rows = occurrences.map((d, idx) => ({
+    coach_id: coachId,
+    client_id: clientId,
+    service_id: service.id,
+    service_name: service.name,
+    service_color: service.color ?? '#1D9E75',
+    start_at: d.toISOString(),
+    duration_minutes: durationMinutes,
+    coach_tz: coachTz,
+    client_tz: clientTz,
+    status: 'confirmed',
+    payment_status: 'pending' as const,
+    series_id: seriesId,
+    // RRULE only on the first row of a series so cancellations of later
+    // rows don't lose the series-level metadata.
+    recurrence_rule: idx === 0 ? recurrenceRule : null,
+    location: body?.location?.trim() || null,
+    meeting_url: body?.meeting_url?.trim() || null,
+    notes: body?.notes?.trim() || null,
+    coach_notes: body?.coach_notes?.trim() || null,
+    payment_link: paymentLinkOverride ?? service.payment_link,
+  }))
 
   const { data, error } = await supabase.from('bookings').insert(rows).select()
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-  return NextResponse.json({ bookings: data ?? [] })
-}
 
-// "YYYY-MM" for a date interpreted in a given IANA timezone. Used to
-// bucket bookings into calendar months for quota counting.
-function monthKey(d: Date, tz: string): string {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz,
-    year: 'numeric',
-    month: '2-digit',
-  }).formatToParts(d)
-  const year = parts.find((p) => p.type === 'year')?.value ?? '0000'
-  const month = parts.find((p) => p.type === 'month')?.value ?? '00'
-  return `${year}-${month}`
+  // Recompute who occupies quota slots across the whole client+service.
+  await recomputeQuotaAssignment(supabase, { coachId, clientId, serviceId: service.id })
+
+  // Return refreshed rows so the caller sees the assigned payment_status.
+  const insertedIds = (data ?? []).map((r) => r.id)
+  const { data: refreshed } = await supabase.from('bookings').select('*').in('id', insertedIds)
+  return NextResponse.json({ bookings: refreshed ?? data ?? [] })
 }

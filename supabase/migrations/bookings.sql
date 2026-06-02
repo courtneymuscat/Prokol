@@ -19,7 +19,9 @@ CREATE TABLE IF NOT EXISTS public.booking_services (
   billing_mode text NOT NULL DEFAULT 'separate'
     CHECK (billing_mode IN ('subscription', 'separate')),
   payment_link text,
-  quota_per_month int CHECK (quota_per_month IS NULL OR quota_per_month >= 0),
+  -- Total sessions of this service included in the client's subscription
+  -- before extra billing kicks in. NULL = unlimited.
+  quota_total int CHECK (quota_total IS NULL OR quota_total >= 0),
   color text DEFAULT '#1D9E75',
   active boolean DEFAULT true NOT NULL,
   created_at timestamptz DEFAULT now() NOT NULL,
