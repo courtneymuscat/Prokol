@@ -23,6 +23,7 @@ export async function GET(req: Request) {
   const from = searchParams.get('from')
   const to = searchParams.get('to')
   const clientId = searchParams.get('client_id')
+  const serviceId = searchParams.get('service_id')
   const status = searchParams.get('status')
   const paymentStatus = searchParams.get('payment_status')
 
@@ -35,6 +36,7 @@ export async function GET(req: Request) {
   if (from) q = q.gte('start_at', from)
   if (to) q = q.lte('start_at', to)
   if (clientId) q = q.eq('client_id', clientId)
+  if (serviceId) q = q.eq('service_id', serviceId)
   if (status) q = q.eq('status', status)
   if (paymentStatus) q = q.eq('payment_status', paymentStatus)
 

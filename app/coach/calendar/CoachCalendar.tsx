@@ -280,6 +280,7 @@ export default function CoachCalendar({ coachId, coachTz }: { coachId: string; c
         <ViewBookingModal
           coachTz={coachTz}
           clients={clients}
+          services={services}
           booking={modal.booking}
           onClose={() => setModal(null)}
           onChanged={() => { setModal(null); loadBookings() }}
@@ -611,10 +612,11 @@ function NewBookingModal({
 // ── View / edit booking modal ───────────────────────────────────────────────
 
 function ViewBookingModal({
-  coachTz, clients, booking, onClose, onChanged,
+  coachTz, clients, services, booking, onClose, onChanged,
 }: {
   coachTz: string
   clients: Client[]
+  services: Service[]
   booking: Booking
   onClose: () => void
   onChanged: () => void
@@ -622,6 +624,29 @@ function ViewBookingModal({
   const [working, setWorking] = useState(false)
   const client = clients.find((c) => c.id === booking.client_id)
   const clientTz = booking.client_tz
+  const service = booking.service_id ? services.find((s) => s.id === booking.service_id) : undefined
+
+  // Load all bookings for this client+service so we can show "session X of N"
+  // and "Y remaining" against the service quota.
+  const [quotaStats, setQuotaStats] = useState<{ index: number; usedCount: number } | null>(null)
+  useEffect(() => {
+    if (!booking.service_id) { setQuotaStats(null); return }
+    let cancelled = false
+    fetch(`/api/coach/bookings?client_id=${booking.client_id}&service_id=${booking.service_id}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return
+        const rows: { id: string; start_at: string; status: string }[] = d.bookings ?? []
+        const live = rows
+          .filter((r) => r.status !== 'cancelled')
+          .sort((a, b) => a.start_at.localeCompare(b.start_at))
+        const idx = live.findIndex((r) => r.id === booking.id)
+        setQuotaStats({ index: idx, usedCount: live.length })
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [booking.id])
 
   async function patch(updates: Partial<Booking>) {
     setWorking(true)
@@ -668,8 +693,34 @@ function ViewBookingModal({
             {clientTz && clientTz !== coachTz && (
               <p><span className="text-gray-400 text-xs">Client time ({clientTz}):</span> <span className="font-medium">{formatInTz(booking.start_at, clientTz, { dateStyle: 'full', timeStyle: 'short' })}</span></p>
             )}
-            <p className="text-xs text-gray-500">{booking.duration_minutes} minutes</p>
+            <p className="text-xs text-gray-500"><span className="text-gray-400">Duration:</span> {booking.duration_minutes} min</p>
           </div>
+
+          {/* Quota usage — visible whenever this booking is tied to a known service */}
+          {service && quotaStats && quotaStats.index >= 0 && (
+            <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
+              {service.billing_mode === 'subscription' && service.quota_total != null ? (
+                <p className="text-xs text-blue-700">
+                  <span className="font-semibold">Session {quotaStats.index + 1} of {service.quota_total}</span>
+                  {' · '}
+                  <span className={quotaStats.usedCount > service.quota_total ? 'text-amber-600 font-semibold' : ''}>
+                    {Math.max(0, service.quota_total - quotaStats.usedCount)} remaining in this pack
+                  </span>
+                  {quotaStats.usedCount > service.quota_total && (
+                    <span> · {quotaStats.usedCount - service.quota_total} over quota (billed separately)</span>
+                  )}
+                </p>
+              ) : service.billing_mode === 'subscription' ? (
+                <p className="text-xs text-blue-700">
+                  <span className="font-semibold">Session {quotaStats.index + 1}</span> · unlimited under subscription
+                </p>
+              ) : (
+                <p className="text-xs text-blue-700">
+                  <span className="font-semibold">Session {quotaStats.index + 1}</span> · billed separately
+                </p>
+              )}
+            </div>
+          )}
 
           {(booking.location || booking.meeting_url) && (
             <div className="text-xs space-y-0.5">
