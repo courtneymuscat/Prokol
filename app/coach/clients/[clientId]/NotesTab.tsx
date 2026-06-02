@@ -9,12 +9,174 @@ type Note = {
   created_at: string
 }
 
+type Medication = { name: string; reason: string }
+
 function fmtFull(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 function Empty({ label }: { label: string }) {
   return <p className="text-sm text-gray-400 text-center py-10">{label}</p>
+}
+
+// ── Medications panel ──────────────────────────────────────────────────────
+// Coach-managed list of meds the client is on, with the reason for each.
+// Shares the client_goals row with key_notes / mini_goals etc. Coach-only —
+// not shown to the client unless we surface it elsewhere later.
+function MedicationsPanel({ clientId }: { clientId: string }) {
+  const [meds, setMeds] = useState<Medication[]>([])
+  const [loaded, setLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [draftName, setDraftName] = useState('')
+  const [draftReason, setDraftReason] = useState('')
+  const [editingIdx, setEditingIdx] = useState<number | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editReason, setEditReason] = useState('')
+  // We keep the rest of the goals doc in a ref so a medications save doesn't
+  // wipe main_goal / mini_goals / key_notes that another part of the UI owns.
+  const carryRef = useRef<{ main_goal: string | null; mini_goals: string[]; key_notes: string[] }>({
+    main_goal: null, mini_goals: [], key_notes: [],
+  })
+
+  useEffect(() => {
+    fetch(`/api/coach/clients/${clientId}/goals`)
+      .then((r) => r.json())
+      .then((d) => {
+        carryRef.current = {
+          main_goal: d?.main_goal ?? null,
+          mini_goals: Array.isArray(d?.mini_goals) ? d.mini_goals : [],
+          key_notes: Array.isArray(d?.key_notes) ? d.key_notes : [],
+        }
+        setMeds(Array.isArray(d?.medications) ? d.medications : [])
+      })
+      .finally(() => setLoaded(true))
+  }, [clientId])
+
+  async function persist(next: Medication[]) {
+    setSaving(true)
+    await fetch(`/api/coach/clients/${clientId}/goals`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...carryRef.current, medications: next }),
+    })
+    setSaving(false)
+  }
+
+  async function add() {
+    const name = draftName.trim()
+    if (!name) return
+    const next = [...meds, { name, reason: draftReason.trim() }]
+    setMeds(next); setDraftName(''); setDraftReason('')
+    await persist(next)
+  }
+
+  async function remove(i: number) {
+    const next = meds.filter((_, j) => j !== i)
+    setMeds(next)
+    await persist(next)
+  }
+
+  async function saveEdit(i: number) {
+    const name = editName.trim()
+    if (!name) return
+    const next = meds.map((m, j) => j === i ? { name, reason: editReason.trim() } : m)
+    setMeds(next); setEditingIdx(null)
+    await persist(next)
+  }
+
+  if (!loaded) return null
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-indigo-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+          </svg>
+          <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">Medications</h3>
+          <span className="text-[10px] font-medium text-gray-400 bg-gray-100 border border-gray-200 rounded-full px-2 py-0.5">Coach only</span>
+        </div>
+        {saving && <span className="text-[11px] text-gray-400">Saving…</span>}
+      </div>
+
+      {meds.length === 0 ? (
+        <p className="text-xs text-gray-400 italic">No medications listed — add what they&apos;re on and why.</p>
+      ) : (
+        <div className="space-y-2">
+          {meds.map((m, i) => (
+            <div key={i} className="bg-indigo-50/60 border border-indigo-100 rounded-xl px-3 py-2.5">
+              {editingIdx === i ? (
+                <div className="space-y-2">
+                  <input
+                    autoFocus
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Medication name"
+                    className="w-full border border-indigo-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                  />
+                  <input
+                    value={editReason}
+                    onChange={(e) => setEditReason(e.target.value)}
+                    placeholder="Reason / context"
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveEdit(i) } if (e.key === 'Escape') setEditingIdx(null) }}
+                    className="w-full border border-indigo-300 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => setEditingIdx(null)} className="text-xs text-gray-400 hover:text-gray-700">Cancel</button>
+                    <button onClick={() => saveEdit(i)} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">Save</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start justify-between gap-3 group">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{m.name}</p>
+                    {m.reason && <p className="text-xs text-gray-600 mt-0.5">{m.reason}</p>}
+                  </div>
+                  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                    <button
+                      onClick={() => { setEditingIdx(i); setEditName(m.name); setEditReason(m.reason) }}
+                      className="text-xs text-indigo-500 hover:text-indigo-700"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => remove(i)}
+                      className="text-xs text-gray-400 hover:text-red-500"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1.4fr_auto] gap-2 pt-1 border-t border-gray-100">
+        <input
+          value={draftName}
+          onChange={(e) => setDraftName(e.target.value)}
+          placeholder="Medication name"
+          className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder:text-gray-300"
+        />
+        <input
+          value={draftReason}
+          onChange={(e) => setDraftReason(e.target.value)}
+          placeholder="Reason / context (e.g. PCOS, anxiety, BP)"
+          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), add())}
+          className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 placeholder:text-gray-300"
+        />
+        <button
+          onClick={add}
+          disabled={!draftName.trim()}
+          className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-40 px-3 transition-colors"
+        >
+          + Add
+        </button>
+      </div>
+    </div>
+  )
 }
 
 const FONT_COLORS = ['#111827', '#ef4444', '#f97316', '#eab308', '#22c55e', '#1D9E75', '#3b82f6', '#8b5cf6', '#ec4899', '#6b7280']
@@ -194,6 +356,9 @@ export default function NotesTab({ clientId }: { clientId: string }) {
 
   return (
     <div className="space-y-4">
+      {/* Medications — coach-only, shares the client_goals row */}
+      <MedicationsPanel clientId={clientId} />
+
       {/* Editor */}
       <div className="bg-white rounded-2xl border p-5 space-y-3">
         <div className="flex items-center justify-between">
