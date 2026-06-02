@@ -278,9 +278,10 @@ function ResultRow({ food, onSelect }: { food: FoodResult; onSelect: (f: FoodRes
 
 // ── Expanded modal (full OFF search with pagination) ──────────────────────────
 
-function ExpandedModal({ initialQuery, onSelect, onClose }: {
+function ExpandedModal({ initialQuery, onSelect, onCreateCustom, onClose }: {
   initialQuery: string
   onSelect: (f: FoodResult) => void
+  onCreateCustom: (seed: string) => void
   onClose: () => void
 }) {
   const [q, setQ] = useState(initialQuery)
@@ -394,6 +395,16 @@ function ExpandedModal({ initialQuery, onSelect, onClose }: {
                 : `Load more (${(totalOff - results.filter(r => r.source === 'off').length).toLocaleString()} remaining from Open Food Facts)`}
             </button>
           )}
+        </div>
+        {/* Footer — let the coach hand-roll a food if nothing matches */}
+        <div className="border-t border-gray-100 px-4 py-2.5 bg-gray-50/60">
+          <button
+            type="button"
+            onClick={() => onCreateCustom(q)}
+            className="w-full py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-xl transition-colors"
+          >
+            + Create custom food{q.length >= 2 ? ` for "${q}"` : ''}
+          </button>
         </div>
       </div>
     </div>
@@ -674,6 +685,178 @@ function BarcodeLookupModal({ onFound, onClose }: {
   )
 }
 
+// ── Custom food modal ────────────────────────────────────────────────────────
+
+function CustomFoodModal({
+  initialName, onCreated, onClose,
+}: {
+  initialName?: string
+  onCreated: (food: FoodResult) => void
+  onClose: () => void
+}) {
+  const [name, setName] = useState(initialName ?? '')
+  // Coach can enter macros per 100g OR per a named serving — we always
+  // convert to per-100g before POSTing because that's what the foods
+  // table stores.
+  const [mode, setMode] = useState<'100g' | 'serving'>('100g')
+  const [gramsPerServing, setGramsPerServing] = useState<string>('')
+  const [kcal, setKcal] = useState<string>('')
+  const [protein, setProtein] = useState<string>('')
+  const [carbs, setCarbs] = useState<string>('')
+  const [fat, setFat] = useState<string>('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function save() {
+    setError(null)
+    if (!name.trim()) { setError('Name is required'); return }
+
+    let factor = 1
+    if (mode === 'serving') {
+      const g = parseFloat(gramsPerServing)
+      if (!g || g <= 0) { setError('Enter how many grams are in one serving'); return }
+      factor = 100 / g
+    }
+    const per100 = {
+      calories_per_100g: Math.max(0, (parseFloat(kcal)    || 0) * factor),
+      protein_per_100g:  Math.max(0, (parseFloat(protein) || 0) * factor),
+      carbs_per_100g:    Math.max(0, (parseFloat(carbs)   || 0) * factor),
+      fat_per_100g:      Math.max(0, (parseFloat(fat)     || 0) * factor),
+    }
+
+    setSaving(true)
+    const res = await fetch('/api/foods/custom', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: name.trim(), ...per100 }),
+    })
+    setSaving(false)
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}))
+      setError(d?.error ?? 'Failed to save')
+      return
+    }
+    const food = (await res.json()) as FoodResult
+    onCreated({ ...food, custom: true })
+  }
+
+  const label = mode === '100g' ? 'per 100g' : 'per serving'
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-start justify-between mb-3">
+          <h2 className="text-base font-bold text-gray-900">Create custom food</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">Lives in your food library and surfaces in search for every meal plan you build.</p>
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Name</label>
+            <input
+              type="text"
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Homemade protein balls"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Macros</label>
+            <div className="flex gap-1.5 mb-2">
+              <button
+                type="button"
+                onClick={() => setMode('100g')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${mode === '100g' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400'}`}
+              >
+                Per 100g
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('serving')}
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${mode === 'serving' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400'}`}
+              >
+                Per serving
+              </button>
+            </div>
+
+            {mode === 'serving' && (
+              <div className="mb-2">
+                <label className="text-[11px] text-gray-500 block mb-1">Grams per serving</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={1}
+                    value={gramsPerServing}
+                    onChange={(e) => setGramsPerServing(e.target.value)}
+                    placeholder="e.g. 30"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">g</span>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[11px] text-gray-500 block mb-1">Calories <span className="text-gray-300">{label}</span></label>
+                <input
+                  type="number" min={0} step="0.1"
+                  value={kcal} onChange={(e) => setKcal(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-teal-500 block mb-1">Protein (g)</label>
+                <input
+                  type="number" min={0} step="0.1"
+                  value={protein} onChange={(e) => setProtein(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-green-500 block mb-1">Carbs (g)</label>
+                <input
+                  type="number" min={0} step="0.1"
+                  value={carbs} onChange={(e) => setCarbs(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-blue-400 block mb-1">Fat (g)</label>
+                <input
+                  type="number" min={0} step="0.1"
+                  value={fat} onChange={(e) => setFat(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            {mode === 'serving' && (
+              <p className="text-[11px] text-gray-400 mt-2">
+                We&apos;ll convert these to per-100g before saving so the food works at any serving size in any future meal plan.
+              </p>
+            )}
+          </div>
+
+          {error && <p className="text-xs text-red-500">{error}</p>}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-xl">Cancel</button>
+            <button onClick={save} disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
+              {saving ? 'Saving…' : 'Create food'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) => void }) {
@@ -684,6 +867,8 @@ export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) 
   const [open, setOpen] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [showBarcode, setShowBarcode] = useState(false)
+  const [showCustom, setShowCustom] = useState(false)
+  const [customSeedName, setCustomSeedName] = useState('')
   // Pending food — shown in adjustment panel before adding to meal
   const [pendingFood, setPendingFood] = useState<FoodResult | null>(null)
   const [pendingUnit, setPendingUnit] = useState<ServingUnit>('g')
@@ -874,6 +1059,13 @@ export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) 
                 </li>
               ))}
             </ul>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); setCustomSeedName(''); setShowCustom(true); setOpen(false) }}
+              className="w-full py-2.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 transition-colors border-t border-gray-100"
+            >
+              + Create a custom food
+            </button>
           </div>
         )}
         {open && query.length >= 2 && results.length > 0 && (
@@ -888,10 +1080,17 @@ export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) 
             >
               Search all of Open Food Facts →
             </button>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); setCustomSeedName(query); setShowCustom(true); setOpen(false) }}
+              className="w-full py-2.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 transition-colors"
+            >
+              + Create &ldquo;{query}&rdquo; as a custom food
+            </button>
           </div>
         )}
 
-        {/* No local results — prompt to try expanded + scan barcode */}
+        {/* No local results — prompt to try expanded + scan barcode + create */}
         {open && !loading && results.length === 0 && query.length >= 2 && (
           <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 px-4 py-3 space-y-2">
             <p className="text-sm text-gray-400">No foods found for &ldquo;{query}&rdquo;</p>
@@ -901,6 +1100,13 @@ export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) 
               className="block text-xs font-semibold text-blue-600 hover:underline"
             >
               Search all of Open Food Facts →
+            </button>
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); setCustomSeedName(query); setShowCustom(true); setOpen(false) }}
+              className="block text-xs font-semibold text-blue-600 hover:underline"
+            >
+              + Create &ldquo;{query}&rdquo; as a custom food
             </button>
             <p className="text-[11px] text-gray-400 leading-relaxed">
               Can&apos;t find it? Look it up on{' '}
@@ -1048,6 +1254,7 @@ export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) 
         <ExpandedModal
           initialQuery={query}
           onSelect={handleSelect}
+          onCreateCustom={(seed) => { setCustomSeedName(seed); setShowModal(false); setShowCustom(true) }}
           onClose={() => setShowModal(false)}
         />
       )}
@@ -1056,6 +1263,20 @@ export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) 
         <BarcodeLookupModal
           onFound={(food) => handleSelect(food)}
           onClose={() => setShowBarcode(false)}
+        />
+      )}
+
+      {showCustom && (
+        <CustomFoodModal
+          initialName={customSeedName}
+          onCreated={(food) => {
+            setShowCustom(false)
+            setQuery('')
+            setResults([])
+            setOpen(false)
+            void handleSelect(food)
+          }}
+          onClose={() => setShowCustom(false)}
         />
       )}
     </>
