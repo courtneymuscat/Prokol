@@ -103,18 +103,37 @@ export async function POST(req: Request) {
 
   const durationMinutes = Math.max(5, Math.min(480, Number(body?.duration_minutes) || service.duration_minutes))
 
-  // Build occurrence list
+  // Build occurrence list. Supported frequencies: weekly, biweekly, monthly.
+  // Monthly advances by one calendar month per occurrence; if the source
+  // date is the 31st and the next month is shorter, JS rolls forward
+  // (e.g. Jan 31 → Mar 3) — acceptable for v1; coach can edit per row.
   const recurrence = body?.recurrence
   const occurrences: Date[] = [startDate]
   let recurrenceRule: string | null = null
-  if (recurrence && recurrence.freq === 'weekly') {
+  if (recurrence && typeof recurrence.freq === 'string') {
     const count = Math.max(1, Math.min(52, Math.floor(Number(recurrence.count) || 1)))
     if (count > 1) {
-      recurrenceRule = `FREQ=WEEKLY;COUNT=${count}`
-      for (let i = 1; i < count; i++) {
-        const d = new Date(startDate)
-        d.setUTCDate(d.getUTCDate() + 7 * i)
-        occurrences.push(d)
+      if (recurrence.freq === 'weekly') {
+        recurrenceRule = `FREQ=WEEKLY;COUNT=${count}`
+        for (let i = 1; i < count; i++) {
+          const d = new Date(startDate)
+          d.setUTCDate(d.getUTCDate() + 7 * i)
+          occurrences.push(d)
+        }
+      } else if (recurrence.freq === 'biweekly') {
+        recurrenceRule = `FREQ=WEEKLY;INTERVAL=2;COUNT=${count}`
+        for (let i = 1; i < count; i++) {
+          const d = new Date(startDate)
+          d.setUTCDate(d.getUTCDate() + 14 * i)
+          occurrences.push(d)
+        }
+      } else if (recurrence.freq === 'monthly') {
+        recurrenceRule = `FREQ=MONTHLY;COUNT=${count}`
+        for (let i = 1; i < count; i++) {
+          const d = new Date(startDate)
+          d.setUTCMonth(d.getUTCMonth() + i)
+          occurrences.push(d)
+        }
       }
     }
   }

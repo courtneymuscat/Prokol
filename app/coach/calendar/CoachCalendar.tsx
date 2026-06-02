@@ -61,15 +61,31 @@ function minutesFromMidnight(d: Date, tz: string): number {
 }
 
 export default function CoachCalendar({ coachId, coachTz }: { coachId: string; coachTz: string }) {
+  const [view, setView] = useState<'week' | 'month'>('week')
   const [weekAnchor, setWeekAnchor] = useState<Date>(() => startOfWeek(new Date()))
+  // Month anchor = the 1st of the displayed month, midnight.
+  const [monthAnchor, setMonthAnchor] = useState<Date>(() => {
+    const d = new Date()
+    return new Date(d.getFullYear(), d.getMonth(), 1)
+  })
   const [bookings, setBookings] = useState<Booking[]>([])
   const [services, setServices] = useState<Service[]>([])
   const [clients, setClients] = useState<Client[]>([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<{ kind: 'new'; prefillDate?: string; prefillTime?: string } | { kind: 'view'; booking: Booking } | null>(null)
 
-  const fromIso = useMemo(() => new Date(weekAnchor.getTime() - DAY_MS).toISOString(), [weekAnchor])
-  const toIso = useMemo(() => new Date(weekAnchor.getTime() + 8 * DAY_MS).toISOString(), [weekAnchor])
+  const { fromIso, toIso } = useMemo(() => {
+    if (view === 'week') {
+      return {
+        fromIso: new Date(weekAnchor.getTime() - DAY_MS).toISOString(),
+        toIso:   new Date(weekAnchor.getTime() + 8 * DAY_MS).toISOString(),
+      }
+    }
+    // Month view fetches the visible 6-week grid (extends into prev/next month)
+    const gridStart = startOfWeek(monthAnchor)
+    const gridEnd = new Date(gridStart.getTime() + 42 * DAY_MS)
+    return { fromIso: gridStart.toISOString(), toIso: gridEnd.toISOString() }
+  }, [view, weekAnchor, monthAnchor])
 
   const loadBookings = useCallback(async () => {
     const r = await fetch(`/api/coach/bookings?from=${encodeURIComponent(fromIso)}&to=${encodeURIComponent(toIso)}`)
@@ -92,6 +108,17 @@ export default function CoachCalendar({ coachId, coachTz }: { coachId: string; c
   function shiftWeek(weeks: number) {
     setWeekAnchor((d) => new Date(d.getTime() + weeks * 7 * DAY_MS))
   }
+  function shiftMonth(months: number) {
+    setMonthAnchor((d) => new Date(d.getFullYear(), d.getMonth() + months, 1))
+  }
+  function jumpToday() {
+    if (view === 'week') {
+      setWeekAnchor(startOfWeek(new Date()))
+    } else {
+      const d = new Date()
+      setMonthAnchor(new Date(d.getFullYear(), d.getMonth(), 1))
+    }
+  }
 
   // Bookings grouped by day-key in coach tz
   const bookingsByDay = useMemo(() => {
@@ -108,20 +135,30 @@ export default function CoachCalendar({ coachId, coachTz }: { coachId: string; c
   const hours = Array.from({ length: HOUR_END - HOUR_START }, (_, i) => HOUR_START + i)
 
   const weekLabel = `${formatInTz(days[0], coachTz, { month: 'short', day: 'numeric' })} – ${formatInTz(days[6], coachTz, { month: 'short', day: 'numeric', year: 'numeric' })}`
+  const monthLabel = formatInTz(monthAnchor, coachTz, { month: 'long', year: 'numeric' })
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4">
-        <div className="flex-1">
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center gap-4 flex-wrap">
+        <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold text-gray-900">Calendar</h1>
           <p className="text-xs text-gray-400 mt-0.5">All times shown in <span className="font-medium text-gray-600">{coachTz}</span></p>
         </div>
+
+        {/* Week / Month toggle */}
+        <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
+          <button onClick={() => setView('week')} className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${view === 'week' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}>Week</button>
+          <button onClick={() => setView('month')} className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${view === 'month' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500'}`}>Month</button>
+        </div>
+
         <div className="flex items-center gap-2">
-          <button onClick={() => shiftWeek(-1)} className="border border-gray-200 rounded-xl px-3 py-1.5 text-sm hover:bg-gray-50">←</button>
-          <button onClick={() => setWeekAnchor(startOfWeek(new Date()))} className="border border-gray-200 rounded-xl px-3 py-1.5 text-sm hover:bg-gray-50">Today</button>
-          <button onClick={() => shiftWeek(1)} className="border border-gray-200 rounded-xl px-3 py-1.5 text-sm hover:bg-gray-50">→</button>
-          <span className="text-sm font-semibold text-gray-700 ml-2 min-w-[180px] text-center">{weekLabel}</span>
+          <button onClick={() => view === 'week' ? shiftWeek(-1) : shiftMonth(-1)} className="border border-gray-200 rounded-xl px-3 py-1.5 text-sm hover:bg-gray-50">←</button>
+          <button onClick={jumpToday} className="border border-gray-200 rounded-xl px-3 py-1.5 text-sm hover:bg-gray-50">Today</button>
+          <button onClick={() => view === 'week' ? shiftWeek(1) : shiftMonth(1)} className="border border-gray-200 rounded-xl px-3 py-1.5 text-sm hover:bg-gray-50">→</button>
+          <span className="text-sm font-semibold text-gray-700 ml-2 min-w-[180px] text-center">
+            {view === 'week' ? weekLabel : monthLabel}
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <a href="/coach/calendar/services" className="border border-gray-200 rounded-xl px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50">Services</a>
@@ -145,7 +182,7 @@ export default function CoachCalendar({ coachId, coachTz }: { coachId: string; c
             Set up services
           </a>
         </div>
-      ) : (
+      ) : view === 'week' ? (
         <div className="flex-1 overflow-auto">
           <div className="min-w-[800px] grid grid-cols-[60px_repeat(7,minmax(0,1fr))] border-b border-gray-200 bg-white sticky top-0 z-10">
             <div />
@@ -217,6 +254,15 @@ export default function CoachCalendar({ coachId, coachTz }: { coachId: string; c
             })}
           </div>
         </div>
+      ) : (
+        <MonthGrid
+          monthAnchor={monthAnchor}
+          coachTz={coachTz}
+          bookingsByDay={bookingsByDay}
+          clients={clients}
+          onNew={(dateKey) => setModal({ kind: 'new', prefillDate: dateKey, prefillTime: '09:00' })}
+          onView={(b) => setModal({ kind: 'view', booking: b })}
+        />
       )}
 
       {modal?.kind === 'new' && (
@@ -243,6 +289,127 @@ export default function CoachCalendar({ coachId, coachTz }: { coachId: string; c
   )
 }
 
+// ── Month grid ──────────────────────────────────────────────────────────────
+
+function MonthGrid({
+  monthAnchor, coachTz, bookingsByDay, clients, onNew, onView,
+}: {
+  monthAnchor: Date
+  coachTz: string
+  bookingsByDay: Record<string, Booking[]>
+  clients: Client[]
+  onNew: (dateKey: string) => void
+  onView: (b: Booking) => void
+}) {
+  const gridStart = startOfWeek(monthAnchor)
+  const cells = Array.from({ length: 42 }, (_, i) => new Date(gridStart.getTime() + i * DAY_MS))
+  const currentMonth = monthAnchor.getMonth()
+  const todayKey = dateKeyInTz(new Date(), coachTz)
+  return (
+    <div className="flex-1 overflow-auto p-4">
+      <div className="grid grid-cols-7 border-l border-t border-gray-200 bg-white rounded-2xl overflow-hidden">
+        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+          <div key={d} className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 text-center py-2 border-r border-b border-gray-200 bg-gray-50">
+            {d}
+          </div>
+        ))}
+        {cells.map((d, i) => {
+          const key = dateKeyInTz(d, coachTz)
+          const dayBookings = (bookingsByDay[key] ?? []).slice().sort((a, b) => a.start_at.localeCompare(b.start_at))
+          const inMonth = d.getMonth() === currentMonth
+          const isToday = key === todayKey
+          return (
+            <div
+              key={i}
+              onClick={() => onNew(key)}
+              className={`min-h-[110px] border-r border-b border-gray-200 px-1.5 py-1 cursor-pointer hover:bg-blue-50/30 transition-colors ${inMonth ? 'bg-white' : 'bg-gray-50/60'}`}
+            >
+              <div className={`text-xs font-semibold mb-1 ${isToday ? 'text-white bg-blue-600 inline-block px-1.5 rounded-full' : inMonth ? 'text-gray-700' : 'text-gray-300'}`}>
+                {formatInTz(d, coachTz, { day: 'numeric' })}
+              </div>
+              <div className="space-y-0.5">
+                {dayBookings.slice(0, 3).map((b) => {
+                  const client = clients.find((c) => c.id === b.client_id)
+                  return (
+                    <button
+                      key={b.id}
+                      onClick={(e) => { e.stopPropagation(); onView(b) }}
+                      className="block w-full text-left rounded px-1 py-0.5 text-[10px] truncate text-white"
+                      style={{ backgroundColor: b.service_color ?? '#1D9E75' }}
+                    >
+                      <span className="font-semibold">{formatInTz(new Date(b.start_at), coachTz, { hour: 'numeric', minute: '2-digit' })}</span>{' '}
+                      {client?.full_name || client?.email || b.service_name}
+                    </button>
+                  )
+                })}
+                {dayBookings.length > 3 && (
+                  <p className="text-[10px] text-gray-400 px-1">+ {dayBookings.length - 3} more</p>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Searchable client picker ────────────────────────────────────────────────
+
+function ClientPicker({
+  clients, value, onChange,
+}: {
+  clients: Client[]
+  value: string
+  onChange: (id: string) => void
+}) {
+  const selected = clients.find((c) => c.id === value)
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return clients.slice(0, 50)
+    return clients.filter((c) =>
+      (c.full_name?.toLowerCase().includes(q) ?? false) || c.email.toLowerCase().includes(q)
+    ).slice(0, 50)
+  }, [clients, query])
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={open ? query : (selected?.full_name || selected?.email || '')}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+        onFocus={() => { setQuery(''); setOpen(true) }}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        placeholder="Search clients…"
+        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-auto">
+          {filtered.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); onChange(c.id); setOpen(false); setQuery('') }}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${c.id === value ? 'bg-blue-50/60' : ''}`}
+            >
+              <p className="font-medium text-gray-900">{c.full_name || c.email}</p>
+              {c.full_name && <p className="text-[11px] text-gray-400">{c.email}</p>}
+            </button>
+          ))}
+        </div>
+      )}
+      {open && filtered.length === 0 && (
+        <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-400">
+          No matches
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── New booking modal ───────────────────────────────────────────────────────
 
 function NewBookingModal({
@@ -264,7 +431,9 @@ function NewBookingModal({
   const [time, setTime] = useState(prefillTime ?? '09:00')
   const service = services.find((s) => s.id === serviceId)
   const [durationMinutes, setDurationMinutes] = useState(service?.duration_minutes ?? 60)
-  const [recurrenceWeeks, setRecurrenceWeeks] = useState(1)
+  type Freq = 'none' | 'weekly' | 'biweekly' | 'monthly'
+  const [recurrenceFreq, setRecurrenceFreq] = useState<Freq>('none')
+  const [recurrenceCount, setRecurrenceCount] = useState(4)
   const [location, setLocation] = useState('')
   const [meetingUrl, setMeetingUrl] = useState('')
   const [notes, setNotes] = useState('')
@@ -302,7 +471,10 @@ function NewBookingModal({
         meeting_url: meetingUrl || undefined,
         notes: notes || undefined,
         coach_notes: coachNotes || undefined,
-        recurrence: recurrenceWeeks > 1 ? { freq: 'weekly', count: recurrenceWeeks } : undefined,
+        recurrence:
+          recurrenceFreq === 'none' || recurrenceCount <= 1
+            ? undefined
+            : { freq: recurrenceFreq, count: recurrenceCount },
       }),
     })
     const data = await res.json()
@@ -324,9 +496,7 @@ function NewBookingModal({
         <div className="space-y-3">
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Client</label>
-            <select value={clientId} onChange={(e) => setClientId(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-              {clients.map((c) => <option key={c.id} value={c.id}>{c.full_name || c.email}</option>)}
-            </select>
+            <ClientPicker clients={clients} value={clientId} onChange={setClientId} />
             {client && client.timezone && client.timezone !== coachTz && (
               <p className="text-[11px] text-amber-600 mt-1">
                 Client is in <span className="font-semibold">{client.timezone}</span> — they&apos;ll see this booking at {previewUtc ? formatInTz(previewUtc, client.timezone, { dateStyle: 'medium', timeStyle: 'short' }) : '—'}.
@@ -361,13 +531,42 @@ function NewBookingModal({
               </div>
             </div>
             <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Repeat weekly</label>
-              <div className="relative">
-                <input type="number" min={1} max={52} value={recurrenceWeeks} onChange={(e) => setRecurrenceWeeks(Math.max(1, parseInt(e.target.value) || 1))} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-16" />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">weeks</span>
-              </div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Repeat</label>
+              <select
+                value={recurrenceFreq}
+                onChange={(e) => setRecurrenceFreq(e.target.value as Freq)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="none">Don&apos;t repeat</option>
+                <option value="weekly">Weekly</option>
+                <option value="biweekly">Every 2 weeks</option>
+                <option value="monthly">Monthly</option>
+              </select>
             </div>
           </div>
+          {recurrenceFreq !== 'none' && (
+            <div>
+              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">
+                Total sessions <span className="text-gray-300 font-normal normal-case ml-1">including this one</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min={2}
+                  max={52}
+                  value={recurrenceCount}
+                  onChange={(e) => setRecurrenceCount(Math.max(2, Math.min(52, parseInt(e.target.value) || 2)))}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-20"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">bookings</span>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">
+                {recurrenceFreq === 'weekly'   && `Same time every week for ${recurrenceCount} weeks.`}
+                {recurrenceFreq === 'biweekly' && `Same time every 2 weeks for ${recurrenceCount * 2} weeks.`}
+                {recurrenceFreq === 'monthly'  && `Same date each month for ${recurrenceCount} months.`}
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Location / meeting URL</label>
@@ -400,7 +599,7 @@ function NewBookingModal({
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-xl">Cancel</button>
             <button onClick={save} disabled={saving} className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
-              {saving ? 'Saving…' : recurrenceWeeks > 1 ? `Create ${recurrenceWeeks} bookings` : 'Create booking'}
+              {saving ? 'Saving…' : recurrenceFreq !== 'none' && recurrenceCount > 1 ? `Create ${recurrenceCount} bookings` : 'Create booking'}
             </button>
           </div>
         </div>
