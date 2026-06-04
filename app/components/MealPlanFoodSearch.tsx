@@ -215,6 +215,8 @@ async function saveOFFFood(food: FoodResult): Promise<FoodResult> {
         protein_per_100g: food.protein_per_100g,
         carbs_per_100g: food.carbs_per_100g,
         fat_per_100g: food.fat_per_100g,
+        serving_quantity: food.serving_quantity ?? null,
+        serving_size:     food.serving_size     ?? null,
       }),
     })
     if (res.ok) {
@@ -222,8 +224,8 @@ async function saveOFFFood(food: FoodResult): Promise<FoodResult> {
       // Merge back extra fields the save endpoint doesn't store
       return {
         ...saved,
-        serving_quantity: food.serving_quantity ?? saved.serving_quantity,
-        serving_size:     food.serving_size     ?? saved.serving_size,
+        serving_quantity: saved.serving_quantity ?? food.serving_quantity,
+        serving_size:     saved.serving_size     ?? food.serving_size,
         barcode:          food.barcode          ?? saved.barcode,
         image_url:        food.image_url        ?? saved.image_url,
       }
@@ -977,6 +979,14 @@ export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) 
     } else if (u === 'oz') {
       const g = pendingFood?.serving_quantity ?? 100
       setPendingQty(Math.round((g / 28.35) * 10) / 10 || 1)
+    } else if (u === 'piece') {
+      // If we don't have a hardcoded weight for this food and the row has
+      // a saved serving_quantity, prefill the "1 piece = X g" input.
+      setPendingQty(1)
+      const known = pieceWeightFor(pendingFood?.name ?? '')
+      if (!known && pendingFood?.serving_quantity) {
+        setPendingCustomPieceG(String(pendingFood.serving_quantity))
+      }
     } else {
       setPendingQty(1)
     }
@@ -986,12 +996,37 @@ export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) 
     if (!pendingFood) return
     const grams = effG(pendingFood.name, pendingQty, pendingUnit, pendingCustomPieceG)
     const food = pendingFood
+    // Capture piece-weight inputs before we reset state — used below to
+    // persist "1 piece = X g" back to the food library so subsequent uses
+    // pre-fill instead of asking again.
+    const enteredPieceG = pendingUnit === 'piece' && pendingCustomPieceG
+      ? parseFloat(pendingCustomPieceG)
+      : null
+    const knownPieceG = pieceWeightFor(food.name)
     onAdd(toMealFood(food, grams || 100, { qty: pendingQty, unit: pendingUnit }))
     setPendingFood(null)
     setPendingUnit('g')
     setPendingQty(100)
     setPendingCustomPieceG('')
     setPendingMode('100g')
+
+    // Persist a piece weight on the food row itself when the coach typed
+    // one in for a food we don't already know about. Skip if a built-in
+    // weight exists for this food name (the hardcoded table wins) or if
+    // the value matches what was already saved.
+    if (
+      food.id &&
+      enteredPieceG &&
+      enteredPieceG > 0 &&
+      !knownPieceG &&
+      food.serving_quantity !== enteredPieceG
+    ) {
+      void fetch(`/api/foods/${food.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serving_quantity: enteredPieceG, serving_size: '1 piece' }),
+      }).catch(() => {/* best-effort */})
+    }
 
     // Fire-and-forget: stamp the coach's user_food_history so this food
     // surfaces in the Recent dropdown next time. Same write pattern that
@@ -1008,12 +1043,18 @@ export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) 
           protein_per_100g: food.protein_per_100g,
           carbs_per_100g: food.carbs_per_100g,
           fat_per_100g: food.fat_per_100g,
+          serving_quantity: enteredPieceG ?? food.serving_quantity ?? null,
+          serving_size: enteredPieceG ? '1 piece' : food.serving_size ?? null,
         })
-        // Optimistically prepend so the next dropdown opens with this food at top
+        // Optimistically prepend so the next dropdown opens with this
+        // food at top, carrying the piece weight forward in memory too.
+        const merged = enteredPieceG
+          ? { ...food, serving_quantity: enteredPieceG, serving_size: '1 piece' as const }
+          : { ...food }
         setRecentFoods((prev) => {
           const key = food.id || food.name
           const filtered = prev.filter((f) => (f.id || f.name) !== key)
-          return [{ ...food }, ...filtered].slice(0, 10)
+          return [merged, ...filtered].slice(0, 10)
         })
       }
     } catch {

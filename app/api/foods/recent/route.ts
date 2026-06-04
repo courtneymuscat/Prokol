@@ -7,7 +7,7 @@ export async function GET() {
 
   const { data } = await supabase
     .from('user_food_history')
-    .select('food_id, name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, unit, logged_at')
+    .select('food_id, name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, unit, serving_quantity, serving_size, logged_at')
     .eq('user_id', session.user.id)
     .order('logged_at', { ascending: false })
     .limit(40)

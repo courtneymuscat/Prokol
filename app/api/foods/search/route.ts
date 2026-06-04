@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   // Build queries that require ALL terms to be present in the name.
   // Each .ilike() call adds an AND condition in Supabase.
   function applyTerms(base: ReturnType<typeof supabase.from>) {
-    let query = base.select('id, name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, unit')
+    let query = base.select('id, name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, unit, serving_quantity, serving_size')
     for (const t of terms) query = query.ilike('name', `%${t}%`)
     return query
   }
