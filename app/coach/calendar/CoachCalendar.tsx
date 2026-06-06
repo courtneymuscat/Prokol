@@ -24,7 +24,7 @@ type Booking = {
   duration_minutes: number
   coach_tz: string
   client_tz: string
-  status: 'confirmed' | 'cancelled' | 'completed' | 'no_show'
+  status: 'confirmed' | 'cancelled' | 'completed' | 'no_show' | 'late_cancel'
   payment_status: 'pending' | 'paid' | 'included' | 'waived' | 'refunded'
   series_id: string | null
   recurrence_rule: string | null
@@ -431,7 +431,6 @@ function NewBookingModal({
   const [date, setDate] = useState(prefillDate ?? todayKey)
   const [time, setTime] = useState(prefillTime ?? '09:00')
   const service = services.find((s) => s.id === serviceId)
-  const [durationMinutes, setDurationMinutes] = useState(service?.duration_minutes ?? 60)
   type Freq = 'none' | 'weekly' | 'biweekly' | 'monthly'
   const [recurrenceFreq, setRecurrenceFreq] = useState<Freq>('none')
   const [recurrenceCount, setRecurrenceCount] = useState(4)
@@ -441,11 +440,6 @@ function NewBookingModal({
   const [coachNotes, setCoachNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // Keep duration in sync with the selected service
-  useEffect(() => {
-    if (service) setDurationMinutes(service.duration_minutes)
-  }, [service])
 
   const client = clients.find((c) => c.id === clientId)
   const clientTz = client?.timezone || coachTz
@@ -465,7 +459,6 @@ function NewBookingModal({
         client_id: clientId,
         service_id: serviceId,
         start_at: previewUtc.toISOString(),
-        duration_minutes: durationMinutes,
         coach_tz: coachTz,
         client_tz: clientTz,
         location: location || undefined,
@@ -523,27 +516,18 @@ function NewBookingModal({
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Duration</label>
-              <div className="relative">
-                <input type="number" min={5} max={480} value={durationMinutes} onChange={(e) => setDurationMinutes(parseInt(e.target.value) || 60)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-12" />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">min</span>
-              </div>
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Repeat</label>
-              <select
-                value={recurrenceFreq}
-                onChange={(e) => setRecurrenceFreq(e.target.value as Freq)}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="none">Don&apos;t repeat</option>
-                <option value="weekly">Weekly</option>
-                <option value="biweekly">Every 2 weeks</option>
-                <option value="monthly">Monthly</option>
-              </select>
-            </div>
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">Repeat</label>
+            <select
+              value={recurrenceFreq}
+              onChange={(e) => setRecurrenceFreq(e.target.value as Freq)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="none">Don&apos;t repeat</option>
+              <option value="weekly">Weekly</option>
+              <option value="biweekly">Every 2 weeks</option>
+              <option value="monthly">Monthly</option>
+            </select>
           </div>
           {recurrenceFreq !== 'none' && (
             <div>
@@ -622,9 +606,31 @@ function ViewBookingModal({
   onChanged: () => void
 }) {
   const [working, setWorking] = useState(false)
+  const [rescheduling, setRescheduling] = useState(false)
+  const [rescheduleDate, setRescheduleDate] = useState('')
+  const [rescheduleTime, setRescheduleTime] = useState('')
   const client = clients.find((c) => c.id === booking.client_id)
   const clientTz = booking.client_tz
   const service = booking.service_id ? services.find((s) => s.id === booking.service_id) : undefined
+
+  function openReschedule() {
+    const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: coachTz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
+    const parts = Object.fromEntries(fmt.formatToParts(new Date(booking.start_at)).map((p) => [p.type, p.value]))
+    setRescheduleDate(`${parts.year}-${parts.month}-${parts.day}`)
+    setRescheduleTime(`${parts.hour}:${parts.minute}`)
+    setRescheduling(true)
+  }
+
+  async function saveReschedule() {
+    if (!rescheduleDate || !rescheduleTime) return
+    try {
+      const newStartUtc = localWallTimeToUtc(rescheduleDate, rescheduleTime, coachTz)
+      await patch({ start_at: newStartUtc.toISOString() })
+      setRescheduling(false)
+    } catch {
+      // localWallTimeToUtc throws on bad input — keep editor open
+    }
+  }
 
   // Load all bookings for this client+service so we can show "session X of N"
   // and "Y remaining" against the service quota.
@@ -659,13 +665,9 @@ function ViewBookingModal({
     onChanged()
   }
 
-  async function cancel(scope: 'this' | 'future' | 'series') {
-    if (!confirm(scope === 'this' ? 'Cancel this booking?' : scope === 'future' ? 'Cancel this and all future bookings in the series?' : 'Cancel the entire series?')) return
+  async function cancel(scope: 'future' | 'series') {
+    if (!confirm(scope === 'future' ? 'Cancel this and all future bookings in the series?' : 'Cancel the entire series?')) return
     setWorking(true)
-    if (scope === 'this') {
-      await patch({ status: 'cancelled' })
-      return
-    }
     await fetch(`/api/coach/bookings/${booking.id}?scope=${scope}`, { method: 'DELETE' })
     setWorking(false)
     onChanged()
@@ -752,8 +754,9 @@ function ViewBookingModal({
             >
               <option value="confirmed">Confirmed</option>
               <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
               <option value="no_show">No-show</option>
+              <option value="late_cancel">Late cancel</option>
+              <option value="cancelled">Cancelled</option>
             </select>
           </div>
 
@@ -776,21 +779,51 @@ function ViewBookingModal({
             )}
           </div>
 
-          <div className="pt-3 border-t border-gray-100 flex flex-wrap gap-2">
-            <button onClick={() => cancel('this')} disabled={working} className="text-xs text-red-500 hover:text-red-600 font-medium">
-              Cancel this booking
-            </button>
-            {booking.series_id && (
-              <>
-                <button onClick={() => cancel('future')} disabled={working} className="text-xs text-red-500 hover:text-red-600 font-medium">
-                  Cancel this + future
+          {rescheduling ? (
+            <div className="pt-3 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Reschedule</p>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <input
+                  type="date"
+                  value={rescheduleDate}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                  className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="time"
+                  value={rescheduleTime}
+                  onChange={(e) => setRescheduleTime(e.target.value)}
+                  className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setRescheduling(false)} className="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 rounded-lg">Cancel</button>
+                <button
+                  onClick={saveReschedule}
+                  disabled={working || !rescheduleDate || !rescheduleTime}
+                  className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {working ? 'Saving…' : 'Save new time'}
                 </button>
-                <button onClick={() => cancel('series')} disabled={working} className="text-xs text-red-500 hover:text-red-600 font-medium">
-                  Cancel entire series
-                </button>
-              </>
-            )}
-          </div>
+              </div>
+            </div>
+          ) : (
+            <div className="pt-3 border-t border-gray-100 flex flex-wrap gap-3">
+              <button onClick={openReschedule} disabled={working} className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                Reschedule
+              </button>
+              {booking.series_id && (
+                <>
+                  <button onClick={() => cancel('future')} disabled={working} className="text-xs text-red-500 hover:text-red-600 font-medium">
+                    Cancel this + future
+                  </button>
+                  <button onClick={() => cancel('series')} disabled={working} className="text-xs text-red-500 hover:text-red-600 font-medium">
+                    Cancel entire series
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

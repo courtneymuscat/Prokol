@@ -56,6 +56,7 @@ type FlowStep = {
   tasks: StepTask[]
   resources: StepResource[]
   linked_form: { id: string; title: string } | null
+  snoozed_until: string | null
 }
 
 type FlowDetail = {
@@ -926,6 +927,11 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
                         : `Due ${effectiveDate.toLocaleDateString()}`}
                       {s.due_date_override && <span className="ml-1 text-blue-500">· custom date</span>}
                       {s.has_override && <span className="ml-1 text-blue-500">· customised</span>}
+                      {s.snoozed_until && (
+                        <span className="ml-1 text-amber-600">
+                          · Snoozed until {new Date(s.snoozed_until).toLocaleDateString()}
+                        </span>
+                      )}
                     </p>
                   )}
                 </div>

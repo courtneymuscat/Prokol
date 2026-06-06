@@ -7,7 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 //
 // Rules:
 //  • cancelled bookings don't count toward quota
-//  • confirmed/completed/no_show all consume a quota slot
+//  • confirmed/completed/no_show/late_cancel all consume a quota slot
 //  • only payment_status of 'pending' or 'included' is auto-managed —
 //    'paid', 'waived', and 'refunded' are coach overrides and stay put
 //  • if service.billing_mode = 'subscription' and quota_total is NULL,

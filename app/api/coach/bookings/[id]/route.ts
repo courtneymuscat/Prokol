@@ -3,7 +3,7 @@ import { requireCoach } from '@/lib/coach'
 import { recomputeQuotaAssignment } from '@/lib/booking-quota'
 import { NextResponse } from 'next/server'
 
-const STATUSES = new Set(['confirmed', 'cancelled', 'completed', 'no_show'])
+const STATUSES = new Set(['confirmed', 'cancelled', 'completed', 'no_show', 'late_cancel'])
 const PAYMENT_STATUSES = new Set(['pending', 'paid', 'included', 'waived', 'refunded'])
 
 export async function PATCH(

@@ -24,7 +24,7 @@ export async function GET() {
     flows.map(async (flow) => {
       const startDate = new Date(flow.start_date + 'T00:00:00')
 
-      const [{ data: steps }, { data: responses }] = await Promise.all([
+      const [{ data: steps }, { data: responses }, { data: dismissals }] = await Promise.all([
         admin
           .from('autoflow_template_steps')
           .select('step_number, title, day_offset, trigger_type, trigger_step_number, tasks, resource_ids, form_id')
@@ -35,15 +35,23 @@ export async function GET() {
           .select('step_number, answers')
           .eq('client_autoflow_id', flow.id)
           .eq('client_id', user.id),
+        admin
+          .from('autoflow_step_dismissals')
+          .select('step_number')
+          .eq('client_autoflow_id', flow.id)
+          .eq('client_id', user.id)
+          .gt('snooze_until', new Date().toISOString()),
       ])
 
       const responseMap: Record<number, Record<string, string>> = Object.fromEntries(
         (responses ?? []).map((r) => [r.step_number, (r.answers as Record<string, string>) ?? {}])
       )
       const respondedSteps = new Set(Object.keys(responseMap).map(Number))
+      const dismissedSteps = new Set((dismissals ?? []).map((d) => d.step_number))
 
       const dueSteps = (steps ?? []).filter((step) => {
         if (respondedSteps.has(step.step_number)) return false
+        if (dismissedSteps.has(step.step_number)) return false
         const triggerType = (step as Record<string, unknown>).trigger_type ?? 'day_offset'
         if (triggerType === 'on_step_complete') {
           const triggerStep = (step as Record<string, unknown>).trigger_step_number as number | null

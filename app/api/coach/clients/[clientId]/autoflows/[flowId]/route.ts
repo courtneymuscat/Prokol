@@ -28,7 +28,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     : tplCore
   const hasCoreOverride = Array.isArray((flow as { core_questions?: unknown[] }).core_questions)
 
-  const [{ data: steps }, { data: overrides }, { data: responses }] = await Promise.all([
+  const [{ data: steps }, { data: overrides }, { data: responses }, { data: dismissals }] = await Promise.all([
     supabase
       .from('autoflow_template_steps')
       .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, tasks, resource_ids, form_id')
@@ -43,6 +43,11 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       .select('step_number, answers, submitted_at')
       .eq('client_autoflow_id', flowId)
       .order('step_number'),
+    supabase
+      .from('autoflow_step_dismissals')
+      .select('step_number, snooze_until')
+      .eq('client_autoflow_id', flowId)
+      .gt('snooze_until', new Date().toISOString()),
   ])
 
   const overrideMap: Record<number, { title?: string | null; description?: string | null; questions?: unknown[]; due_date?: string | null }> = Object.fromEntries(
@@ -51,6 +56,14 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const responseMap: Record<number, { submitted_at: string; answers: unknown }> = Object.fromEntries(
     (responses ?? []).map(r => [r.step_number, { submitted_at: r.submitted_at, answers: r.answers }])
   )
+  // Keep only the latest snooze per step in case the client dismissed twice
+  const dismissalMap: Record<number, string> = {}
+  for (const d of dismissals ?? []) {
+    const existing = dismissalMap[d.step_number]
+    if (!existing || new Date(d.snooze_until) > new Date(existing)) {
+      dismissalMap[d.step_number] = d.snooze_until
+    }
+  }
 
   // Resolve all resource IDs across all steps in one query
   const allResourceIds = (steps ?? []).flatMap(s =>
@@ -92,6 +105,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       tasks: (stepRecord.tasks as unknown[]) ?? [],
       resources: resourceIds.map(id => resourceMap[id]).filter(Boolean),
       linked_form: formId ? (formMap[formId] ?? null) : null,
+      snoozed_until: dismissalMap[s.step_number] ?? null,
     }
   })
 
