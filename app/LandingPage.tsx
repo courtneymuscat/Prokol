@@ -593,25 +593,36 @@ export default function LandingPage({
             ]}
           />
 
-          {/* 10 — Bookings & Coach Calendar */}
-          <Showcase
-            flip
-            label="Bookings & Calendar"
-            h3="Schedule sessions, count pack credits, and get paid — without leaving the platform."
-            body="Most coaching platforms make you bolt on a separate scheduler and a separate payment tool. Prokol bakes it in. Build a service like 'PT Session — 12 pack' once, then book sessions against it from the coach calendar. The platform tracks the count, charges the right amount, reminds the client, and respects their time zone — automatically."
-            bullets={[
-              'Session packs that count themselves — every booking shows "Session 3 of 12" on the calendar',
-              'Anything booked beyond a pack is flagged as billed separately, never silently included',
-              'Attach a payment link per service (Stripe or any URL) — unpaid sessions surface the link to the client',
-              'Override the payment link or duration on any individual booking when a session is unique',
-              'Time-zone aware — book in yours, client always sees the session in theirs, with a warning if you\'re in different zones',
-              'Automatic 24-hour push reminder to the client, formatted in their local time, with a nudge to let you know of changes',
-              'Reschedule without renumbering — booking keeps its slot in the pack so "Session 3 of 12" stays Session 3',
-              'No-show and late-cancel statuses still consume a pack credit — only genuine cancels free the slot for the next booking',
-              'Recurring bookings — create a whole 12-week series in one go and edit individual sessions later',
-            ]}
-            screenshots={[]}
-          />
+          {/* 10 — Bookings & Coach Calendar (full-row, no screenshot yet) */}
+          <div className="mb-24 max-w-5xl mx-auto">
+            <div className="text-center mb-10">
+              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: T.teal }}>Bookings & Calendar</p>
+              <h3 style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 'clamp(1.4rem,3vw,2rem)', color: T.textPrimary, marginBottom: 16, lineHeight: 1.2 }}>
+                Schedule sessions, count pack credits, and get paid — without leaving the platform.
+              </h3>
+              <p style={{ fontSize: '0.95rem', color: T.textSec, lineHeight: 1.75, fontWeight: 300, maxWidth: 720, margin: '0 auto' }}>
+                Most coaching platforms make you bolt on a separate scheduler and a separate payment tool. Prokol bakes it in. Build a service like &lsquo;PT Session — 12 pack&rsquo; once, then book sessions against it from the coach calendar. The platform tracks the count, charges the right amount, reminds the client, and respects their time zone — automatically.
+              </p>
+            </div>
+            <ul className="grid sm:grid-cols-2 gap-x-8 gap-y-4">
+              {[
+                'Session packs that count themselves — every booking shows "Session 3 of 12" on the calendar',
+                'Anything booked beyond a pack is flagged as billed separately, never silently included',
+                'Attach a payment link per service (Stripe or any URL) — unpaid sessions surface the link to the client',
+                'Override the payment link or duration on any individual booking when a session is unique',
+                'Time-zone aware — book in yours, client always sees the session in theirs, with a warning if you\'re in different zones',
+                'Automatic 24-hour push reminder to the client, formatted in their local time, with a nudge to let you know of changes',
+                'Reschedule without renumbering — booking keeps its slot in the pack so "Session 3 of 12" stays Session 3',
+                'No-show and late-cancel statuses still consume a pack credit — only genuine cancels free the slot for the next booking',
+                'Recurring bookings — create a whole 12-week series in one go and edit individual sessions later',
+              ].map(b => (
+                <li key={b} className="flex items-start gap-3">
+                  <Check />
+                  <span style={{ fontSize: '0.88rem', color: T.textPrimary, lineHeight: 1.5 }}>{b}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </section>
 
