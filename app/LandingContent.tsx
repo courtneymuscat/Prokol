@@ -271,6 +271,62 @@ export default function LandingContent() {
         </div>
       </section>
 
+      {/* ── Bookings & calendar (coach view only) ────────────────────────────── */}
+      {isCoach && (
+        <section id="bookings" className="py-24 px-6 bg-white border-t border-gray-100">
+          <div className="max-w-5xl mx-auto space-y-10">
+            <div className="text-center space-y-3">
+              <div className="inline-block w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: 'rgba(29,158,117,0.08)' }}>
+                📅
+              </div>
+              <h2 className="text-3xl font-bold text-gray-900">Bookings & calendar</h2>
+              <p className="text-gray-500 text-lg max-w-2xl mx-auto">
+                Schedule sessions, count pack credits, and get paid — without leaving the platform.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="bg-white border border-gray-100 rounded-2xl p-5 space-y-2">
+                <p className="font-semibold text-gray-900 text-sm">Session packs that count themselves</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Set up a service like &ldquo;PT Session — 12 pack&rdquo; and the calendar shows &ldquo;Session 3 of 12&rdquo; on every booking automatically. Anything beyond the pack is flagged as billed separately.
+                </p>
+              </div>
+              <div className="bg-white border border-gray-100 rounded-2xl p-5 space-y-2">
+                <p className="font-semibold text-gray-900 text-sm">Attach a payment link per service</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Drop in a Stripe (or any) payment link on each service. Unpaid sessions display the link to the client, and you can override it on individual bookings when needed.
+                </p>
+              </div>
+              <div className="bg-white border border-gray-100 rounded-2xl p-5 space-y-2">
+                <p className="font-semibold text-gray-900 text-sm">Client time zone aware</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Book in your time zone — the client always sees the session in theirs. The new-booking form warns you up front if your client is somewhere else.
+                </p>
+              </div>
+              <div className="bg-white border border-gray-100 rounded-2xl p-5 space-y-2">
+                <p className="font-semibold text-gray-900 text-sm">Automatic 24-hour reminders</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Clients get a push notification the day before, formatted in their local time, with a nudge to let you know if anything needs to change.
+                </p>
+              </div>
+              <div className="bg-white border border-gray-100 rounded-2xl p-5 space-y-2">
+                <p className="font-semibold text-gray-900 text-sm">Reschedule without renumbering</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Move a session to a new date in two taps — the booking keeps its slot in the pack, so &ldquo;Session 3 of 12&rdquo; stays Session 3.
+                </p>
+              </div>
+              <div className="bg-white border border-gray-100 rounded-2xl p-5 space-y-2">
+                <p className="font-semibold text-gray-900 text-sm">No-show & late-cancel still count</p>
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Mark a session as no-show or late cancel and it stays in the pack count — clients can&rsquo;t ghost their way to a free session. Genuine cancels free the slot for the next booking.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── Coach platform deep-dive (coach view only) ───────────────────────── */}
       {isCoach && (
         <section id="coach-platform" className="py-24 px-6" style={{ backgroundColor: '#EEF4F0' }}>
