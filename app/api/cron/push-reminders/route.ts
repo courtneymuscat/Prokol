@@ -553,5 +553,56 @@ export async function GET(req: NextRequest) {
     console.error('[cron] no-checkin section failed:', err)
   }
 
+  // ── 6. 24-hour booking reminders ────────────────────────────────────────────
+  // Window is [now+23h, now+25h] so the hourly cron catches every booking
+  // exactly once even with some drift. Dedup via booking_reminders_sent.
+  try {
+    const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000).toISOString()
+    const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000).toISOString()
+
+    const { data: dueBookings } = await supabase
+      .from('bookings')
+      .select('id, client_id, service_name, start_at, client_tz, status')
+      .gte('start_at', windowStart)
+      .lte('start_at', windowEnd)
+      .neq('status', 'cancelled')
+
+    if (dueBookings?.length) {
+      const ids = dueBookings.map((b) => b.id)
+      const { data: alreadySent } = await supabase
+        .from('booking_reminders_sent')
+        .select('booking_id')
+        .eq('kind', '24h')
+        .in('booking_id', ids)
+      const sentSet = new Set((alreadySent ?? []).map((r) => r.booking_id))
+
+      for (const b of dueBookings) {
+        if (sentSet.has(b.id)) continue
+        const tz = (b as { client_tz?: string }).client_tz || 'UTC'
+        let timeLabel = ''
+        try {
+          timeLabel = new Intl.DateTimeFormat('en-AU', {
+            timeZone: tz, weekday: 'long', hour: 'numeric', minute: '2-digit', hour12: true,
+          }).format(new Date(b.start_at))
+        } catch {
+          timeLabel = new Date(b.start_at).toUTCString()
+        }
+        sendPushToUser(b.client_id, {
+          title: `Reminder: ${b.service_name} tomorrow`,
+          body: `${timeLabel} · Let your coach know if you need to make any changes`,
+          url: '/calendar',
+          icon: '/icons/icon-192.png',
+          tag: `booking-${b.id}-24h`,
+        }).catch(() => {/* silent */})
+        await supabase
+          .from('booking_reminders_sent')
+          .upsert({ booking_id: b.id, kind: '24h' }, { onConflict: 'booking_id,kind' })
+        pushed++
+      }
+    }
+  } catch (err) {
+    console.error('[cron] booking 24h reminder section failed:', err)
+  }
+
   return Response.json({ ok: true, pushed, checkedAt: now.toISOString() })
 }

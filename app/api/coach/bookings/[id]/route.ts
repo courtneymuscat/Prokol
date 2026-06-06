@@ -57,6 +57,12 @@ export async function PATCH(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
+  // Reschedule should re-trigger the 24h client reminder for the new time.
+  // Cancel should kill any future reminders for this booking.
+  if (body.start_at !== undefined || body.status === 'cancelled') {
+    await supabase.from('booking_reminders_sent').delete().eq('booking_id', id)
+  }
+
   // If status changed (typically to/from cancelled), or payment_status was
   // moved off a coach override, re-walk the quota assignment so a freed
   // slot is handed to the next pending booking.
