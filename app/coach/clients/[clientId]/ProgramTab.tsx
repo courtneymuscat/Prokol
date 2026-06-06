@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import AutoGrowTextarea from '@/components/AutoGrowTextarea'
 
 // ── Program tab ───────────────────────────────────────────────────────────────
 
@@ -483,9 +484,9 @@ function PSectionBlock({ section, canUp, canDown, onChange, onRemove, onMoveUp, 
           className="flex-1 text-sm font-semibold text-gray-900 bg-transparent outline-none border-b border-transparent focus:border-gray-300 min-w-0" />
         <button onClick={onRemove} className="text-gray-300 hover:text-red-400 text-xl leading-none flex-shrink-0">×</button>
       </div>
-      <textarea value={section.notes} onChange={(e) => onChange({ ...section, notes: e.target.value })}
+      <AutoGrowTextarea value={section.notes} onChange={(e) => onChange({ ...section, notes: e.target.value })}
         placeholder="Add notes, WOD description, or instructions…"
-        rows={3}
+        minRows={3}
         className="w-full text-sm text-gray-700 border rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-teal-300 placeholder:text-gray-300" />
 
       {/* Section exercise list — informational reference to the exercises
@@ -686,9 +687,9 @@ function PExerciseBlock({ we, canUp, canDown, onMoveUp, onMoveDown, onChange, on
         </div>
       ))}
       <button onClick={addSet} className="text-sm text-blue-600 hover:text-blue-700 font-medium">+ Add Set</button>
-      <textarea value={we.notes} onChange={(e) => onChange({ ...we, notes: e.target.value })}
+      <AutoGrowTextarea value={we.notes} onChange={(e) => onChange({ ...we, notes: e.target.value })}
         placeholder="Coaching notes, cues, or tempo…"
-        rows={we.notes ? 2 : 1}
+        minRows={we.notes ? 2 : 1}
         className="w-full text-xs text-gray-600 border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-blue-300 placeholder:text-gray-300" />
 
       {/* Alternate / substitute exercises — coach attaches subs for
