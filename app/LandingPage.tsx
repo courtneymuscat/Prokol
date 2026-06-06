@@ -592,6 +592,26 @@ export default function LandingPage({
               { file: '/public/screenshots/client-calendar.png', dims: '1280×800px', desc: 'Calendar tab in client file — events, travel dates, and social occasions on calendar grid' },
             ]}
           />
+
+          {/* 10 — Bookings & Coach Calendar */}
+          <Showcase
+            flip
+            label="Bookings & Calendar"
+            h3="Schedule sessions, count pack credits, and get paid — without leaving the platform."
+            body="Most coaching platforms make you bolt on a separate scheduler and a separate payment tool. Prokol bakes it in. Build a service like 'PT Session — 12 pack' once, then book sessions against it from the coach calendar. The platform tracks the count, charges the right amount, reminds the client, and respects their time zone — automatically."
+            bullets={[
+              'Session packs that count themselves — every booking shows "Session 3 of 12" on the calendar',
+              'Anything booked beyond a pack is flagged as billed separately, never silently included',
+              'Attach a payment link per service (Stripe or any URL) — unpaid sessions surface the link to the client',
+              'Override the payment link or duration on any individual booking when a session is unique',
+              'Time-zone aware — book in yours, client always sees the session in theirs, with a warning if you\'re in different zones',
+              'Automatic 24-hour push reminder to the client, formatted in their local time, with a nudge to let you know of changes',
+              'Reschedule without renumbering — booking keeps its slot in the pack so "Session 3 of 12" stays Session 3',
+              'No-show and late-cancel statuses still consume a pack credit — only genuine cancels free the slot for the next booking',
+              'Recurring bookings — create a whole 12-week series in one go and edit individual sessions later',
+            ]}
+            screenshots={[]}
+          />
         </div>
       </section>
 
