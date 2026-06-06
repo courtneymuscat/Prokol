@@ -748,7 +748,15 @@ function ViewBookingModal({
             <span className="text-xs text-gray-500">Status:</span>
             <select
               value={booking.status}
-              onChange={(e) => patch({ status: e.target.value as Booking['status'] })}
+              onChange={(e) => {
+                const next = e.target.value as Booking['status']
+                if (next === 'cancelled') {
+                  if (!confirm('Cancel this session and recalculate future bookings? Later sessions in this pack will shift up by one — use No-show or Late cancel if the session should still count.')) {
+                    return
+                  }
+                }
+                patch({ status: next })
+              }}
               disabled={working}
               className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white"
             >
