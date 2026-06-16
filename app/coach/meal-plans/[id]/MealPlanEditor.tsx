@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import MealPlanFoodSearch from '@/app/components/MealPlanFoodSearch'
+import CopyMealFromPlanPicker from '@/app/components/CopyMealFromPlanPicker'
 import { OrgPublisherBanner, CopiedFromOrgSubtitle } from '@/app/components/OrgTemplateBanner'
 import type { OrgTemplateContext } from '@/lib/org'
 
@@ -347,6 +348,7 @@ function MealSlotCard({
   onDelete,
   onMoveUp,
   onMoveDown,
+  onDuplicate,
 }: {
   slot: MealSlot
   index: number
@@ -355,6 +357,7 @@ function MealSlotCard({
   onDelete: () => void
   onMoveUp: () => void
   onMoveDown: () => void
+  onDuplicate: () => void
 }) {
   const [editingLabel, setEditingLabel] = useState(false)
   const targetsAlreadySet = hasAnyTarget(slot)
@@ -452,6 +455,17 @@ function MealSlotCard({
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {/* Duplicate */}
+          <button
+            onClick={onDuplicate}
+            className="text-gray-300 hover:text-blue-500 transition-colors ml-1 p-0.5"
+            title="Duplicate meal"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
             </svg>
           </button>
 
@@ -699,6 +713,7 @@ export default function MealPlanEditor({
   const [pushToClients, setPushToClients] = useState(true)
   const [assignOpen, setAssignOpen] = useState(false)
   const [copying, setCopying] = useState(false)
+  const [showCopyPicker, setShowCopyPicker] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pushToClientsRef = useRef(true)
 
@@ -775,6 +790,30 @@ export default function MealPlanEditor({
       foods: [],
     }
     updateContent([...plan.content, newSlot])
+  }
+
+  function duplicateSlot(index: number) {
+    const original = plan.content[index]
+    if (!original) return
+    const clone: MealSlot = {
+      ...original,
+      id: crypto.randomUUID(),
+      label: `${original.label} (copy)`,
+      foods: original.foods.map((f) => withKey({ ...f, _key: undefined })),
+    }
+    const content = [...plan.content]
+    content.splice(index + 1, 0, clone)
+    updateContent(content)
+  }
+
+  function importSlot(slot: MealSlot) {
+    const imported: MealSlot = {
+      ...slot,
+      id: crypto.randomUUID(),
+      foods: slot.foods.map((f) => withKey({ ...f, _key: undefined })),
+    }
+    updateContent([...plan.content, imported])
+    setShowCopyPicker(false)
   }
 
   async function saveNow() {
@@ -1042,20 +1081,37 @@ export default function MealPlanEditor({
               onDelete={() => deleteSlot(i)}
               onMoveUp={() => moveSlot(i, i - 1)}
               onMoveDown={() => moveSlot(i, i + 1)}
+              onDuplicate={() => duplicateSlot(i)}
             />
           ))}
 
-          {/* Add meal button */}
+          {/* Add / import meal buttons */}
           {plan.content.length > 0 && (
-            <button
-              onClick={addMeal}
-              className="w-full py-3 rounded-2xl border border-dashed border-gray-200 text-sm font-semibold text-gray-400 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50/50 transition-colors"
-            >
-              + Add Meal
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                onClick={addMeal}
+                className="w-full py-3 rounded-2xl border border-dashed border-gray-200 text-sm font-semibold text-gray-400 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50/50 transition-colors"
+              >
+                + Add Meal
+              </button>
+              <button
+                onClick={() => setShowCopyPicker(true)}
+                className="w-full py-3 rounded-2xl border border-dashed border-gray-200 text-sm font-semibold text-gray-400 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50/50 transition-colors"
+              >
+                + Import from another plan
+              </button>
+            </div>
           )}
         </div>
       </div>
+
+      {showCopyPicker && (
+        <CopyMealFromPlanPicker
+          excludePlanId={plan.id}
+          onPick={importSlot}
+          onClose={() => setShowCopyPicker(false)}
+        />
+      )}
     </div>
   )
 }
