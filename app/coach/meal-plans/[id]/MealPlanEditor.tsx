@@ -307,10 +307,11 @@ function FoodRow({
         </div>
         <button
           onClick={onRemove}
-          className="text-gray-200 hover:text-red-400 transition-colors ml-1 opacity-0 group-hover:opacity-100 flex-shrink-0"
+          className="text-gray-400 hover:text-red-400 transition-colors ml-1 sm:text-gray-200 sm:opacity-0 sm:group-hover:opacity-100 flex-shrink-0 p-1"
           title="Remove food"
+          aria-label="Remove food"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
