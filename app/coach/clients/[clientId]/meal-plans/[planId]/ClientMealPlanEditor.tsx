@@ -1151,6 +1151,7 @@ export default function ClientMealPlanEditor({
       {showCopyPicker && (
         <CopyMealFromPlanPicker
           excludePlanId={plan.id}
+          clientId={clientId}
           onPick={importSlot}
           onClose={() => setShowCopyPicker(false)}
         />

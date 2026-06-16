@@ -26,37 +26,58 @@ type MealSlot = {
   target_fat?: number | null
 }
 
+type Source = 'client' | 'template'
+
 type PlanSummary = {
   id: string
   name: string
   content: MealSlot[] | null
+  source: Source
 }
 
 type Props = {
   excludePlanId?: string
+  clientId?: string
   onPick: (slot: MealSlot) => void
   onClose: () => void
 }
 
-export default function CopyMealFromPlanPicker({ excludePlanId, onPick, onClose }: Props) {
+export default function CopyMealFromPlanPicker({ excludePlanId, clientId, onPick, onClose }: Props) {
   const [plans, setPlans] = useState<PlanSummary[] | null>(null)
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/coach/meal-plans?archived=0')
-      .then((r) => r.json())
-      .then((data) => {
-        if (cancelled) return
-        const rows: PlanSummary[] = Array.isArray(data) ? data : []
-        setPlans(rows.filter((p) => p.id !== excludePlanId))
-      })
-      .catch(() => { if (!cancelled) setError('Could not load meal plans') })
+    const sources: Promise<PlanSummary[]>[] = [
+      fetch('/api/coach/meal-plans?archived=0')
+        .then((r) => r.json())
+        .then((d) => (Array.isArray(d) ? d : []).map((p: { id: string; name: string; content: MealSlot[] | null }) => ({
+          id: p.id, name: p.name, content: p.content, source: 'template' as const,
+        })))
+        .catch(() => []),
+    ]
+    if (clientId) {
+      sources.push(
+        fetch(`/api/coach/clients/${clientId}/meal-plans`)
+          .then((r) => r.json())
+          .then((d) => (Array.isArray(d) ? d : []).map((p: { id: string; name: string; content: MealSlot[] | null }) => ({
+            id: p.id, name: p.name, content: p.content, source: 'client' as const,
+          })))
+          .catch(() => []),
+      )
+    }
+    Promise.all(sources).then((results) => {
+      if (cancelled) return
+      const merged = results.flat().filter((p) => p.id !== excludePlanId)
+      setPlans(merged)
+    }).catch(() => { if (!cancelled) setError('Could not load meal plans') })
     return () => { cancelled = true }
-  }, [excludePlanId])
+  }, [excludePlanId, clientId])
 
   const selectedPlan = selectedPlanId ? plans?.find((p) => p.id === selectedPlanId) ?? null : null
+  const clientPlans = (plans ?? []).filter((p) => p.source === 'client')
+  const templatePlans = (plans ?? []).filter((p) => p.source === 'template')
 
   function macroSummary(slot: MealSlot): string {
     if (slot.foods.length === 0) {
@@ -65,6 +86,31 @@ export default function CopyMealFromPlanPicker({ excludePlanId, onPick, onClose 
     }
     const cal = slot.foods.reduce((s, f) => s + (f.calories || 0), 0)
     return `${Math.round(cal)} kcal · ${slot.foods.length} food${slot.foods.length === 1 ? '' : 's'}`
+  }
+
+  function renderPlanGroup(label: string, group: PlanSummary[]) {
+    if (group.length === 0) return null
+    return (
+      <div className="mb-3 last:mb-0">
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide px-2 mb-1">{label}</p>
+        <ul className="space-y-1">
+          {group.map((p) => {
+            const count = (p.content ?? []).length
+            return (
+              <li key={p.id}>
+                <button
+                  onClick={() => setSelectedPlanId(p.id)}
+                  className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-colors"
+                >
+                  <p className="text-sm font-semibold text-gray-900 truncate">{p.name}</p>
+                  <p className="text-xs text-gray-400">{count} meal{count === 1 ? '' : 's'}</p>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
+    )
   }
 
   return (
@@ -102,22 +148,10 @@ export default function CopyMealFromPlanPicker({ excludePlanId, onPick, onClose 
           )}
 
           {!selectedPlan && plans && plans.length > 0 && (
-            <ul className="space-y-1">
-              {plans.map((p) => {
-                const count = (p.content ?? []).length
-                return (
-                  <li key={p.id}>
-                    <button
-                      onClick={() => setSelectedPlanId(p.id)}
-                      className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-colors"
-                    >
-                      <p className="text-sm font-semibold text-gray-900 truncate">{p.name}</p>
-                      <p className="text-xs text-gray-400">{count} meal{count === 1 ? '' : 's'}</p>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
+            <>
+              {renderPlanGroup("This client's plans", clientPlans)}
+              {renderPlanGroup('Your templates', templatePlans)}
+            </>
           )}
 
           {selectedPlan && (
