@@ -471,6 +471,7 @@ function PSectionBlock({ section, canUp, canDown, onChange, onRemove, onMoveUp, 
   onChange: (s: PSection) => void; onRemove: () => void; onMoveUp: () => void; onMoveDown: () => void
 }) {
   const [showPicker, setShowPicker] = useState(false)
+  const [videoOpenId, setVideoOpenId] = useState<string | null>(null)
   const sectionExercises = section.exercises ?? []
 
   function addExercise(lib: PLibEx) {
@@ -524,25 +525,57 @@ function PSectionBlock({ section, canUp, canDown, onChange, onRemove, onMoveUp, 
         </div>
         {sectionExercises.length > 0 && (
           <div className="space-y-1.5">
-            {sectionExercises.map((ex) => (
-              <div key={ex.id} className="flex items-center gap-2 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{ex.name}</p>
-                  {(ex.category || ex.equipment) && (
-                    <p className="text-[11px] text-gray-400 capitalize">
-                      {[ex.category, ex.equipment].filter(Boolean).join(' · ')}
-                    </p>
+            {sectionExercises.map((ex) => {
+              const isVideoOpen = videoOpenId === ex.id
+              const embedUrl = ex.video_url ? getYouTubeEmbedUrl(ex.video_url) : null
+              return (
+                <div key={ex.id} className="bg-gray-50 border border-gray-100 rounded-lg overflow-hidden">
+                  <div className="flex items-center gap-2 px-3 py-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{ex.name}</p>
+                      {(ex.category || ex.equipment) && (
+                        <p className="text-[11px] text-gray-400 capitalize">
+                          {[ex.category, ex.equipment].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
+                    </div>
+                    {ex.video_url && (
+                      <button
+                        onClick={() => setVideoOpenId(isVideoOpen ? null : ex.id)}
+                        className={`text-xs border rounded-lg px-2 py-0.5 flex-shrink-0 font-medium transition-colors ${isVideoOpen ? 'bg-red-50 text-red-500 border-red-100' : 'text-gray-500 border-gray-200 hover:text-teal-600 hover:border-teal-200'}`}
+                      >
+                        {isVideoOpen ? '✕ Video' : '▶ Video'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => removeExercise(ex.id)}
+                      className="text-gray-300 hover:text-red-400 text-lg leading-none flex-shrink-0"
+                      aria-label={`Remove ${ex.name}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  {isVideoOpen && ex.video_url && (
+                    embedUrl ? (
+                      <div className="aspect-video bg-black">
+                        <iframe src={embedUrl} className="w-full h-full"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen />
+                      </div>
+                    ) : (
+                      <a href={ex.video_url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-xs text-teal-600 hover:underline px-3 py-2 border-t border-gray-100">
+                        <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Open video →
+                      </a>
+                    )
                   )}
                 </div>
-                <button
-                  onClick={() => removeExercise(ex.id)}
-                  className="text-gray-300 hover:text-red-400 text-lg leading-none flex-shrink-0"
-                  aria-label={`Remove ${ex.name}`}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
         {showPicker && (
