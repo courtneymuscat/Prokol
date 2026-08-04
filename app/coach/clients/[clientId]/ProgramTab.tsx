@@ -650,7 +650,37 @@ function PExerciseBlock({ we, canUp, canDown, onMoveUp, onMoveDown, onChange, on
   const [showPicker, setShowPicker] = useState(false)
   const [showAltPicker, setShowAltPicker] = useState(false)
   const [showVideo, setShowVideo] = useState(false)
+  const [videoUrlInput, setVideoUrlInput] = useState(we.video_url ?? '')
+  const [savingVideoUrl, setSavingVideoUrl] = useState(false)
+  const [savedVideoUrl, setSavedVideoUrl] = useState(false)
   const alternates = we.alternates ?? []
+
+  useEffect(() => {
+    if (!showVideo) setVideoUrlInput(we.video_url ?? '')
+  }, [we.video_url, showVideo])
+
+  async function handleSaveVideoUrl() {
+    if (!we.exercise_id) return
+    const trimmed = videoUrlInput.trim() || null
+    setSavingVideoUrl(true)
+    try {
+      const res = await fetch(`/api/exercises/${we.exercise_id}/video`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_url: trimmed }),
+      })
+      if (res.ok) {
+        onChange({ ...we, video_url: trimmed ?? '' })
+        setSavedVideoUrl(true)
+        setTimeout(() => setSavedVideoUrl(false), 2000)
+      } else {
+        const d = await res.json().catch(() => ({}))
+        alert(d.error ?? 'Failed to save video URL')
+      }
+    } finally {
+      setSavingVideoUrl(false)
+    }
+  }
 
   function addAlternate(lib: PLibEx) {
     if (alternates.some((a) => a.id === lib.id) || lib.id === we.exercise_id) {
@@ -704,12 +734,12 @@ function PExerciseBlock({ we, canUp, canDown, onMoveUp, onMoveDown, onChange, on
           <p className="font-semibold text-gray-900 inline">{we.name || <span className="text-gray-300 italic font-normal">Unnamed exercise</span>}</p>
           {(we.category || we.equipment) && <p className="text-xs text-gray-400 capitalize mt-0.5">{we.category}{we.equipment ? ` · ${we.equipment}` : ''}</p>}
         </div>
-        {we.video_url && (
+        {we.exercise_id && (
           <button
             onClick={() => setShowVideo((v) => !v)}
             className={`text-xs border rounded-lg px-2 py-1 flex-shrink-0 font-medium transition-colors ${showVideo ? 'bg-red-50 text-red-500 border-red-100 hover:bg-red-100' : 'text-gray-500 border-gray-200 hover:text-blue-600 hover:border-blue-200'}`}
           >
-            {showVideo ? '✕ Video' : '▶ Video'}
+            {showVideo ? '✕ Video' : we.video_url ? '▶ Video' : '+ Video'}
           </button>
         )}
         <button onClick={() => setShowPicker(true)}
@@ -719,27 +749,48 @@ function PExerciseBlock({ we, canUp, canDown, onMoveUp, onMoveDown, onChange, on
         <button onClick={onRemove} className="text-gray-300 hover:text-red-400 text-xl leading-none flex-shrink-0">×</button>
       </div>
 
-      {/* Inline video player */}
-      {showVideo && we.video_url && (() => {
-        const embedUrl = getYouTubeEmbedUrl(we.video_url)
-        return embedUrl ? (
-          <div className="rounded-xl overflow-hidden border border-gray-100 bg-black aspect-video">
-            <iframe
-              src={embedUrl}
-              className="w-full h-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
+      {/* Inline video player + URL editor */}
+      {showVideo && (() => {
+        const embedUrl = we.video_url ? getYouTubeEmbedUrl(we.video_url) : null
+        return (
+          <div className="space-y-2">
+            {we.video_url && (
+              embedUrl ? (
+                <div className="rounded-xl overflow-hidden border border-gray-100 bg-black aspect-video">
+                  <iframe src={embedUrl} className="w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen />
+                </div>
+              ) : (
+                <a href={we.video_url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-xs text-blue-600 hover:underline py-1">
+                  <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Open video →
+                </a>
+              )
+            )}
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                value={videoUrlInput}
+                onChange={(e) => { setVideoUrlInput(e.target.value); setSavedVideoUrl(false) }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveVideoUrl() }}
+                placeholder="Paste YouTube or video URL…"
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-300 placeholder:text-gray-300"
+              />
+              <button
+                onClick={handleSaveVideoUrl}
+                disabled={savingVideoUrl || videoUrlInput.trim() === (we.video_url ?? '')}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-40 flex-shrink-0 bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200"
+              >
+                {savedVideoUrl ? '✓ Saved' : savingVideoUrl ? '…' : 'Save'}
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-300">Saves to your exercise library so all clients see the updated video.</p>
           </div>
-        ) : (
-          <a href={we.video_url} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-2 text-xs text-blue-600 hover:underline py-1">
-            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Open video →
-          </a>
         )
       })()}
 
@@ -1209,6 +1260,20 @@ function AssignedProgramCard({
   )
   const [editingStartDate, setEditingStartDate] = useState(false)
   const [localStartDate, setLocalStartDate] = useState(assignment.start_date)
+  const [editingProgramName, setEditingProgramName] = useState(false)
+  const [programNameValue, setProgramNameValue] = useState(assignment.name)
+
+  async function handleRenameProgramName() {
+    const trimmed = programNameValue.trim()
+    if (!trimmed || trimmed === assignment.name) { setEditingProgramName(false); return }
+    const res = await fetch(`/api/coach/clients/${clientId}/programs/${assignment.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: trimmed }),
+    })
+    if (res.ok) onUpdated(await res.json())
+    setEditingProgramName(false)
+  }
   // selectedDay: [weekIndex, dayIndex] | null
   const [selectedDay, setSelectedDay] = useState<[number, number] | null>(null)
   const [dragFrom, setDragFrom] = useState<[number, number] | null>(null)
@@ -1345,7 +1410,23 @@ function AssignedProgramCard({
       <div className="flex items-start justify-between p-5">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <button onClick={() => setExpanded((v) => !v)} className="text-sm font-semibold text-gray-900 hover:text-blue-600 transition-colors text-left">{assignment.name}</button>
+            {editingProgramName ? (
+              <input
+                autoFocus
+                value={programNameValue}
+                onChange={(e) => setProgramNameValue(e.target.value)}
+                onBlur={handleRenameProgramName}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleRenameProgramName(); if (e.key === 'Escape') { setProgramNameValue(assignment.name); setEditingProgramName(false) } }}
+                className="text-sm font-semibold text-gray-900 bg-transparent border-b border-blue-400 outline-none min-w-0 w-48"
+              />
+            ) : (
+              <div className="flex items-center gap-1 group">
+                <button onClick={() => setExpanded((v) => !v)} className="text-sm font-semibold text-gray-900 hover:text-blue-600 transition-colors text-left">{assignment.name}</button>
+                <button onClick={() => { setProgramNameValue(assignment.name); setEditingProgramName(true) }} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-blue-500" title="Rename program">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2a2 2 0 01.586-1.414z" /></svg>
+                </button>
+              </div>
+            )}
             <StatusBadge status={assignment.status} />
           </div>
           {/* Editable start date + computed date range */}
