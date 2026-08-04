@@ -1351,21 +1351,24 @@ function AssignedProgramCard({
     if (res.ok) onUnassign(assignment.id)
   }
 
+  function relabelWeeks(weeks: PWeek[]): PWeek[] {
+    return weeks.map((w, i) => ({ ...w, label: `Week ${i + 1}` }))
+  }
+
   function addWeek() {
-    const next = [...localContent, pNewWeek(localContent.length + 1)]
-    updateContent(next)
+    updateContent(relabelWeeks([...localContent, pNewWeek(localContent.length + 1)]))
   }
 
   function duplicateWeek(i: number) {
-    const copy = pCloneWeek(localContent[i], `Week ${localContent.length + 1}`)
-    const next = [...localContent.slice(0, i + 1), copy, ...localContent.slice(i + 1)]
+    const copy = pCloneWeek(localContent[i], '')
+    const next = relabelWeeks([...localContent.slice(0, i + 1), copy, ...localContent.slice(i + 1)])
     updateContent(next)
     if (selectedDay?.[0] === i) setSelectedDay(null)
   }
 
   function deleteWeek(i: number) {
     if (!confirm(`Delete ${localContent[i].label}?`)) return
-    const next = localContent.filter((_, wi) => wi !== i)
+    const next = relabelWeeks(localContent.filter((_, wi) => wi !== i))
     updateContent(next)
     if (selectedDay?.[0] === i) setSelectedDay(null)
   }
