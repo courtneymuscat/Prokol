@@ -332,6 +332,7 @@ function PExercisePicker({ onSelect, onClose }: { onSelect: (ex: PLibEx) => void
   const [createName, setCreateName] = useState('')
   const [createCategory, setCreateCategory] = useState('other')
   const [createEquipment, setCreateEquipment] = useState('bodyweight')
+  const [createVideoUrl, setCreateVideoUrl] = useState('')
   const [createSaving, setCreateSaving] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -354,7 +355,7 @@ function PExercisePicker({ onSelect, onClose }: { onSelect: (ex: PLibEx) => void
   async function handleCreate() {
     if (!createName.trim()) return
     setCreateSaving(true)
-    const res = await fetch('/api/exercises/custom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: createName, category: createCategory, equipment: createEquipment }) })
+    const res = await fetch('/api/exercises/custom', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: createName, category: createCategory, equipment: createEquipment, video_url: createVideoUrl.trim() || null }) })
     setCreateSaving(false)
     if (res.ok) onSelect(await res.json())
   }
@@ -395,12 +396,14 @@ function PExercisePicker({ onSelect, onClose }: { onSelect: (ex: PLibEx) => void
                 {['bodyweight','barbell','dumbbell','machine','cable','kettlebell','bands','other'].map((e) => <option key={e} value={e}>{e}</option>)}
               </select>
             </div>
+            <input value={createVideoUrl} onChange={(e) => setCreateVideoUrl(e.target.value)} placeholder="Video URL (YouTube or other) — optional"
+              className="w-full border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 placeholder:text-gray-300" />
             <div className="flex gap-2">
               <button onClick={handleCreate} disabled={createSaving || !createName.trim()}
                 className="flex-1 bg-blue-600 text-white text-xs font-semibold py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50">
                 {createSaving ? 'Creating…' : 'Add exercise'}
               </button>
-              <button onClick={() => setCreating(false)} className="text-xs text-gray-400 hover:text-gray-600 px-2">Cancel</button>
+              <button onClick={() => { setCreating(false); setCreateVideoUrl('') }} className="text-xs text-gray-400 hover:text-gray-600 px-2">Cancel</button>
             </div>
           </div>
         )}
