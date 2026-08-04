@@ -1613,6 +1613,9 @@ export default function ProgramTab({ clientId }: { clientId: string }) {
     })
     if (res.ok) {
       await loadPrograms()
+    } else {
+      const d = await res.json().catch(() => ({}))
+      alert(d.error ?? 'Failed to create program')
     }
   }
 

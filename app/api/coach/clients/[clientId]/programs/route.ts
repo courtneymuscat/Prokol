@@ -10,7 +10,7 @@ async function verifyCoachClientRelationship(coachId: string, clientId: string):
     .select('id')
     .eq('coach_id', coachId)
     .eq('client_id', clientId)
-    .eq('status', 'active')
+    .in('status', ['active', 'pending_invite'])
     .single()
   return !!data
 }

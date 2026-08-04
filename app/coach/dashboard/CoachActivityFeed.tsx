@@ -6,6 +6,7 @@ type ActivityItem = {
   type: 'checkin' | 'form_submission' | 'workout' | 'autoflow_response'
   clientId: string
   clientEmail: string
+  clientName?: string | null
   timestamp: string
   label: string
   unread?: boolean
@@ -86,7 +87,7 @@ export default function CoachActivityFeed() {
                 {TYPE_ICON[item.type]}
               </div>
               <p className="flex-1 text-sm text-gray-700 min-w-0 truncate">
-                <span className="font-medium text-gray-900">{item.clientEmail.split('@')[0]}</span>
+                <span className="font-medium text-gray-900">{item.clientName ?? item.clientEmail.split('@')[0]}</span>
                 {' '}{item.label}
               </p>
               <span className="text-xs text-gray-400 flex-shrink-0">{timeAgo(item.timestamp)}</span>

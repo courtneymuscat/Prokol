@@ -566,7 +566,7 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
   const [clientTimezone, setClientTimezone] = useState<string | null>(null)
   const datePickerRef = useRef<HTMLInputElement>(null)
   const [addingEvent, setAddingEvent] = useState<string | null>(null)
-  const [newEvent, setNewEvent] = useState({ type: 'task', title: '', content: '', repeat: 'none', endDate: '', resourceId: '' })
+  const [newEvent, setNewEvent] = useState({ type: 'task', title: '', content: '', repeat: 'none', endDate: '', resourceId: '', repeatDays: [] as number[] })
   // Coach's resource library — lazy-loaded the first time the Add Event
   // modal opens so the coach can attach a single resource to a task /
   // note / custom event (mirrors autoflow step resources).
@@ -702,6 +702,7 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
         title: newEvent.title,
         content,
         repeat_rule: !usingRange && newEvent.repeat !== 'none' ? newEvent.repeat : undefined,
+        repeat_days: newEvent.repeat === 'weekly_custom' ? newEvent.repeatDays : undefined,
       }),
     })
 
@@ -724,7 +725,7 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
       const created = Array.isArray(data.events) ? data.events : [data]
       setEvents((prev) => [...prev, ...created])
     }
-    setAddingEvent(null); setNewEvent({ type: 'task', title: '', content: '', repeat: 'none', endDate: '', resourceId: '' }); setSaving(false)
+    setAddingEvent(null); setNewEvent({ type: 'task', title: '', content: '', repeat: 'none', endDate: '', resourceId: '', repeatDays: [] }); setSaving(false)
   }
 
   async function deleteEvent(id: string) {
@@ -1254,16 +1255,54 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
             {!(newEvent.type === 'travel' && newEvent.endDate && newEvent.endDate > addingEvent) && (
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-500">Repeat</label>
-                <select value={newEvent.repeat} onChange={(e) => setNewEvent((n) => ({ ...n, repeat: e.target.value }))}
+                <select
+                  value={newEvent.repeat}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    const startDow = new Date(addingEvent + 'T00:00:00').getDay()
+                    setNewEvent((n) => ({ ...n, repeat: val, repeatDays: val === 'weekly_custom' ? [startDow] : n.repeatDays }))
+                  }}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                   <option value="none">Does not repeat</option>
+                  <option value="daily">Every day</option>
                   <option value="weekly">Every week</option>
+                  <option value="weekly_custom">Select days</option>
                   <option value="biweekly">Every 2 weeks</option>
                   <option value="monthly">Every month</option>
                 </select>
+                {newEvent.repeat === 'weekly_custom' && (() => {
+                  const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                  return (
+                    <div className="flex gap-1.5 pt-0.5">
+                      {DAY_LABELS.map((label, dow) => {
+                        const selected = newEvent.repeatDays.includes(dow)
+                        return (
+                          <button
+                            key={dow}
+                            type="button"
+                            onClick={() => setNewEvent((n) => ({
+                              ...n,
+                              repeatDays: selected
+                                ? n.repeatDays.filter(d => d !== dow)
+                                : [...n.repeatDays, dow].sort((a, b) => a - b),
+                            }))}
+                            className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${selected ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+                          >
+                            {label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
                 {newEvent.repeat !== 'none' && (
                   <p className="text-[11px] text-gray-400">
+                    {newEvent.repeat === 'daily' && 'Repeats every day for 1 year'}
                     {newEvent.repeat === 'weekly' && `Repeats every ${new Date(addingEvent + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long' })} for 1 year`}
+                    {newEvent.repeat === 'weekly_custom' && newEvent.repeatDays.length > 0 && (() => {
+                      const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                      return `Repeats every ${newEvent.repeatDays.map(d => DAY_NAMES[d]).join(', ')} for 1 year`
+                    })()}
                     {newEvent.repeat === 'biweekly' && `Repeats every 2 weeks on ${new Date(addingEvent + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long' })} for 1 year`}
                     {newEvent.repeat === 'monthly' && `Repeats on the ${new Date(addingEvent + 'T00:00:00').getDate()}th of each month for 1 year`}
                   </p>
@@ -1273,7 +1312,7 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
 
             <div className="flex gap-3">
               <button onClick={() => setAddingEvent(null)} className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50">Cancel</button>
-              <button onClick={() => saveEvent(addingEvent)} disabled={!newEvent.title.trim() || saving}
+              <button onClick={() => saveEvent(addingEvent)} disabled={!newEvent.title.trim() || saving || (newEvent.repeat === 'weekly_custom' && newEvent.repeatDays.length === 0)}
                 className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
                 {saving
                   ? 'Saving…'

@@ -135,7 +135,7 @@ export async function POST(
 
   const supabase = await createClient()
   const body = await req.json()
-  const { event_date, end_date, type, title, content, repeat_rule } = body
+  const { event_date, end_date, type, title, content, repeat_rule, repeat_days } = body
 
   // Date range (consecutive days) — used for multi-day events like travel.
   // Mutually exclusive with repeat_rule; if both arrive, range wins.
@@ -183,16 +183,28 @@ export async function POST(
   let current = new Date(Date.UTC(y, m - 1, d))
   const limit = new Date(Date.UTC(y + 1, m - 1, d)) // 1 year from start
 
-  while (current <= limit) {
-    dates.push(current.toISOString().split('T')[0])
-    if (repeat_rule === 'weekly') {
-      current = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate() + 7))
-    } else if (repeat_rule === 'biweekly') {
-      current = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate() + 14))
-    } else if (repeat_rule === 'monthly') {
-      current = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth() + 1, current.getUTCDate()))
-    } else {
-      break
+  if (repeat_rule === 'weekly_custom') {
+    const days: number[] = Array.isArray(repeat_days) ? repeat_days : []
+    while (current <= limit) {
+      if (days.includes(current.getUTCDay())) {
+        dates.push(current.toISOString().split('T')[0])
+      }
+      current = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate() + 1))
+    }
+  } else {
+    while (current <= limit) {
+      dates.push(current.toISOString().split('T')[0])
+      if (repeat_rule === 'daily') {
+        current = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate() + 1))
+      } else if (repeat_rule === 'weekly') {
+        current = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate() + 7))
+      } else if (repeat_rule === 'biweekly') {
+        current = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate() + 14))
+      } else if (repeat_rule === 'monthly') {
+        current = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth() + 1, current.getUTCDate()))
+      } else {
+        break
+      }
     }
   }
 
@@ -200,7 +212,7 @@ export async function POST(
     event_date: date,
     type,
     title,
-    content: { ...(content ?? {}), recurrence_id: recurrenceId, repeat_rule },
+    content: { ...(content ?? {}), recurrence_id: recurrenceId, repeat_rule, ...(repeat_rule === 'weekly_custom' ? { repeat_days } : {}) },
     client_id: clientId,
     coach_id: coachId,
   }))

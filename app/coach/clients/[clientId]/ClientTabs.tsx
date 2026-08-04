@@ -1241,7 +1241,53 @@ function CoachMetricCard({ metric, logs }: { metric: CustomMetric; logs: CustomM
   )
 }
 
-function MetricsTab({ metrics, logs }: { metrics: CustomMetric[]; logs: CustomMetricLog[] }) {
+function WeightMetricCard({ logs }: { logs: WeightLog[] }) {
+  const [expanded, setExpanded] = useState(false)
+  const latest = logs[0] ?? null
+  const previous = logs[1] ?? null
+  const unit = latest?.weight_unit === 'kg' ? 'kg' : 'lbs'
+  const toDisplay = (l: WeightLog) => unit === 'kg' ? l.weight_lbs / 2.20462 : l.weight_lbs
+  const latestVal = latest ? toDisplay(latest) : null
+  const prevVal = previous ? toDisplay(previous) : null
+  const delta = latestVal !== null && prevVal !== null ? latestVal - prevVal : null
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-200">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between gap-3 p-5 text-left hover:bg-gray-50 transition-colors rounded-2xl"
+      >
+        <div>
+          <h3 className="text-base font-semibold text-gray-900">Weight</h3>
+          {latestVal !== null ? (
+            <p className="text-xs text-gray-400 mt-0.5">
+              Latest: <span className="text-gray-700 font-medium">{latestVal.toFixed(1)} {unit}</span>
+              <span className="text-gray-300"> · {new Date(latest!.logged_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+              {delta !== null && (
+                <span className={`ml-2 font-semibold ${delta < 0 ? 'text-green-600' : delta > 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                  {delta >= 0 ? '+' : ''}{delta.toFixed(1)} {unit}
+                </span>
+              )}
+            </p>
+          ) : (
+            <p className="text-xs text-gray-400 mt-0.5">No entries yet</p>
+          )}
+        </div>
+        <svg className={`w-4 h-4 text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {expanded && (
+        <div className="px-5 pb-5 border-t border-gray-100 pt-4 space-y-4">
+          <WeightFullChart logs={logs} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MetricsTab({ metrics, logs, weightLogs }: { metrics: CustomMetric[]; logs: CustomMetricLog[]; weightLogs: WeightLog[] }) {
   const logsByMetric = useMemo(() => {
     const map: Record<string, CustomMetricLog[]> = {}
     for (const m of metrics) map[m.id] = []
@@ -1251,12 +1297,14 @@ function MetricsTab({ metrics, logs }: { metrics: CustomMetric[]; logs: CustomMe
     return map
   }, [metrics, logs])
 
-  if (metrics.length === 0) {
+  const hasAnything = weightLogs.length > 0 || metrics.length > 0
+
+  if (!hasAnything) {
     return (
       <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-8 text-center">
-        <p className="text-sm font-semibold text-gray-700">No custom metrics tracked</p>
+        <p className="text-sm font-semibold text-gray-700">No metrics tracked yet</p>
         <p className="text-xs text-gray-400 mt-1">
-          Your client can add their own metrics — body fat, measurements, RHR, etc. — from their Metrics page.
+          Weight will appear here once the client logs it. They can also add custom metrics — body fat, measurements, RHR, etc. — from their Metrics page.
         </p>
       </div>
     )
@@ -1264,6 +1312,7 @@ function MetricsTab({ metrics, logs }: { metrics: CustomMetric[]; logs: CustomMe
 
   return (
     <div className="space-y-3">
+      {weightLogs.length > 0 && <WeightMetricCard logs={weightLogs} />}
       {metrics.map((m) => (
         <CoachMetricCard key={m.id} metric={m} logs={logsByMetric[m.id] ?? []} />
       ))}
@@ -3115,7 +3164,7 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
 
       {/* Custom metrics */}
       {tab === 'metrics' && data && (
-        <MetricsTab metrics={data.customMetrics ?? []} logs={data.customMetricLogs ?? []} />
+        <MetricsTab metrics={data.customMetrics ?? []} logs={data.customMetricLogs ?? []} weightLogs={data.weightLogs} />
       )}
 
       {/* Notes */}

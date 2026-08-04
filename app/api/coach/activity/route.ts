@@ -22,9 +22,11 @@ export async function GET() {
   // Get client profiles for display
   const { data: profiles } = await admin
     .from('profiles')
-    .select('id, email')
+    .select('id, email, full_name')
     .in('id', clientIds)
-  const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p.email as string]))
+  const profileMap = Object.fromEntries(
+    (profiles ?? []).map((p) => [p.id, { email: p.email as string, full_name: p.full_name as string | null }])
+  )
 
   // Fetch recent activity in parallel
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
@@ -89,7 +91,8 @@ export async function GET() {
     ...(checkIns ?? []).map((c) => ({
       type: 'checkin' as const,
       clientId: c.user_id,
-      clientEmail: profileMap[c.user_id] ?? 'Unknown',
+      clientEmail: profileMap[c.user_id]?.email ?? 'Unknown',
+      clientName: profileMap[c.user_id]?.full_name ?? null,
       timestamp: c.created_at,
       label: 'Submitted a daily check-in',
       id: c.id,
@@ -97,7 +100,8 @@ export async function GET() {
     ...(formSubs ?? []).map((s) => ({
       type: 'form_submission' as const,
       clientId: s.client_id,
-      clientEmail: profileMap[s.client_id] ?? 'Unknown',
+      clientEmail: profileMap[s.client_id]?.email ?? 'Unknown',
+      clientName: profileMap[s.client_id]?.full_name ?? null,
       timestamp: s.submitted_at,
       label: 'Submitted a form',
       unread: !s.viewed_by_coach,
@@ -106,7 +110,8 @@ export async function GET() {
     ...(workouts ?? []).map((w) => ({
       type: 'workout' as const,
       clientId: w.user_id,
-      clientEmail: profileMap[w.user_id] ?? 'Unknown',
+      clientEmail: profileMap[w.user_id]?.email ?? 'Unknown',
+      clientName: profileMap[w.user_id]?.full_name ?? null,
       timestamp: w.started_at,
       label: `Logged a workout: ${w.name}`,
       id: w.id,
@@ -116,7 +121,8 @@ export async function GET() {
       return {
         type: 'autoflow_response' as const,
         clientId: flow?.clientId ?? '',
-        clientEmail: profileMap[flow?.clientId ?? ''] ?? 'Unknown',
+        clientEmail: profileMap[flow?.clientId ?? '']?.email ?? 'Unknown',
+        clientName: profileMap[flow?.clientId ?? '']?.full_name ?? null,
         timestamp: r.submitted_at,
         label: `Completed step ${r.step_number} of autoflow: ${flow?.name ?? ''}`,
         unread: true,
@@ -129,7 +135,7 @@ export async function GET() {
   const recentCheckInClients = new Set((checkIns ?? []).map((c) => c.user_id))
   const lapsed = clientIds
     .filter((id) => !recentCheckInClients.has(id))
-    .map((id) => ({ clientId: id, clientEmail: profileMap[id] ?? 'Unknown' }))
+    .map((id) => ({ clientId: id, clientEmail: profileMap[id]?.email ?? 'Unknown', clientName: profileMap[id]?.full_name ?? null }))
 
   return Response.json({ activity, lapsed })
 }

@@ -75,7 +75,7 @@ export default function LapsedClients() {
                 </div>
                 <a href={`/coach/clients/${c.clientId}`}
                   className="flex-1 min-w-0 hover:opacity-70 transition-opacity">
-                  <p className="text-sm text-gray-800 truncate">{display.split('@')[0]}</p>
+                  <p className="text-sm text-gray-800 truncate">{c.clientName ?? display.split('@')[0]}</p>
                   <p className="text-[10px] text-gray-400">No check-in in 7+ days</p>
                 </a>
                 <RemindButton clientId={c.clientId} />
