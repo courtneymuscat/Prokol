@@ -75,6 +75,21 @@ type ProgramTemplate = {
 
 const PCATS = ['chest', 'back', 'legs', 'shoulders', 'arms', 'core', 'cardio', 'other']
 
+function getYouTubeEmbedUrl(url: string): string | null {
+  try {
+    const u = new URL(url)
+    if (u.hostname === 'youtu.be') return `https://www.youtube.com/embed${u.pathname}`
+    if (u.hostname.includes('youtube.com')) {
+      if (u.pathname.startsWith('/embed/')) return url
+      const v = u.searchParams.get('v')
+      if (v) return `https://www.youtube.com/embed/${v}`
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 function pNewSet(num: number, prev?: PSet): PSet {
   return { id: crypto.randomUUID(), setNumber: num, weight: prev?.weight ?? '', reps: prev?.reps ?? '', duration: prev?.duration ?? '', calories: prev?.calories ?? '', rest: prev?.rest ?? '' }
 }
@@ -565,6 +580,7 @@ function PExerciseBlock({ we, canUp, canDown, onMoveUp, onMoveDown, onChange, on
 }) {
   const [showPicker, setShowPicker] = useState(false)
   const [showAltPicker, setShowAltPicker] = useState(false)
+  const [showVideo, setShowVideo] = useState(false)
   const alternates = we.alternates ?? []
 
   function addAlternate(lib: PLibEx) {
@@ -619,12 +635,44 @@ function PExerciseBlock({ we, canUp, canDown, onMoveUp, onMoveDown, onChange, on
           <p className="font-semibold text-gray-900 inline">{we.name || <span className="text-gray-300 italic font-normal">Unnamed exercise</span>}</p>
           {(we.category || we.equipment) && <p className="text-xs text-gray-400 capitalize mt-0.5">{we.category}{we.equipment ? ` · ${we.equipment}` : ''}</p>}
         </div>
+        {we.video_url && (
+          <button
+            onClick={() => setShowVideo((v) => !v)}
+            className={`text-xs border rounded-lg px-2 py-1 flex-shrink-0 font-medium transition-colors ${showVideo ? 'bg-red-50 text-red-500 border-red-100 hover:bg-red-100' : 'text-gray-500 border-gray-200 hover:text-blue-600 hover:border-blue-200'}`}
+          >
+            {showVideo ? '✕ Video' : '▶ Video'}
+          </button>
+        )}
         <button onClick={() => setShowPicker(true)}
           className="text-xs text-blue-500 hover:text-blue-700 border border-blue-100 rounded-lg px-2 py-1 flex-shrink-0 font-medium transition-colors">
           {we.exercise_id ? 'Change' : 'Search'}
         </button>
         <button onClick={onRemove} className="text-gray-300 hover:text-red-400 text-xl leading-none flex-shrink-0">×</button>
       </div>
+
+      {/* Inline video player */}
+      {showVideo && we.video_url && (() => {
+        const embedUrl = getYouTubeEmbedUrl(we.video_url)
+        return embedUrl ? (
+          <div className="rounded-xl overflow-hidden border border-gray-100 bg-black aspect-video">
+            <iframe
+              src={embedUrl}
+              className="w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        ) : (
+          <a href={we.video_url} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-2 text-xs text-blue-600 hover:underline py-1">
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Open video →
+          </a>
+        )
+      })()}
 
       {/* Superset link / unlink controls */}
       {(canLinkToPrev || isInSuperset) && (
@@ -744,6 +792,19 @@ function PDayEditor({ day, onChange, onClose }: { day: PDay; onChange: (d: PDay)
   const [showAddMenu, setShowAddMenu] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
   const [showSavedPicker, setShowSavedPicker] = useState(false)
+  const [editingName, setEditingName] = useState(false)
+  const [nameValue, setNameValue] = useState(day.name)
+
+  useEffect(() => {
+    if (!editingName) setNameValue(day.name)
+  }, [day.name, editingName])
+
+  function commitName() {
+    const trimmed = nameValue.trim() || day.name
+    setNameValue(trimmed)
+    onChange({ ...day, name: trimmed })
+    setEditingName(false)
+  }
 
   function updateItem(i: number, item: PDayItem) {
     const items = [...day.items]; items[i] = item; onChange({ ...day, items })
@@ -911,7 +972,27 @@ function PDayEditor({ day, onChange, onClose }: { day: PDay; onChange: (d: PDay)
   return (
     <div className="border-t border-blue-100 bg-blue-50/30 p-5 space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-bold text-gray-800 flex-1 min-w-0 truncate">{day.name}</p>
+        {editingName ? (
+          <input
+            autoFocus
+            value={nameValue}
+            onChange={(e) => setNameValue(e.target.value)}
+            onBlur={commitName}
+            onKeyDown={(e) => { if (e.key === 'Enter') commitName(); if (e.key === 'Escape') { setNameValue(day.name); setEditingName(false) } }}
+            className="text-sm font-bold text-gray-800 flex-1 min-w-0 bg-transparent border-b border-blue-400 outline-none"
+          />
+        ) : (
+          <button
+            onClick={() => { setNameValue(day.name); setEditingName(true) }}
+            className="text-sm font-bold text-gray-800 flex-1 min-w-0 truncate text-left hover:text-blue-600 transition-colors group flex items-center gap-1"
+            title="Click to rename"
+          >
+            {day.name}
+            <svg className="w-3 h-3 text-gray-300 group-hover:text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2a2 2 0 01.586-1.414z" />
+            </svg>
+          </button>
+        )}
         <button
           onClick={handleSaveAsTemplate}
           disabled={savingTemplate || exCount === 0}
