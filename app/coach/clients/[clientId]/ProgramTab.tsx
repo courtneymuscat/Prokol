@@ -472,7 +472,32 @@ function PSectionBlock({ section, canUp, canDown, onChange, onRemove, onMoveUp, 
 }) {
   const [showPicker, setShowPicker] = useState(false)
   const [videoOpenId, setVideoOpenId] = useState<string | null>(null)
+  const [savingSection, setSavingSection] = useState(false)
+  const [savedSection, setSavedSection] = useState(false)
   const sectionExercises = section.exercises ?? []
+
+  async function handleSaveSection() {
+    const defaultName = section.title?.trim() || 'Section'
+    const name = window.prompt('Save this section to your workout library as:', defaultName)
+    if (!name?.trim()) return
+    setSavingSection(true)
+    try {
+      const res = await fetch('/api/coach/saved-workouts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), content: { name: name.trim(), items: [section] } }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        alert(d.error ?? 'Failed to save section')
+      } else {
+        setSavedSection(true)
+        setTimeout(() => setSavedSection(false), 2500)
+      }
+    } finally {
+      setSavingSection(false)
+    }
+  }
 
   function addExercise(lib: PLibEx) {
     if (sectionExercises.some((e) => e.id === lib.id)) {
@@ -501,6 +526,14 @@ function PSectionBlock({ section, canUp, canDown, onChange, onRemove, onMoveUp, 
         <input value={section.title} onChange={(e) => onChange({ ...section, title: e.target.value })}
           placeholder="Section title (e.g. Warm Up, Metcon, WOD)"
           className="flex-1 text-sm font-semibold text-gray-900 bg-transparent outline-none border-b border-transparent focus:border-gray-300 min-w-0" />
+        <button
+          onClick={handleSaveSection}
+          disabled={savingSection}
+          className="text-[11px] font-semibold text-gray-400 hover:text-teal-600 border border-gray-200 hover:border-teal-200 px-2 py-0.5 rounded-lg transition-colors disabled:opacity-40 flex-shrink-0"
+          title="Save this section to your workout library"
+        >
+          {savedSection ? '✓ Saved' : savingSection ? '…' : '📥 Save'}
+        </button>
         <button onClick={onRemove} className="text-gray-300 hover:text-red-400 text-xl leading-none flex-shrink-0">×</button>
       </div>
       <AutoGrowTextarea value={section.notes} onChange={(e) => onChange({ ...section, notes: e.target.value })}
