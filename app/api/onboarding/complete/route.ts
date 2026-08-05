@@ -19,12 +19,15 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient()
 
-  // Preserve existing subscription_tier and full_name
-  const { data: existing } = await admin
-    .from('profiles')
-    .select('subscription_tier, full_name')
-    .eq('id', user.id)
-    .single()
+  // Preserve existing subscription_tier and full_name; upgrade to 'coached' if they have a coach
+  const [{ data: existing }, { data: coachRel }] = await Promise.all([
+    admin.from('profiles').select('subscription_tier, full_name').eq('id', user.id).single(),
+    admin.from('coach_clients').select('id').eq('client_id', user.id).in('status', ['active', 'pending_invite']).maybeSingle(),
+  ])
+
+  const resolvedTier = coachRel
+    ? 'coached'
+    : (existing?.subscription_tier ?? 'individual_free')
 
   const { error } = await admin
     .from('profiles')
@@ -48,7 +51,7 @@ export async function POST(req: NextRequest) {
       target_fat:           target_fat ?? null,
       adjustment_pct:       adjustment_pct ?? null,
       onboarding_completed: true,
-      subscription_tier:    existing?.subscription_tier ?? 'individual_free',
+      subscription_tier:    resolvedTier,
     }, { onConflict: 'id' })
 
   if (error) return Response.json({ error: error.message }, { status: 500 })

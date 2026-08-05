@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import TrainingCalendar from '@/app/dashboard/TrainingCalendar'
 import UpcomingBookings from './UpcomingBookings'
 
@@ -14,7 +15,18 @@ export default async function CalendarPage() {
     .eq('id', user.id)
     .single()
 
-  if (profile?.subscription_tier !== 'coached') redirect('/dashboard')
+  if (profile?.subscription_tier !== 'coached') {
+    // Fallback: allow access if they have an active coach relationship
+    // (handles clients whose stored tier hasn't been upgraded yet)
+    const admin = createAdminClient()
+    const { data: coachRel } = await admin
+      .from('coach_clients')
+      .select('id')
+      .eq('client_id', user.id)
+      .in('status', ['active', 'pending_invite'])
+      .maybeSingle()
+    if (!coachRel) redirect('/dashboard')
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">

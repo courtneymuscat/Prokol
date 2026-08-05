@@ -134,19 +134,27 @@ export async function POST(req: NextRequest) {
     if (ghostUser) {
       clientId = ghostUser.id
       await admin.from('profiles').upsert(
-        { id: ghostUser.id, email, user_type: 'individual', role: 'client', subscription_tier: 'individual_free' },
+        { id: ghostUser.id, email, user_type: 'individual', role: 'client', subscription_tier: 'coached' },
         { onConflict: 'id' }
       )
     }
   }
 
   if (clientId) {
-    await admin
-      .from('coach_clients')
-      .upsert(
-        { coach_id: coachId, client_id: clientId, status: 'pending_invite', service_id: service_id || null },
-        { onConflict: 'coach_id,client_id', ignoreDuplicates: true }
-      )
+    await Promise.all([
+      admin
+        .from('coach_clients')
+        .upsert(
+          { coach_id: coachId, client_id: clientId, status: 'pending_invite', service_id: service_id || null },
+          { onConflict: 'coach_id,client_id', ignoreDuplicates: true }
+        ),
+      // Upgrade client tier to 'coached' so they have full access immediately
+      admin
+        .from('profiles')
+        .update({ subscription_tier: 'coached' })
+        .eq('id', clientId)
+        .neq('subscription_tier', 'coached'),
+    ])
   }
 
   return Response.json({ url, token, seatInfo })
