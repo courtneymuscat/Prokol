@@ -76,23 +76,47 @@ export default function InstallPrompt() {
           <p className="text-sm font-bold text-gray-900">Add Prokol to your Home Screen</p>
 
           {platform === 'ios' ? (
-            <div className="mt-1.5 space-y-1">
+            <div className="mt-1.5 space-y-2">
               <p className="text-xs text-gray-500 leading-relaxed">
-                Get the full app experience — no browser bar, faster access, works offline.
+                Get the full app experience — no browser needed, just add this to your home screen as an app icon.
               </p>
-              <div className="flex items-center gap-1.5 text-xs text-gray-600 mt-2">
-                <span className="flex items-center gap-1">
-                  <span>1. Tap</span>
-                  {/* iOS share icon — box with arrow pointing up */}
-                  <svg className="w-4 h-4 text-blue-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <ol className="space-y-1.5 text-xs text-gray-700">
+                <li className="flex items-center gap-1.5">
+                  <span className="font-semibold text-gray-400 w-3 shrink-0">1.</span>
+                  <span>Tap</span>
+                  {/* iOS share icon */}
+                  <svg className="w-4 h-4 text-blue-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 2v13M7 7l5-5 5 5" />
                     <path d="M20 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1v-5" />
                   </svg>
                   <span>below</span>
-                </span>
-                <span className="text-gray-300">·</span>
-                <span>2. <strong>Add to Home Screen</strong></span>
-              </div>
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span className="font-semibold text-gray-400 w-3 shrink-0">2.</span>
+                  <span>Select <strong>Share</strong></span>
+                  {/* Share/export icon */}
+                  <svg className="w-4 h-4 text-gray-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                  </svg>
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span className="font-semibold text-gray-400 w-3 shrink-0">3.</span>
+                  <span>Tap <strong>More</strong></span>
+                  {/* Ellipsis / more icon */}
+                  <svg className="w-4 h-4 text-gray-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+                  </svg>
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span className="font-semibold text-gray-400 w-3 shrink-0">4.</span>
+                  <span>Scroll to find <strong>Add to Home Screen</strong></span>
+                  {/* Plus icon */}
+                  <svg className="w-4 h-4 text-gray-500 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                  </svg>
+                </li>
+              </ol>
             </div>
           ) : (
             <p className="text-xs text-gray-500 mt-1 leading-relaxed">
