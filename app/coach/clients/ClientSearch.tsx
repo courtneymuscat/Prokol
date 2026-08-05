@@ -189,9 +189,19 @@ export default function ClientSearch({ clients, archivedClients = [], pendingInv
       {activeClients.map((client) => <ClientCard key={client.id} client={client} />)}
 
       {/* Pending invite clients (have accounts, haven't accepted) */}
+      {pendingClients.length > 0 && (
+        <p className="text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
+          These clients have an account but haven&apos;t clicked their invite link yet. Share the link directly so they can accept it.
+        </p>
+      )}
       {pendingClients.map((client) => <ClientCard key={client.id} client={client} onRevoke={revokeInvite} />)}
 
       {/* Pending invites for emails without accounts yet */}
+      {filteredPending.length > 0 && (
+        <p className="text-xs text-amber-700 bg-amber-50 rounded-xl px-3 py-2">
+          Your client must sign up using their invite link — if they can&apos;t find the email, copy the link below and send it directly.
+        </p>
+      )}
       {filteredPending.map((inv) => (
         <div key={inv.email} className="flex items-center gap-4 bg-white rounded-2xl border border-dashed p-4 opacity-70">
           <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">

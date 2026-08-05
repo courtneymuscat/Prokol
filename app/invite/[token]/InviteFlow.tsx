@@ -234,6 +234,9 @@ export default function InviteFlow({
 
         {step === 'choose_account' && (
           <div className="space-y-3">
+            <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2.5 text-xs text-amber-800 leading-relaxed">
+              You must sign up or log in using this link to connect with your coach. Do not sign up separately at the homepage.
+            </div>
             <a
               href={`/signup?invite=${token}`}
               className="block w-full text-center bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
