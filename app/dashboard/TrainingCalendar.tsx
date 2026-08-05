@@ -1058,6 +1058,16 @@ function WorkoutModal({ workout, onClose, onSaved, onMoved }: {
                 {/* Logged sets */}
                 {(logging || workout.result) && (
                   <div className="space-y-1.5 pt-1">
+                    {/* Column headers — logging mode only */}
+                    {logging && sets.length > 0 && (
+                      <div className="flex items-center gap-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide pb-0.5">
+                        <span className="w-8">Set</span>
+                        <span className="w-16">Weight</span>
+                        <span className="w-3" />
+                        <span className="w-14">Reps</span>
+                        <span className="ml-1">Rest</span>
+                      </div>
+                    )}
                     {sets.map((s, si) => {
                       const setKey = `${item.id}-${si}`
                       const done = completedSets.has(setKey)
@@ -1085,7 +1095,7 @@ function WorkoutModal({ workout, onClose, onSaved, onMoved }: {
                               })}
                               disabled={done}
                               className="w-14 border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300 disabled:bg-gray-50" />
-                            {restSecs && <span className="text-[10px] text-orange-500 font-medium ml-1">⏱ {restSecs}s</span>}
+                            {restSecs && <span className="text-[10px] text-orange-500 font-medium ml-1">⏱ {restSecs}s rest</span>}
                             <button
                               type="button"
                               onClick={() => toggleSetDone(setKey, restSecs)}

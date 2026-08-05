@@ -122,6 +122,7 @@ export default function ClientBottomNav({
                 key={tab.href}
                 href={tab.href}
                 prefetch={true}
+                id={tab.href === '/calendar' ? 'tour-calendar' : undefined}
                 className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 min-w-0"
               >
                 {tab.icon(active)}

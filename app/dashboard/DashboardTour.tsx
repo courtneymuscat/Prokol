@@ -55,6 +55,14 @@ const STEPS: Step[] = [
     tooltipSide: 'above',
   },
   {
+    targetId: 'tour-calendar',
+    emoji: '📅',
+    title: 'Your calendar',
+    body: 'View your training programs here — see every session your coach has scheduled. You can also add your own activities or events.',
+    cta: 'Got it →',
+    tooltipSide: 'above',
+  },
+  {
     targetId: 'tour-settings',
     emoji: '⚙️',
     title: 'Settings up here',
@@ -132,9 +140,14 @@ export default function DashboardTour() {
     if (stepIndex >= STEPS.length - 1) {
       localStorage.setItem(TOUR_KEY, '1')
       setStepIndex(null)
-    } else {
-      setStepIndex(stepIndex + 1)
+      return
     }
+    // Skip steps whose target element doesn't exist in the current DOM
+    let next = stepIndex + 1
+    while (next < STEPS.length - 1 && STEPS[next].targetId && !document.getElementById(STEPS[next].targetId!)) {
+      next++
+    }
+    setStepIndex(next)
   }
 
   function dismiss() {
