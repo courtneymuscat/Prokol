@@ -255,7 +255,7 @@ export default async function DashboardPage() {
 
   if (isCoached && coachRel) {
     const rel = coachRel as Record<string, unknown>
-    showDailyTargets = (coachRel.show_daily_targets as boolean | null) ?? true
+    showDailyTargets = (coachRel.show_daily_targets as boolean | null) ?? false
     foodLogAccess = (coachRel.food_log_access as string) ?? 'full'
     showMealBuilder = (rel.show_meal_builder as boolean) ?? true
     showSavedMeals = (rel.show_saved_meals as boolean) ?? true

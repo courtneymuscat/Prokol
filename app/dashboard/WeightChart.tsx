@@ -40,7 +40,7 @@ function toPoints(rows: InitialLog[]): DataPoint[] {
 export default function WeightChart({ initialLogs = [] }: { initialLogs?: InitialLog[] }) {
   const [points, setPoints] = useState<DataPoint[]>(() => toPoints(initialLogs))
   const [loading, setLoading] = useState(initialLogs.length === 0)
-  const [unit, setUnit] = useState<'lbs' | 'kg'>('lbs')
+  const [unit, setUnit] = useState<'lbs' | 'kg'>('kg')
   const [tooltip, setTooltip] = useState<TooltipState>(null)
   const svgRef = useRef<SVGSVGElement>(null)
 

@@ -109,7 +109,7 @@ function EditRow({
 
 export default function WeightLog({ initialHistory = [] }: { initialHistory?: WeightEntry[] }) {
   const router = useRouter()
-  const [unit, setUnit] = useState<'lbs' | 'kg'>('lbs')
+  const [unit, setUnit] = useState<'lbs' | 'kg'>('kg')
   const [weight, setWeight] = useState('')
   const [date, setDate] = useState(todayLocal)
   const [pending, setPending] = useState(false)
