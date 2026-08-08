@@ -604,5 +604,94 @@ export async function GET(req: NextRequest) {
     console.error('[cron] booking 24h reminder section failed:', err)
   }
 
+  // ── 7. Incomplete training session reminder ──────────────────────────────────
+  //
+  // Sent at 7am local time if the client has exercises scheduled today in an
+  // active program and hasn't logged a result for that session yet.
+
+  try {
+    const { data: activePrograms } = await supabase
+      .from('client_programs')
+      .select('id, client_id, start_date, content, profiles!client_id ( timezone )')
+      .eq('status', 'active')
+
+    if (activePrograms?.length) {
+      const clientIds = [...new Set(activePrograms.map((p) => p.client_id))]
+
+      // Fetch today's workout results for these clients (±1 day buffer for TZ spread)
+      const windowStart = new Date(now.getTime() - 86400000).toISOString().split('T')[0]
+      const windowEnd   = new Date(now.getTime() + 86400000).toISOString().split('T')[0]
+      const { data: completedWorkouts } = await supabase
+        .from('calendar_events')
+        .select('client_id, event_date, content')
+        .in('client_id', clientIds)
+        .eq('type', 'program_workout_result')
+        .gte('event_date', windowStart)
+        .lte('event_date', windowEnd)
+
+      const notifiedWorkoutClients = new Set<string>()
+
+      for (const prog of activePrograms) {
+        const profile = (prog as Record<string, unknown>).profiles as { timezone: string | null } | null
+        const timezone = profile?.timezone ?? null
+
+        if (!isSevenAM(timezone)) continue
+        if (notifiedWorkoutClients.has(prog.client_id)) continue
+
+        const { dateStr } = getLocalInfo(timezone)
+
+        // Map today (in the client's tz) to a week/day index in the program
+        const startMs  = new Date(prog.start_date + 'T00:00:00Z').getTime()
+        const todayMs  = new Date(dateStr + 'T00:00:00Z').getTime()
+        const dayOffset = Math.round((todayMs - startMs) / 86400000)
+        if (dayOffset < 0) continue
+
+        const weekIdx = Math.floor(dayOffset / 7)
+        const dayIdx  = dayOffset % 7
+
+        type DayShape = { name?: string; items?: { type?: string }[]; exercises?: unknown[] }
+        type WeekShape = { days?: DayShape[] }
+        const content = prog.content as WeekShape[] | null
+        const day = content?.[weekIdx]?.days?.[dayIdx]
+        if (!day) continue
+
+        const items = (day.items ?? []) as { type?: string }[]
+        const exerciseCount = items.filter((i) => i?.type === 'exercise').length
+        const hasContent = exerciseCount > 0 || (day.exercises as unknown[] | undefined)?.length
+
+        if (!hasContent) continue
+
+        // Already completed?
+        const done = (completedWorkouts ?? []).some((e) => {
+          const c = e.content as Record<string, unknown>
+          return (
+            e.client_id === prog.client_id &&
+            e.event_date === dateStr &&
+            c.program_id === prog.id &&
+            c.week_index === weekIdx &&
+            c.day_index === dayIdx
+          )
+        })
+        if (done) continue
+
+        const dayName = day.name?.trim()
+        sendPushToUser(prog.client_id, {
+          title: dayName ? `Workout: ${dayName}` : 'Training session today',
+          body: exerciseCount > 0
+            ? `${exerciseCount} exercise${exerciseCount === 1 ? '' : 's'} ready — tap to start`
+            : 'Your training session is ready — tap to start',
+          url: '/dashboard',
+          icon: '/icons/icon-192.png',
+          tag: 'workout-reminder',
+        }).catch(() => {/* silent */})
+
+        notifiedWorkoutClients.add(prog.client_id)
+        pushed++
+      }
+    }
+  } catch (err) {
+    console.error('[cron] workout reminder section failed:', err)
+  }
+
   return Response.json({ ok: true, pushed, checkedAt: now.toISOString() })
 }

@@ -1,13 +1,14 @@
-name: Hourly push reminders
+# Push reminders are now triggered by Vercel Cron (vercel.json).
+# This workflow is kept for manual dispatch only — use it to force a run or test.
+name: Push reminders (manual)
 
 on:
-  schedule:
-    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
+    timeout-minutes: 3
     steps:
       - name: Hit /api/cron/push-reminders
         run: |
