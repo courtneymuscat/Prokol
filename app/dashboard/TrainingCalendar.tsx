@@ -280,6 +280,7 @@ function eventColour(type: string): string {
     case 'birthday':       return 'bg-pink-100 text-pink-800 border-pink-200'
     case 'travel':         return 'bg-sky-100 text-sky-800 border-sky-200'
     case 'extra_activity': return 'bg-emerald-100 text-emerald-800 border-emerald-200'
+    case 'sport_event':    return 'bg-violet-100 text-violet-800 border-violet-200'
     default:               return 'bg-teal-100 text-teal-800 border-teal-200'
   }
 }
@@ -288,10 +289,11 @@ const CLIENT_EVENT_TYPES = [
   { value: 'personal',       label: 'Personal / Social', icon: '🎉', placeholder: 'Birthday dinner, date night…' },
   { value: 'travel',         label: 'Travel / Away',     icon: '✈️', placeholder: 'Holiday, trip, going away…' },
   { value: 'extra_activity', label: 'Extra Activity',    icon: '🏃', placeholder: 'Walk, swim, bike ride…' },
+  { value: 'sport_event',    label: 'Sport Event',       icon: '🏅', placeholder: 'Race, competition, game…' },
   { value: 'note',           label: 'Note',              icon: '📝', placeholder: 'Anything else…' },
   { value: 'workout',        label: 'Log a Workout',     icon: '💪', placeholder: '' },
 ] as const
-type ClientEventType = 'personal' | 'travel' | 'extra_activity' | 'note' | 'workout'
+type ClientEventType = 'personal' | 'travel' | 'extra_activity' | 'sport_event' | 'note' | 'workout'
 
 // ─── Score input ──────────────────────────────────────────────────────────────
 
@@ -1499,7 +1501,7 @@ function DayDetailSheet({ date, workouts, events, onClose, onWorkoutTap, onAddEv
 
           {/* Events */}
           {visibleEvents.map((ev) => {
-            const isClientEvent = ['personal', 'travel', 'extra_activity', 'note'].includes(ev.type)
+            const isClientEvent = ['personal', 'travel', 'extra_activity', 'sport_event', 'note'].includes(ev.type)
             // Autoflow events carry their link as content.link (legacy).
             // Coach-added events (task / note / custom) attach a resource
             // via content.link_url (mirrors autoflow step task shape).
@@ -1508,7 +1510,7 @@ function DayDetailSheet({ date, workouts, events, onClose, onWorkoutTap, onAddEv
             const autoflowLink = (ev.type === 'autoflow' ? (contentRec?.link as string | undefined) : undefined)
               ?? (contentRec?.link_url as string | undefined)
             const eventIcons: Record<string, string> = {
-              personal: '🎉', travel: '✈️', extra_activity: '🏃', note: '📝',
+              personal: '🎉', travel: '✈️', extra_activity: '🏃', sport_event: '🏅', note: '📝',
               birthday: '🎂', autoflow: '📋', workout: '💪',
             }
             const icon = eventIcons[ev.type] ?? '📌'
@@ -1674,7 +1676,7 @@ function DayCell({ date, workouts, events, isToday, isPast, compact, onWorkoutTa
 
         {/* Other events */}
         {events.filter((e) => e.type !== 'program_workout_result').map((ev) => {
-          const isClientEvent = ['personal', 'travel', 'extra_activity', 'note'].includes(ev.type)
+          const isClientEvent = ['personal', 'travel', 'extra_activity', 'sport_event', 'note'].includes(ev.type)
           const cls = `rounded-lg border px-2 py-1 text-[10px] font-medium flex items-center gap-1 ${eventColour(ev.type)}`
           const autoflowLink = ev.type === 'autoflow' ? (ev.content as Record<string, unknown>)?.link as string | undefined : undefined
           if (autoflowLink) {

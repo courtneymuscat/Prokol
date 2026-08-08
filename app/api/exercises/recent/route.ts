@@ -21,13 +21,13 @@ export async function GET() {
 
   const { data } = await supabase
     .from('workout_exercises')
-    .select('exercise_id, exercises(id, name, category, equipment, muscles, video_url)')
+    .select('exercise_id, exercises(id, name, category, equipment, muscles, video_url, how_to)')
     .in('workout_id', workoutIds)
 
   if (!data) return Response.json([])
 
   const seen = new Set<string>()
-  const recent: Array<{ id: string; name: string; category: string; equipment: string; muscles?: string; video_url: string | null }> = []
+  const recent: Array<{ id: string; name: string; category: string; equipment: string; muscles?: string; video_url: string | null; how_to?: string | null }> = []
   for (const we of data) {
     if (!we.exercises || seen.has(we.exercise_id)) continue
     seen.add(we.exercise_id)

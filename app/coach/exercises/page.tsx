@@ -9,6 +9,7 @@ type Exercise = {
   equipment: string
   muscles: string | null
   video_url: string | null
+  how_to: string | null
 }
 
 const CATEGORIES = ['all', 'chest', 'back', 'legs', 'shoulders', 'arms', 'core', 'cardio']
@@ -40,23 +41,47 @@ function VideoPreview({ url, name, onClose }: { url: string; name: string; onClo
   )
 }
 
-function VideoRow({ ex, onSaved }: { ex: Exercise; onSaved: (id: string, url: string | null) => void }) {
-  const [editing, setEditing] = useState(false)
-  const [input, setInput] = useState(ex.video_url ?? '')
-  const [saving, setSaving] = useState(false)
+function ExerciseRow({ ex, onSavedVideo, onSavedHowTo }: {
+  ex: Exercise
+  onSavedVideo: (id: string, url: string | null) => void
+  onSavedHowTo: (id: string, text: string | null) => void
+}) {
+  const [editingVideo, setEditingVideo] = useState(false)
+  const [videoInput, setVideoInput] = useState(ex.video_url ?? '')
+  const [savingVideo, setSavingVideo] = useState(false)
   const [previewing, setPreviewing] = useState(false)
 
-  async function handleSave() {
-    setSaving(true)
+  const [showHowTo, setShowHowTo] = useState(false)
+  const [editingHowTo, setEditingHowTo] = useState(false)
+  const [howToInput, setHowToInput] = useState(ex.how_to ?? '')
+  const [savingHowTo, setSavingHowTo] = useState(false)
+
+  async function handleSaveVideo() {
+    setSavingVideo(true)
     const res = await fetch(`/api/exercises/${ex.id}/video`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ video_url: input }),
+      body: JSON.stringify({ video_url: videoInput }),
     })
-    setSaving(false)
+    setSavingVideo(false)
     if (res.ok) {
-      onSaved(ex.id, input.trim() || null)
-      setEditing(false)
+      onSavedVideo(ex.id, videoInput.trim() || null)
+      setEditingVideo(false)
+    }
+  }
+
+  async function handleSaveHowTo() {
+    setSavingHowTo(true)
+    // global: false — manual coach edit saves to their own override table only
+    const res = await fetch('/api/exercises/auto-how-to', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exercise_id: ex.id, how_to: howToInput, global: false }),
+    })
+    setSavingHowTo(false)
+    if (res.ok) {
+      onSavedHowTo(ex.id, howToInput.trim() || null)
+      setEditingHowTo(false)
     }
   }
 
@@ -65,55 +90,121 @@ function VideoRow({ ex, onSaved }: { ex: Exercise; onSaved: (id: string, url: st
       {previewing && ex.video_url && (
         <VideoPreview url={ex.video_url} name={ex.name} onClose={() => setPreviewing(false)} />
       )}
-      <div className="flex items-center gap-3 bg-white rounded-xl border px-4 py-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-900">{ex.name}</p>
-          <p className="text-xs text-gray-400 capitalize">{ex.category} · {ex.equipment}{ex.muscles ? ` · ${ex.muscles}` : ''}</p>
+      <div className="bg-white rounded-xl border divide-y divide-gray-100">
+        {/* Main row */}
+        <div className="flex items-center gap-3 px-4 py-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900">{ex.name}</p>
+            <p className="text-xs text-gray-400 capitalize">{ex.category} · {ex.equipment}{ex.muscles ? ` · ${ex.muscles}` : ''}</p>
+          </div>
+
+          {/* How-to toggle */}
+          <button
+            onClick={() => { setShowHowTo(!showHowTo); if (!showHowTo) setEditingHowTo(false) }}
+            className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg border transition-colors ${
+              ex.how_to
+                ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                : 'text-gray-400 border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {ex.how_to ? 'How-to' : 'Add how-to'}
+          </button>
+
+          {/* Video section */}
+          {editingVideo ? (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <input
+                autoFocus
+                value={videoInput}
+                onChange={(e) => setVideoInput(e.target.value)}
+                placeholder="https://youtube.com/watch?v=..."
+                className="w-64 text-xs border rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveVideo(); if (e.key === 'Escape') setEditingVideo(false) }}
+              />
+              <button
+                onClick={handleSaveVideo}
+                disabled={savingVideo}
+                className="text-xs font-semibold bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {savingVideo ? 'Saving…' : 'Save'}
+              </button>
+              <button onClick={() => setEditingVideo(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {ex.video_url ? (
+                <>
+                  <span className="text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full">Video added</span>
+                  <button
+                    onClick={() => setPreviewing(true)}
+                    className="w-7 h-7 flex items-center justify-center rounded-full bg-red-50 hover:bg-red-100 transition-colors"
+                    title="Preview video"
+                  >
+                    <svg className="w-3 h-3 text-red-600 ml-0.5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </button>
+                </>
+              ) : (
+                <span className="text-xs text-gray-400">No video</span>
+              )}
+              <button
+                onClick={() => { setVideoInput(ex.video_url ?? ''); setEditingVideo(true) }}
+                className="text-xs font-medium text-blue-600 hover:text-blue-800 border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-50 transition-colors"
+              >
+                {ex.video_url ? 'Edit' : '+ Add URL'}
+              </button>
+            </div>
+          )}
         </div>
 
-        {editing ? (
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <input
-              autoFocus
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="https://youtube.com/watch?v=..."
-              className="w-64 text-xs border rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400"
-              onKeyDown={(e) => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') setEditing(false) }}
-            />
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="text-xs font-semibold bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              {saving ? 'Saving…' : 'Save'}
-            </button>
-            <button onClick={() => setEditing(false)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {ex.video_url ? (
-              <>
-                <span className="text-xs text-green-600 font-medium bg-green-50 px-2 py-0.5 rounded-full">Video added</span>
-                <button
-                  onClick={() => setPreviewing(true)}
-                  className="w-7 h-7 flex items-center justify-center rounded-full bg-red-50 hover:bg-red-100 transition-colors"
-                  title="Preview video"
-                >
-                  <svg className="w-3 h-3 text-red-600 ml-0.5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </button>
-              </>
+        {/* How-to panel */}
+        {showHowTo && (
+          <div className="px-4 py-3 bg-gray-50/60">
+            {editingHowTo ? (
+              <div className="space-y-2">
+                <textarea
+                  autoFocus
+                  value={howToInput}
+                  onChange={(e) => setHowToInput(e.target.value)}
+                  rows={6}
+                  placeholder="1. Setup and start position…&#10;2. The movement…&#10;3. Key cues…"
+                  className="w-full text-xs text-gray-700 border border-gray-200 rounded-lg px-3 py-2.5 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white leading-relaxed"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleSaveHowTo}
+                    disabled={savingHowTo}
+                    className="text-xs font-semibold bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {savingHowTo ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => { setEditingHowTo(false); setHowToInput(ex.how_to ?? '') }}
+                    className="text-xs text-gray-400 hover:text-gray-600"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             ) : (
-              <span className="text-xs text-gray-400">No video</span>
+              <div className="space-y-2">
+                {ex.how_to ? (
+                  <p className="text-xs text-gray-700 whitespace-pre-line leading-relaxed">{ex.how_to}</p>
+                ) : (
+                  <p className="text-xs text-gray-400 italic">No how-to guide yet.</p>
+                )}
+                <button
+                  onClick={() => { setHowToInput(ex.how_to ?? ''); setEditingHowTo(true) }}
+                  className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                >
+                  {ex.how_to ? 'Edit guide' : '+ Write guide'}
+                </button>
+              </div>
             )}
-            <button
-              onClick={() => { setInput(ex.video_url ?? ''); setEditing(true) }}
-              className="text-xs font-medium text-blue-600 hover:text-blue-800 border border-blue-200 px-2.5 py-1 rounded-lg hover:bg-blue-50 transition-colors"
-            >
-              {ex.video_url ? 'Edit' : '+ Add URL'}
-            </button>
           </div>
         )}
       </div>
@@ -122,7 +213,8 @@ function VideoRow({ ex, onSaved }: { ex: Exercise; onSaved: (id: string, url: st
 }
 
 type AutoResult = { id: string; name: string; url: string | null }
-type AutoState = 'idle' | 'searching' | 'reviewing'
+type AutoHowToResult = { id: string; name: string; how_to: string | null }
+type AutoState = 'idle' | 'searching' | 'reviewing' | 'done'
 
 function getYouTubeThumbnail(url: string) {
   const id = getYouTubeId(url)
@@ -131,18 +223,28 @@ function getYouTubeThumbnail(url: string) {
 
 export default function CoachExercisesPage() {
   const [exercises, setExercises] = useState<Exercise[]>([])
+  const [totalExercises, setTotalExercises] = useState(0)
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('all')
   const [filter, setFilter] = useState<'all' | 'with' | 'without'>('all')
+  const [howToFilter, setHowToFilter] = useState<'all' | 'with' | 'without'>('all')
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(0)
   const PAGE_SIZE = 30
 
-  // Auto-fill state
+  // Video auto-fill state
   const [autoState, setAutoState] = useState<AutoState>('idle')
   const [autoResults, setAutoResults] = useState<AutoResult[]>([])
   const [autoProgress, setAutoProgress] = useState({ done: 0, total: 0 })
   const [savingId, setSavingId] = useState<string | null>(null)
+
+  // How-to auto-generate state
+  const [howToAutoState, setHowToAutoState] = useState<AutoState>('idle')
+  const [howToResults, setHowToResults] = useState<AutoHowToResult[]>([])
+  const [howToProgress, setHowToProgress] = useState({ done: 0, total: 0 })
+  const [savingHowToId, setSavingHowToId] = useState<string | null>(null)
+  // editable drafts while reviewing
+  const [howToDrafts, setHowToDrafts] = useState<Record<string, string>>({})
 
   const fetchExercises = useCallback(async () => {
     setLoading(true)
@@ -151,30 +253,38 @@ export default function CoachExercisesPage() {
     if (category !== 'all') params.set('category', category)
     if (filter === 'with') params.set('has_video', 'true')
     if (filter === 'without') params.set('has_video', 'false')
+    if (howToFilter === 'with') params.set('has_how_to', 'true')
+    if (howToFilter === 'without') params.set('has_how_to', 'false')
     const res = await fetch(`/api/exercises/library?${params}`)
     const data = await res.json()
-    setExercises(data)
+    setExercises(data.exercises ?? data)
+    setTotalExercises(data.total ?? data.exercises?.length ?? data.length ?? 0)
     setLoading(false)
-  }, [query, category, filter, page])
+  }, [query, category, filter, howToFilter, page])
 
-  useEffect(() => { setPage(0) }, [query, category, filter])
+  useEffect(() => { setPage(0) }, [query, category, filter, howToFilter])
   useEffect(() => { fetchExercises() }, [fetchExercises])
 
-  function handleSaved(id: string, url: string | null) {
+  const visibleExercises = exercises
+
+  function handleSavedVideo(id: string, url: string | null) {
     setExercises((prev) => prev.map((e) => e.id === id ? { ...e, video_url: url } : e))
   }
 
+  function handleSavedHowTo(id: string, text: string | null) {
+    setExercises((prev) => prev.map((e) => e.id === id ? { ...e, how_to: text } : e))
+  }
+
   async function startAutoFill() {
-    // Fetch ALL exercises without videos (no pagination limit)
     const res = await fetch('/api/exercises/library?has_video=false&limit=100&offset=0')
-    const noVideo: Exercise[] = await res.json()
+    const raw = await res.json()
+    const noVideo: Exercise[] = raw.exercises ?? raw
     if (!noVideo.length) { alert('All exercises already have videos!'); return }
 
     setAutoState('searching')
     setAutoResults([])
     setAutoProgress({ done: 0, total: noVideo.length })
 
-    // Search in batches of 5 so we can show progress
     const BATCH = 5
     const all: AutoResult[] = []
     for (let i = 0; i < noVideo.length; i += BATCH) {
@@ -189,7 +299,7 @@ export default function CoachExercisesPage() {
       setAutoProgress({ done: Math.min(i + BATCH, noVideo.length), total: noVideo.length })
     }
 
-    setAutoResults(all.filter(r => r.url)) // only show results with a found video
+    setAutoResults(all.filter(r => r.url))
     setAutoState('reviewing')
   }
 
@@ -237,26 +347,125 @@ export default function CoachExercisesPage() {
     if (failed > 0) alert(`${saved} videos saved. ${failed} failed — check console.`)
   }
 
+  async function startAutoHowTo() {
+    const res = await fetch('/api/exercises/library?limit=100&offset=0')
+    const raw = await res.json()
+    const all: Exercise[] = raw.exercises ?? raw
+    const noHowTo = all.filter(e => !e.how_to)
+    if (!noHowTo.length) { alert('All exercises already have how-to guides!'); return }
+
+    setHowToAutoState('searching')
+    setHowToResults([])
+    setHowToProgress({ done: 0, total: noHowTo.length })
+
+    const BATCH = 10
+    const generated: AutoHowToResult[] = []
+    for (let i = 0; i < noHowTo.length; i += BATCH) {
+      const batch = noHowTo.slice(i, i + BATCH)
+      const r = await fetch('/api/exercises/auto-how-to', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exercise_ids: batch.map(e => e.id) }),
+      })
+      const { results } = await r.json()
+      generated.push(...(results ?? []))
+      setHowToProgress({ done: Math.min(i + BATCH, noHowTo.length), total: noHowTo.length })
+    }
+
+    const withContent = generated.filter(r => r.how_to)
+    if (!withContent.length) {
+      setHowToAutoState('idle')
+      alert('AI generation returned no results. Check that OPENAI_API_KEY is set and try again.')
+      return
+    }
+    const drafts: Record<string, string> = {}
+    withContent.forEach(r => { drafts[r.id] = r.how_to ?? '' })
+    setHowToResults(withContent)
+    setHowToDrafts(drafts)
+    setHowToAutoState('reviewing')
+  }
+
+  async function approveHowTo(result: AutoHowToResult) {
+    const text = howToDrafts[result.id] ?? result.how_to ?? ''
+    setSavingHowToId(result.id)
+    // global: true — approved auto-generated guide saves to shared exercises table
+    const res = await fetch('/api/exercises/auto-how-to', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exercise_id: result.id, how_to: text, global: true }),
+    })
+    if (res.ok) {
+      setExercises(prev => prev.map(e => e.id === result.id ? { ...e, how_to: text } : e))
+      setHowToResults(prev => prev.filter(r => r.id !== result.id))
+    } else {
+      const d = await res.json()
+      alert(`Failed to save ${result.name}: ${d.error ?? res.status}`)
+    }
+    setSavingHowToId(null)
+  }
+
+  function skipHowTo(id: string) {
+    setHowToResults(prev => prev.filter(r => r.id !== id))
+  }
+
+  async function approveAllHowTo() {
+    let saved = 0, failed = 0
+    for (const result of howToResults) {
+      const text = howToDrafts[result.id] ?? result.how_to ?? ''
+      setSavingHowToId(result.id)
+      // global: true — saving to shared exercises table
+      const res = await fetch('/api/exercises/auto-how-to', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exercise_id: result.id, how_to: text, global: true }),
+      })
+      if (res.ok) {
+        saved++
+        setExercises(prev => prev.map(e => e.id === result.id ? { ...e, how_to: text } : e))
+      } else {
+        failed++
+      }
+    }
+    setSavingHowToId(null)
+    setHowToResults([])
+    setHowToFilter('all')
+    setHowToAutoState(saved > 0 ? 'done' : 'idle')
+    if (failed > 0) alert(`${saved} guides saved. ${failed} failed — check console for details.`)
+  }
+
   return (
     <div className="flex-1 flex flex-col">
       <div className="bg-white border-b px-6 py-4 flex items-center justify-between gap-4">
         <div>
           <h1 className="text-lg font-bold text-gray-900">Exercise Library</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Add YouTube demo videos to exercises so clients can see proper form.</p>
+          <p className="text-xs text-gray-400 mt-0.5">Add YouTube demo videos and how-to guides so clients know exactly how to perform each movement.</p>
         </div>
-        {autoState === 'idle' && (
-          <button
-            onClick={startAutoFill}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors"
-            style={{ backgroundColor: '#1D9E75' }}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Auto-fill videos
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {howToAutoState === 'idle' && autoState === 'idle' && (
+            <button
+              onClick={startAutoHowTo}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors bg-violet-600 hover:bg-violet-700"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              Auto-generate how-to
+            </button>
+          )}
+          {autoState === 'idle' && howToAutoState === 'idle' && (
+            <button
+              onClick={startAutoFill}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors"
+              style={{ backgroundColor: '#1D9E75' }}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Auto-fill videos
+            </button>
+          )}
+        </div>
       </div>
 
       <main className="flex-1 p-6 space-y-4 w-full">
@@ -268,18 +477,33 @@ export default function CoachExercisesPage() {
             placeholder="Search exercises..."
             className="flex-1 border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
           />
-          <div className="flex gap-2">
-            {(['all', 'with', 'without'] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
-                  filter === f ? 'bg-blue-600 text-white' : 'bg-white border text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                {f === 'all' ? 'All' : f === 'with' ? 'Has video' : 'No video'}
-              </button>
-            ))}
+          <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-1.5">
+              {(['all', 'with', 'without'] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+                    filter === f ? 'bg-blue-600 text-white' : 'bg-white border text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {f === 'all' ? 'All videos' : f === 'with' ? 'Has video' : 'No video'}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1.5">
+              {(['all', 'with', 'without'] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setHowToFilter(f)}
+                  className={`px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+                    howToFilter === f ? 'bg-violet-600 text-white' : 'bg-white border text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {f === 'all' ? 'All guides' : f === 'with' ? 'Has guide' : 'No guide'}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -298,7 +522,90 @@ export default function CoachExercisesPage() {
           ))}
         </div>
 
-        {/* Auto-fill progress */}
+        {/* How-to auto-generate progress */}
+        {howToAutoState === 'searching' && (
+          <div className="bg-violet-50 border border-violet-200 rounded-2xl p-5 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-5 h-5 rounded-full border-2 border-violet-500 border-t-transparent animate-spin flex-shrink-0" />
+              <p className="text-sm font-semibold text-violet-800">
+                Generating guides with AI… {howToProgress.done} / {howToProgress.total} exercises
+              </p>
+            </div>
+            <div className="w-full bg-violet-100 rounded-full h-2">
+              <div
+                className="bg-violet-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${howToProgress.total > 0 ? (howToProgress.done / howToProgress.total) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* How-to review panel */}
+        {howToAutoState === 'reviewing' && howToResults.length > 0 && (
+          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <p className="text-sm font-bold text-gray-900">Review generated how-to guides</p>
+                <p className="text-xs text-gray-400 mt-0.5">{howToResults.length} guides generated — edit if needed, then approve or skip</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setHowToAutoState('idle'); setHowToResults([]); setHowToFilter('all') }}
+                  className="text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg border border-gray-200"
+                >
+                  Dismiss all
+                </button>
+                <button
+                  onClick={approveAllHowTo}
+                  disabled={!!savingHowToId}
+                  className="text-xs font-semibold text-white px-4 py-1.5 rounded-lg disabled:opacity-50 transition-colors bg-violet-600 hover:bg-violet-700"
+                >
+                  {savingHowToId ? 'Saving…' : `Approve all (${howToResults.length})`}
+                </button>
+              </div>
+            </div>
+            <div className="divide-y divide-gray-50 max-h-[600px] overflow-y-auto">
+              {howToResults.map(result => (
+                <div key={result.id} className="px-5 py-4 space-y-2">
+                  <p className="text-sm font-semibold text-gray-900">{result.name}</p>
+                  <textarea
+                    value={howToDrafts[result.id] ?? result.how_to ?? ''}
+                    onChange={(e) => setHowToDrafts(prev => ({ ...prev, [result.id]: e.target.value }))}
+                    rows={5}
+                    className="w-full text-xs text-gray-700 border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-violet-400 leading-relaxed"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => skipHowTo(result.id)}
+                      className="text-xs border border-gray-200 text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-50"
+                    >
+                      Skip
+                    </button>
+                    <button
+                      onClick={() => approveHowTo(result)}
+                      disabled={savingHowToId === result.id}
+                      className="text-xs font-semibold text-white px-4 py-1.5 rounded-lg disabled:opacity-50 transition-colors bg-violet-600 hover:bg-violet-700"
+                    >
+                      {savingHowToId === result.id ? 'Saving…' : '✓ Approve'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {howToAutoState === 'done' && (
+          <div className="bg-violet-50 border border-violet-200 rounded-2xl px-5 py-4 flex items-center gap-3">
+            <span className="text-violet-600 text-lg">✓</span>
+            <div>
+              <p className="text-sm font-semibold text-violet-800">All done! Guides saved.</p>
+              <button onClick={() => { setHowToAutoState('idle'); setHowToFilter('all') }} className="text-xs text-violet-600 hover:underline">Close</button>
+            </div>
+          </div>
+        )}
+
+        {/* Video auto-fill progress */}
         {autoState === 'searching' && (
           <div className="bg-teal-50 border border-teal-200 rounded-2xl p-5 space-y-3">
             <div className="flex items-center gap-3">
@@ -317,7 +624,7 @@ export default function CoachExercisesPage() {
           </div>
         )}
 
-        {/* Auto-fill review panel */}
+        {/* Video review panel */}
         {autoState === 'reviewing' && autoResults.length > 0 && (
           <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
@@ -347,7 +654,6 @@ export default function CoachExercisesPage() {
                 const thumb = getYouTubeThumbnail(result.url!)
                 return (
                   <div key={result.id} className="flex items-center gap-4 px-5 py-4">
-                    {/* Thumbnail */}
                     {thumb && (
                       <a href={result.url!} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
                         <img src={thumb} alt={result.name} className="w-28 h-16 object-cover rounded-lg border border-gray-100" />
@@ -400,12 +706,12 @@ export default function CoachExercisesPage() {
         {/* List */}
         {loading ? (
           <div className="text-center text-sm text-gray-400 py-12">Loading exercises…</div>
-        ) : exercises.length === 0 ? (
+        ) : visibleExercises.length === 0 ? (
           <div className="text-center text-sm text-gray-400 py-12">No exercises found.</div>
         ) : (
           <div className="space-y-2">
-            {exercises.map((ex) => (
-              <VideoRow key={ex.id} ex={ex} onSaved={handleSaved} />
+            {visibleExercises.map((ex) => (
+              <ExerciseRow key={ex.id} ex={ex} onSavedVideo={handleSavedVideo} onSavedHowTo={handleSavedHowTo} />
             ))}
           </div>
         )}
@@ -420,10 +726,13 @@ export default function CoachExercisesPage() {
             >
               ← Previous
             </button>
-            <span className="text-xs text-gray-400">Page {page + 1}</span>
+            <span className="text-xs text-gray-400">
+              Page {page + 1} of {Math.max(1, Math.ceil(totalExercises / PAGE_SIZE))}
+              <span className="text-gray-300 ml-1">({totalExercises} total)</span>
+            </span>
             <button
               onClick={() => setPage((p) => p + 1)}
-              disabled={exercises.length < PAGE_SIZE}
+              disabled={page >= Math.ceil(totalExercises / PAGE_SIZE) - 1}
               className="text-sm text-gray-500 hover:text-gray-800 disabled:opacity-30"
             >
               Next →

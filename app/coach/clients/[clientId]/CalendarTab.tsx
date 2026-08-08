@@ -26,6 +26,7 @@ const EVENT_COLORS: Record<string, string> = {
   personal:       'bg-orange-50 text-orange-700 border-orange-200',
   travel:         'bg-sky-50 text-sky-700 border-sky-200',
   extra_activity: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  sport_event:    'bg-violet-50 text-violet-700 border-violet-200',
   birthday:       'bg-pink-50 text-pink-700 border-pink-200',
   custom:         'bg-gray-50 text-gray-700 border-gray-200',
 }
@@ -589,6 +590,9 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
   const [dragEventId, setDragEventId] = useState<string | null>(null)
   const [dragWorkout, setDragWorkout] = useState<{ programId: string; weekIdx: number; dayIdx: number } | null>(null)
   const [dragOverDate, setDragOverDate] = useState<string | null>(null)
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
+  const [editForm, setEditForm] = useState({ type: '', title: '', content: '' })
+  const [editSaving, setEditSaving] = useState(false)
 
   async function openAutoflowStep(evt: CalendarEvent) {
     const flowId = evt.content.flow_id as string
@@ -768,6 +772,36 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ event_date: newDate }),
     })
+  }
+
+  function openEditModal(evt: CalendarEvent) {
+    setEditingEvent(evt)
+    setEditForm({
+      type: evt.type,
+      title: evt.title,
+      content: typeof evt.content?.note === 'string' ? evt.content.note : '',
+    })
+  }
+
+  async function saveEditEvent() {
+    if (!editingEvent || !editForm.title.trim()) return
+    setEditSaving(true)
+    const content: Record<string, unknown> = { ...editingEvent.content }
+    if (editForm.content) content.note = editForm.content
+    else delete content.note
+    const res = await fetch(`/api/coach/clients/${clientId}/calendar/${editingEvent.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: editForm.title.trim(), type: editForm.type, content }),
+    })
+    if (res.ok) {
+      setEvents((prev) => prev.map((e) => e.id === editingEvent.id
+        ? { ...e, title: editForm.title.trim(), type: editForm.type, content }
+        : e
+      ))
+    }
+    setEditingEvent(null)
+    setEditSaving(false)
   }
 
   function handleDragStart(e: React.DragEvent, eventId: string) {
@@ -972,7 +1006,7 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
                     ) : evt.type === 'workout' ? (
                       <button onClick={() => setViewingPersonalWorkout(evt)} className="truncate text-left hover:underline flex-1">💪 {evt.title}</button>
                     ) : (
-                      <span className="truncate flex-1">{evt.title}</span>
+                      <button onClick={() => openEditModal(evt)} className="truncate text-left hover:underline flex-1">{evt.title}</button>
                     )}
                     <button onClick={() => deleteEvent(evt.id)} className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                       <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -1068,7 +1102,9 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
                         <button onClick={() => openAutoflowStep(evt)} className="w-full text-left hover:opacity-80 truncate">⚡ {evt.title}</button>
                       ) : evt.type === 'workout' ? (
                         <button onClick={() => setViewingPersonalWorkout(evt)} className="w-full text-left hover:opacity-80 truncate">💪 {evt.title}</button>
-                      ) : evt.title}
+                      ) : (
+                        <button onClick={() => openEditModal(evt)} className="w-full text-left hover:opacity-80 truncate">{evt.title}</button>
+                      )}
                     </div>
                   ))}
                   {dayEvents.length > 2 && (
@@ -1077,6 +1113,50 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Edit event modal */}
+      {editingEvent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-gray-900">Edit Event — {new Date(editingEvent.event_date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })}</h3>
+              <button onClick={() => setEditingEvent(null)} className="text-gray-400 hover:text-gray-600">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <select value={editForm.type} onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value }))}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+              <optgroup label="Coach events">
+                <option value="task">📌 Task</option>
+                <option value="note">📝 Note</option>
+                <option value="workout">💪 Workout</option>
+                <option value="steps">👟 Steps Goal</option>
+                <option value="habit">✅ Habit</option>
+                <option value="custom">⚡ Custom</option>
+              </optgroup>
+              <optgroup label="Client events (on their behalf)">
+                <option value="personal">🎉 Personal / Social</option>
+                <option value="travel">✈️ Travel / Away</option>
+                <option value="extra_activity">🏃 Extra Activity</option>
+                <option value="sport_event">🏅 Sport Event</option>
+              </optgroup>
+            </select>
+            <input type="text" value={editForm.title} onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+              placeholder="Title"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" autoFocus />
+            <textarea value={editForm.content} onChange={(e) => setEditForm((f) => ({ ...f, content: e.target.value }))}
+              placeholder="Notes (optional)" rows={2}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+            <div className="flex gap-3">
+              <button onClick={() => setEditingEvent(null)} className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50">Cancel</button>
+              <button onClick={saveEditEvent} disabled={!editForm.title.trim() || editSaving}
+                className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
+                {editSaving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1186,6 +1266,7 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
                 <option value="personal">🎉 Personal / Social</option>
                 <option value="travel">✈️ Travel / Away</option>
                 <option value="extra_activity">🏃 Extra Activity</option>
+                <option value="sport_event">🏅 Sport Event</option>
               </optgroup>
             </select>
             <input type="text" value={newEvent.title} onChange={(e) => setNewEvent((n) => ({ ...n, title: e.target.value }))}
@@ -1194,6 +1275,7 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
                 newEvent.type === 'personal' ? 'Birthday dinner, date night…' :
                 newEvent.type === 'travel' ? 'Holiday, trip, going away…' :
                 newEvent.type === 'extra_activity' ? 'Walk, swim, bike ride…' :
+                newEvent.type === 'sport_event' ? 'Race name, competition…' :
                 newEvent.type === 'steps' ? '10,000 steps today' :
                 newEvent.type === 'workout' ? 'Upper body session' :
                 'Title'

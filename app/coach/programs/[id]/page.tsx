@@ -43,6 +43,7 @@ type LibraryExercise = {
   equipment: string
   muscles?: string
   video_url?: string | null
+  how_to?: string | null
 }
 
 // Alternate / substitute exercise — same shape as SectionExerciseRef.
@@ -201,7 +202,7 @@ function newExerciseItem(lib?: LibraryExercise): ProgramExercise {
     exercise_id: lib?.id ?? null, name: lib?.name ?? '', category: lib?.category ?? '',
     equipment: lib?.equipment ?? '', video_url: lib?.video_url ?? '',
     metrics: lib?.category === 'cardio' ? 'calories' : 'weight+reps',
-    showRest: false, sets: [newSet(1)], notes: '',
+    showRest: false, sets: [newSet(1)], notes: lib?.how_to ?? '',
   }
 }
 

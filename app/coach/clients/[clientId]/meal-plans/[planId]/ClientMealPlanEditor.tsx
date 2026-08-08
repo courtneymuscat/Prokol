@@ -9,6 +9,7 @@ import CopyMealFromPlanPicker from '@/app/components/CopyMealFromPlanPicker'
 type MealFood = {
   food_id?: string
   food_name: string
+  custom_name?: string | null
   grams: number
   calories: number
   protein: number
@@ -248,6 +249,9 @@ function FoodRow({
   const [noteDraft, setNoteDraft] = useState(food.coach_note ?? '')
   const [imgDraft, setImgDraft] = useState(food.image_url ?? '')
 
+  const [editingName, setEditingName] = useState(false)
+  const [nameDraft, setNameDraft] = useState(food.custom_name ?? '')
+
   function saveNote() {
     onChange({ ...food, coach_note: noteDraft.trim() || null, image_url: imgDraft.trim() || null })
     setShowNoteEditor(false)
@@ -257,7 +261,39 @@ function FoodRow({
     <div className="py-2 group">
       <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-900 truncate">{food.food_name}</p>
+          {editingName ? (
+            <input
+              autoFocus
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={() => {
+                const trimmed = nameDraft.trim()
+                onChange({ ...food, custom_name: trimmed && trimmed !== food.food_name ? trimmed : null })
+                setEditingName(false)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                if (e.key === 'Escape') { setNameDraft(food.custom_name ?? ''); setEditingName(false) }
+              }}
+              placeholder={food.food_name}
+              className="w-full text-sm font-medium text-gray-900 border border-blue-300 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setNameDraft(food.custom_name ?? ''); setEditingName(true) }}
+              title="Click to rename"
+              className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors flex items-center gap-1 group/name max-w-full"
+            >
+              <span className="truncate">{food.custom_name ?? food.food_name}</span>
+              {food.custom_name && (
+                <span className="text-[10px] text-gray-400 font-normal flex-shrink-0">(renamed)</span>
+              )}
+              <svg className="w-3 h-3 text-gray-200 group-hover/name:text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+          )}
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             <span className="text-[11px] bg-orange-50 text-orange-500 font-semibold px-1.5 py-0.5 rounded-full">
               {Math.round(food.calories)} kcal
