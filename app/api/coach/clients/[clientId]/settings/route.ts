@@ -33,7 +33,7 @@ export async function GET(
 
   const d = data as Record<string, unknown> | null
   return Response.json({
-    show_daily_targets: d?.show_daily_targets ?? true,
+    show_daily_targets: d?.show_daily_targets ?? false,
     food_log_access: d?.food_log_access ?? 'full',
     show_meal_builder: d?.show_meal_builder ?? true,
     show_saved_meals: d?.show_saved_meals ?? true,

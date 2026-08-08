@@ -2962,7 +2962,7 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
       fetch(`/api/coach/clients/${clientId}/settings`).then((r) => r.json()),
     ]).then(([clientData, settings]) => {
       if (clientData.error) setError(clientData.error); else setData(clientData)
-      setShowDailyTargets(settings.show_daily_targets ?? true)
+      setShowDailyTargets(settings.show_daily_targets ?? false)
       setFoodLogAccess(settings.food_log_access ?? 'full')
       setShowMealBuilder(settings.show_meal_builder ?? true)
       setShowSavedMeals(settings.show_saved_meals ?? true)

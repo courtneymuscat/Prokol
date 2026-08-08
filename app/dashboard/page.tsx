@@ -34,6 +34,7 @@ import ProfileCompletionPrompt from './ProfileCompletionPrompt'
 import SupplementsPanel from './SupplementsPanel'
 import ProtocolPanel from './ProtocolPanel'
 import PaymentFailedBanner from './PaymentFailedBanner'
+import WeeklyPlanCard from './WeeklyPlanCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -527,6 +528,9 @@ export default async function DashboardPage() {
 
         {/* Tasks, check-ins — coached clients only; shows "all caught up" when nothing is due */}
         {isCoached && <CoachingSection />}
+
+        {/* Weekly plan summary — current week macros + note from coach's plan builder */}
+        {isCoached && <WeeklyPlanCard />}
 
         {/* Goals — set by coach */}
         {isCoached && <GoalsPanel />}

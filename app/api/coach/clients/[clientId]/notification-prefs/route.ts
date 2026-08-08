@@ -11,11 +11,11 @@ type EventColumn = (typeof EVENT_COLUMNS)[number]
 // Defaults match the migration — keep in sync so a missing row reads the
 // same as an inserted-with-defaults row.
 const DEFAULT_PREFS: Record<EventColumn, boolean> = {
-  food: false,
-  weight: false,
-  cycle: false,
+  food: true,
+  weight: true,
+  cycle: true,
   workout: true,
-  habit: false,
+  habit: true,
   photo: true,
 }
 
