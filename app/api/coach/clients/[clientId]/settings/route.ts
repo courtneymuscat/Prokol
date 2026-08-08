@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
 import type { NextRequest } from 'next/server'
 
@@ -67,8 +68,8 @@ export async function PUT(
   if (targets_source !== undefined) update.targets_source = targets_source
   if ('targets_meal_plan_id' in body) update.targets_meal_plan_id = targets_meal_plan_id ?? null
 
-  const supabase = await createClient()
-  const { error } = await supabase
+  const admin = createAdminClient()
+  const { error } = await admin
     .from('coach_clients')
     .update(update)
     .eq('coach_id', coachId)
