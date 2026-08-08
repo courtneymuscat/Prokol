@@ -234,9 +234,57 @@ const PHASE_COLOURS: Record<string, { color: string; bg: string; text: string }>
   custom:       { color: '#6b7280', bg: '#f9fafb', text: '#374151' },
 }
 
-type PreviewResource = { id: string; title: string; type: string; url: string | null; folder_name: string | null }
-type PreviewPhase = { id: string; name: string; type: string; duration_weeks: number; week_notes?: string[]; week_data?: { calorie_target: number | null; calorie_adjustment_pct: number | null }[] }
+type PreviewResource = { id: string; title: string; url: string | null; folder_name: string | null; type: string }
+type PreviewWeekData = {
+  calorie_target: number | null
+  calorie_adjustment_pct: number | null
+  protein_g: number | null
+  carbs_g: number | null
+  fat_g: number | null
+  fibre_g: number | null
+}
+type PreviewPhase = {
+  id: string; name: string; type: string; duration_weeks: number
+  calorie_target: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null
+  week_notes?: string[]
+  week_data?: PreviewWeekData[]
+}
 type PreviewPlan = { id: string; name: string; start_date: string | null; phases: PreviewPhase[] }
+
+type HomeWeekInfo = {
+  weekNumber: number; totalWeeks: number; phaseName: string; phaseType: string
+  calories: number | null; protein: number | null; carbs: number | null; fat: number | null; fibre: number | null
+  note: string
+}
+
+function computeHomeWeekInfo(plan: PreviewPlan): HomeWeekInfo | null {
+  if (!plan.start_date || !plan.phases?.length) return null
+  const start = new Date(plan.start_date); start.setHours(0, 0, 0, 0)
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const weekNumber = Math.floor((today.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
+  if (weekNumber < 1) return null
+  const totalWeeks = plan.phases.reduce((s, p) => s + (p.duration_weeks || 0), 0)
+  if (weekNumber > totalWeeks) return null
+  let cum = 0
+  for (const phase of plan.phases) {
+    cum += phase.duration_weeks
+    if (weekNumber <= cum) {
+      const wi = weekNumber - (cum - phase.duration_weeks) - 1
+      const wd = (phase.week_data ?? [])[wi]
+      return {
+        weekNumber, totalWeeks,
+        phaseName: phase.name, phaseType: phase.type,
+        calories: wd?.calorie_target ?? phase.calorie_target,
+        protein:  wd?.protein_g   ?? phase.protein_g,
+        carbs:    wd?.carbs_g     ?? phase.carbs_g,
+        fat:      wd?.fat_g       ?? phase.fat_g,
+        fibre:    wd?.fibre_g     ?? null,
+        note: (phase.week_notes ?? [])[wi] ?? '',
+      }
+    }
+  }
+  return null
+}
 
 // ── Food log access options ───────────────────────────────────────────────────
 
@@ -281,6 +329,9 @@ export default function AppPreviewTab({
   const [previewPlan, setPreviewPlan] = useState<PreviewPlan | null | false>(null) // null=not loaded, false=no visible plan
   const [moreLoading, setMoreLoading] = useState(false)
 
+  // Home screen weekly plan card — fetched eagerly on mount
+  const [homeWeekInfo, setHomeWeekInfo] = useState<HomeWeekInfo | null>(null)
+
   useEffect(() => {
     setLoading(true); setError(null)
     fetch(`/api/coach/clients/${clientId}/preview`)
@@ -288,6 +339,19 @@ export default function AppPreviewTab({
       .then((json) => { if (json.error) throw new Error(json.error); setData(json) })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load preview'))
       .finally(() => setLoading(false))
+  }, [clientId])
+
+  // Eagerly fetch the active plan so the Home screen can show the weekly card
+  useEffect(() => {
+    fetch(`/api/coach/clients/${clientId}/plans`)
+      .then(r => r.ok ? r.json() : [])
+      .then(async (plans: { id: string; is_visible_to_client: boolean }[]) => {
+        const visible = plans.find(p => p.is_visible_to_client)
+        if (!visible) return
+        const full = await fetch(`/api/coach/clients/${clientId}/plans/${visible.id}`).then(r => r.json())
+        if (full?.id) setHomeWeekInfo(computeHomeWeekInfo(full as PreviewPlan))
+      })
+      .catch(() => {/* silent */})
   }, [clientId])
 
   // Lazy-load More screen data when coach navigates there
@@ -474,6 +538,7 @@ export default function AppPreviewTab({
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Visible sections</p>
           {[
             { label: 'Goals',        on: hasGoals },
+            { label: 'Weekly plan',  on: !!homeWeekInfo },
             { label: 'Protocol',     on: protocol.length > 0 },
             { label: 'Supplements',  on: supplements.length > 0 },
             { label: 'Daily targets',on: showDailyTargets && hasTargets },
@@ -563,6 +628,49 @@ export default function AppPreviewTab({
                 </div>
               </Section>
             )}
+
+            {/* Weekly plan card — matches WeeklyPlanCard on client dashboard */}
+            {homeWeekInfo && (() => {
+              const phaseColour = PHASE_COLOURS[homeWeekInfo.phaseType] ?? PHASE_COLOURS.custom
+              const hasMacros = homeWeekInfo.calories || homeWeekInfo.protein || homeWeekInfo.carbs || homeWeekInfo.fat
+              return (
+                <Section label="This week">
+                  <div className="bg-white rounded-2xl border border-gray-200 px-3 py-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                        style={{ backgroundColor: phaseColour.bg, color: phaseColour.text }}>
+                        {homeWeekInfo.phaseName}
+                      </span>
+                      <span className="text-[10px] text-gray-400 font-medium">
+                        Week {homeWeekInfo.weekNumber} <span className="text-gray-300">/ {homeWeekInfo.totalWeeks}</span>
+                      </span>
+                    </div>
+                    {hasMacros && (
+                      <div className="flex gap-1.5 flex-wrap">
+                        {homeWeekInfo.calories != null && (
+                          <span className="text-[10px] bg-orange-50 text-orange-500 font-semibold px-2 py-0.5 rounded-full">{Math.round(homeWeekInfo.calories)} kcal</span>
+                        )}
+                        {homeWeekInfo.protein != null && (
+                          <span className="text-[10px] bg-teal-50 text-teal-600 font-semibold px-2 py-0.5 rounded-full">P {Math.round(homeWeekInfo.protein)}g</span>
+                        )}
+                        {homeWeekInfo.carbs != null && (
+                          <span className="text-[10px] bg-green-50 text-green-600 font-semibold px-2 py-0.5 rounded-full">C {Math.round(homeWeekInfo.carbs)}g</span>
+                        )}
+                        {homeWeekInfo.fat != null && (
+                          <span className="text-[10px] bg-blue-50 text-blue-400 font-semibold px-2 py-0.5 rounded-full">F {Math.round(homeWeekInfo.fat)}g</span>
+                        )}
+                        {homeWeekInfo.fibre != null && (
+                          <span className="text-[10px] bg-amber-50 text-amber-600 font-semibold px-2 py-0.5 rounded-full">Fibre {Math.round(homeWeekInfo.fibre)}g</span>
+                        )}
+                      </div>
+                    )}
+                    {homeWeekInfo.note && (
+                      <p className="text-[10px] text-gray-700 leading-relaxed whitespace-pre-line">{homeWeekInfo.note}</p>
+                    )}
+                  </div>
+                </Section>
+              )
+            })()}
 
             {/* Protocol — matches ProtocolPanel. We cap the preview list at
                 3 to keep the phone frame readable; the live client app
