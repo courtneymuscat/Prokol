@@ -328,6 +328,10 @@ export default function TDEESection({
             <div className="space-y-2">
               {activities.map(act => {
                 const opt = TDEE_ACTIVITY_OPTIONS.find(o => o.value === act.type)
+                const wkg = parseFloat(weightKg) || 0
+                const netMet = Math.max((opt?.met ?? 5) - 1, 0)
+                const hours = (parseFloat(act.duration_minutes) || 0) / 60
+                const calsPerSession = wkg > 0 && hours > 0 ? Math.round(netMet * wkg * hours) : null
                 return (
                   <div key={act.id} className="border border-gray-200 rounded-xl p-3 space-y-2">
                     <div className="flex items-center justify-between">
@@ -354,6 +358,9 @@ export default function TDEESection({
                           className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
                       </div>
                     </div>
+                    {calsPerSession !== null && (
+                      <p className="text-xs text-emerald-600 font-medium">~{calsPerSession.toLocaleString()} kcal/session</p>
+                    )}
                   </div>
                 )
               })}
@@ -374,16 +381,21 @@ export default function TDEESection({
 
           {tdeeResult && effectiveMacros && goal && (
             <div className="rounded-xl border border-gray-100 bg-gray-50 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-400">TDEE</p>
-                  <p className="text-2xl font-bold text-gray-900">{tdeeResult.tdee.toLocaleString()} <span className="text-xs font-normal text-gray-400">kcal/day</span></p>
-                  <p className="text-xs text-gray-400">BMR: {tdeeResult.bmr.toLocaleString()} kcal</p>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-white rounded-xl px-2 py-3 border border-gray-100">
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">BMR</p>
+                  <p className="text-xl font-bold text-gray-600">{tdeeResult.bmr.toLocaleString()}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">kcal at rest</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-400">Target</p>
-                  <p className="text-2xl font-bold text-gray-900">{effectiveMacros.targetCals.toLocaleString()}</p>
-                  <p className="text-xs text-gray-400">kcal/day</p>
+                <div className="bg-white rounded-xl px-2 py-3 border border-gray-200 shadow-sm">
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">TDEE</p>
+                  <p className="text-xl font-bold text-gray-900">{tdeeResult.tdee.toLocaleString()}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">kcal/day</p>
+                </div>
+                <div className="bg-blue-50 rounded-xl px-2 py-3 border border-blue-100">
+                  <p className="text-[10px] text-blue-400 uppercase tracking-wide mb-1">Target</p>
+                  <p className="text-xl font-bold text-blue-700">{effectiveMacros.targetCals.toLocaleString()}</p>
+                  <p className="text-[10px] text-blue-400 mt-0.5">kcal/day</p>
                 </div>
               </div>
 
