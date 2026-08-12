@@ -716,7 +716,7 @@ function WeeklySchedule({
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-type PlanSummary = { id: string; name: string; is_visible_to_client: boolean }
+type PlanSummary = { id: string; name: string; start_date: string | null; is_visible_to_client: boolean }
 
 export default function PlanBuilderTab({ clientId }: { clientId: string }) {
   const [summaries, setSummaries] = useState<PlanSummary[]>([])
@@ -745,7 +745,12 @@ export default function PlanBuilderTab({ clientId }: { clientId: string }) {
       setSummaries(plans)
       setTemplates(Array.isArray(tplData) ? tplData : [])
       if (plans.length > 0) {
-        setActivePlanId(plans[0].id)
+        const today = new Date().toISOString().slice(0, 10)
+        const started = plans.filter(p => p.start_date && p.start_date <= today)
+        const defaultPlan = started.length > 0
+          ? started.reduce((latest, p) => p.start_date! > latest.start_date! ? p : latest)
+          : plans[0]
+        setActivePlanId(defaultPlan.id)
       } else {
         setLoading(false)
       }
