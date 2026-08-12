@@ -796,7 +796,7 @@ export default function PlanBuilderTab({ clientId }: { clientId: string }) {
       body: JSON.stringify({ name: 'New Protocol' }),
     })
     const newPlan = await res.json()
-    setSummaries(s => [...s, { id: newPlan.id, name: newPlan.name, is_visible_to_client: false }])
+    setSummaries(s => [...s, { id: newPlan.id, name: newPlan.name, start_date: null, is_visible_to_client: false }])
     setActivePlanId(newPlan.id)
   }
 
