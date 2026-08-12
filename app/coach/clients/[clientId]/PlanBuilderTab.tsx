@@ -435,7 +435,7 @@ function WeeklySchedule({
   onUpdateWeekData: (phaseId: string, weekIndex: number, patch: Partial<WeekData>) => void
   onCopyWeek: (phaseId: string, fromIndex: number, toIndices: number[]) => void
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
   const [applyingKey, setApplyingKey] = useState<string | null>(null)
   const [appliedKey, setAppliedKey] = useState<string | null>(null)
