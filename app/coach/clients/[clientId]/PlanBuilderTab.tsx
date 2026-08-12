@@ -532,10 +532,8 @@ function WeeklySchedule({
                   )}
 
                   {/* Note preview */}
-                  <span className="text-xs text-gray-400 flex-1 truncate min-w-0 text-left">
-                    {weekNote || coachNote
-                      ? (weekNote || coachNote).slice(0, 60) + ((weekNote || coachNote).length > 60 ? '…' : '')
-                      : ''}
+                  <span className="text-xs text-gray-400 flex-1 min-w-0 text-left break-words whitespace-pre-wrap">
+                    {weekNote || coachNote || ''}
                   </span>
 
                   {/* Note indicator dots */}
