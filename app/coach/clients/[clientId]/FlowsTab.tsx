@@ -362,7 +362,7 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
   // Structural step edits from inside the client file. The server forks
   // the template into a private clone on first use so the original
   // template (and other clients on it) stays untouched.
-  const [busyStep, setBusyStep] = useState<{ action: 'dup' | 'del'; step: number } | null>(null)
+  const [busyStep, setBusyStep] = useState<{ action: 'dup' | 'del' | 'move'; step: number } | null>(null)
   async function duplicateStep(flowId: string, stepNumber: number) {
     setBusyStep({ action: 'dup', step: stepNumber })
     try {
@@ -387,6 +387,22 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ step_number: stepNumber }),
+      })
+      if (res.ok) {
+        const updated = await fetch(`/api/coach/clients/${clientId}/autoflows/${flowId}`).then(r => r.json())
+        if (!updated.error) setSelectedFlow(updated)
+      }
+    } finally {
+      setBusyStep(null)
+    }
+  }
+  async function moveStep(flowId: string, stepNumber: number, direction: 'up' | 'down') {
+    setBusyStep({ action: 'move', step: stepNumber })
+    try {
+      const res = await fetch(`/api/coach/clients/${clientId}/autoflows/${flowId}/reorder-step`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step_number: stepNumber, direction }),
       })
       if (res.ok) {
         const updated = await fetch(`/api/coach/clients/${clientId}/autoflows/${flowId}`).then(r => r.json())
@@ -937,6 +953,25 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* Move up / down */}
+                  <div className="flex flex-col gap-0.5">
+                    <button
+                      onClick={() => moveStep(selectedFlow.id, s.step_number, 'up')}
+                      disabled={s === selectedFlow.steps[0] || (busyStep?.action === 'move' && busyStep.step === s.step_number)}
+                      className="text-gray-300 hover:text-gray-600 disabled:opacity-20 transition-colors"
+                      title="Move step up"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" /></svg>
+                    </button>
+                    <button
+                      onClick={() => moveStep(selectedFlow.id, s.step_number, 'down')}
+                      disabled={s === selectedFlow.steps[selectedFlow.steps.length - 1] || (busyStep?.action === 'move' && busyStep.step === s.step_number)}
+                      className="text-gray-300 hover:text-gray-600 disabled:opacity-20 transition-colors"
+                      title="Move step down"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                  </div>
                   {/* Edit step content */}
                   {!s.response && (
                     <button
