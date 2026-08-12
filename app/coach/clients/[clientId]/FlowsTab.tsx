@@ -363,13 +363,15 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
   // the template into a private clone on first use so the original
   // template (and other clients on it) stays untouched.
   const [busyStep, setBusyStep] = useState<{ action: 'dup' | 'del' | 'move'; step: number } | null>(null)
-  async function duplicateStep(flowId: string, stepNumber: number) {
+  async function duplicateStep(flowId: string, stepNumber: number, sourceDayOffset?: number) {
     setBusyStep({ action: 'dup', step: stepNumber })
     try {
+      const body: Record<string, number> = { step_number: stepNumber }
+      if (sourceDayOffset !== undefined) body.source_day_offset = sourceDayOffset
       const res = await fetch(`/api/coach/clients/${clientId}/autoflows/${flowId}/duplicate-step`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ step_number: stepNumber }),
+        body: JSON.stringify(body),
       })
       if (res.ok) {
         const updated = await fetch(`/api/coach/clients/${clientId}/autoflows/${flowId}`).then(r => r.json())
@@ -865,9 +867,12 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
 
         <div className="space-y-1.5">
           {selectedFlow.steps.map(s => {
+            const startMs = new Date(selectedFlow.start_date + 'T00:00:00').getTime()
             const effectiveDate = s.due_date_override
               ? new Date(s.due_date_override + 'T00:00:00')
-              : new Date(new Date(selectedFlow.start_date + 'T00:00:00').getTime() + s.day_offset * 86400000)
+              : new Date(startMs + s.day_offset * 86400000)
+            // Day offset from flow start that reflects any custom date override
+            const effectiveDayOffset = Math.round((effectiveDate.getTime() - startMs) / 86400000)
             const isPast = effectiveDate <= new Date()
             const isEditingThisStep = editingStepDate?.stepNumber === s.step_number
 
@@ -975,7 +980,7 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
                   {/* Duplicate this step — inserts a copy immediately after */}
                   {!s.response && (
                     <button
-                      onClick={() => duplicateStep(selectedFlow.id, s.step_number)}
+                      onClick={() => duplicateStep(selectedFlow.id, s.step_number, effectiveDayOffset)}
                       disabled={!!busyStep}
                       className="text-gray-300 hover:text-teal-500 transition-colors disabled:opacity-40"
                       title="Copy this week (inserts after)"
@@ -1039,9 +1044,18 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
           })}
         </div>
 
-        {/* Add Week — always copies the last step with +7 day offset */}
+        {/* Add Week — copies the last step with +7 day offset */}
         <button
-          onClick={() => duplicateStep(selectedFlow.id, selectedFlow.steps[selectedFlow.steps.length - 1]?.step_number ?? 1)}
+          onClick={() => {
+            const last = selectedFlow.steps[selectedFlow.steps.length - 1]
+            if (!last) return
+            const startMs = new Date(selectedFlow.start_date + 'T00:00:00').getTime()
+            const lastEffectiveDate = last.due_date_override
+              ? new Date(last.due_date_override + 'T00:00:00')
+              : new Date(startMs + last.day_offset * 86400000)
+            const lastEffectiveDayOffset = Math.round((lastEffectiveDate.getTime() - startMs) / 86400000)
+            duplicateStep(selectedFlow.id, last.step_number, lastEffectiveDayOffset)
+          }}
           disabled={!!busyStep}
           className="w-full mt-2 py-2 rounded-xl border border-dashed border-gray-200 text-xs font-semibold text-gray-400 hover:border-gray-400 hover:text-gray-600 disabled:opacity-40 transition-colors"
         >

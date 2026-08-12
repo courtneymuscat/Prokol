@@ -19,11 +19,14 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const coachId = await requireCoach()
   if (!coachId) return Response.json({ error: 'Unauthorised' }, { status: 401 })
 
-  const body = await req.json().catch(() => ({})) as { step_number?: number }
+  const body = await req.json().catch(() => ({})) as { step_number?: number; source_day_offset?: number }
   const stepNumber = body.step_number
   if (typeof stepNumber !== 'number') {
     return Response.json({ error: 'step_number required' }, { status: 400 })
   }
+  // Effective day_offset from the client (includes any due_date_override calculation).
+  // Used to set the new step's date as effective_date + 7 days.
+  const clientDayOffset = typeof body.source_day_offset === 'number' ? body.source_day_offset : null
 
   const supabase = await createClient()
   const { data: flow } = await supabase
@@ -49,11 +52,15 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     return Response.json({ error: 'Template has no steps' }, { status: 404 })
   }
 
-  // Find the source step to copy.
-  const sourceIdx = allSteps.findIndex(s => s.step_number === stepNumber)
+  // Find the source step to copy (use loose equality to guard against DB type variance).
+  const sourceIdx = allSteps.findIndex(s => Number(s.step_number) === Number(stepNumber))
   const source = sourceIdx !== -1 ? allSteps[sourceIdx] : allSteps[allSteps.length - 1]
   const insertAfterNum = source.step_number as number
-  const newDayOffset = (source.day_offset as number ?? 0) + 7
+
+  // Prefer the client-supplied effective day_offset (which accounts for any
+  // per-step due_date_override). Fall back to the template's stored day_offset.
+  const baseDayOffset = clientDayOffset ?? (source.day_offset as number ?? 0)
+  const newDayOffset = baseDayOffset + 7
 
   // Steps that come after the source need their step_number and day_offset
   // bumped to make room for the new step.
