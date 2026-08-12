@@ -20,6 +20,7 @@ const ClientResourcesTab = lazy(() => import('./ClientResourcesTab'))
 const SupplementsTab = lazy(() => import('./SupplementsTab'))
 const ProtocolTab = lazy(() => import('./ProtocolTab'))
 const CycleTab = lazy(() => import('./CycleTab'))
+import CoachWeeklyPlanCard from './CoachWeeklyPlanCard'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1544,6 +1545,9 @@ function OverviewTab({ data, clientId }: {
 
       {/* Goals + Important Notes */}
       <GoalsSection clientId={clientId} />
+
+      {/* Current week's plan — same card client sees, plus coach note */}
+      <CoachWeeklyPlanCard clientId={clientId} />
 
       {/* Upcoming personal/travel events */}
       <UpcomingEventsPanel clientId={clientId} />
