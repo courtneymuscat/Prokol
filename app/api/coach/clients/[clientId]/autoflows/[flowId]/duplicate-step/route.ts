@@ -52,10 +52,15 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!allSteps || allSteps.length === 0) {
     return Response.json({ error: 'Template has no steps' }, { status: 404 })
   }
-  const source = allSteps.find((s) => s.step_number === stepNumber)
-  if (!source) return Response.json({ error: 'Source step not found' }, { status: 404 })
+  // Always copy the LAST step (highest step_number) so the new week
+  // inherits the most recent week's questions/format, not an earlier one.
+  const source = allSteps[allSteps.length - 1]
+  const nextNum = (source.step_number as number) + 1
+  // Advance day_offset by 7 days so the new week falls exactly one week
+  // after the last step in the flow.
+  const lastDayOffset = (source as Record<string, unknown>).day_offset as number ?? 0
+  const newDayOffset = lastDayOffset + 7
 
-  const nextNum = Math.max(...allSteps.map((s) => s.step_number as number)) + 1
   const newQuestions = Array.isArray(source.questions)
     ? (source.questions as Array<Record<string, unknown>>).map((q) => ({ ...q, id: crypto.randomUUID() }))
     : []
@@ -68,14 +73,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     .insert({
       template_id: fork.template_id,
       step_number: nextNum,
-      title: source.title ? `${source.title} (copy)` : `Step ${nextNum}`,
+      title: source.title ?? `Step ${nextNum}`,
       description: source.description ?? null,
       questions: newQuestions,
-      day_offset: (source as Record<string, unknown>).day_offset ?? 0,
-      trigger_type: (source as Record<string, unknown>).trigger_type ?? 'day_offset',
-      trigger_step_number: source.trigger_step_number === stepNumber
-        ? null
-        : (source.trigger_step_number ?? null),
+      day_offset: newDayOffset,
+      trigger_type: 'day_offset',
+      trigger_step_number: null,
       resource_ids: source.resource_ids ?? [],
       form_id: source.form_id ?? null,
       form_save_to_file: (source as Record<string, unknown>).form_save_to_file ?? false,

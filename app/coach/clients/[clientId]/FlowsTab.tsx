@@ -984,19 +984,6 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
                       </svg>
                     </button>
                   )}
-                  {/* Duplicate this step — forks the template into a
-                      private clone on first use so other clients aren't
-                      affected. */}
-                  <button
-                    onClick={() => duplicateStep(selectedFlow.id, s.step_number)}
-                    disabled={busyStep?.action === 'dup' && busyStep.step === s.step_number}
-                    className="text-gray-300 hover:text-blue-500 transition-colors disabled:opacity-40"
-                    title="Duplicate this step (just for this client)"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  </button>
                   {/* Delete this step — also forks first, so only this
                       client loses the step. */}
                   {!s.response && (
@@ -1038,6 +1025,15 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
             )
           })}
         </div>
+
+        {/* Add Week — always copies the last step with +7 day offset */}
+        <button
+          onClick={() => duplicateStep(selectedFlow.id, selectedFlow.steps[selectedFlow.steps.length - 1]?.step_number ?? 1)}
+          disabled={!!busyStep}
+          className="w-full mt-2 py-2 rounded-xl border border-dashed border-gray-200 text-xs font-semibold text-gray-400 hover:border-gray-400 hover:text-gray-600 disabled:opacity-40 transition-colors"
+        >
+          {busyStep?.action === 'dup' ? 'Adding…' : '+ Add Week'}
+        </button>
       </div>
     )
   }
