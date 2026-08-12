@@ -62,17 +62,18 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const numA = stepA.step_number as number
   const numB = stepB.step_number as number
 
-  // Delete both rows and re-insert with swapped step_numbers — avoids any
-  // unique constraint issue without needing a temp value.
-  await Promise.all([
-    admin.from('autoflow_template_steps').delete()
-      .eq('template_id', fork.template_id)
-      .in('step_number', [numA, numB]),
-  ])
+  // Delete both rows and re-insert with swapped step_numbers AND day_offsets
+  // so that the due date travels with the position, not the content.
+  await admin.from('autoflow_template_steps').delete()
+    .eq('template_id', fork.template_id)
+    .in('step_number', [numA, numB])
+
+  const dayA = stepA.day_offset as number
+  const dayB = stepB.day_offset as number
 
   await admin.from('autoflow_template_steps').insert([
-    { template_id: fork.template_id, ...stepA, step_number: numB },
-    { template_id: fork.template_id, ...stepB, step_number: numA },
+    { template_id: fork.template_id, ...stepA, step_number: numB, day_offset: dayB },
+    { template_id: fork.template_id, ...stepB, step_number: numA, day_offset: dayA },
   ])
 
   // Fix trigger_step_number references that pointed at either swapped step.

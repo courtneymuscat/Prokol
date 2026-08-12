@@ -206,7 +206,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     checkin_schedules: schedulesResult.data ?? [],
     due_autoflow_steps: dueAutoflowSteps,
     supplements: supplementsResult.data ?? [],
-    protocol: (protocolResult.data?.sections as { id: string; title: string; content: string }[] | null) ?? [],
+    protocol: ((protocolResult.data?.sections as { id: string; title: string; content: string; hidden?: boolean }[] | null) ?? []).filter(s => !s.hidden),
     serve_targets: serveTargetsResult.data ?? null,
   })
 }
