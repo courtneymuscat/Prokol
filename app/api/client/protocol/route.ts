@@ -11,5 +11,7 @@ export async function GET() {
     .eq('client_id', session.user.id)
     .maybeSingle()
 
-  return Response.json({ sections: data?.sections ?? [] })
+  const allSections = Array.isArray(data?.sections) ? data.sections : []
+  const visible = allSections.filter((s: Record<string, unknown>) => !s.hidden)
+  return Response.json({ sections: visible })
 }
