@@ -65,7 +65,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   // use its title/description/questions so the copy reflects what the coach
   // sees (not the stale template data underneath the override).
   const sourceOverride = (allOverrides ?? []).find(o => Number(o.step_number) === insertAfterNum) ?? null
-  const effectiveTitle = (sourceOverride?.title ?? source.title ?? `Step ${insertAfterNum + 1}`) as string
+  const effectiveTitle = ((sourceOverride?.title ?? source.title ?? `Step ${insertAfterNum + 1}`) + ' (copy)') as string
   const effectiveDescription = (sourceOverride?.description ?? source.description ?? null) as string | null
   const effectiveQuestionsRaw = (sourceOverride?.questions ?? source.questions) as Array<Record<string, unknown>> | null
 
