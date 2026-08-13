@@ -77,13 +77,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   ])
 
   // Fix trigger_step_number references that pointed at either swapped step.
-  // The two updates target disjoint sets of rows so they can run in parallel.
   await Promise.all([
     admin.from('autoflow_template_steps')
       .update({ trigger_step_number: numB })
       .eq('template_id', fork.template_id)
       .eq('trigger_step_number', numA)
-      .neq('step_number', numA)  // skip the just-inserted rows
+      .neq('step_number', numA)
       .neq('step_number', numB),
     admin.from('autoflow_template_steps')
       .update({ trigger_step_number: numA })
@@ -92,6 +91,30 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       .neq('step_number', numA)
       .neq('step_number', numB),
   ])
+
+  // Also swap client_autoflow_step_overrides so that the coach-edited title,
+  // questions, and custom date travel with the content when steps are reordered.
+  const { data: ovs } = await admin
+    .from('client_autoflow_step_overrides')
+    .select('step_number, title, description, questions, due_date')
+    .eq('client_autoflow_id', flowId)
+    .in('step_number', [numA, numB])
+
+  const ovA = ovs?.find(o => Number(o.step_number) === numA) ?? null
+  const ovB = ovs?.find(o => Number(o.step_number) === numB) ?? null
+
+  if (ovA || ovB) {
+    await admin.from('client_autoflow_step_overrides').delete()
+      .eq('client_autoflow_id', flowId)
+      .in('step_number', [numA, numB])
+
+    const toInsert = []
+    if (ovA) toInsert.push({ client_autoflow_id: flowId, step_number: numB, title: ovA.title ?? null, description: ovA.description ?? null, questions: ovA.questions ?? null, due_date: ovA.due_date ?? null })
+    if (ovB) toInsert.push({ client_autoflow_id: flowId, step_number: numA, title: ovB.title ?? null, description: ovB.description ?? null, questions: ovB.questions ?? null, due_date: ovB.due_date ?? null })
+    if (toInsert.length > 0) {
+      await admin.from('client_autoflow_step_overrides').insert(toInsert)
+    }
+  }
 
   return Response.json({ ok: true, was_forked: fork.was_forked })
 }

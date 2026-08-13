@@ -7,13 +7,13 @@ import type { NextRequest } from 'next/server'
 type Ctx = { params: Promise<{ clientId: string; flowId: string }> }
 
 // POST /api/coach/clients/[clientId]/autoflows/[flowId]/duplicate-step
-// Body: { step_number: number }
+// Body: { step_number: number, source_day_offset?: number }
 //
 // Duplicates the step identified by step_number, inserting a copy immediately
 // after it. Steps that follow are renumbered (+1) and their day_offsets
-// advanced by +7 to keep the weekly cadence intact. If the flow is still
-// pointing at a shared template, the template is first forked into a private
-// clone tied to this client only.
+// advanced by +7. The copy uses the effective content (override title/questions
+// if the coach customised the step) so the copy reflects what the coach sees,
+// not the raw template data. Overrides for subsequent steps are also renumbered.
 export async function POST(req: NextRequest, { params }: Ctx) {
   const { clientId, flowId } = await params
   const coachId = await requireCoach()
@@ -24,8 +24,6 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (typeof stepNumber !== 'number') {
     return Response.json({ error: 'step_number required' }, { status: 400 })
   }
-  // Effective day_offset from the client (includes any due_date_override calculation).
-  // Used to set the new step's date as effective_date + 7 days.
   const clientDayOffset = typeof body.source_day_offset === 'number' ? body.source_day_offset : null
 
   const supabase = await createClient()
@@ -42,34 +40,44 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const fork = await ensureClientOnlyTemplate(admin, { coachId, clientId, flowId })
   if ('error' in fork) return Response.json({ error: fork.error }, { status: 500 })
 
-  const { data: allSteps } = await admin
-    .from('autoflow_template_steps')
-    .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, form_save_to_file, tasks, automated_message')
-    .eq('template_id', fork.template_id)
-    .order('step_number')
+  const [{ data: allSteps }, { data: allOverrides }] = await Promise.all([
+    admin
+      .from('autoflow_template_steps')
+      .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, form_save_to_file, tasks, automated_message')
+      .eq('template_id', fork.template_id)
+      .order('step_number'),
+    admin
+      .from('client_autoflow_step_overrides')
+      .select('step_number, title, description, questions, due_date')
+      .eq('client_autoflow_id', flowId),
+  ])
 
   if (!allSteps || allSteps.length === 0) {
     return Response.json({ error: 'Template has no steps' }, { status: 404 })
   }
 
-  // Find the source step to copy (use loose equality to guard against DB type variance).
+  // Find the source step (loose equality guards against DB type variance).
   const sourceIdx = allSteps.findIndex(s => Number(s.step_number) === Number(stepNumber))
   const source = sourceIdx !== -1 ? allSteps[sourceIdx] : allSteps[allSteps.length - 1]
-  const insertAfterNum = source.step_number as number
+  const insertAfterNum = Number(source.step_number)
 
-  // Prefer the client-supplied effective day_offset (which accounts for any
-  // per-step due_date_override). Fall back to the template's stored day_offset.
+  // Check for a client-specific override on the source step. If one exists,
+  // use its title/description/questions so the copy reflects what the coach
+  // sees (not the stale template data underneath the override).
+  const sourceOverride = (allOverrides ?? []).find(o => Number(o.step_number) === insertAfterNum) ?? null
+  const effectiveTitle = (sourceOverride?.title ?? source.title ?? `Step ${insertAfterNum + 1}`) as string
+  const effectiveDescription = (sourceOverride?.description ?? source.description ?? null) as string | null
+  const effectiveQuestionsRaw = (sourceOverride?.questions ?? source.questions) as Array<Record<string, unknown>> | null
+
   const baseDayOffset = clientDayOffset ?? (source.day_offset as number ?? 0)
   const newDayOffset = baseDayOffset + 7
+  const newStepNumber = insertAfterNum + 1
 
-  // Steps that come after the source need their step_number and day_offset
-  // bumped to make room for the new step.
-  const stepsAfter = allSteps.filter(s => (s.step_number as number) > insertAfterNum)
+  // Steps after the source need their step_number (+1) and day_offset (+7) bumped.
+  const stepsAfter = allSteps.filter(s => Number(s.step_number) > insertAfterNum)
+  const overridesAfter = (allOverrides ?? []).filter(o => Number(o.step_number) > insertAfterNum)
 
   if (stepsAfter.length > 0) {
-    // Delete the rows that need renumbering, then re-insert with +1 step_number
-    // and +7 day_offset. Doing this as delete+reinsert avoids unique-constraint
-    // issues that would arise from in-place updates.
     await admin.from('autoflow_template_steps').delete()
       .eq('template_id', fork.template_id)
       .in('step_number', stepsAfter.map(s => s.step_number))
@@ -78,17 +86,33 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       stepsAfter.map(s => ({
         template_id: fork.template_id,
         ...s,
-        step_number: (s.step_number as number) + 1,
+        step_number: Number(s.step_number) + 1,
         day_offset: (s.day_offset as number ?? 0) + 7,
       }))
     )
   }
 
-  // Insert the new step immediately after the source.
-  const newStepNumber = insertAfterNum + 1
+  // Also renumber overrides for subsequent steps so they stay in sync.
+  if (overridesAfter.length > 0) {
+    await admin.from('client_autoflow_step_overrides').delete()
+      .eq('client_autoflow_id', flowId)
+      .in('step_number', overridesAfter.map(o => o.step_number))
 
-  const newQuestions = Array.isArray(source.questions)
-    ? (source.questions as Array<Record<string, unknown>>).map((q) => ({ ...q, id: crypto.randomUUID() }))
+    await admin.from('client_autoflow_step_overrides').insert(
+      overridesAfter.map(o => ({
+        client_autoflow_id: flowId,
+        step_number: Number(o.step_number) + 1,
+        title: o.title ?? null,
+        description: o.description ?? null,
+        questions: o.questions ?? null,
+        due_date: o.due_date ?? null,
+      }))
+    )
+  }
+
+  // Insert the new step with the effective (override-aware) content.
+  const newQuestions = Array.isArray(effectiveQuestionsRaw)
+    ? effectiveQuestionsRaw.map((q) => ({ ...q, id: crypto.randomUUID() }))
     : []
   const newTasks = Array.isArray(source.tasks)
     ? (source.tasks as Array<Record<string, unknown>>).map((t) => ({ ...t, id: crypto.randomUUID() }))
@@ -99,8 +123,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     .insert({
       template_id: fork.template_id,
       step_number: newStepNumber,
-      title: source.title ?? `Step ${newStepNumber}`,
-      description: source.description ?? null,
+      title: effectiveTitle,
+      description: effectiveDescription,
       questions: newQuestions,
       day_offset: newDayOffset,
       trigger_type: 'day_offset',
