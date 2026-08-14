@@ -764,7 +764,10 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
               const q = questionMap[qId]
               return (
                 <div key={qId} className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-xs text-gray-500 mb-1">{q?.label || qId}</p>
+                  <p className="text-xs font-medium text-gray-600 mb-0.5">{q?.label || qId}</p>
+                  {q?.description && (
+                    <p className="text-[11px] text-gray-400 mb-1.5">{q.description}</p>
+                  )}
                   <p className="text-sm text-gray-900">{String(answer)}</p>
                 </div>
               )
@@ -778,8 +781,11 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Questions</p>
             {allQuestions.filter(q => q.type !== 'note' && q.type !== 'section').map((q, i) => (
               <div key={q.id} className="bg-gray-50 rounded-xl px-3 py-2">
-                <p className="text-xs text-gray-600">{i + 1}. {q.label}</p>
-                {q.required && <span className="text-[10px] text-red-400">Required</span>}
+                <p className="text-xs font-medium text-gray-600">{i + 1}. {q.label}</p>
+                {q.description && (
+                  <p className="text-[11px] text-gray-400 mt-0.5">{q.description}</p>
+                )}
+                {q.required && <span className="text-[10px] text-red-400 mt-0.5 block">Required</span>}
               </div>
             ))}
           </div>
