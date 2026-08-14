@@ -6,13 +6,24 @@ type Props = {
   checkInId: string
   initialFeedback: string | null
   initialReviewed: boolean
+  onReviewedChange?: (reviewed: boolean) => void
 }
 
-export default function CheckInFeedback({ checkInId, initialFeedback, initialReviewed }: Props) {
+export default function CheckInFeedback({ checkInId, initialFeedback, initialReviewed, onReviewedChange }: Props) {
   const [feedback, setFeedback] = useState(initialFeedback ?? '')
   const [reviewed, setReviewed] = useState(initialReviewed)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  async function toggleReviewed(val: boolean) {
+    setReviewed(val)
+    await fetch(`/api/check-ins/${checkInId}/feedback`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reviewed: val }),
+    })
+    onReviewedChange?.(val)
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -37,7 +48,7 @@ export default function CheckInFeedback({ checkInId, initialFeedback, initialRev
           <input
             type="checkbox"
             checked={reviewed}
-            onChange={(e) => setReviewed(e.target.checked)}
+            onChange={(e) => toggleReviewed(e.target.checked)}
             className="rounded"
           />
           <span className={`text-xs font-medium ${reviewed ? 'text-green-600' : 'text-gray-400'}`}>

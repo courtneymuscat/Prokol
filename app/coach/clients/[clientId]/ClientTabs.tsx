@@ -3297,6 +3297,12 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
                           checkInId={c.id}
                           initialFeedback={c.coach_feedback}
                           initialReviewed={c.reviewed_by_coach}
+                          onReviewedChange={(val) =>
+                            setData((d) => d ? {
+                              ...d,
+                              checkIns: d.checkIns.map((x) => x.id === c.id ? { ...x, reviewed_by_coach: val } : x),
+                            } : d)
+                          }
                         />
                       </Suspense>
                     </div>

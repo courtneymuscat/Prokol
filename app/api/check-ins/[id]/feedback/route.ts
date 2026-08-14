@@ -26,7 +26,7 @@ export async function PATCH(
     .select('id')
     .eq('coach_id', coachId)
     .eq('client_id', checkIn.user_id)
-    .eq('status', 'active')
+    .in('status', ['active', 'archived'])
     .single()
 
   if (!rel) return Response.json({ error: 'Forbidden' }, { status: 403 })
