@@ -13,7 +13,10 @@ type Ctx = { params: Promise<{ clientId: string; flowId: string }> }
 // after it. Steps that follow are renumbered (+1) and their day_offsets
 // advanced by +7. The copy uses the effective content (override title/questions
 // if the coach customised the step) so the copy reflects what the coach sees,
-// not the raw template data. Overrides for subsequent steps are also renumbered.
+// not the raw template data. Overrides, responses, and snoozes for subsequent
+// steps are also renumbered so already-submitted weeks stay matched to their
+// original content (this runs regardless of whether the source step itself
+// has a response — a step doesn't need to be submitted for later ones to be).
 export async function POST(req: NextRequest, { params }: Ctx) {
   const { clientId, flowId } = await params
   const coachId = await requireCoach()
@@ -40,7 +43,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const fork = await ensureClientOnlyTemplate(admin, { coachId, clientId, flowId })
   if ('error' in fork) return Response.json({ error: fork.error }, { status: 500 })
 
-  const [{ data: allSteps }, { data: allOverrides }] = await Promise.all([
+  const [{ data: allSteps }, { data: allOverrides }, { data: allResponses }, { data: allDismissals }] = await Promise.all([
     admin
       .from('autoflow_template_steps')
       .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, form_save_to_file, tasks, automated_message')
@@ -49,6 +52,14 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     admin
       .from('client_autoflow_step_overrides')
       .select('step_number, title, description, questions, due_date')
+      .eq('client_autoflow_id', flowId),
+    admin
+      .from('autoflow_responses')
+      .select('step_number, client_id, answers, submitted_at')
+      .eq('client_autoflow_id', flowId),
+    admin
+      .from('autoflow_step_dismissals')
+      .select('step_number, client_id, dismissed_at, snooze_until')
       .eq('client_autoflow_id', flowId),
   ])
 
@@ -76,6 +87,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   // Steps after the source need their step_number (+1) and day_offset (+7) bumped.
   const stepsAfter = allSteps.filter(s => Number(s.step_number) > insertAfterNum)
   const overridesAfter = (allOverrides ?? []).filter(o => Number(o.step_number) > insertAfterNum)
+  // Responses and snoozes are keyed by step_number too — if these aren't
+  // renumbered in lockstep with the steps, a client's already-submitted
+  // answers for a later week end up attached to the wrong (shifted) step
+  // content the next time the flow is loaded.
+  const responsesAfter = (allResponses ?? []).filter(r => Number(r.step_number) > insertAfterNum)
+  const dismissalsAfter = (allDismissals ?? []).filter(d => Number(d.step_number) > insertAfterNum)
 
   if (stepsAfter.length > 0) {
     await admin.from('autoflow_template_steps').delete()
@@ -106,6 +123,41 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         description: o.description ?? null,
         questions: o.questions ?? null,
         due_date: o.due_date ?? null,
+      }))
+    )
+  }
+
+  // Also renumber responses for subsequent steps so a client's already
+  // submitted answers stay attached to their original content.
+  if (responsesAfter.length > 0) {
+    await admin.from('autoflow_responses').delete()
+      .eq('client_autoflow_id', flowId)
+      .in('step_number', responsesAfter.map(r => r.step_number))
+
+    await admin.from('autoflow_responses').insert(
+      responsesAfter.map(r => ({
+        client_autoflow_id: flowId,
+        step_number: Number(r.step_number) + 1,
+        client_id: r.client_id,
+        answers: r.answers ?? {},
+        submitted_at: r.submitted_at,
+      }))
+    )
+  }
+
+  // Also renumber active snoozes for subsequent steps.
+  if (dismissalsAfter.length > 0) {
+    await admin.from('autoflow_step_dismissals').delete()
+      .eq('client_autoflow_id', flowId)
+      .in('step_number', dismissalsAfter.map(d => d.step_number))
+
+    await admin.from('autoflow_step_dismissals').insert(
+      dismissalsAfter.map(d => ({
+        client_autoflow_id: flowId,
+        step_number: Number(d.step_number) + 1,
+        client_id: d.client_id,
+        dismissed_at: d.dismissed_at,
+        snooze_until: d.snooze_until,
       }))
     )
   }
