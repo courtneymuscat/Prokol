@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireCoach } from '@/lib/coach'
+import { effectiveQuestions } from '@/lib/autoflow-fork'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ clientId: string; flowId: string }> }
@@ -85,7 +86,7 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
         step_number: s.step_number,
         title: ov?.title ?? s.title ?? '',
         description: ov?.description ?? s.description ?? null,
-        questions: ov?.questions ?? s.questions ?? [],
+        questions: effectiveQuestions(ov?.questions, s.questions),
         day_offset: s.day_offset ?? 0,
         trigger_type: (s as Record<string, unknown>).trigger_type ?? 'day_offset',
         trigger_step_number: (s as Record<string, unknown>).trigger_step_number ?? null,

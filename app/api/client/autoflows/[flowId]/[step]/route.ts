@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPushToUser } from '@/lib/push'
+import { effectiveQuestions } from '@/lib/autoflow-fork'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ flowId: string; step: string }> }
@@ -194,7 +195,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     title: override?.title ?? templateStep?.title ?? `Step ${stepNum}`,
     description: override?.description ?? templateStep?.description ?? null,
     core_questions: tpl?.core_questions ?? [],
-    questions: override?.questions ?? templateStep?.questions ?? [],
+    questions: effectiveQuestions(override?.questions, templateStep?.questions),
     resources,
     tasks: templateStep?.tasks ?? [],
     linked_form: linkedForm,

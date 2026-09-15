@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireCoach } from '@/lib/coach'
+import { effectiveQuestions } from '@/lib/autoflow-fork'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ clientId: string; flowId: string }> }
@@ -98,8 +99,8 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       ...s,
       title: ov?.title ?? s.title,
       description: ov?.description ?? s.description,
-      questions: ov?.questions ?? s.questions,
-      has_override: !!(ov?.questions || ov?.title || ov?.description),
+      questions: effectiveQuestions(ov?.questions, s.questions),
+      has_override: !!((Array.isArray(ov?.questions) && ov.questions.length > 0) || ov?.title || ov?.description),
       due_date_override: ov?.due_date ?? null,
       response: responseMap[s.step_number] ?? null,
       tasks: (stepRecord.tasks as unknown[]) ?? [],

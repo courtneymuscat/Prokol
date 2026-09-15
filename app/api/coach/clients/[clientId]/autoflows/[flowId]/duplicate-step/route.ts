@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
-import { ensureClientOnlyTemplate } from '@/lib/autoflow-fork'
+import { ensureClientOnlyTemplate, effectiveQuestions } from '@/lib/autoflow-fork'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ clientId: string; flowId: string }> }
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const sourceOverride = (allOverrides ?? []).find(o => Number(o.step_number) === insertAfterNum) ?? null
   const effectiveTitle = ((sourceOverride?.title ?? source.title ?? `Step ${insertAfterNum + 1}`) + ' (copy)') as string
   const effectiveDescription = (sourceOverride?.description ?? source.description ?? null) as string | null
-  const effectiveQuestionsRaw = (sourceOverride?.questions ?? source.questions) as Array<Record<string, unknown>> | null
+  const effectiveQuestionsRaw = effectiveQuestions(sourceOverride?.questions, source.questions) as Array<Record<string, unknown>>
 
   const baseDayOffset = clientDayOffset ?? (source.day_offset as number ?? 0)
   const newDayOffset = baseDayOffset + 7

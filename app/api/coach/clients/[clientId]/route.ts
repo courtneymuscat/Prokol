@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
+import { effectiveQuestions } from '@/lib/autoflow-fork'
 import type { NextRequest } from 'next/server'
 
 /** Verify the coach actually owns this client relationship (active or archived) */
@@ -274,7 +275,7 @@ export async function GET(
       const coreQs = coreQByTemplate[templateId] ?? []
       const tplMeta = stepMetaByTemplate[templateId]?.[r.step_number]
       const overrideMeta = overrideMetaMap[r.client_autoflow_id]?.[r.step_number]
-      const stepQs = overrideMeta?.questions ?? tplMeta?.questions ?? []
+      const stepQs = effectiveQuestions(overrideMeta?.questions, tplMeta?.questions) as { id: string; label: string; type: string }[]
       const stepTitle = overrideMeta?.title ?? tplMeta?.title ?? null
       const stepDescription = overrideMeta?.description ?? tplMeta?.description ?? null
       const answers = (r.answers as Record<string, string>) ?? {}

@@ -1,5 +1,19 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+// effectiveQuestions
+//
+// Merges a per-client step override's questions with the template's own.
+// An override row can exist purely because the coach touched the step's
+// title or due date — its `questions` column then defaults to `[]`, which
+// is NOT the same as "the coach explicitly cleared the questions". Treating
+// an empty array as a real override wipes out the template's actual
+// question set wherever any override exists, so we only defer to the
+// override when it's genuinely non-empty.
+export function effectiveQuestions(overrideQuestions: unknown, templateQuestions: unknown): unknown[] {
+  if (Array.isArray(overrideQuestions) && overrideQuestions.length > 0) return overrideQuestions
+  return Array.isArray(templateQuestions) ? templateQuestions : []
+}
+
 // ensureClientOnlyTemplate
 //
 // Used by per-client autoflow editors (FlowsTab) before any STRUCTURAL
