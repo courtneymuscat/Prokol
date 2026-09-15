@@ -12,7 +12,9 @@ type Ctx = { params: Promise<{ clientId: string; flowId: string }> }
 // Swaps a step with the adjacent step (up = swap with previous, down = swap
 // with next). Forks the template into a private clone on first use so other
 // clients are unaffected. Also fixes any trigger_step_number references that
-// point to the two swapped steps.
+// point to the two swapped steps, and swaps overrides/responses/dismissals
+// (all keyed by step_number) so a client's submitted answers and snooze
+// state travel with the step content instead of staying pinned to the slot.
 export async function POST(req: NextRequest, { params }: Ctx) {
   const { clientId, flowId } = await params
   const coachId = await requireCoach()
@@ -114,6 +116,55 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (toInsert.length > 0) {
       await admin.from('client_autoflow_step_overrides').insert(toInsert)
     }
+  }
+
+  // Also swap responses and active snoozes so a client's already-submitted
+  // answers (and dismiss/snooze state) travel with the content, not the
+  // step_number slot — otherwise the moved step reads as completed/snoozed
+  // when it's actually the neighbour's history showing through.
+  const [{ data: resps }, { data: dismissals }] = await Promise.all([
+    admin
+      .from('autoflow_responses')
+      .select('step_number, client_id, answers, submitted_at')
+      .eq('client_autoflow_id', flowId)
+      .in('step_number', [numA, numB]),
+    admin
+      .from('autoflow_step_dismissals')
+      .select('step_number, client_id, dismissed_at, snooze_until')
+      .eq('client_autoflow_id', flowId)
+      .in('step_number', [numA, numB]),
+  ])
+
+  const respA = resps?.find(r => Number(r.step_number) === numA) ?? null
+  const respB = resps?.find(r => Number(r.step_number) === numB) ?? null
+
+  if (respA || respB) {
+    await admin.from('autoflow_responses').delete()
+      .eq('client_autoflow_id', flowId)
+      .in('step_number', [numA, numB])
+
+    const toInsert = []
+    if (respA) toInsert.push({ client_autoflow_id: flowId, step_number: numB, client_id: respA.client_id, answers: respA.answers ?? {}, submitted_at: respA.submitted_at })
+    if (respB) toInsert.push({ client_autoflow_id: flowId, step_number: numA, client_id: respB.client_id, answers: respB.answers ?? {}, submitted_at: respB.submitted_at })
+    if (toInsert.length > 0) {
+      await admin.from('autoflow_responses').insert(toInsert)
+    }
+  }
+
+  if (dismissals && dismissals.length > 0) {
+    await admin.from('autoflow_step_dismissals').delete()
+      .eq('client_autoflow_id', flowId)
+      .in('step_number', [numA, numB])
+
+    await admin.from('autoflow_step_dismissals').insert(
+      dismissals.map(d => ({
+        client_autoflow_id: flowId,
+        step_number: Number(d.step_number) === numA ? numB : numA,
+        client_id: d.client_id,
+        dismissed_at: d.dismissed_at,
+        snooze_until: d.snooze_until,
+      }))
+    )
   }
 
   return Response.json({ ok: true, was_forked: fork.was_forked })
