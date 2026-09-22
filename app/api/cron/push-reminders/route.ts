@@ -693,5 +693,172 @@ export async function GET(req: NextRequest) {
     console.error('[cron] workout reminder section failed:', err)
   }
 
+  // ── 8. Autoflow (check-in plan) running out soon — coach reminder ────────────
+  //
+  // Warns the coach ~7 days before an active client's autoflow runs out of
+  // scheduled steps, so there's time to add more weeks before the client
+  // hits the end with nothing queued. Gated on the COACH's local 7am (not
+  // the client's) since this is about the coach's own planning. Deduped by
+  // (flow, end_date) via coach_content_reminders_sent — fires once per
+  // runway, and again later if the coach extends the flow and it runs low
+  // a second time.
+
+  try {
+    const { data: flowsForEndCheck } = await supabase
+      .from('client_autoflows')
+      .select('id, client_id, coach_id, template_id, start_date')
+      .eq('status', 'active')
+
+    if (flowsForEndCheck?.length) {
+      const coachIds = [...new Set(flowsForEndCheck.map((f) => f.coach_id))]
+      const clientIds = [...new Set(flowsForEndCheck.map((f) => f.client_id))]
+      const templateIds = [...new Set(flowsForEndCheck.map((f) => f.template_id).filter(Boolean))]
+
+      const [{ data: coachProfiles }, { data: clientProfiles }, { data: allSteps }] = await Promise.all([
+        supabase.from('profiles').select('id, timezone').in('id', coachIds),
+        supabase.from('profiles').select('id, first_name, full_name').in('id', clientIds),
+        supabase.from('autoflow_template_steps').select('template_id, step_number, day_offset, trigger_type').in('template_id', templateIds),
+      ])
+
+      const coachTzById: Record<string, string | null> = Object.fromEntries((coachProfiles ?? []).map((p) => [p.id, p.timezone as string | null]))
+      const clientNameById: Record<string, string> = Object.fromEntries(
+        (clientProfiles ?? []).map((p) => [p.id, p.first_name?.trim() || p.full_name?.trim()?.split(' ')[0] || 'Your client'])
+      )
+      const stepsByTemplate = new Map<string, { step_number: number; day_offset: number; trigger_type: string }[]>()
+      for (const s of (allSteps ?? []) as { template_id: string; step_number: number; day_offset: number; trigger_type: string }[]) {
+        const arr = stepsByTemplate.get(s.template_id) ?? []
+        arr.push(s)
+        stepsByTemplate.set(s.template_id, arr)
+      }
+
+      for (const flow of flowsForEndCheck) {
+        const tz = coachTzById[flow.coach_id] ?? null
+        if (!isSevenAM(tz)) continue
+
+        const steps = stepsByTemplate.get(flow.template_id) ?? []
+        const scheduledSteps = steps.filter((s) => s.trigger_type !== 'on_step_complete')
+        if (scheduledSteps.length === 0) continue
+
+        const startDate = flow.start_date as string
+        if (!startDate) continue
+
+        const { data: overrides } = await supabase
+          .from('client_autoflow_step_overrides')
+          .select('step_number, due_date')
+          .eq('client_autoflow_id', flow.id)
+        const overrideDateByStep: Record<number, string> = Object.fromEntries(
+          (overrides ?? []).filter((o) => o.due_date).map((o) => [o.step_number, o.due_date as string])
+        )
+
+        const startMs = new Date(startDate + 'T00:00:00Z').getTime()
+        const endDates = scheduledSteps.map((s) =>
+          overrideDateByStep[s.step_number] ?? new Date(startMs + s.day_offset * 86400000).toISOString().split('T')[0]
+        )
+        const endDate = endDates.sort().pop() as string
+
+        const { dateStr } = getLocalInfo(tz)
+        const daysLeft = daysBetween(dateStr, endDate)
+        if (daysLeft < 0 || daysLeft > 7) continue
+
+        const { data: already } = await supabase
+          .from('coach_content_reminders_sent')
+          .select('id')
+          .eq('kind', 'autoflow_ending')
+          .eq('ref_id', flow.id)
+          .eq('end_date', endDate)
+          .maybeSingle()
+        if (already) continue
+
+        const clientName = clientNameById[flow.client_id] ?? 'Your client'
+        sendPushToUser(flow.coach_id, {
+          title: 'Check-in plan running out',
+          body: daysLeft === 0
+            ? `${clientName}'s check-in plan ends today — add more weeks`
+            : `${clientName}'s check-in plan ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — add more weeks`,
+          url: `/coach/clients/${flow.client_id}?tab=flows`,
+          icon: '/icons/icon-192.png',
+          tag: `autoflow-ending-${flow.id}`,
+        }).catch(() => {/* silent */})
+
+        await supabase.from('coach_content_reminders_sent').insert({
+          coach_id: flow.coach_id, kind: 'autoflow_ending', ref_id: flow.id, end_date: endDate,
+        })
+        pushed++
+      }
+    }
+  } catch (err) {
+    console.error('[cron] autoflow-ending section failed:', err)
+  }
+
+  // ── 9. Training program running out soon — coach reminder ────────────────────
+  //
+  // Same idea as section 8, but for client_programs: warns the coach ~7 days
+  // before the last programmed week ends.
+
+  try {
+    const { data: programsForEndCheck } = await supabase
+      .from('client_programs')
+      .select('id, client_id, coach_id, start_date, content')
+      .eq('status', 'active')
+
+    if (programsForEndCheck?.length) {
+      const coachIds = [...new Set(programsForEndCheck.map((p) => p.coach_id))]
+      const clientIds = [...new Set(programsForEndCheck.map((p) => p.client_id))]
+
+      const [{ data: coachProfiles }, { data: clientProfiles }] = await Promise.all([
+        supabase.from('profiles').select('id, timezone').in('id', coachIds),
+        supabase.from('profiles').select('id, first_name, full_name').in('id', clientIds),
+      ])
+
+      const coachTzById: Record<string, string | null> = Object.fromEntries((coachProfiles ?? []).map((p) => [p.id, p.timezone as string | null]))
+      const clientNameById: Record<string, string> = Object.fromEntries(
+        (clientProfiles ?? []).map((p) => [p.id, p.first_name?.trim() || p.full_name?.trim()?.split(' ')[0] || 'Your client'])
+      )
+
+      for (const prog of programsForEndCheck) {
+        const tz = coachTzById[prog.coach_id] ?? null
+        if (!isSevenAM(tz)) continue
+
+        const content = prog.content as unknown[] | null
+        const weeks = Array.isArray(content) ? content.length : 0
+        if (weeks === 0) continue
+
+        const startMs = new Date(prog.start_date + 'T00:00:00Z').getTime()
+        const endDate = new Date(startMs + (weeks * 7 - 1) * 86400000).toISOString().split('T')[0]
+
+        const { dateStr } = getLocalInfo(tz)
+        const daysLeft = daysBetween(dateStr, endDate)
+        if (daysLeft < 0 || daysLeft > 7) continue
+
+        const { data: already } = await supabase
+          .from('coach_content_reminders_sent')
+          .select('id')
+          .eq('kind', 'program_ending')
+          .eq('ref_id', prog.id)
+          .eq('end_date', endDate)
+          .maybeSingle()
+        if (already) continue
+
+        const clientName = clientNameById[prog.client_id] ?? 'Your client'
+        sendPushToUser(prog.coach_id, {
+          title: 'Training program running out',
+          body: daysLeft === 0
+            ? `${clientName}'s training program ends today — add more weeks`
+            : `${clientName}'s training program ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — add more weeks`,
+          url: `/coach/clients/${prog.client_id}?tab=program`,
+          icon: '/icons/icon-192.png',
+          tag: `program-ending-${prog.id}`,
+        }).catch(() => {/* silent */})
+
+        await supabase.from('coach_content_reminders_sent').insert({
+          coach_id: prog.coach_id, kind: 'program_ending', ref_id: prog.id, end_date: endDate,
+        })
+        pushed++
+      }
+    }
+  } catch (err) {
+    console.error('[cron] program-ending section failed:', err)
+  }
+
   return Response.json({ ok: true, pushed, checkedAt: now.toISOString() })
 }
