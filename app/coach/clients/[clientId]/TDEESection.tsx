@@ -455,7 +455,10 @@ export default function TDEESection({
                     <div className="flex items-center justify-between bg-white rounded-lg px-3 py-2.5 border border-gray-100">
                       <div>
                         <p className="text-xs font-medium text-gray-700">Carbs <span className="font-normal text-gray-400">(remaining calories)</span></p>
-                        <p className="text-[10px] text-gray-400">{(effectiveMacros.carbG * 4).toLocaleString()} kcal</p>
+                        <p className="text-[10px] text-gray-400">
+                          {(effectiveMacros.carbG * 4).toLocaleString()} kcal
+                          {(parseFloat(weightKg) || 0) > 0 && ` · ${(effectiveMacros.carbG / parseFloat(weightKg)).toFixed(1)}g/kg BW`}
+                        </p>
                       </div>
                       <p className="text-base font-bold text-gray-900">{effectiveMacros.carbG}g</p>
                     </div>
