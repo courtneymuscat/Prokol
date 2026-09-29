@@ -697,8 +697,10 @@ export async function GET(req: NextRequest) {
   //
   // Warns the coach ~7 days before an active client's autoflow runs out of
   // scheduled steps, so there's time to add more weeks before the client
-  // hits the end with nothing queued. Gated on the COACH's local 7am (not
-  // the client's) since this is about the coach's own planning. Deduped by
+  // hits the end with nothing queued. This cron only runs once a day
+  // (Vercel Hobby plan caps cron frequency at daily), so there's no "local
+  // 7am" tick to gate on the way the per-timezone sections above assume —
+  // this just evaluates once whenever the daily run happens. Deduped by
   // (flow, end_date) via coach_content_reminders_sent — fires once per
   // runway, and again later if the coach extends the flow and it runs low
   // a second time.
@@ -733,7 +735,6 @@ export async function GET(req: NextRequest) {
 
       for (const flow of flowsForEndCheck) {
         const tz = coachTzById[flow.coach_id] ?? null
-        if (!isSevenAM(tz)) continue
 
         const steps = stepsByTemplate.get(flow.template_id) ?? []
         const scheduledSteps = steps.filter((s) => s.trigger_type !== 'on_step_complete')
@@ -817,7 +818,6 @@ export async function GET(req: NextRequest) {
 
       for (const prog of programsForEndCheck) {
         const tz = coachTzById[prog.coach_id] ?? null
-        if (!isSevenAM(tz)) continue
 
         const content = prog.content as unknown[] | null
         const weeks = Array.isArray(content) ? content.length : 0
