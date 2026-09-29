@@ -591,7 +591,7 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
   const [dragWorkout, setDragWorkout] = useState<{ programId: string; weekIdx: number; dayIdx: number } | null>(null)
   const [dragOverDate, setDragOverDate] = useState<string | null>(null)
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
-  const [editForm, setEditForm] = useState({ type: '', title: '', content: '' })
+  const [editForm, setEditForm] = useState({ type: '', title: '', content: '', date: '' })
   const [editSaving, setEditSaving] = useState(false)
 
   async function openAutoflowStep(evt: CalendarEvent) {
@@ -780,11 +780,12 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
       type: evt.type,
       title: evt.title,
       content: typeof evt.content?.note === 'string' ? evt.content.note : '',
+      date: evt.event_date,
     })
   }
 
   async function saveEditEvent() {
-    if (!editingEvent || !editForm.title.trim()) return
+    if (!editingEvent || !editForm.title.trim() || !editForm.date) return
     setEditSaving(true)
     const content: Record<string, unknown> = { ...editingEvent.content }
     if (editForm.content) content.note = editForm.content
@@ -792,11 +793,11 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
     const res = await fetch(`/api/coach/clients/${clientId}/calendar/${editingEvent.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: editForm.title.trim(), type: editForm.type, content }),
+      body: JSON.stringify({ title: editForm.title.trim(), type: editForm.type, content, event_date: editForm.date }),
     })
     if (res.ok) {
       setEvents((prev) => prev.map((e) => e.id === editingEvent.id
-        ? { ...e, title: editForm.title.trim(), type: editForm.type, content }
+        ? { ...e, title: editForm.title.trim(), type: editForm.type, content, event_date: editForm.date }
         : e
       ))
     }
@@ -1003,14 +1004,16 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
                   >
                     {evt.type === 'autoflow' ? (
                       <button onClick={() => openAutoflowStep(evt)} className="truncate text-left hover:underline flex-1">⚡ {evt.title}</button>
-                    ) : evt.type === 'workout' ? (
+                    ) : evt.type === 'workout' && evt.content?.workout_id ? (
                       <button onClick={() => setViewingPersonalWorkout(evt)} className="truncate text-left hover:underline flex-1">💪 {evt.title}</button>
                     ) : (
                       <button onClick={() => openEditModal(evt)} className="truncate text-left hover:underline flex-1">{evt.title}</button>
                     )}
-                    <button onClick={() => deleteEvent(evt.id)} className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+                    {evt.type !== 'autoflow' && !(evt.type === 'workout' && evt.content?.workout_id) && (
+                      <button onClick={() => deleteEvent(evt.id)} className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    )}
                   </div>
                 ))}
                 {!hasContent && habits.length === 0 && (
@@ -1096,14 +1099,19 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
                       draggable
                       onDragStart={(e) => handleDragStart(e, evt.id)}
                       onDragEnd={handleDragEnd}
-                      className={`text-[9px] rounded px-1 py-0.5 font-medium truncate cursor-grab active:cursor-grabbing ${dragEventId === evt.id ? 'opacity-40' : ''} ${EVENT_COLORS[evt.type] ?? EVENT_COLORS.custom}`}
+                      className={`text-[9px] rounded px-1 py-0.5 font-medium truncate cursor-grab active:cursor-grabbing group flex items-center justify-between gap-0.5 ${dragEventId === evt.id ? 'opacity-40' : ''} ${EVENT_COLORS[evt.type] ?? EVENT_COLORS.custom}`}
                     >
                       {evt.type === 'autoflow' ? (
-                        <button onClick={() => openAutoflowStep(evt)} className="w-full text-left hover:opacity-80 truncate">⚡ {evt.title}</button>
-                      ) : evt.type === 'workout' ? (
-                        <button onClick={() => setViewingPersonalWorkout(evt)} className="w-full text-left hover:opacity-80 truncate">💪 {evt.title}</button>
+                        <button onClick={() => openAutoflowStep(evt)} className="flex-1 text-left hover:opacity-80 truncate">⚡ {evt.title}</button>
+                      ) : evt.type === 'workout' && evt.content?.workout_id ? (
+                        <button onClick={() => setViewingPersonalWorkout(evt)} className="flex-1 text-left hover:opacity-80 truncate">💪 {evt.title}</button>
                       ) : (
-                        <button onClick={() => openEditModal(evt)} className="w-full text-left hover:opacity-80 truncate">{evt.title}</button>
+                        <button onClick={() => openEditModal(evt)} className="flex-1 text-left hover:opacity-80 truncate">{evt.title}</button>
+                      )}
+                      {evt.type !== 'autoflow' && !(evt.type === 'workout' && evt.content?.workout_id) && (
+                        <button onClick={() => deleteEvent(evt.id)} className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
                       )}
                     </div>
                   ))}
@@ -1122,11 +1130,13 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-gray-900">Edit Event — {new Date(editingEvent.event_date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })}</h3>
+              <h3 className="text-sm font-bold text-gray-900">Edit Event</h3>
               <button onClick={() => setEditingEvent(null)} className="text-gray-400 hover:text-gray-600">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
+            <input type="date" value={editForm.date} onChange={(e) => setEditForm((f) => ({ ...f, date: e.target.value }))}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             <select value={editForm.type} onChange={(e) => setEditForm((f) => ({ ...f, type: e.target.value }))}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
               <optgroup label="Coach events">
@@ -1151,8 +1161,14 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
               placeholder="Notes (optional)" rows={2}
               className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
             <div className="flex gap-3">
+              <button
+                onClick={() => { const id = editingEvent.id; setEditingEvent(null); deleteEvent(id) }}
+                className="text-red-500 hover:text-red-600 text-sm font-semibold px-2"
+              >
+                Delete
+              </button>
               <button onClick={() => setEditingEvent(null)} className="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50">Cancel</button>
-              <button onClick={saveEditEvent} disabled={!editForm.title.trim() || editSaving}
+              <button onClick={saveEditEvent} disabled={!editForm.title.trim() || !editForm.date || editSaving}
                 className="flex-1 bg-blue-600 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
                 {editSaving ? 'Saving…' : 'Save'}
               </button>
