@@ -3,11 +3,23 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { sendPushToUser } from '@/lib/push'
 
 /**
- * Runs every hour via Vercel Cron.
- * For each client, checks if it's currently 7am or 8pm in THEIR timezone.
+ * Runs once a day via Vercel Cron, at a single fixed UTC time (Vercel's
+ * Hobby plan caps cron jobs at daily — there is no hourly tier available).
  *
- * At 7am: autoflow task reminders, scheduled check-in reminders, birthday alerts to coaches.
- * At 8pm: cycle tracking reminders for female clients who haven't logged today.
+ * Because there's only one invocation per day, none of the sections below
+ * gate on "is it currently a specific local hour for this person" — with a
+ * single fixed UTC firing time, that kind of check only ever matches for
+ * people near UTC+0 and silently never fires for everyone else. Instead,
+ * every section just evaluates on every daily run and relies on its own
+ * state check (already responded / already logged today / already sent —
+ * via a dedup table or a column with a UNIQUE constraint) to make sure a
+ * person gets a given reminder once, not once per day forever.
+ *
+ * One consequence: reminders framed around "today" or "this week" land at
+ * whatever local hour this daily run happens to fall at for that person,
+ * not necessarily their morning or evening. If per-person local-morning
+ * delivery becomes a hard requirement, that needs an hourly cron, which
+ * needs the Vercel plan upgraded from Hobby.
  *
  * Secured by CRON_SECRET.
  *
@@ -59,19 +71,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  /** Is it the 7am hour in this timezone right now? */
-  function isSevenAM(timezone: string | null): boolean {
-    return getLocalInfo(timezone).hour === 7
-  }
-
-  /** Is it the 8pm hour in this timezone right now? */
-  function isEightPM(timezone: string | null): boolean {
-    // If no timezone set, send at 8pm UTC (catches UTC-adjacent zones)
-    // Use a 2-hour window (8–9pm) to be safe against clock drift
-    const { hour } = getLocalInfo(timezone)
-    return hour === 20 || hour === 21
-  }
-
   /** Days between two YYYY-MM-DD strings */
   function daysBetween(a: string, b: string): number {
     const [ay, am, ad] = a.split('-').map(Number)
@@ -102,8 +101,6 @@ export async function GET(req: NextRequest) {
     for (const flow of activeFlows) {
       const profile = (flow as Record<string, unknown>).profiles as { timezone: string | null } | null
       const timezone = profile?.timezone ?? null
-
-      if (!isSevenAM(timezone)) continue
 
       const { dateStr } = getLocalInfo(timezone)
 
@@ -199,8 +196,11 @@ export async function GET(req: NextRequest) {
 
   // ── 2. Scheduled check-ins due today ──────────────────────────────────────
   //
-  // Sent at 7am local time when it's the client's scheduled check-in day.
-  // Handles weekly, biweekly, monthly, and once repeat types correctly.
+  // Sent when this daily run lands on the client's scheduled check-in day
+  // (in their local calendar date). Handles weekly, biweekly, monthly, and
+  // once repeat types correctly. notifiedClients dedupes within this run;
+  // the day-of-week match itself is what stops it firing more than once
+  // per occurrence.
 
   try {
   const { data: schedules } = await supabase
@@ -224,7 +224,6 @@ export async function GET(req: NextRequest) {
       const profile = s.profiles as { timezone: string | null } | null
       const timezone = profile?.timezone ?? null
 
-      if (!isSevenAM(timezone)) continue
       if (notifiedClients.has(clientId)) continue
 
       const { dayOfWeek, dateStr } = getLocalInfo(timezone)
@@ -276,7 +275,7 @@ export async function GET(req: NextRequest) {
   //
   // Birthday calendar events are stored as absolute dates (YYYY-MM-DD).
   // We check ±1 day from UTC to catch clients in any timezone whose
-  // birthday is "today" in their local time during this hourly run.
+  // birthday is "today" in their local time on the day this runs.
 
   try {
   const yesterday = new Date(now.getTime() - 86400000).toISOString().split('T')[0]
@@ -306,8 +305,6 @@ export async function GET(req: NextRequest) {
 
       // Only trigger when it's actually this client's birthday in their local timezone
       if (dateStr !== ev.event_date) continue
-      // Send at 7am in the client's timezone so the coach gets an early-morning heads-up
-      if (!isSevenAM(timezone)) continue
 
       // Find active coaches for this client
       const { data: coachRels } = await supabase
@@ -334,9 +331,10 @@ export async function GET(req: NextRequest) {
 
   // ── 4. Cycle tracking reminders for female clients ────────────────────────
   //
-  // Sent at 8pm local time if the client hasn't logged today.
-  // Message is phase-aware: adapts based on recent cycle history.
-  // Opt-out via cycle_reminders = false on the profiles table (optional column).
+  // Sent on this daily run if the client hasn't logged today (their local
+  // calendar date). Message is phase-aware: adapts based on recent cycle
+  // history. Opt-out via cycle_reminders = false on the profiles table
+  // (optional column).
 
   try {
   // Select without cycle_reminders first — that column may not exist yet.
@@ -365,7 +363,6 @@ export async function GET(req: NextRequest) {
       if (cycleOptOuts.has(p.id)) continue
 
       const timezone = p.timezone ?? null
-      if (!isEightPM(timezone)) continue
 
       const { dateStr } = getLocalInfo(timezone)
 
@@ -497,13 +494,15 @@ export async function GET(req: NextRequest) {
 
   // ── 5. 7-day no-check-in reminder ────────────────────────────────────────────
   //
-  // Sent at 7am local time if the client hasn't submitted any check-in
-  // (check_ins or autoflow_responses) in the past 7 days.
+  // Sent on this daily run if the client hasn't submitted any check-in
+  // (check_ins or autoflow_responses) in the past 7 days. Fires again on
+  // each subsequent daily run while they're still inactive — that's the
+  // intended nudge cadence, not a bug.
 
   try {
   const { data: activeClients } = await supabase
     .from('coach_clients')
-    .select('client_id, profiles!client_id ( timezone )')
+    .select('client_id')
     .eq('status', 'active')
 
   if (activeClients?.length) {
@@ -534,10 +533,6 @@ export async function GET(req: NextRequest) {
       if (recentSet.has(clientId)) continue
       if (notifiedInThisRun.has(clientId)) continue
 
-      const profile = (row as Record<string, unknown>).profiles as { timezone: string | null } | null
-      const timezone = profile?.timezone ?? null
-      if (!isSevenAM(timezone)) continue
-
       notifiedInThisRun.add(clientId)
       sendPushToUser(clientId, {
         title: 'Check in with your coach',
@@ -553,12 +548,20 @@ export async function GET(req: NextRequest) {
     console.error('[cron] no-checkin section failed:', err)
   }
 
-  // ── 6. 24-hour booking reminders ────────────────────────────────────────────
-  // Window is [now+23h, now+25h] so the hourly cron catches every booking
-  // exactly once even with some drift. Dedup via booking_reminders_sent.
+  // ── 6. Upcoming booking reminders ─────────────────────────────────────────────
+  // With an hourly cron, a narrow [now+23h, now+25h] window works because
+  // every booking's start time eventually drifts through that band on some
+  // hourly tick, giving a reminder pinned to ~24h before the session. With
+  // only one run a day, a window that narrow only catches bookings whose
+  // start time happens to land in that same ~2-hour slice on that one daily
+  // check — everything else drifts past it untouched and never gets
+  // reminded. Widened to the next 48h so every booking gets caught on
+  // whichever daily run first sees it 1-2 days out; booking_reminders_sent
+  // still guarantees exactly one push per booking regardless of how many
+  // times it shows up in this window across runs.
   try {
-    const windowStart = new Date(now.getTime() + 23 * 60 * 60 * 1000).toISOString()
-    const windowEnd = new Date(now.getTime() + 25 * 60 * 60 * 1000).toISOString()
+    const windowStart = now.toISOString()
+    const windowEnd = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString()
 
     const { data: dueBookings } = await supabase
       .from('bookings')
@@ -588,7 +591,7 @@ export async function GET(req: NextRequest) {
           timeLabel = new Date(b.start_at).toUTCString()
         }
         sendPushToUser(b.client_id, {
-          title: `Reminder: ${b.service_name} tomorrow`,
+          title: `Reminder: ${b.service_name}`,
           body: `${timeLabel} · Let your coach know if you need to make any changes`,
           url: '/calendar',
           icon: '/icons/icon-192.png',
@@ -606,8 +609,9 @@ export async function GET(req: NextRequest) {
 
   // ── 7. Incomplete training session reminder ──────────────────────────────────
   //
-  // Sent at 7am local time if the client has exercises scheduled today in an
-  // active program and hasn't logged a result for that session yet.
+  // Sent on this daily run if the client has exercises scheduled today
+  // (their local calendar date) in an active program and hasn't logged a
+  // result for that session yet.
 
   try {
     const { data: activePrograms } = await supabase
@@ -635,7 +639,6 @@ export async function GET(req: NextRequest) {
         const profile = (prog as Record<string, unknown>).profiles as { timezone: string | null } | null
         const timezone = profile?.timezone ?? null
 
-        if (!isSevenAM(timezone)) continue
         if (notifiedWorkoutClients.has(prog.client_id)) continue
 
         const { dateStr } = getLocalInfo(timezone)
