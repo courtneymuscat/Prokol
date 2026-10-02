@@ -64,12 +64,20 @@ describe.skipIf(!runIntegration)('tenant isolation (RLS)', () => {
     orgA = insertedA
     orgB = insertedB
 
-    await Promise.all([
+    const setupResults = await Promise.all([
       admin.from('org_members').insert({ org_id: orgA.id, user_id: userA.id, role: 'owner', accepted_at: new Date().toISOString(), is_active: true }),
       admin.from('org_members').insert({ org_id: orgB.id, user_id: userB.id, role: 'owner', accepted_at: new Date().toISOString(), is_active: true }),
-      admin.from('profiles').update({ org_id: orgA.id }).eq('id', userA.id),
-      admin.from('profiles').update({ org_id: orgB.id }).eq('id', userB.id),
+      // Creating an auth user via the admin API does NOT auto-create a
+      // profiles row in this app (that's done by application signup code,
+      // not a DB trigger — confirmed via pg_trigger), so these must be
+      // inserts, not updates. subscription_tier must be set explicitly —
+      // the column's default ('tier_1') predates a tier-rename migration
+      // and no longer satisfies the current CHECK constraint.
+      admin.from('profiles').insert({ id: userA.id, email: userA.email, org_id: orgA.id, subscription_tier: 'individual_free' }),
+      admin.from('profiles').insert({ id: userB.id, email: userB.email, org_id: orgB.id, subscription_tier: 'individual_free' }),
     ])
+    const setupError = setupResults.find((r) => r.error)?.error
+    if (setupError) throw new Error(`Test fixture setup failed: ${setupError.message}`)
 
     // A publication into org A only — created by the service role, standing
     // in for what Court's platform-admin publish route would do.
@@ -85,9 +93,11 @@ describe.skipIf(!runIntegration)('tenant isolation (RLS)', () => {
       .single()
     publicationId = pub!.id
 
-    const anon = (email: string, pw: string) => {
+    const anon = async (email: string, pw: string) => {
       const c = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
-      return c.auth.signInWithPassword({ email, password: pw }).then(() => c)
+      const { error } = await c.auth.signInWithPassword({ email, password: pw })
+      if (error) throw new Error(`Sign-in failed for ${email}: ${error.message}`)
+      return c
     }
     ;[clientA, clientB] = await Promise.all([
       anon(userA.email, password),
@@ -99,6 +109,7 @@ describe.skipIf(!runIntegration)('tenant isolation (RLS)', () => {
     await admin.from('master_template_publications').delete().eq('id', publicationId)
     await admin.from('org_members').delete().in('org_id', [orgA?.id, orgB?.id].filter(Boolean))
     await admin.from('organisations').delete().in('id', [orgA?.id, orgB?.id].filter(Boolean))
+    await admin.from('profiles').delete().in('id', [userA?.id, userB?.id].filter(Boolean))
     if (userA?.id) await admin.auth.admin.deleteUser(userA.id)
     if (userB?.id) await admin.auth.admin.deleteUser(userB.id)
   })
