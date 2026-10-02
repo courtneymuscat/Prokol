@@ -14,7 +14,7 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
   // Select core columns first — form_id column may not exist yet if migration hasn't run
   const { data: invite } = await admin
     .from('coach_invites')
-    .select('id, coach_id, status, expires_at, service_id')
+    .select('id, coach_id, status, expires_at, service_id, org_id')
     .eq('token', token)
     .single()
 
@@ -91,10 +91,17 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
     .eq('coach_id', invite.coach_id)
     .eq('client_id', clientId)
     .eq('status', 'pending_invite')
-  await admin.from('profiles').update({
+  const profilePatch: Record<string, unknown> = {
     subscription_tier: 'coached',
     onboarding_completed: true,
-  }).eq('id', clientId)
+  }
+  // Gym members onboard through this exact same invite flow — the only
+  // difference is the invite carries which gym org they're joining, so
+  // their branding/permissions resolve against that org (see lib/org.ts).
+  // Non-gym invites simply don't set org_id here, leaving existing profiles
+  // untouched.
+  if (invite.org_id) profilePatch.org_id = invite.org_id
+  await admin.from('profiles').update(profilePatch).eq('id', clientId)
 
   // Report seat usage for overage billing (non-blocking)
   reportSeatUsage(invite.coach_id).catch((err) =>

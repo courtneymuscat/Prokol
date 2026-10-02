@@ -9,10 +9,25 @@ export async function POST(req: NextRequest) {
   const coachId = await requireCoach()
   if (!coachId) return Response.json({ error: 'Unauthorised' }, { status: 401 })
 
-  const { email, service_id, form_id, form_save_to_file, autoflow_id } = await req.json()
+  const { email, service_id, form_id, form_save_to_file, autoflow_id, org_id } = await req.json()
   if (!email) return Response.json({ error: 'Email required' }, { status: 400 })
 
   const admin = createAdminClient()
+
+  // org_id tags which gym (or other org) the invitee is joining — same
+  // invite-link flow everyone else uses, just carrying one extra field.
+  // Only Court (platform admin) can set it, so a regular coach inviting a
+  // client can't accidentally/incorrectly tag that client's profile with
+  // an org it has nothing to do with.
+  let inviteOrgId: string | null = null
+  if (org_id) {
+    const { data: inviterProfile } = await admin
+      .from('profiles')
+      .select('role')
+      .eq('id', coachId)
+      .single()
+    if (inviterProfile?.role === 'platform_admin') inviteOrgId = org_id
+  }
 
   // ── Seat enforcement ───────────────────────────────────────────────────────
   // Fetch coach's subscription tier and current active+pending client count.
@@ -92,7 +107,7 @@ export async function POST(req: NextRequest) {
   } else {
     const { data: invite, error } = await supabase
       .from('coach_invites')
-      .insert({ coach_id: coachId, email, service_id: service_id || null, form_id: form_id || null, form_save_to_file: form_id ? (form_save_to_file ?? false) : false, autoflow_id: autoflow_id || null })
+      .insert({ coach_id: coachId, email, service_id: service_id || null, form_id: form_id || null, form_save_to_file: form_id ? (form_save_to_file ?? false) : false, autoflow_id: autoflow_id || null, org_id: inviteOrgId })
       .select('token')
       .single()
 

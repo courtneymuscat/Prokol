@@ -334,3 +334,90 @@ export async function getOrgTemplateContext(
     copiedFromOrgTemplate,
   }
 }
+
+// ─── Gym tenant support (Phase 1 foundation) ──────────────────────────────────
+//
+// A gym is an organisation row with tenant_type='gym' — it reuses every
+// existing org mechanism (staff, seats, branding, RLS) but must NEVER grant
+// health-data visibility to its staff, regardless of what org_coach_permissions
+// says. These helpers enforce that as a hard rule, not a configurable toggle.
+
+export type OrgTenantType = 'coaching_business' | 'gym'
+
+/** Tables a master template can live in — matches the CHECK constraint on
+ * master_template_publications.template_table. */
+export type MasterLibraryTable = 'autoflow_templates' | 'programs' | 'meal_plans' | 'forms' | 'note_templates'
+
+/**
+ * Returns an org's tenant_type, or null if the org doesn't exist.
+ */
+export async function getOrgTenantType(orgId: string): Promise<OrgTenantType | null> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('organisations')
+    .select('tenant_type')
+    .eq('id', orgId)
+    .maybeSingle()
+  return (data?.tenant_type as OrgTenantType | undefined) ?? null
+}
+
+/**
+ * Same shape as getCoachPermissions, but hardcodes every health-data-shaped
+ * grant to false when the org is a gym. A gym's staff have no per-client
+ * coaching relationship to begin with — every member's program is automated
+ * plus Court — so there's nothing configurable to turn on here. Template
+ * usage and aggregate analytics stay configurable either way, since the
+ * brief explicitly allows gym owners/staff to use templates and see
+ * aggregate reports.
+ */
+export async function getEffectiveCoachPermissions(
+  coachId: string,
+  orgId: string,
+): Promise<OrgCoachPermissions> {
+  const [tenantType, base] = await Promise.all([
+    getOrgTenantType(orgId),
+    getCoachPermissions(coachId, orgId),
+  ])
+
+  if (tenantType === 'gym') {
+    return {
+      ...base,
+      can_view_all_clients: false,
+      can_reassign_clients: false,
+      can_message_all_clients: false,
+    }
+  }
+
+  return base
+}
+
+/**
+ * True only when `userId` is a platform admin AND the template they're
+ * trying to publish belongs to their own organisation. This is the entire
+ * enforcement of "only Court can publish a master template into another
+ * org" — no org (gym or otherwise) can publish its own templates elsewhere,
+ * and a platform admin can't publish someone else's templates either.
+ */
+export async function canPublishMasterTemplate(
+  userId: string,
+  templateId: string,
+  templateTable: MasterLibraryTable,
+): Promise<boolean> {
+  const admin = createAdminClient()
+
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('role, org_id')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (!profile || profile.role !== 'platform_admin' || !profile.org_id) return false
+
+  const { data: template } = await admin
+    .from(templateTable)
+    .select('org_id')
+    .eq('id', templateId)
+    .maybeSingle()
+
+  return !!template && (template as { org_id: string | null }).org_id === profile.org_id
+}
