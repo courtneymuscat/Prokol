@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
 import { effectiveQuestions } from '@/lib/autoflow-fork'
+import { isMasterSourcedForViewer } from '@/lib/org'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ clientId: string; flowId: string }> }
@@ -11,6 +13,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   if (!coachId) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const supabase = await createClient()
+  const admin = createAdminClient()
 
   const { data: flow } = await supabase
     .from('client_autoflows')
@@ -29,8 +32,33 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     : tplCore
   const hasCoreOverride = Array.isArray((flow as { core_questions?: unknown[] }).core_questions)
 
+  // Whether this flow's content should stay hidden until actually answered
+  // — true only for a template that reached this coach via
+  // master_template_publications (not their own, not shared within their
+  // own org). Checked before the steps fetch below so we know whether to
+  // strip content while building enrichedSteps.
+  const { data: templateMeta } = await admin
+    .from('autoflow_templates')
+    .select('coach_id, org_id, is_org_template')
+    .eq('id', flow.template_id)
+    .maybeSingle()
+  const hideUnanswered = templateMeta
+    ? await isMasterSourcedForViewer(
+        flow.template_id as string,
+        templateMeta.coach_id,
+        templateMeta.org_id,
+        templateMeta.is_org_template,
+        coachId,
+      )
+    : false
+
   const [{ data: steps }, { data: overrides }, { data: responses }, { data: dismissals }] = await Promise.all([
-    supabase
+    // Admin client, not the RLS-bound one: autoflow_template_steps RLS is
+    // owner-only, so a non-owner coach (anyone using an org-shared OR
+    // master-published template) would otherwise get back zero steps here
+    // regardless of this feature — same fix the enrollment POST route
+    // already applies for the same reason.
+    admin
       .from('autoflow_template_steps')
       .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, tasks, resource_ids, form_id')
       .eq('template_id', flow.template_id)
@@ -95,6 +123,30 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     const stepRecord = s as Record<string, unknown>
     const resourceIds = Array.isArray(stepRecord.resource_ids) ? stepRecord.resource_ids as string[] : []
     const formId = stepRecord.form_id as string | null
+    const response = responseMap[s.step_number] ?? null
+
+    // Master-sourced content stays invisible until the client has actually
+    // answered it — no title, questions, tasks, or resources leak ahead of
+    // time. Scheduling info (day_offset/trigger_type, carried via ...s) and
+    // the snooze state still come through, so the UI can show "something
+    // unlocks on this date" without revealing what it is.
+    if (hideUnanswered && !response) {
+      return {
+        ...s,
+        title: null,
+        description: null,
+        questions: [],
+        has_override: false,
+        due_date_override: null,
+        response: null,
+        tasks: [],
+        resources: [],
+        linked_form: null,
+        snoozed_until: dismissalMap[s.step_number] ?? null,
+        locked: true,
+      }
+    }
+
     return {
       ...s,
       title: ov?.title ?? s.title,
@@ -102,11 +154,12 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       questions: effectiveQuestions(ov?.questions, s.questions),
       has_override: !!((Array.isArray(ov?.questions) && ov.questions.length > 0) || ov?.title || ov?.description),
       due_date_override: ov?.due_date ?? null,
-      response: responseMap[s.step_number] ?? null,
+      response,
       tasks: (stepRecord.tasks as unknown[]) ?? [],
       resources: resourceIds.map(id => resourceMap[id]).filter(Boolean),
       linked_form: formId ? (formMap[formId] ?? null) : null,
       snoozed_until: dismissalMap[s.step_number] ?? null,
+      locked: false,
     }
   })
 

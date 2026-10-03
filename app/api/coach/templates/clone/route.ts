@@ -57,6 +57,24 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (!source) return Response.json({ error: 'Template not found' }, { status: 404 })
+
+  // Master templates (published cross-org by Court, see lib/org.ts
+  // publishMasterTemplate) can never be cloned by anyone but their actual
+  // owner — this is deliberately independent of the org_id check below
+  // (which already blocks this for gym coaches as a side effect of org
+  // mismatch) so the protection is explicit and doesn't rely on org-id
+  // matching logic elsewhere staying the same.
+  const { data: masterPublication } = await admin
+    .from('master_template_publications')
+    .select('id')
+    .eq('template_id', source_id)
+    .eq('template_table', tbl)
+    .limit(1)
+    .maybeSingle()
+  if (masterPublication && source.coach_id !== coachId) {
+    return Response.json({ error: 'This is a Prokol master template and cannot be copied' }, { status: 403 })
+  }
+
   if (!source.is_org_template || source.org_id !== membership.org_id) {
     return Response.json({ error: 'Not an org template in your organisation' }, { status: 403 })
   }

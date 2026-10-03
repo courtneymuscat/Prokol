@@ -506,3 +506,67 @@ export async function listOrgPublications(orgId: string): Promise<MasterTemplate
     .order('published_at', { ascending: false })
   return (data as MasterTemplatePublication[] | null) ?? []
 }
+
+export type AssignableMasterTemplate = { id: string; name: string; total_steps: number }
+
+/**
+ * Name + length only — deliberately never includes questions, step titles,
+ * or anything else that would let a gym coach learn the template's design
+ * without a client actually answering it first. This is the only form in
+ * which a gym coach is allowed to "see" a master template at all; they
+ * can't browse into a detail/editor view the way they can for their own or
+ * their org's templates.
+ */
+export async function fetchMasterTemplatesForOrg(orgId: string): Promise<AssignableMasterTemplate[]> {
+  const admin = createAdminClient()
+
+  const { data: publications } = await admin
+    .from('master_template_publications')
+    .select('template_id')
+    .eq('org_id', orgId)
+    .eq('template_table', 'autoflow_templates')
+
+  const templateIds = [...new Set((publications ?? []).map((p) => p.template_id as string))]
+  if (templateIds.length === 0) return []
+
+  const { data: templates } = await admin
+    .from('autoflow_templates')
+    .select('id, name, total_steps')
+    .in('id', templateIds)
+    .is('archived_at', null)
+
+  return (templates as AssignableMasterTemplate[] | null) ?? []
+}
+
+/**
+ * True when `viewerCoachId` is looking at a flow built on a template they
+ * didn't create and that isn't shared to their own org the normal way — the
+ * only way they could be looking at it is via master_template_publications.
+ * Ordinary within-org sharing (same org_id, is_org_template) always returns
+ * false here, and the template's real owner always returns false too — both
+ * get full visibility, unaffected by this feature.
+ */
+export async function isMasterSourcedForViewer(
+  templateId: string,
+  templateOwnerCoachId: string,
+  templateOrgId: string | null,
+  templateIsOrgTemplate: boolean,
+  viewerCoachId: string,
+): Promise<boolean> {
+  if (templateOwnerCoachId === viewerCoachId) return false
+
+  const viewerMembership = await getOrgForUser(viewerCoachId)
+  if (!viewerMembership) return false
+  if (templateIsOrgTemplate && templateOrgId === viewerMembership.org_id) return false
+
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('master_template_publications')
+    .select('id')
+    .eq('template_id', templateId)
+    .eq('template_table', 'autoflow_templates')
+    .eq('org_id', viewerMembership.org_id)
+    .maybeSingle()
+
+  return !!data
+}

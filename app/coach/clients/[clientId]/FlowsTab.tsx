@@ -9,6 +9,14 @@ type AutoflowTemplate = {
   total_steps: number
 }
 
+// Name + length only — there's no detail view for these, by design. See
+// lib/org.ts fetchMasterTemplatesForOrg.
+type MasterTemplate = {
+  id: string
+  name: string
+  total_steps: number
+}
+
 type ClientFlow = {
   id: string
   name: string
@@ -101,6 +109,7 @@ const Q_TYPES: { value: Question['type']; label: string }[] = [
 export default function FlowsTab({ clientId }: { clientId: string }) {
   const [flows, setFlows] = useState<ClientFlow[]>([])
   const [templates, setTemplates] = useState<AutoflowTemplate[]>([])
+  const [masterTemplates, setMasterTemplates] = useState<MasterTemplate[]>([])
   const [selectedFlow, setSelectedFlow] = useState<FlowDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [showAssign, setShowAssign] = useState(false)
@@ -125,9 +134,11 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
     Promise.all([
       fetch(`/api/coach/clients/${clientId}/autoflows`).then(r => r.json()),
       fetch('/api/coach/autoflows').then(r => r.json()),
-    ]).then(([f, t]) => {
+      fetch('/api/coach/master-templates').then(r => r.json()),
+    ]).then(([f, t, mt]) => {
       setFlows(Array.isArray(f) ? f : [])
       setTemplates(Array.isArray(t) ? t : [])
+      setMasterTemplates(Array.isArray(mt) ? mt : [])
     }).finally(() => setLoading(false))
   }, [clientId])
 
@@ -1084,7 +1095,7 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
         </button>
         <h3 className="text-sm font-semibold text-gray-900">Assign autoflow</h3>
 
-        {templates.length === 0 ? (
+        {templates.length === 0 && masterTemplates.length === 0 ? (
           <div className="bg-gray-50 rounded-xl p-4 text-center">
             <p className="text-sm text-gray-500">No autoflow templates yet.</p>
             <a href="/coach/autoflows/new" className="text-sm font-semibold text-gray-700 underline underline-offset-2 mt-1 inline-block">
@@ -1093,6 +1104,30 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
           </div>
         ) : (
           <div className="space-y-4">
+            {masterTemplates.length > 0 && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">Prokol master programs</label>
+                <div className="space-y-1.5">
+                  {masterTemplates.map(t => (
+                    <button
+                      key={t.id}
+                      onClick={() => setAssignTemplateId(t.id)}
+                      className={`w-full text-left rounded-xl border p-3 transition-colors ${assignTemplateId === t.id ? 'border-indigo-600 bg-indigo-50' : 'border-gray-200 hover:border-gray-400'}`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium text-gray-900">{t.name}</p>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">MASTER</span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">{t.total_steps} steps</p>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1.5">
+                  Licensed content — assign it to your client and review their answers as they come in. The program design itself isn&apos;t browsable or exportable.
+                </p>
+              </div>
+            )}
+            {templates.length > 0 && (
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-2">Select template</label>
               <div className="space-y-1.5">
@@ -1110,6 +1145,7 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
                 ))}
               </div>
             </div>
+            )}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Start date</label>
               <input

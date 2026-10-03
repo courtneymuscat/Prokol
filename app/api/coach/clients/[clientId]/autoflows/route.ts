@@ -61,7 +61,30 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         .eq('org_id', membership.org_id)
         .eq('is_org_template', true)
         .maybeSingle()
-      if (orgTemplate) template = orgTemplate
+      if (orgTemplate) {
+        template = orgTemplate
+      } else {
+        // Not owned, not shared within their own org — check whether it's
+        // one of Court's master templates published to this coach's org.
+        // Content stays invisible either way; this only confirms access
+        // for the purpose of enrolling a client, same as the two checks
+        // above.
+        const { data: publication } = await admin
+          .from('master_template_publications')
+          .select('template_id')
+          .eq('template_id', template_id)
+          .eq('template_table', 'autoflow_templates')
+          .eq('org_id', membership.org_id)
+          .maybeSingle()
+        if (publication) {
+          const { data: masterTemplate } = await admin
+            .from('autoflow_templates')
+            .select('id, name, total_steps')
+            .eq('id', template_id)
+            .maybeSingle()
+          if (masterTemplate) template = masterTemplate
+        }
+      }
     }
   }
   if (!template) return Response.json({ error: 'Template not found' }, { status: 404 })
