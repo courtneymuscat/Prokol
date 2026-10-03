@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { canPublishMasterTemplate, type MasterLibraryTable } from '@/lib/org'
+import { publishMasterTemplate, listOrgPublications, type MasterLibraryTable } from '@/lib/org'
 import { isGymPartnershipsEnabled } from '@/lib/flags'
 
 const VALID_TABLES: MasterLibraryTable[] = ['autoflow_templates', 'programs', 'meal_plans', 'forms', 'note_templates']
@@ -34,25 +34,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid template_table' }, { status: 400 })
   }
 
-  const allowed = await canPublishMasterTemplate(session.user.id, template_id, template_table as MasterLibraryTable)
-  if (!allowed) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const result = await publishMasterTemplate(session.user.id, template_id, template_table as MasterLibraryTable, org_id)
+  if (result.error) {
+    return NextResponse.json({ error: result.error }, { status: result.error === 'Forbidden' ? 403 : 400 })
   }
-
-  const admin = createAdminClient()
-  const { data, error } = await admin
-    .from('master_template_publications')
-    .insert({
-      template_id,
-      template_table,
-      org_id,
-      published_by: session.user.id,
-    })
-    .select('id, template_id, template_table, org_id, published_at')
-    .single()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-  return NextResponse.json(data)
+  return NextResponse.json(result.data)
 }
 
 // GET /api/admin/master-templates/publications?org_id=...
@@ -78,12 +64,6 @@ export async function GET(req: NextRequest) {
   const orgId = req.nextUrl.searchParams.get('org_id')
   if (!orgId) return NextResponse.json({ error: 'org_id is required' }, { status: 400 })
 
-  const { data, error } = await admin
-    .from('master_template_publications')
-    .select('id, template_id, template_table, org_id, published_by, published_at')
-    .eq('org_id', orgId)
-    .order('published_at', { ascending: false })
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  const data = await listOrgPublications(orgId)
   return NextResponse.json(data)
 }

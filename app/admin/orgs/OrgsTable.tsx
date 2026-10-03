@@ -8,6 +8,7 @@ type Org = {
   name: string
   slug: string
   subscription_tier: string
+  tenant_type: 'coaching_business' | 'gym'
   created_at: string | null
   is_active: boolean
   owner_id: string
@@ -72,7 +73,16 @@ export default function OrgsTable({
             <tbody className="divide-y divide-zinc-800/60">
               {orgs.map(org => (
                 <tr key={org.id} className="hover:bg-zinc-800/30 transition-colors">
-                  <td className="px-4 py-3 text-zinc-200 font-medium">{org.name}</td>
+                  <td className="px-4 py-3">
+                    <a href={`/admin/orgs/${org.id}`} className="text-zinc-200 font-medium hover:text-blue-400 transition-colors">
+                      {org.name}
+                    </a>
+                    {org.tenant_type === 'gym' && (
+                      <span className="ml-1.5 inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-900 text-purple-300 align-middle">
+                        GYM
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="text-zinc-300 text-xs">{org.owner_name ?? '—'}</div>
                     <div className="text-zinc-500 text-xs">{org.owner_email ?? '—'}</div>
@@ -102,6 +112,13 @@ export default function OrgsTable({
                       </button>
                       {openDropdown === org.id && (
                         <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-10 w-40 py-1">
+                          <a
+                            href={`/admin/orgs/${org.id}`}
+                            onClick={() => setOpenDropdown(null)}
+                            className="block px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 transition-colors"
+                          >
+                            Open org →
+                          </a>
                           <button
                             onClick={() => {
                               setOpenDropdown(null)

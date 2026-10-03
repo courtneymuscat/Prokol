@@ -1,7 +1,8 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { updateCoachTier, suspendAccount } from '@/lib/admin'
+import { updateCoachTier, suspendAccount, setOrgTenantType } from '@/lib/admin'
+import { publishMasterTemplate, unpublishMasterTemplate, type MasterLibraryTable } from '@/lib/org'
 
 async function getAdminId(): Promise<string | null> {
   const supabase = await createClient()
@@ -28,4 +29,22 @@ export async function actionSuspendAccount(userId: string, reason: string) {
   const adminId = await getAdminId()
   if (!adminId) return { error: 'Unauthorized' }
   return suspendAccount(userId, adminId, reason)
+}
+
+export async function actionSetOrgTenantType(orgId: string, tenantType: 'coaching_business' | 'gym') {
+  const adminId = await getAdminId()
+  if (!adminId) return { error: 'Unauthorized' }
+  return setOrgTenantType(orgId, tenantType, adminId)
+}
+
+export async function actionPublishTemplate(templateId: string, templateTable: MasterLibraryTable, orgId: string) {
+  const adminId = await getAdminId()
+  if (!adminId) return { error: 'Unauthorized' }
+  return publishMasterTemplate(adminId, templateId, templateTable, orgId)
+}
+
+export async function actionUnpublishTemplate(publicationId: string) {
+  const adminId = await getAdminId()
+  if (!adminId) return { error: 'Unauthorized' }
+  return unpublishMasterTemplate(adminId, publicationId)
 }

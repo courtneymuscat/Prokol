@@ -421,3 +421,88 @@ export async function canPublishMasterTemplate(
 
   return !!template && (template as { org_id: string | null }).org_id === profile.org_id
 }
+
+export type MasterTemplatePublication = {
+  id: string
+  template_id: string
+  template_table: MasterLibraryTable
+  published_at: string
+}
+
+/**
+ * Publishes a master template into a gym/org. Shared by the admin API
+ * routes and the admin UI server actions so the permission rule
+ * (canPublishMasterTemplate) only has one call site to get right.
+ */
+export async function publishMasterTemplate(
+  adminUserId: string,
+  templateId: string,
+  templateTable: MasterLibraryTable,
+  targetOrgId: string,
+): Promise<{ data?: { id: string }; error?: string }> {
+  const allowed = await canPublishMasterTemplate(adminUserId, templateId, templateTable)
+  if (!allowed) return { error: 'Forbidden' }
+
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('master_template_publications')
+    .insert({ template_id: templateId, template_table: templateTable, org_id: targetOrgId, published_by: adminUserId })
+    .select('id')
+    .single()
+
+  if (error) return { error: error.message }
+
+  await admin.from('admin_audit_log').insert({
+    admin_id: adminUserId,
+    action: 'publish_master_template',
+    target_org_id: targetOrgId,
+    new_value: `${templateTable}:${templateId}`,
+  })
+
+  return { data }
+}
+
+/**
+ * Unpublishes a master template from a gym/org. Platform-admin only —
+ * RLS on master_template_publications enforces the same rule as
+ * defense-in-depth.
+ */
+export async function unpublishMasterTemplate(
+  adminUserId: string,
+  publicationId: string,
+): Promise<{ error?: string }> {
+  const admin = createAdminClient()
+  const { data: profile } = await admin.from('profiles').select('role').eq('id', adminUserId).maybeSingle()
+  if (profile?.role !== 'platform_admin') return { error: 'Forbidden' }
+
+  const { data: publication } = await admin
+    .from('master_template_publications')
+    .select('org_id, template_id, template_table')
+    .eq('id', publicationId)
+    .maybeSingle()
+
+  const { error } = await admin.from('master_template_publications').delete().eq('id', publicationId)
+  if (error) return { error: error.message }
+
+  if (publication) {
+    await admin.from('admin_audit_log').insert({
+      admin_id: adminUserId,
+      action: 'unpublish_master_template',
+      target_org_id: publication.org_id,
+      old_value: `${publication.template_table}:${publication.template_id}`,
+    })
+  }
+
+  return {}
+}
+
+/** Lists every master template published to a given org. */
+export async function listOrgPublications(orgId: string): Promise<MasterTemplatePublication[]> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('master_template_publications')
+    .select('id, template_id, template_table, published_at')
+    .eq('org_id', orgId)
+    .order('published_at', { ascending: false })
+  return (data as MasterTemplatePublication[] | null) ?? []
+}

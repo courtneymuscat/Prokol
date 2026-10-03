@@ -126,7 +126,7 @@ export async function getAllOrgs(page = 1, limit = 50) {
 
   const { data: orgs, count } = await admin
     .from('organisations')
-    .select('id, name, slug, subscription_tier, created_at, is_active, owner_id', { count: 'exact' })
+    .select('id, name, slug, subscription_tier, tenant_type, created_at, is_active, owner_id', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
@@ -225,6 +225,121 @@ export async function suspendAccount(userId: string, adminId: string, reason: st
     action: 'suspend_account',
     target_user_id: userId,
     new_value: reason,
+  })
+
+  return { success: true }
+}
+
+// ─── Gym partnerships admin screen ────────────────────────────────────────────
+
+export type OrgDetail = {
+  id: string
+  name: string
+  slug: string
+  tenant_type: 'coaching_business' | 'gym'
+  billing_status: string
+  subscription_tier: string
+  is_active: boolean
+  logo_url: string | null
+  brand_colour: string | null
+  app_name: string | null
+  created_at: string | null
+}
+
+export type OrgMemberRow = {
+  id: string
+  user_id: string
+  role: string
+  is_active: boolean
+  full_name: string | null
+  email: string | null
+}
+
+/**
+ * Everything the admin org-detail screen needs: the org itself, its
+ * staff/members, and which master templates have been published to it.
+ */
+export async function getOrgDetail(orgId: string) {
+  const admin = createAdminClient()
+
+  const [{ data: org }, { data: members }] = await Promise.all([
+    admin
+      .from('organisations')
+      .select('id, name, slug, tenant_type, billing_status, subscription_tier, is_active, logo_url, brand_colour, app_name, created_at')
+      .eq('id', orgId)
+      .single(),
+    admin
+      .from('org_members')
+      .select('id, user_id, role, is_active, profiles(full_name, email)')
+      .eq('org_id', orgId)
+      .order('role'),
+  ])
+
+  const memberRows: OrgMemberRow[] = (members ?? []).map((m) => {
+    const profile = m.profiles as unknown as { full_name: string | null; email: string | null } | null
+    return {
+      id: m.id,
+      user_id: m.user_id,
+      role: m.role,
+      is_active: m.is_active,
+      full_name: profile?.full_name ?? null,
+      email: profile?.email ?? null,
+    }
+  })
+
+  const { listOrgPublications } = await import('@/lib/org')
+  const publications = await listOrgPublications(orgId)
+
+  return { org: org as OrgDetail | null, members: memberRows, publications }
+}
+
+/**
+ * Court's own autoflow templates — the only thing she can publish to
+ * another org's library (see lib/org.ts canPublishMasterTemplate). Scoped
+ * to autoflow_templates for now since that's what the 12-week track is
+ * built on; the schema supports the other content types too, for later.
+ */
+export async function getPublishableTemplates(adminId: string): Promise<{ id: string; name: string }[]> {
+  const admin = createAdminClient()
+  const { data: profile } = await admin.from('profiles').select('org_id').eq('id', adminId).single()
+  if (!profile?.org_id) return []
+
+  const { data } = await admin
+    .from('autoflow_templates')
+    .select('id, name')
+    .eq('org_id', profile.org_id)
+    .is('archived_at', null)
+    .order('name')
+
+  return data ?? []
+}
+
+export async function setOrgTenantType(
+  orgId: string,
+  tenantType: 'coaching_business' | 'gym',
+  adminId: string,
+) {
+  const admin = createAdminClient()
+
+  const { data: current } = await admin
+    .from('organisations')
+    .select('tenant_type')
+    .eq('id', orgId)
+    .single()
+
+  const { error } = await admin
+    .from('organisations')
+    .update({ tenant_type: tenantType })
+    .eq('id', orgId)
+
+  if (error) return { error: error.message }
+
+  await admin.from('admin_audit_log').insert({
+    admin_id: adminId,
+    action: 'set_org_tenant_type',
+    target_org_id: orgId,
+    old_value: current?.tenant_type ?? null,
+    new_value: tenantType,
   })
 
   return { success: true }
