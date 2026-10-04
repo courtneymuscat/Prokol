@@ -5,9 +5,10 @@ import {
   actionSetOrgTenantType,
   actionPublishTemplate,
   actionUnpublishTemplate,
+  actionGrantMasterTemplateAccess,
+  actionRevokeMasterTemplateAccess,
 } from '@/app/actions/admin'
-import type { OrgDetail, OrgMemberRow } from '@/lib/admin'
-import type { MasterTemplatePublication } from '@/lib/org'
+import type { OrgDetail, OrgMemberRow, PublicationWithGrants } from '@/lib/admin'
 
 type PublishableTemplate = { id: string; name: string }
 
@@ -19,7 +20,7 @@ export default function OrgDetailClient({
 }: {
   org: OrgDetail
   members: OrgMemberRow[]
-  publications: MasterTemplatePublication[]
+  publications: PublicationWithGrants[]
   publishableTemplates: PublishableTemplate[]
 }) {
   const [tenantType, setTenantType] = useState(org.tenant_type)
@@ -57,7 +58,7 @@ export default function OrgDetailClient({
         setPublishError(result.error)
       } else if (result.data) {
         setPubList((prev) => [
-          { id: result.data!.id, template_id: selectedTemplateId, template_table: 'autoflow_templates', published_at: new Date().toISOString() },
+          { id: result.data!.id, template_id: selectedTemplateId, template_table: 'autoflow_templates', published_at: new Date().toISOString(), grantedCoachIds: [] },
           ...prev,
         ])
       }
@@ -72,6 +73,37 @@ export default function OrgDetailClient({
         setPubList((prev) => prev.filter((p) => p.id !== publicationId))
       }
       setUnpublishingId(null)
+    })
+  }
+
+  const [togglingKey, setTogglingKey] = useState<string | null>(null)
+
+  function handleToggleCoachAccess(pub: PublicationWithGrants, coachId: string, currentlyGranted: boolean) {
+    const key = `${pub.id}:${coachId}`
+    setTogglingKey(key)
+    // Optimistic update
+    setPubList((prev) => prev.map((p) => {
+      if (p.id !== pub.id) return p
+      const grantedCoachIds = currentlyGranted
+        ? p.grantedCoachIds.filter((id) => id !== coachId)
+        : [...p.grantedCoachIds, coachId]
+      return { ...p, grantedCoachIds }
+    }))
+    startPublishTransition(async () => {
+      const result = currentlyGranted
+        ? await actionRevokeMasterTemplateAccess(pub.template_id, 'autoflow_templates', org.id, coachId)
+        : await actionGrantMasterTemplateAccess(pub.template_id, 'autoflow_templates', org.id, coachId)
+      if (result.error) {
+        // Revert on failure
+        setPubList((prev) => prev.map((p) => {
+          if (p.id !== pub.id) return p
+          const grantedCoachIds = currentlyGranted
+            ? [...p.grantedCoachIds, coachId]
+            : p.grantedCoachIds.filter((id) => id !== coachId)
+          return { ...p, grantedCoachIds }
+        }))
+      }
+      setTogglingKey(null)
     })
   }
 
@@ -185,18 +217,53 @@ export default function OrgDetailClient({
 
         <div className="divide-y divide-zinc-800/60">
           {pubList.map((p) => (
-            <div key={p.id} className="flex items-center justify-between py-2.5">
-              <div>
-                <p className="text-xs text-zinc-200">{templateNameById[p.template_id] ?? p.template_id}</p>
-                <p className="text-[11px] text-zinc-500">Published {new Date(p.published_at).toLocaleDateString()}</p>
+            <div key={p.id} className="py-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs text-zinc-200">{templateNameById[p.template_id] ?? p.template_id}</p>
+                  <p className="text-[11px] text-zinc-500">Published {new Date(p.published_at).toLocaleDateString()}</p>
+                </div>
+                <button
+                  onClick={() => handleUnpublish(p.id)}
+                  disabled={publishPending && unpublishingId === p.id}
+                  className="text-xs text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
+                >
+                  {publishPending && unpublishingId === p.id ? 'Removing…' : 'Unpublish'}
+                </button>
               </div>
-              <button
-                onClick={() => handleUnpublish(p.id)}
-                disabled={publishPending && unpublishingId === p.id}
-                className="text-xs text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
-              >
-                {publishPending && unpublishingId === p.id ? 'Removing…' : 'Unpublish'}
-              </button>
+
+              <div className="bg-zinc-800/50 rounded-lg px-3 py-2.5 space-y-1.5">
+                <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide">
+                  Who can see &amp; assign this (off by default)
+                </p>
+                {members.length === 0 && (
+                  <p className="text-[11px] text-zinc-600">No coaches in this org yet.</p>
+                )}
+                {members.map((m) => {
+                  const granted = p.grantedCoachIds.includes(m.user_id)
+                  const key = `${p.id}:${m.user_id}`
+                  return (
+                    <div key={m.user_id} className="flex items-center justify-between">
+                      <p className="text-xs text-zinc-300">
+                        {m.full_name ?? m.email ?? m.user_id} <span className="text-zinc-500 capitalize">· {m.role}</span>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleCoachAccess(p, m.user_id, granted)}
+                        disabled={togglingKey === key}
+                        role="switch"
+                        aria-checked={granted}
+                        className={[
+                          'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50',
+                          granted ? 'bg-indigo-600' : 'bg-zinc-700',
+                        ].join(' ')}
+                      >
+                        <span className={['inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200', granted ? 'translate-x-4' : 'translate-x-0'].join(' ')} />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           ))}
           {pubList.length === 0 && (

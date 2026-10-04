@@ -40,7 +40,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   // Allow assigning either the coach's own template OR an org-published one
   // they have access to. We use the admin client for the org-template fallback
   // because the row is owned by the org owner.
-  const { getOrgForUser } = await import('@/lib/org')
+  const { getOrgForUser, coachHasMasterTemplateAccess } = await import('@/lib/org')
 
   let template: { id: string; name: string; total_steps: number } | null = null
   const { data: ownTemplate } = await supabase
@@ -64,19 +64,15 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       if (orgTemplate) {
         template = orgTemplate
       } else {
-        // Not owned, not shared within their own org — check whether it's
-        // one of Court's master templates published to this coach's org.
-        // Content stays invisible either way; this only confirms access
-        // for the purpose of enrolling a client, same as the two checks
-        // above.
-        const { data: publication } = await admin
-          .from('master_template_publications')
-          .select('template_id')
-          .eq('template_id', template_id)
-          .eq('template_table', 'autoflow_templates')
-          .eq('org_id', membership.org_id)
-          .maybeSingle()
-        if (publication) {
+        // Not owned, not shared within their own org — check whether Court
+        // has specifically granted THIS coach access to one of her master
+        // templates published to this org. Being published to the org
+        // isn't enough on its own; each coach needs an explicit grant
+        // (master_template_coach_access, default-off). Content stays
+        // invisible either way; this only confirms access for the purpose
+        // of enrolling a client, same as the two checks above.
+        const hasAccess = await coachHasMasterTemplateAccess(template_id, 'autoflow_templates', membership.org_id, coachId)
+        if (hasAccess) {
           const { data: masterTemplate } = await admin
             .from('autoflow_templates')
             .select('id, name, total_steps')

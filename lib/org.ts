@@ -516,17 +516,23 @@ export type AssignableMasterTemplate = { id: string; name: string; total_steps: 
  * which a gym coach is allowed to "see" a master template at all; they
  * can't browse into a detail/editor view the way they can for their own or
  * their org's templates.
+ *
+ * Default-off: a template being published to an org (master_template_publications)
+ * does not by itself grant any coach in that org visibility — each coach
+ * must be explicitly granted access via master_template_coach_access. This
+ * is the opposite polarity of org_template_exclusions (a denylist).
  */
-export async function fetchMasterTemplatesForOrg(orgId: string): Promise<AssignableMasterTemplate[]> {
+export async function fetchMasterTemplatesForCoach(orgId: string, coachId: string): Promise<AssignableMasterTemplate[]> {
   const admin = createAdminClient()
 
-  const { data: publications } = await admin
-    .from('master_template_publications')
+  const { data: grants } = await admin
+    .from('master_template_coach_access')
     .select('template_id')
     .eq('org_id', orgId)
+    .eq('coach_id', coachId)
     .eq('template_table', 'autoflow_templates')
 
-  const templateIds = [...new Set((publications ?? []).map((p) => p.template_id as string))]
+  const templateIds = [...new Set((grants ?? []).map((g) => g.template_id as string))]
   if (templateIds.length === 0) return []
 
   const { data: templates } = await admin
@@ -536,6 +542,104 @@ export async function fetchMasterTemplatesForOrg(orgId: string): Promise<Assigna
     .is('archived_at', null)
 
   return (templates as AssignableMasterTemplate[] | null) ?? []
+}
+
+/**
+ * True when this specific coach has been granted access to this specific
+ * master template within this org — the same check the enrollment route
+ * uses to decide whether a POST can actually succeed, not just whether the
+ * template shows up in the picker.
+ */
+export async function coachHasMasterTemplateAccess(
+  templateId: string,
+  templateTable: MasterLibraryTable,
+  orgId: string,
+  coachId: string,
+): Promise<boolean> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('master_template_coach_access')
+    .select('id')
+    .eq('template_id', templateId)
+    .eq('template_table', templateTable)
+    .eq('org_id', orgId)
+    .eq('coach_id', coachId)
+    .maybeSingle()
+  return !!data
+}
+
+/** Which coaches in an org currently have access to a given master template — used by the admin screen to render per-coach toggles. */
+export async function listCoachGrantsForTemplate(
+  templateId: string,
+  templateTable: MasterLibraryTable,
+  orgId: string,
+): Promise<string[]> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('master_template_coach_access')
+    .select('coach_id')
+    .eq('template_id', templateId)
+    .eq('template_table', templateTable)
+    .eq('org_id', orgId)
+  return (data ?? []).map((r) => r.coach_id as string)
+}
+
+/**
+ * Grants one coach access to one master template within one org. Gated the
+ * same way publishing is (canPublishMasterTemplate — platform admin,
+ * publishing their own org's template) plus a check that the template was
+ * actually published to this org in the first place; you can't grant
+ * access to something that was never shared with the org at all.
+ */
+export async function grantMasterTemplateAccess(
+  actorUserId: string,
+  templateId: string,
+  templateTable: MasterLibraryTable,
+  orgId: string,
+  coachId: string,
+): Promise<{ error?: string }> {
+  const allowed = await canPublishMasterTemplate(actorUserId, templateId, templateTable)
+  if (!allowed) return { error: 'Forbidden' }
+
+  const admin = createAdminClient()
+  const { data: publication } = await admin
+    .from('master_template_publications')
+    .select('id')
+    .eq('template_id', templateId)
+    .eq('template_table', templateTable)
+    .eq('org_id', orgId)
+    .maybeSingle()
+  if (!publication) return { error: 'Not published to this org' }
+
+  const { error } = await admin
+    .from('master_template_coach_access')
+    .upsert(
+      { template_id: templateId, template_table: templateTable, org_id: orgId, coach_id: coachId, granted_by: actorUserId },
+      { onConflict: 'template_id,template_table,org_id,coach_id' },
+    )
+  return error ? { error: error.message } : {}
+}
+
+/** Revokes one coach's access. Same gating as grant. */
+export async function revokeMasterTemplateAccess(
+  actorUserId: string,
+  templateId: string,
+  templateTable: MasterLibraryTable,
+  orgId: string,
+  coachId: string,
+): Promise<{ error?: string }> {
+  const allowed = await canPublishMasterTemplate(actorUserId, templateId, templateTable)
+  if (!allowed) return { error: 'Forbidden' }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('master_template_coach_access')
+    .delete()
+    .eq('template_id', templateId)
+    .eq('template_table', templateTable)
+    .eq('org_id', orgId)
+    .eq('coach_id', coachId)
+  return error ? { error: error.message } : {}
 }
 
 /**

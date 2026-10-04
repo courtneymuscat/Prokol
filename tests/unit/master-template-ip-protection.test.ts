@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // are thenable), so the builder implements .then() directly.
 let responses: Record<string, unknown> = {}
 let singleResponses: Record<string, unknown> = {}
+let errors: Record<string, string> = {}
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({
@@ -16,42 +17,105 @@ vi.mock('@/lib/supabase/admin', () => ({
         in: () => builder,
         is: () => builder,
         limit: () => builder,
+        upsert: () => builder,
+        delete: () => builder,
         maybeSingle: async () => ({ data: singleResponses[table] ?? null }),
         single: async () => ({ data: singleResponses[table] ?? null }),
-        then: (resolve: (v: { data: unknown; error: null }) => void) =>
-          resolve({ data: (responses[table] as unknown[] | undefined) ?? [], error: null }),
+        then: (resolve: (v: { data: unknown; error: unknown }) => void) =>
+          resolve({ data: (responses[table] as unknown[] | undefined) ?? [], error: errors[table] ? { message: errors[table] } : null }),
       }
       return builder
     },
   }),
 }))
 
-const { fetchMasterTemplatesForOrg, isMasterSourcedForViewer } = await import('@/lib/org')
+const {
+  fetchMasterTemplatesForCoach,
+  isMasterSourcedForViewer,
+  coachHasMasterTemplateAccess,
+  grantMasterTemplateAccess,
+  revokeMasterTemplateAccess,
+} = await import('@/lib/org')
 
 beforeEach(() => {
   responses = {}
   singleResponses = {}
+  errors = {}
 })
 
-describe('fetchMasterTemplatesForOrg', () => {
-  it('returns [] when nothing is published to the org', async () => {
-    responses.master_template_publications = []
-    const result = await fetchMasterTemplatesForOrg('gym-org')
+describe('fetchMasterTemplatesForCoach', () => {
+  it('returns [] when this coach has no grants in the org', async () => {
+    responses.master_template_coach_access = []
+    const result = await fetchMasterTemplatesForCoach('gym-org', 'gym-coach')
     expect(result).toEqual([])
   })
 
-  it('returns only name/id/total_steps for published templates — never questions or step content', async () => {
-    responses.master_template_publications = [{ template_id: 'template-1' }]
+  it('returns only name/id/total_steps for templates this coach was granted — never content', async () => {
+    responses.master_template_coach_access = [{ template_id: 'template-1' }]
     responses.autoflow_templates = [{ id: 'template-1', name: '12-Week Kickstart', total_steps: 12 }]
 
-    const result = await fetchMasterTemplatesForOrg('gym-org')
+    const result = await fetchMasterTemplatesForCoach('gym-org', 'gym-coach')
 
     expect(result).toEqual([{ id: 'template-1', name: '12-Week Kickstart', total_steps: 12 }])
-    // Guard against a future edit accidentally widening the select() to
-    // include content fields — every key returned must be one of these three.
     for (const row of result) {
       expect(Object.keys(row).sort()).toEqual(['id', 'name', 'total_steps'])
     }
+  })
+})
+
+describe('coachHasMasterTemplateAccess', () => {
+  it('is false with no grant row', async () => {
+    singleResponses.master_template_coach_access = null
+    expect(await coachHasMasterTemplateAccess('template-1', 'autoflow_templates', 'gym-org', 'gym-coach')).toBe(false)
+  })
+
+  it('is true with a matching grant row', async () => {
+    singleResponses.master_template_coach_access = { id: 'grant-1' }
+    expect(await coachHasMasterTemplateAccess('template-1', 'autoflow_templates', 'gym-org', 'gym-coach')).toBe(true)
+  })
+})
+
+describe('grantMasterTemplateAccess / revokeMasterTemplateAccess', () => {
+  it('grant is rejected when the actor cannot publish this template', async () => {
+    singleResponses.profiles = { role: 'coach', org_id: 'court-org' }
+    singleResponses.autoflow_templates = { org_id: 'court-org' }
+
+    const result = await grantMasterTemplateAccess('some-coach', 'template-1', 'autoflow_templates', 'gym-org', 'gym-coach')
+    expect(result.error).toBe('Forbidden')
+  })
+
+  it('grant is rejected when the template was never published to this org', async () => {
+    singleResponses.profiles = { role: 'platform_admin', org_id: 'court-org' }
+    singleResponses.autoflow_templates = { org_id: 'court-org' }
+    singleResponses.master_template_publications = null
+
+    const result = await grantMasterTemplateAccess('court-user', 'template-1', 'autoflow_templates', 'gym-org', 'gym-coach')
+    expect(result.error).toBe('Not published to this org')
+  })
+
+  it('grant succeeds for a platform admin publishing their own template to an org it was published to', async () => {
+    singleResponses.profiles = { role: 'platform_admin', org_id: 'court-org' }
+    singleResponses.autoflow_templates = { org_id: 'court-org' }
+    singleResponses.master_template_publications = { id: 'pub-1' }
+
+    const result = await grantMasterTemplateAccess('court-user', 'template-1', 'autoflow_templates', 'gym-org', 'gym-coach')
+    expect(result.error).toBeUndefined()
+  })
+
+  it('revoke is rejected when the actor cannot publish this template', async () => {
+    singleResponses.profiles = { role: 'coach', org_id: 'court-org' }
+    singleResponses.autoflow_templates = { org_id: 'court-org' }
+
+    const result = await revokeMasterTemplateAccess('some-coach', 'template-1', 'autoflow_templates', 'gym-org', 'gym-coach')
+    expect(result.error).toBe('Forbidden')
+  })
+
+  it('revoke succeeds for the template owner / platform admin', async () => {
+    singleResponses.profiles = { role: 'platform_admin', org_id: 'court-org' }
+    singleResponses.autoflow_templates = { org_id: 'court-org' }
+
+    const result = await revokeMasterTemplateAccess('court-user', 'template-1', 'autoflow_templates', 'gym-org', 'gym-coach')
+    expect(result.error).toBeUndefined()
   })
 })
 

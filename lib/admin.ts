@@ -255,6 +255,14 @@ export type OrgMemberRow = {
   email: string | null
 }
 
+export type PublicationWithGrants = {
+  id: string
+  template_id: string
+  template_table: string
+  published_at: string
+  grantedCoachIds: string[]
+}
+
 /**
  * Everything the admin org-detail screen needs: the org itself, its
  * staff/members, and which master templates have been published to it.
@@ -287,8 +295,14 @@ export async function getOrgDetail(orgId: string) {
     }
   })
 
-  const { listOrgPublications } = await import('@/lib/org')
-  const publications = await listOrgPublications(orgId)
+  const { listOrgPublications, listCoachGrantsForTemplate } = await import('@/lib/org')
+  const rawPublications = await listOrgPublications(orgId)
+  const publications = await Promise.all(
+    rawPublications.map(async (p) => ({
+      ...p,
+      grantedCoachIds: await listCoachGrantsForTemplate(p.template_id, p.template_table, orgId),
+    })),
+  )
 
   return { org: org as OrgDetail | null, members: memberRows, publications }
 }
