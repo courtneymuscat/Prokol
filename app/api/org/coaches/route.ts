@@ -98,11 +98,13 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: err instanceof Error ? err.message : 'Forbidden' }, { status: 403 })
   }
 
-  const { email, role = 'coach' } = await req.json() as { email: string; role?: string }
+  const { email } = await req.json() as { email: string }
   if (!email?.trim()) return Response.json({ error: 'Email required' }, { status: 400 })
-  if (!['admin', 'coach'].includes(role)) {
-    return Response.json({ error: 'Role must be admin or coach' }, { status: 400 })
-  }
+  // Every invited coach is role 'coach' — there is no assignable 'admin'
+  // role. The owner is the only one with organisation-management access;
+  // individual capabilities for other coaches are granted via the
+  // per-coach permission toggles instead (see org_coach_permissions).
+  const role = 'coach'
 
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/

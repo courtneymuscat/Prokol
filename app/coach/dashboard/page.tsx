@@ -45,19 +45,26 @@ export default async function CoachDashboard({
   const graceUntil = (profile as { coach_grace_until?: string | null })?.coach_grace_until ?? null
   const inGrace = !!graceUntil && new Date(graceUntil) > new Date()
 
-  // Only org owners/admins (and solo coach_business holders without an org)
-  // get the Biz dashboard tabs. Invited coaches are also on coach_business
-  // tier but shouldn't see org-management UI. Coaches inside the post-removal
-  // grace window also drop the Business tabs — they're effectively at
-  // Coach Pro level until they subscribe (or get downgraded after grace).
+  // Only the org owner (and solo coach_business holders without an org yet)
+  // get the Biz dashboard tabs. There is no assignable 'admin' org role —
+  // invited coaches are also on coach_business tier but shouldn't see
+  // org-management UI at all. Coaches inside the post-removal grace window
+  // also drop the Business tabs — they're effectively at Coach Pro level
+  // until they subscribe (or get downgraded after grace).
   const membership = await getOrgForUser(coachId)
-  const isOrgManager = membership?.role === 'owner' || membership?.role === 'admin'
+  const isOrgManager = membership?.role === 'owner'
   const isSoloBusiness = profile?.subscription_tier === 'coach_business' && !membership && !inGrace
   const isBusinessTier = isOrgManager || isSoloBusiness
   const hasOrg = !!profile?.org_id
 
+  // Business-tier users land on Organisation, not the personal Overview —
+  // their own clients are already visible inside the Organisation client
+  // table, and the dedicated "Overview" home view duplicated that. Overview
+  // stays the only option for everyone else.
   const BIZ_TABS = ['org', 'org-templates', 'leads', 'archived', 'analytics']
-  const activeTab = (isBusinessTier && BIZ_TABS.includes(tab ?? '')) ? tab! : 'home'
+  const activeTab = (isBusinessTier && BIZ_TABS.includes(tab ?? ''))
+    ? tab!
+    : (isBusinessTier ? 'org' : 'home')
 
   let clients: { id: string; email: string; name: string | null; tier: string; joinedAt: string | null }[] = []
   let activeClients = 0
@@ -118,7 +125,6 @@ export default async function CoachDashboard({
   }
 
   const tabBase = 'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap'
-  const tabActive = 'border-blue-500 text-blue-600'
   const tabOrgActive = 'border-teal-500 text-teal-600'
   const tabInactive = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-200'
 
@@ -178,9 +184,6 @@ export default async function CoachDashboard({
       {/* Org tab bar — business tier only */}
       {isBusinessTier && (
         <div className="flex gap-0 border-b border-gray-100 overflow-x-auto -mb-1">
-          <Link href="/coach/dashboard" className={`${tabBase} ${activeTab === 'home' ? tabActive : tabInactive}`}>
-            Overview
-          </Link>
           {[
             { tab: 'org', label: 'Organisation' },
             { tab: 'leads', label: 'Leads' },
