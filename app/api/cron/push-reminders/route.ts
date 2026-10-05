@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendPushToUser } from '@/lib/push'
+import { sendEmail } from '@/lib/email'
 
 /**
  * Runs once a day via Vercel Cron, at a single fixed UTC time (Vercel's
@@ -52,6 +53,20 @@ const PRIORITY = {
   INACTIVITY_NUDGE: 6,
 } as const
 
+// Coach-facing "ending soon" email digest — bundled into one email per coach
+// per day (rather than one email per client) for the same reason the client
+// push cap exists: a coach with several clients wrapping up the same week
+// shouldn't get a flood of separate emails. Each item here already passed
+// its section's own 0-7-day window + its own push-dedup check (sections 8,
+// 9, 10 below) — this is purely a second, independent channel, deduped
+// separately via its own 'kind' so it doesn't interfere with the push dedup.
+type DigestCategory = 'training' | 'checkin' | 'weekly'
+type DigestItem = { category: DigestCategory; clientName: string; daysLeft: number; url: string }
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 export async function GET(req: NextRequest) {
   const secret = req.headers.get('authorization')?.replace('Bearer ', '')
   if (secret !== process.env.CRON_SECRET) {
@@ -67,6 +82,14 @@ export async function GET(req: NextRequest) {
     const arr = candidatesByClient.get(clientId) ?? []
     arr.push({ priority, payload, onSend })
     candidatesByClient.set(clientId, arr)
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://prokol.io'
+  const digestByCoach = new Map<string, DigestItem[]>()
+  function addDigestItem(coachId: string, item: DigestItem) {
+    const arr = digestByCoach.get(coachId) ?? []
+    arr.push(item)
+    digestByCoach.set(coachId, arr)
   }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
@@ -802,30 +825,50 @@ export async function GET(req: NextRequest) {
         const daysLeft = daysBetween(dateStr, endDate)
         if (daysLeft < 0 || daysLeft > 7) continue
 
-        const { data: already } = await supabase
+        const clientName = clientNameById[flow.client_id] ?? 'Your client'
+
+        const { data: alreadyPushed } = await supabase
           .from('coach_content_reminders_sent')
           .select('id')
           .eq('kind', 'autoflow_ending')
           .eq('ref_id', flow.id)
           .eq('end_date', endDate)
           .maybeSingle()
-        if (already) continue
+        if (!alreadyPushed) {
+          sendPushToUser(flow.coach_id, {
+            title: 'Check-in plan running out',
+            body: daysLeft === 0
+              ? `${clientName}'s check-in plan ends today — add more weeks`
+              : `${clientName}'s check-in plan ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — add more weeks`,
+            url: `/coach/clients/${flow.client_id}?tab=flows`,
+            icon: '/icons/icon-192.png',
+            tag: `autoflow-ending-${flow.id}`,
+          }).catch(() => {/* silent */})
 
-        const clientName = clientNameById[flow.client_id] ?? 'Your client'
-        sendPushToUser(flow.coach_id, {
-          title: 'Check-in plan running out',
-          body: daysLeft === 0
-            ? `${clientName}'s check-in plan ends today — add more weeks`
-            : `${clientName}'s check-in plan ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — add more weeks`,
-          url: `/coach/clients/${flow.client_id}?tab=flows`,
-          icon: '/icons/icon-192.png',
-          tag: `autoflow-ending-${flow.id}`,
-        }).catch(() => {/* silent */})
+          await supabase.from('coach_content_reminders_sent').insert({
+            coach_id: flow.coach_id, kind: 'autoflow_ending', ref_id: flow.id, end_date: endDate,
+          })
+          pushed++
+        }
 
-        await supabase.from('coach_content_reminders_sent').insert({
-          coach_id: flow.coach_id, kind: 'autoflow_ending', ref_id: flow.id, end_date: endDate,
-        })
-        pushed++
+        const { data: alreadyEmailed } = await supabase
+          .from('coach_content_reminders_sent')
+          .select('id')
+          .eq('kind', 'autoflow_ending_email')
+          .eq('ref_id', flow.id)
+          .eq('end_date', endDate)
+          .maybeSingle()
+        if (!alreadyEmailed) {
+          addDigestItem(flow.coach_id, {
+            category: 'checkin',
+            clientName,
+            daysLeft,
+            url: `${appUrl}/coach/clients/${flow.client_id}?tab=flows`,
+          })
+          await supabase.from('coach_content_reminders_sent').insert({
+            coach_id: flow.coach_id, kind: 'autoflow_ending_email', ref_id: flow.id, end_date: endDate,
+          })
+        }
       }
     }
   } catch (err) {
@@ -871,34 +914,123 @@ export async function GET(req: NextRequest) {
         const daysLeft = daysBetween(dateStr, endDate)
         if (daysLeft < 0 || daysLeft > 7) continue
 
-        const { data: already } = await supabase
+        const clientName = clientNameById[prog.client_id] ?? 'Your client'
+
+        const { data: alreadyPushed } = await supabase
           .from('coach_content_reminders_sent')
           .select('id')
           .eq('kind', 'program_ending')
           .eq('ref_id', prog.id)
           .eq('end_date', endDate)
           .maybeSingle()
-        if (already) continue
+        if (!alreadyPushed) {
+          sendPushToUser(prog.coach_id, {
+            title: 'Training program running out',
+            body: daysLeft === 0
+              ? `${clientName}'s training program ends today — add more weeks`
+              : `${clientName}'s training program ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — add more weeks`,
+            url: `/coach/clients/${prog.client_id}?tab=program`,
+            icon: '/icons/icon-192.png',
+            tag: `program-ending-${prog.id}`,
+          }).catch(() => {/* silent */})
 
-        const clientName = clientNameById[prog.client_id] ?? 'Your client'
-        sendPushToUser(prog.coach_id, {
-          title: 'Training program running out',
-          body: daysLeft === 0
-            ? `${clientName}'s training program ends today — add more weeks`
-            : `${clientName}'s training program ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — add more weeks`,
-          url: `/coach/clients/${prog.client_id}?tab=program`,
-          icon: '/icons/icon-192.png',
-          tag: `program-ending-${prog.id}`,
-        }).catch(() => {/* silent */})
+          await supabase.from('coach_content_reminders_sent').insert({
+            coach_id: prog.coach_id, kind: 'program_ending', ref_id: prog.id, end_date: endDate,
+          })
+          pushed++
+        }
 
-        await supabase.from('coach_content_reminders_sent').insert({
-          coach_id: prog.coach_id, kind: 'program_ending', ref_id: prog.id, end_date: endDate,
-        })
-        pushed++
+        const { data: alreadyEmailed } = await supabase
+          .from('coach_content_reminders_sent')
+          .select('id')
+          .eq('kind', 'program_ending_email')
+          .eq('ref_id', prog.id)
+          .eq('end_date', endDate)
+          .maybeSingle()
+        if (!alreadyEmailed) {
+          addDigestItem(prog.coach_id, {
+            category: 'training',
+            clientName,
+            daysLeft,
+            url: `${appUrl}/coach/clients/${prog.client_id}?tab=program`,
+          })
+          await supabase.from('coach_content_reminders_sent').insert({
+            coach_id: prog.coach_id, kind: 'program_ending_email', ref_id: prog.id, end_date: endDate,
+          })
+        }
       }
     }
   } catch (err) {
     console.error('[cron] program-ending section failed:', err)
+  }
+
+  // ── 10. Weekly changes plan running out soon — coach reminder (email only) ───
+  //
+  // Same idea as sections 8/9, but for client_plans (the phased "Weekly
+  // Changes" plan the client sees). There's no push for this one today —
+  // only the email digest — since it's a new check, not an existing push
+  // being extended. Only plans actually visible to the client count; a
+  // draft the coach hasn't published yet isn't "ending" in any way that
+  // matters to them.
+
+  try {
+    const { data: plansForEndCheck } = await supabase
+      .from('client_plans')
+      .select('id, client_id, coach_id, start_date, phases')
+      .eq('is_visible_to_client', true)
+      .not('start_date', 'is', null)
+
+    if (plansForEndCheck?.length) {
+      const coachIds = [...new Set(plansForEndCheck.map((p) => p.coach_id))]
+      const clientIds = [...new Set(plansForEndCheck.map((p) => p.client_id))]
+
+      const [{ data: coachProfiles }, { data: clientProfiles }] = await Promise.all([
+        supabase.from('profiles').select('id, timezone').in('id', coachIds),
+        supabase.from('profiles').select('id, first_name, full_name').in('id', clientIds),
+      ])
+
+      const coachTzById: Record<string, string | null> = Object.fromEntries((coachProfiles ?? []).map((p) => [p.id, p.timezone as string | null]))
+      const clientNameById: Record<string, string> = Object.fromEntries(
+        (clientProfiles ?? []).map((p) => [p.id, p.first_name?.trim() || p.full_name?.trim()?.split(' ')[0] || 'Your client'])
+      )
+
+      for (const plan of plansForEndCheck) {
+        const tz = coachTzById[plan.coach_id] ?? null
+
+        const phases = plan.phases as { duration_weeks?: number }[] | null
+        const weeks = Array.isArray(phases) ? phases.reduce((sum, p) => sum + (p.duration_weeks ?? 0), 0) : 0
+        if (weeks === 0) continue
+
+        const startMs = new Date(plan.start_date + 'T00:00:00Z').getTime()
+        const endDate = new Date(startMs + (weeks * 7 - 1) * 86400000).toISOString().split('T')[0]
+
+        const { dateStr } = getLocalInfo(tz)
+        const daysLeft = daysBetween(dateStr, endDate)
+        if (daysLeft < 0 || daysLeft > 7) continue
+
+        const { data: alreadyEmailed } = await supabase
+          .from('coach_content_reminders_sent')
+          .select('id')
+          .eq('kind', 'weekly_changes_ending_email')
+          .eq('ref_id', plan.id)
+          .eq('end_date', endDate)
+          .maybeSingle()
+        if (alreadyEmailed) continue
+
+        const clientName = clientNameById[plan.client_id] ?? 'Your client'
+        addDigestItem(plan.coach_id, {
+          category: 'weekly',
+          clientName,
+          daysLeft,
+          url: `${appUrl}/coach/clients/${plan.client_id}?tab=plan`,
+        })
+        await supabase.from('coach_content_reminders_sent').insert({
+          coach_id: plan.coach_id, kind: 'weekly_changes_ending_email', ref_id: plan.id, end_date: endDate,
+        })
+      }
+    }
+  } catch (err) {
+    console.error('[cron] weekly-changes-ending section failed:', err)
   }
 
   // ── Dispatch: send each client's top 1-2 candidates, by priority ──────────
@@ -917,5 +1049,76 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return Response.json({ ok: true, pushed, checkedAt: now.toISOString() })
+  // ── Coach email digest: training / check-in / weekly-changes ending soon ──
+  //
+  // One bundled email per coach per day, not one per client — same
+  // notification-fatigue reasoning as the client push cap above.
+  let digestsSent = 0
+  if (digestByCoach.size > 0) {
+    try {
+      const coachIds = [...digestByCoach.keys()]
+      const { data: coachProfilesForEmail } = await supabase
+        .from('profiles')
+        .select('id, email, first_name, full_name')
+        .in('id', coachIds)
+
+      const coachEmailById: Record<string, string | null> = {}
+      const coachFirstNameById: Record<string, string> = {}
+      for (const p of coachProfilesForEmail ?? []) {
+        coachEmailById[p.id] = p.email
+        coachFirstNameById[p.id] = p.first_name?.trim() || p.full_name?.trim()?.split(' ')[0] || 'there'
+      }
+
+      const CATEGORY_LABEL: Record<DigestCategory, string> = {
+        training: 'Training programs ending soon',
+        checkin: 'Check-in plans ending soon',
+        weekly: 'Weekly changes plans ending soon',
+      }
+
+      for (const [coachId, items] of digestByCoach) {
+        const email = coachEmailById[coachId]
+        if (!email) continue
+
+        const byCategory = new Map<DigestCategory, DigestItem[]>()
+        for (const item of items) {
+          const arr = byCategory.get(item.category) ?? []
+          arr.push(item)
+          byCategory.set(item.category, arr)
+        }
+
+        const sectionsHtml = [...byCategory.entries()].map(([category, catItems]) => `
+          <h3 style="font-size:14px;color:#111;margin:20px 0 8px;">${CATEGORY_LABEL[category]}</h3>
+          <ul style="margin:0;padding-left:18px;font-size:14px;color:#333;line-height:1.7;">
+            ${catItems.map((it) => `
+              <li>
+                <strong>${escapeHtml(it.clientName)}</strong> —
+                ${it.daysLeft === 0 ? 'ends today' : `ends in ${it.daysLeft} day${it.daysLeft === 1 ? '' : 's'}`}
+                — <a href="${it.url}" style="color:#1D9E75;">view</a>
+              </li>
+            `).join('')}
+          </ul>
+        `).join('')
+
+        await sendEmail({
+          to: email,
+          subject: `${items.length} client${items.length === 1 ? '' : 's'} need${items.length === 1 ? 's' : ''} attention soon`,
+          html: `
+            <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;padding:40px 24px;background:#fff;">
+              <p style="font-size:18px;font-weight:700;color:#111;margin:0 0 16px;">Hi ${escapeHtml(coachFirstNameById[coachId] ?? 'there')},</p>
+              <p style="font-size:14px;color:#555;line-height:1.6;margin:0 0 8px;">
+                A few things are wrapping up soon — here's what could use a refresh:
+              </p>
+              ${sectionsHtml}
+              <p style="font-size:12px;color:#aaa;margin-top:24px;">You're getting this because you coach on Prokol.</p>
+            </div>
+          `,
+        }).catch(() => {/* silent — one bad email shouldn't fail the whole cron run */})
+        digestsSent++
+      }
+    } catch (err) {
+      console.error('[cron] coach email digest section failed:', err)
+    }
+  }
+
+  return Response.json({ ok: true, pushed, digestsSent, checkedAt: now.toISOString() })
 }
