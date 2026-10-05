@@ -32,6 +32,7 @@ export async function getPlatformStats() {
     coachesRes,
     individualsRes,
     orgsRes,
+    orgsByTenantTypeRes,
     coachedRes,
     coachesByTierRes,
     signups7dRes,
@@ -41,6 +42,7 @@ export async function getPlatformStats() {
     admin.from('profiles').select('id', { count: 'exact', head: true }).eq('user_type', 'coach'),
     admin.from('profiles').select('id', { count: 'exact', head: true }).eq('user_type', 'individual'),
     admin.from('organisations').select('id', { count: 'exact', head: true }),
+    admin.from('organisations').select('tenant_type'),
     admin.from('profiles').select('id', { count: 'exact', head: true }).eq('subscription_tier', 'coached'),
     admin.from('profiles').select('subscription_tier').eq('user_type', 'coach'),
     admin.from('profiles').select('id', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo),
@@ -60,10 +62,18 @@ export async function getPlatformStats() {
     tierCounts[tier] = (tierCounts[tier] ?? 0) + 1
   }
 
+  // Group orgs by tenant type (gym vs coaching business)
+  const tenantTypeCounts: Record<string, number> = {}
+  for (const row of orgsByTenantTypeRes.data ?? []) {
+    const type = row.tenant_type ?? 'coaching_business'
+    tenantTypeCounts[type] = (tenantTypeCounts[type] ?? 0) + 1
+  }
+
   return {
     total_coaches: coachesRes.count ?? 0,
     total_individuals: individualsRes.count ?? 0,
     total_orgs: orgsRes.count ?? 0,
+    orgs_by_tenant_type: tenantTypeCounts,
     total_coached_clients: coachedRes.count ?? 0,
     coaches_by_tier: tierCounts,
     new_signups_7d: signups7dRes.count ?? 0,
@@ -72,24 +82,42 @@ export async function getPlatformStats() {
   }
 }
 
-export async function getAllCoaches(page = 1, limit = 50) {
+export type ArchivedClientRow = {
+  client_id: string
+  client_name: string | null
+  client_email: string | null
+  archived_at: string | null
+}
+
+export async function getAllCoaches(page = 1, limit = 50, independentOnly = false) {
   const admin = createAdminClient()
   const offset = (page - 1) * limit
 
-  const { data: coaches, count } = await admin
+  let query = admin
     .from('profiles')
-    .select('id, full_name, email, subscription_tier, stripe_customer_id, created_at, org_id', { count: 'exact' })
+    .select('id, full_name, email, subscription_tier, stripe_customer_id, created_at, org_id, coach_grace_until', { count: 'exact' })
     .eq('user_type', 'coach')
+
+  if (independentOnly) {
+    // "Independent" excludes coaches still in their 3-day post-removal grace
+    // period — org_id is already null for them, but they haven't actually
+    // left the umbrella of org-managed coaches yet.
+    query = query
+      .is('org_id', null)
+      .or(`coach_grace_until.is.null,coach_grace_until.lt.${new Date().toISOString()}`)
+  }
+
+  const { data: coaches, count } = await query
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
   if (!coaches) return { coaches: [], total: 0 }
 
-  // Fetch org names and client counts in parallel
+  // Fetch org names, client counts, and archived clients in parallel
   const orgIds = [...new Set(coaches.filter(c => c.org_id).map(c => c.org_id as string))]
   const coachIds = coaches.map(c => c.id)
 
-  const [orgsRes, clientCountsRes] = await Promise.all([
+  const [orgsRes, clientCountsRes, archivedRes] = await Promise.all([
     orgIds.length > 0
       ? admin.from('organisations').select('id, name').in('id', orgIds)
       : Promise.resolve({ data: [] }),
@@ -98,6 +126,12 @@ export async function getAllCoaches(page = 1, limit = 50) {
       .select('coach_id')
       .in('coach_id', coachIds)
       .eq('status', 'active'),
+    admin
+      .from('coach_clients')
+      .select('coach_id, client_id, archived_at')
+      .in('coach_id', coachIds)
+      .eq('status', 'archived')
+      .order('archived_at', { ascending: false, nullsFirst: false }),
   ])
 
   const orgMap: Record<string, string> = {}
@@ -110,11 +144,32 @@ export async function getAllCoaches(page = 1, limit = 50) {
     clientCountMap[row.coach_id] = (clientCountMap[row.coach_id] ?? 0) + 1
   }
 
+  const archivedClientIds = [...new Set((archivedRes.data ?? []).map(r => r.client_id))]
+  const archivedClientProfilesRes = archivedClientIds.length
+    ? await admin.from('profiles').select('id, full_name, email').in('id', archivedClientIds)
+    : { data: [] }
+  const archivedClientProfileMap: Record<string, { full_name: string | null; email: string | null }> = {}
+  for (const p of archivedClientProfilesRes.data ?? []) {
+    archivedClientProfileMap[p.id] = { full_name: p.full_name, email: p.email }
+  }
+
+  const archivedByCoachId: Record<string, ArchivedClientRow[]> = {}
+  for (const row of archivedRes.data ?? []) {
+    if (!archivedByCoachId[row.coach_id]) archivedByCoachId[row.coach_id] = []
+    archivedByCoachId[row.coach_id].push({
+      client_id: row.client_id,
+      client_name: archivedClientProfileMap[row.client_id]?.full_name ?? null,
+      client_email: archivedClientProfileMap[row.client_id]?.email ?? null,
+      archived_at: row.archived_at,
+    })
+  }
+
   return {
     coaches: coaches.map(c => ({
       ...c,
       client_count: clientCountMap[c.id] ?? 0,
       org_name: c.org_id ? (orgMap[c.org_id] ?? null) : null,
+      archived_clients: archivedByCoachId[c.id] ?? [],
     })),
     total: count ?? 0,
   }
@@ -126,7 +181,7 @@ export async function getAllOrgs(page = 1, limit = 50) {
 
   const { data: orgs, count } = await admin
     .from('organisations')
-    .select('id, name, slug, subscription_tier, tenant_type, created_at, is_active, owner_id', { count: 'exact' })
+    .select('id, name, slug, subscription_tier, tenant_type, created_at, is_active, owner_id, is_white_label', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
@@ -242,8 +297,28 @@ export type OrgDetail = {
   is_active: boolean
   logo_url: string | null
   brand_colour: string | null
+  brand_colour_secondary: string | null
   app_name: string | null
   created_at: string | null
+  is_white_label: boolean
+  white_label_tier: string | null
+  custom_domain: string | null
+  custom_domain_verified: boolean
+  support_email: string | null
+  favicon_url: string | null
+}
+
+export type PendingWhiteLabelApplication = {
+  id: string
+  app_name: string
+  custom_domain: string
+  brand_colour: string
+  brand_colour_secondary: string | null
+  logo_url: string | null
+  favicon_url: string | null
+  support_email: string
+  requested_tier: string
+  submitted_at: string | null
 }
 
 export type OrgMemberRow = {
@@ -265,15 +340,17 @@ export type PublicationWithGrants = {
 
 /**
  * Everything the admin org-detail screen needs: the org itself, its
- * staff/members, and which master templates have been published to it.
+ * staff/members, which master templates have been published to it, any
+ * pending white-label application, and archived clients belonging to its
+ * member coaches.
  */
 export async function getOrgDetail(orgId: string) {
   const admin = createAdminClient()
 
-  const [{ data: org }, { data: members }] = await Promise.all([
+  const [{ data: org }, { data: members }, { data: pendingApp }] = await Promise.all([
     admin
       .from('organisations')
-      .select('id, name, slug, tenant_type, billing_status, subscription_tier, is_active, logo_url, brand_colour, app_name, created_at')
+      .select('id, name, slug, tenant_type, billing_status, subscription_tier, is_active, logo_url, brand_colour, brand_colour_secondary, app_name, created_at, is_white_label, white_label_tier, custom_domain, custom_domain_verified, support_email, favicon_url')
       .eq('id', orgId)
       .single(),
     admin
@@ -281,6 +358,14 @@ export async function getOrgDetail(orgId: string) {
       .select('id, user_id, role, is_active, profiles(full_name, email)')
       .eq('org_id', orgId)
       .order('role'),
+    admin
+      .from('white_label_applications')
+      .select('id, app_name, custom_domain, brand_colour, brand_colour_secondary, logo_url, favicon_url, support_email, requested_tier, submitted_at')
+      .eq('org_id', orgId)
+      .eq('status', 'pending')
+      .order('submitted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   const memberRows: OrgMemberRow[] = (members ?? []).map((m) => {
@@ -304,7 +389,40 @@ export async function getOrgDetail(orgId: string) {
     })),
   )
 
-  return { org: org as OrgDetail | null, members: memberRows, publications }
+  const coachIds = memberRows.map((m) => m.user_id)
+  let archivedClients: ArchivedClientRow[] = []
+  if (coachIds.length > 0) {
+    const { data: archivedRows } = await admin
+      .from('coach_clients')
+      .select('coach_id, client_id, archived_at')
+      .in('coach_id', coachIds)
+      .eq('status', 'archived')
+      .order('archived_at', { ascending: false, nullsFirst: false })
+
+    const clientIds = [...new Set((archivedRows ?? []).map((r) => r.client_id))]
+    const clientProfilesRes = clientIds.length
+      ? await admin.from('profiles').select('id, full_name, email').in('id', clientIds)
+      : { data: [] }
+    const clientProfileMap: Record<string, { full_name: string | null; email: string | null }> = {}
+    for (const p of clientProfilesRes.data ?? []) {
+      clientProfileMap[p.id] = { full_name: p.full_name, email: p.email }
+    }
+
+    archivedClients = (archivedRows ?? []).map((r) => ({
+      client_id: r.client_id,
+      client_name: clientProfileMap[r.client_id]?.full_name ?? null,
+      client_email: clientProfileMap[r.client_id]?.email ?? null,
+      archived_at: r.archived_at,
+    }))
+  }
+
+  return {
+    org: org as OrgDetail | null,
+    members: memberRows,
+    publications,
+    archivedClients,
+    pendingWhiteLabelApplication: (pendingApp as PendingWhiteLabelApplication | null) ?? null,
+  }
 }
 
 /**

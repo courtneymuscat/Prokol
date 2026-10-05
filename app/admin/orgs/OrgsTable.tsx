@@ -16,6 +16,7 @@ type Org = {
   owner_email: string | null
   coach_count: number
   client_count: number
+  is_white_label: boolean
 }
 
 export default function OrgsTable({
@@ -77,9 +78,18 @@ export default function OrgsTable({
                     <a href={`/admin/orgs/${org.id}`} className="text-zinc-200 font-medium hover:text-blue-400 transition-colors">
                       {org.name}
                     </a>
-                    {org.tenant_type === 'gym' && (
+                    {org.tenant_type === 'gym' ? (
                       <span className="ml-1.5 inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-purple-900 text-purple-300 align-middle">
                         GYM
+                      </span>
+                    ) : (
+                      <span className="ml-1.5 inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-sky-900 text-sky-300 align-middle">
+                        COACHING BUSINESS
+                      </span>
+                    )}
+                    {org.is_white_label && (
+                      <span className="ml-1.5 inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-900 text-amber-300 align-middle">
+                        WHITE-LABEL
                       </span>
                     )}
                   </td>

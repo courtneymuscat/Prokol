@@ -8,7 +8,7 @@ import {
   actionGrantMasterTemplateAccess,
   actionRevokeMasterTemplateAccess,
 } from '@/app/actions/admin'
-import type { OrgDetail, OrgMemberRow, PublicationWithGrants } from '@/lib/admin'
+import type { OrgDetail, OrgMemberRow, PublicationWithGrants, ArchivedClientRow, PendingWhiteLabelApplication } from '@/lib/admin'
 
 type PublishableTemplate = { id: string; name: string }
 
@@ -17,11 +17,15 @@ export default function OrgDetailClient({
   members,
   publications,
   publishableTemplates,
+  archivedClients,
+  pendingWhiteLabelApplication,
 }: {
   org: OrgDetail
   members: OrgMemberRow[]
   publications: PublicationWithGrants[]
   publishableTemplates: PublishableTemplate[]
+  archivedClients: ArchivedClientRow[]
+  pendingWhiteLabelApplication: PendingWhiteLabelApplication | null
 }) {
   const [tenantType, setTenantType] = useState(org.tenant_type)
   const [tenantTypeSaving, startTenantTypeTransition] = useTransition()
@@ -73,6 +77,46 @@ export default function OrgDetailClient({
         setPubList((prev) => prev.filter((p) => p.id !== publicationId))
       }
       setUnpublishingId(null)
+    })
+  }
+
+  const [wlApp, setWlApp] = useState(pendingWhiteLabelApplication)
+  const [wlPending, startWlTransition] = useTransition()
+  const [wlRejectOpen, setWlRejectOpen] = useState(false)
+  const [wlRejectReason, setWlRejectReason] = useState('')
+  const [wlError, setWlError] = useState<string | null>(null)
+
+  function handleApproveWhiteLabel() {
+    if (!wlApp) return
+    setWlError(null)
+    startWlTransition(async () => {
+      const res = await fetch(`/api/admin/white-label/${wlApp.id}/approve`, { method: 'POST' })
+      const data = await res.json()
+      if (data.success) {
+        setWlApp(null)
+        window.location.reload()
+      } else {
+        setWlError(data.error ?? 'Failed to approve')
+      }
+    })
+  }
+
+  function handleRejectWhiteLabel() {
+    if (!wlApp || !wlRejectReason.trim()) return
+    setWlError(null)
+    startWlTransition(async () => {
+      const res = await fetch(`/api/admin/white-label/${wlApp.id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: wlRejectReason }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setWlApp(null)
+        setWlRejectOpen(false)
+      } else {
+        setWlError(data.error ?? 'Failed to reject')
+      }
     })
   }
 
@@ -185,6 +229,134 @@ export default function OrgDetailClient({
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* White-label */}
+      <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-5 space-y-4">
+        <h2 className="text-sm font-semibold text-zinc-300">White-label</h2>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+          <div>
+            <p className="text-zinc-500 mb-1">Status</p>
+            <p className="text-zinc-200">{org.is_white_label ? 'White-labelled' : 'Standard branding'}</p>
+          </div>
+          <div>
+            <p className="text-zinc-500 mb-1">Tier</p>
+            <p className="text-zinc-200">{org.white_label_tier ?? '—'}</p>
+          </div>
+          <div>
+            <p className="text-zinc-500 mb-1">Custom domain</p>
+            <p className="text-zinc-200">{org.custom_domain ?? '—'}</p>
+          </div>
+          <div>
+            <p className="text-zinc-500 mb-1">Domain verified</p>
+            <p className="text-zinc-200">{org.custom_domain_verified ? 'Yes' : 'No'}</p>
+          </div>
+        </div>
+
+        {wlApp && (
+          <div className="bg-amber-900/15 border border-amber-800/60 rounded-lg px-4 py-3 space-y-3">
+            <p className="text-[10px] font-semibold text-amber-400 uppercase tracking-wide">Pending white-label application</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+              <div>
+                <p className="text-zinc-500 mb-1">App name</p>
+                <p className="text-zinc-200">{wlApp.app_name}</p>
+              </div>
+              <div>
+                <p className="text-zinc-500 mb-1">Domain</p>
+                <p className="text-zinc-200 font-mono">{wlApp.custom_domain}</p>
+              </div>
+              <div>
+                <p className="text-zinc-500 mb-1">Requested tier</p>
+                <p className="text-zinc-200">{wlApp.requested_tier}</p>
+              </div>
+              <div>
+                <p className="text-zinc-500 mb-1">Submitted</p>
+                <p className="text-zinc-200">{wlApp.submitted_at ? new Date(wlApp.submitted_at).toLocaleDateString() : '—'}</p>
+              </div>
+            </div>
+            {wlError && <p className="text-xs text-red-400">{wlError}</p>}
+            {!wlRejectOpen ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleApproveWhiteLabel}
+                  disabled={wlPending}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-green-800 text-green-200 hover:bg-green-700 disabled:opacity-50 transition-colors"
+                >
+                  {wlPending ? 'Approving…' : 'Approve'}
+                </button>
+                <button
+                  onClick={() => { setWlRejectOpen(true); setWlRejectReason('') }}
+                  disabled={wlPending}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-900/50 text-red-300 hover:bg-red-800/60 disabled:opacity-50 transition-colors"
+                >
+                  Reject
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <textarea
+                  placeholder="Reason for rejection (sent to org owner)…"
+                  value={wlRejectReason}
+                  onChange={(e) => setWlRejectReason(e.target.value)}
+                  rows={2}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-1 focus:ring-red-500 resize-none"
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleRejectWhiteLabel}
+                    disabled={wlPending || !wlRejectReason.trim()}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+                  >
+                    {wlPending ? 'Rejecting…' : 'Confirm reject'}
+                  </button>
+                  <button
+                    onClick={() => setWlRejectOpen(false)}
+                    className="text-xs px-3 py-1.5 rounded-md text-zinc-400 hover:text-zinc-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!wlApp && !org.is_white_label && (
+          <p className="text-xs text-zinc-500">No pending or active white-label setup for this org.</p>
+        )}
+      </div>
+
+      {/* Archived clients */}
+      <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-5 space-y-3">
+        <h2 className="text-sm font-semibold text-zinc-300">Archived clients ({archivedClients.length})</h2>
+        {archivedClients.length === 0 ? (
+          <p className="text-xs text-zinc-500">No archived clients for this org&apos;s coaches.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-zinc-800 text-zinc-500">
+                  <th className="text-left py-2 pr-4 font-medium">Client</th>
+                  <th className="text-left py-2 font-medium">Archived</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/60">
+                {archivedClients.map((c) => (
+                  <tr key={c.client_id}>
+                    <td className="py-2 pr-4">
+                      <div className="text-zinc-200">{c.client_name ?? <span className="text-zinc-500 italic">No name</span>}</div>
+                      <div className="text-zinc-500">{c.client_email ?? '—'}</div>
+                    </td>
+                    <td className="py-2 text-zinc-400">
+                      {c.archived_at ? new Date(c.archived_at).toLocaleDateString() : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Master templates published to this org */}
