@@ -85,7 +85,9 @@ export default function WhiteLabelAppsTable({
               {list.map(app => (
                 <tr key={app.id} className="hover:bg-zinc-800/30 transition-colors">
                   <td className="px-4 py-3">
-                    <p className="text-zinc-200 font-medium">{app.org_name}</p>
+                    <a href={`/admin/orgs/${app.org_id}`} className="text-zinc-200 font-medium hover:text-blue-400 transition-colors">
+                      {app.org_name}
+                    </a>
                     <p className="text-zinc-500 text-xs">{app.owner_name ?? app.owner_email ?? '—'}</p>
                   </td>
                   <td className="px-4 py-3">

@@ -12,13 +12,13 @@ export default async function AdminCoachesPage({
 
   const params = await searchParams
   const page = Math.max(1, parseInt(params.page ?? '1', 10))
-  const { coaches, total } = await getAllCoaches(page, 50)
+  const { coaches, total } = await getAllCoaches(page, 50, true)
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-100">Coaches</h1>
-        <p className="text-sm text-zinc-500 mt-1">{total} total coaches</p>
+        <h1 className="text-2xl font-bold text-zinc-100">Independent Coaches</h1>
+        <p className="text-sm text-zinc-500 mt-1">{total} coaches not affiliated with any organisation</p>
       </div>
       <CoachesTable initialCoaches={coaches} total={total} page={page} />
     </div>

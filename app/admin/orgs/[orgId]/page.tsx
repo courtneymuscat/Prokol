@@ -12,7 +12,7 @@ export default async function AdminOrgDetailPage({
   const admin = await requirePlatformAdmin()
   const { orgId } = await params
 
-  const [{ org, members, publications }, publishableTemplates] = await Promise.all([
+  const [{ org, members, publications, archivedClients, pendingWhiteLabelApplication }, publishableTemplates] = await Promise.all([
     getOrgDetail(orgId),
     getPublishableTemplates(admin.id),
   ])
@@ -31,6 +31,8 @@ export default async function AdminOrgDetailPage({
         members={members}
         publications={publications}
         publishableTemplates={publishableTemplates}
+        archivedClients={archivedClients}
+        pendingWhiteLabelApplication={pendingWhiteLabelApplication}
       />
     </div>
   )

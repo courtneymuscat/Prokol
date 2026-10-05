@@ -1,7 +1,14 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { Fragment, useState, useTransition } from 'react'
 import { actionUpdateCoachTier, actionSuspendAccount } from '@/app/actions/admin'
+
+type ArchivedClient = {
+  client_id: string
+  client_name: string | null
+  client_email: string | null
+  archived_at: string | null
+}
 
 type Coach = {
   id: string
@@ -13,6 +20,7 @@ type Coach = {
   org_id: string | null
   client_count: number
   org_name: string | null
+  archived_clients: ArchivedClient[]
 }
 
 const COACH_TIERS = ['coach_solo', 'coach_pro', 'coach_business'] as const
@@ -40,6 +48,7 @@ export default function CoachesTable({
   const [search, setSearch] = useState('')
   const [tierFilter, setTierFilter] = useState('')
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   // Tier modal
   const [tierModal, setTierModal] = useState<{ coach: Coach } | null>(null)
@@ -133,12 +142,14 @@ export default function CoachesTable({
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Clients</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Org</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Joined</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Archived</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60">
               {filtered.map(coach => (
-                <tr key={coach.id} className="hover:bg-zinc-800/30 transition-colors">
+                <Fragment key={coach.id}>
+                <tr className="hover:bg-zinc-800/30 transition-colors">
                   <td className="px-4 py-3 text-zinc-200 font-medium">
                     {coach.full_name ?? <span className="text-zinc-500 italic">No name</span>}
                   </td>
@@ -152,6 +163,18 @@ export default function CoachesTable({
                   <td className="px-4 py-3 text-zinc-400 text-xs">{coach.org_name ?? '—'}</td>
                   <td className="px-4 py-3 text-zinc-400 text-xs">
                     {coach.created_at ? new Date(coach.created_at).toLocaleDateString() : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-xs">
+                    {coach.archived_clients.length > 0 ? (
+                      <button
+                        onClick={() => setExpandedId(expandedId === coach.id ? null : coach.id)}
+                        className="text-zinc-400 hover:text-zinc-200 transition-colors underline decoration-dotted"
+                      >
+                        {expandedId === coach.id ? '▾' : '▸'} Archived ({coach.archived_clients.length})
+                      </button>
+                    ) : (
+                      <span className="text-zinc-600">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="relative">
@@ -199,10 +222,35 @@ export default function CoachesTable({
                     </div>
                   </td>
                 </tr>
+                {expandedId === coach.id && coach.archived_clients.length > 0 && (
+                  <tr className="bg-zinc-950/60">
+                    <td colSpan={8} className="px-4 py-3">
+                      <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wide mb-2">
+                        Archived clients
+                      </p>
+                      <table className="w-full text-xs">
+                        <tbody className="divide-y divide-zinc-800/60">
+                          {coach.archived_clients.map((c) => (
+                            <tr key={c.client_id}>
+                              <td className="py-1.5 pr-4">
+                                <span className="text-zinc-300">{c.client_name ?? <span className="text-zinc-500 italic">No name</span>}</span>
+                                <span className="text-zinc-500 ml-2">{c.client_email ?? '—'}</span>
+                              </td>
+                              <td className="py-1.5 text-zinc-500 text-right">
+                                {c.archived_at ? new Date(c.archived_at).toLocaleDateString() : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-zinc-500 text-center text-xs">
+                  <td colSpan={8} className="px-4 py-6 text-zinc-500 text-center text-xs">
                     No coaches match your filters
                   </td>
                 </tr>

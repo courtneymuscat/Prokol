@@ -45,6 +45,12 @@ export default async function AdminOverviewPage() {
         <MetricCard
           label="Organisations"
           value={stats.total_orgs}
+          sub={
+            <span className="text-xs text-zinc-500 mt-1 block">
+              Gyms: {stats.orgs_by_tenant_type['gym'] ?? 0} &middot;{' '}
+              Coaching businesses: {stats.orgs_by_tenant_type['coaching_business'] ?? 0}
+            </span>
+          }
         />
         <MetricCard
           label="New This Week"

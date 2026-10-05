@@ -9,6 +9,7 @@ export default async function CoachLayout({ children }: { children: React.ReactN
   let unreadCheckIns = 0
   let isBusinessTier = false
   let tier: string = 'individual_free'
+  let isPlatformAdmin = false
 
   try {
     const supabase = await createClient()
@@ -21,7 +22,7 @@ export default async function CoachLayout({ children }: { children: React.ReactN
           .eq('coach_id', session.user.id),
         supabase
           .from('profiles')
-          .select('subscription_tier, coach_grace_until')
+          .select('subscription_tier, coach_grace_until, role')
           .eq('id', session.user.id)
           .single(),
         supabase
@@ -47,6 +48,7 @@ export default async function CoachLayout({ children }: { children: React.ReactN
         profileResult.data?.subscription_tier === 'coach_business' && !membership && !inGrace
       isBusinessTier = isOrgManager || isSoloBusiness
       tier = (profileResult.data?.subscription_tier as string | null) ?? 'individual_free'
+      isPlatformAdmin = (profileResult.data as { role?: string | null } | null)?.role === 'platform_admin'
 
       const clientIds = (clientsResult.data ?? []).map((r) => r.client_id)
       const convoIds = (convosResult.data ?? []).map((c) => c.id)
@@ -172,6 +174,7 @@ export default async function CoachLayout({ children }: { children: React.ReactN
           unreadCheckIns={unreadCheckIns}
           isBusinessTier={isBusinessTier}
           tier={tier}
+          isPlatformAdmin={isPlatformAdmin}
         />
       </Suspense>
       <div

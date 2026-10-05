@@ -182,12 +182,14 @@ export default function CoachSidebar({
   unreadCheckIns,
   isBusinessTier,
   tier,
+  isPlatformAdmin,
 }: {
   unreadCount: number
   unreadMessages: number
   unreadCheckIns: number
   isBusinessTier: boolean
   tier: string
+  isPlatformAdmin?: boolean
 }) {
   const branding = useBranding()
   const path = usePathname()
@@ -283,6 +285,20 @@ export default function CoachSidebar({
             </>
           )}
         </nav>
+
+        {isPlatformAdmin && (
+          <div className="px-3 pb-1">
+            <Link
+              href="/admin/orgs"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13.5px] font-medium text-red-600 hover:bg-red-50 transition-all border border-red-100"
+            >
+              <svg className="w-4.5 h-4.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.502-3.032-1.502-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+              </svg>
+              Admin Mode
+            </Link>
+          </div>
+        )}
 
         <div className="px-3 pt-3 pb-5 border-t border-gray-100 space-y-0.5">
           <Link
@@ -411,6 +427,19 @@ export default function CoachSidebar({
                 </svg>
                 <span className="text-[11px] font-medium text-center leading-tight">My Dashboard</span>
               </Link>
+              {/* Admin Mode — only ever shown to the platform admin account */}
+              {isPlatformAdmin && (
+                <Link
+                  href="/admin/orgs"
+                  onClick={() => setMoreOpen(false)}
+                  className="flex flex-col items-center justify-center gap-1.5 py-4 bg-white text-red-600"
+                >
+                  <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.502-3.032-1.502-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                  </svg>
+                  <span className="text-[11px] font-medium text-center leading-tight">Admin Mode</span>
+                </Link>
+              )}
             </div>
           </div>
         </div>
