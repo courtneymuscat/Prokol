@@ -349,7 +349,6 @@ function ReassignModal({
 
 function InviteCoachModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<'coach' | 'admin'>('coach')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [atCap, setAtCap] = useState(false)
@@ -362,7 +361,7 @@ function InviteCoachModal({ onClose, onDone }: { onClose: () => void; onDone: ()
     const res = await fetch('/api/org/coaches', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, role }),
+      body: JSON.stringify({ email }),
     })
     const data = await res.json()
     if (!res.ok) {
@@ -415,7 +414,7 @@ function InviteCoachModal({ onClose, onDone }: { onClose: () => void; onDone: ()
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
         <h3 className="font-semibold text-gray-900">Invite coach to organisation</h3>
-        <p className="text-sm text-gray-500">{"We'll send them an email to create or log into their account."}</p>
+        <p className="text-sm text-gray-500">{"We'll send them an email to create or log into their account. You can grant them extra permissions afterwards from their \"Manage\" panel."}</p>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Email address</label>
@@ -426,18 +425,6 @@ function InviteCoachModal({ onClose, onDone }: { onClose: () => void; onDone: ()
             placeholder="coach@example.com"
             className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value as 'coach' | 'admin')}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white"
-          >
-            <option value="coach">Coach — manages their own clients</option>
-            <option value="admin">Admin — can manage all coaches and clients</option>
-          </select>
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
@@ -577,12 +564,16 @@ export default function OrgTab() {
                     <span className="capitalize">{coach.role}</span>
                   </p>
                 </div>
-                <button
-                  onClick={() => setDrawerCoach(coach)}
-                  className="text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Manage
-                </button>
+                {coach.role === 'owner' ? (
+                  <span className="text-xs text-gray-400 px-3 py-1.5">Full access</span>
+                ) : (
+                  <button
+                    onClick={() => setDrawerCoach(coach)}
+                    className="text-xs border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Manage
+                  </button>
+                )}
               </div>
             ))}
             {pendingInvites.map((inv) => {

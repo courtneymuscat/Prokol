@@ -33,17 +33,19 @@ export default async function CoachLayout({ children }: { children: React.ReactN
         getOrgForUser(session.user.id),
       ])
 
-      // Show the Business sidebar only to org owners/admins. Invited coaches
-      // (org_members.role = 'coach') are on coach_business tier too because
-      // they're covered by the org owner's plan, but they shouldn't see org
-      // management tabs — they're managed by the org.
+      // Show the Business sidebar only to the org owner. There is no
+      // assignable 'admin' org role — invited coaches (org_members.role =
+      // 'coach') are on coach_business tier too because they're covered by
+      // the org owner's plan, but they shouldn't see org management tabs at
+      // all; individual capabilities are granted per-coach via permission
+      // toggles instead, not by seeing the organisation-management surface.
       // During the grace period (coach was just removed from an org), the
       // profile keeps coach_business but the org link is gone — treat them
       // as Coach Pro for sidebar purposes so they don't see Business tabs
       // they no longer have access to.
       const graceUntil = (profileResult.data as { coach_grace_until?: string | null } | null)?.coach_grace_until ?? null
       const inGrace = !!graceUntil && new Date(graceUntil) > new Date()
-      const isOrgManager = membership?.role === 'owner' || membership?.role === 'admin'
+      const isOrgManager = membership?.role === 'owner'
       const isSoloBusiness =
         profileResult.data?.subscription_tier === 'coach_business' && !membership && !inGrace
       isBusinessTier = isOrgManager || isSoloBusiness
