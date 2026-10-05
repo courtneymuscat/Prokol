@@ -24,7 +24,34 @@ import { sendPushToUser } from '@/lib/push'
  * Secured by CRON_SECRET.
  *
  * Requires DB column: ALTER TABLE profiles ADD COLUMN IF NOT EXISTS cycle_reminders boolean DEFAULT true;
+ *
+ * Client-facing push volume cap: sections 1, 2, 4, 5, 6, 7 below are all
+ * candidate client nudges, not guaranteed sends. Rather than each section
+ * pushing immediately, they register a candidate (via addCandidate) and the
+ * dispatch step at the end of the run sorts each client's candidates by
+ * priority and sends at most the top 2. This stops a client who happens to
+ * qualify for several nudges on the same day (overdue cycle log, a due
+ * check-in, an overdue task, an upcoming booking, etc.) from getting a wall
+ * of pushes — they get the 1-2 most important ones. Coach-facing sections
+ * (3, 8, 9) are unaffected and still send immediately; the cap is a
+ * client-notification-fatigue fix, not a general throttle.
  */
+
+type PushPayload = { title: string; body: string; url: string; icon: string; tag: string }
+type Candidate = { priority: number; payload: PushPayload; onSend?: () => Promise<void> }
+
+// Lower number = higher priority. Cycle and check-in-due are the two things
+// most worth a client's attention; the rest are lower-stakes nudges that
+// only get a slot if neither of those applies that day.
+const PRIORITY = {
+  CYCLE: 1,
+  CHECKIN_DUE: 2,
+  AUTOFLOW_TASK: 3,
+  BOOKING: 4,
+  WORKOUT: 5,
+  INACTIVITY_NUDGE: 6,
+} as const
+
 export async function GET(req: NextRequest) {
   const secret = req.headers.get('authorization')?.replace('Bearer ', '')
   if (secret !== process.env.CRON_SECRET) {
@@ -34,6 +61,13 @@ export async function GET(req: NextRequest) {
   const supabase = createServiceClient()
   const now = new Date()
   let pushed = 0
+
+  const candidatesByClient = new Map<string, Candidate[]>()
+  function addCandidate(clientId: string, priority: number, payload: PushPayload, onSend?: () => Promise<void>) {
+    const arr = candidatesByClient.get(clientId) ?? []
+    arr.push({ priority, payload, onSend })
+    candidatesByClient.set(clientId, arr)
+  }
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -129,16 +163,17 @@ export async function GET(req: NextRequest) {
       })
 
       if (dueSteps.length > 0) {
-        sendPushToUser(flow.client_id, {
+        addCandidate(flow.client_id, PRIORITY.AUTOFLOW_TASK, {
           title: 'You have tasks due today',
           body: 'Tap to view your tasks on your dashboard',
           url: '/dashboard',
           icon: '/icons/icon-192.png',
           tag: 'autoflow-due-today',
-        }).catch(() => {/* silent */})
-        pushed++
+        })
 
         // Deliver any per-step automated_message that hasn't been sent yet.
+        // This is message-thread content, not a push-volume concern — it
+        // runs unconditionally, independent of the cap above.
         const stepsWithMessage = dueSteps.filter((s) =>
           ((s as unknown as Record<string, unknown>).automated_message as string | null)?.trim()
         )
@@ -257,14 +292,13 @@ export async function GET(req: NextRequest) {
       if (!isDueToday) continue
 
       notifiedClients.add(clientId)
-      sendPushToUser(clientId, {
+      addCandidate(clientId, PRIORITY.CHECKIN_DUE, {
         title: "Check-in day 📋",
         body: `Don't forget to complete your ${s.title as string} today`,
         url: '/dashboard',
         icon: '/icons/icon-192.png',
         tag: 'scheduled-checkin',
-      }).catch(() => {/* silent */})
-      pushed++
+      })
     }
   }
   } catch (err) {
@@ -331,10 +365,12 @@ export async function GET(req: NextRequest) {
 
   // ── 4. Cycle tracking reminders for female clients ────────────────────────
   //
-  // Sent on this daily run if the client hasn't logged today (their local
-  // calendar date). Message is phase-aware: adapts based on recent cycle
-  // history. Opt-out via cycle_reminders = false on the profiles table
-  // (optional column).
+  // This is the highest-priority client nudge (see PRIORITY above) — sent
+  // only if the client hasn't logged in at least 7 days (not "not logged
+  // today"; a daily nag for a routine that isn't daily was the main source
+  // of notification fatigue). Message is phase-aware: adapts based on
+  // recent cycle history. Opt-out via cycle_reminders = false on the
+  // profiles table (optional column).
 
   try {
   // Select without cycle_reminders first — that column may not exist yet.
@@ -366,15 +402,17 @@ export async function GET(req: NextRequest) {
 
       const { dateStr } = getLocalInfo(timezone)
 
-      // Skip if they've already logged today
-      const { data: todayLog } = await supabase
+      // Skip unless it's been at least 7 days since their most recent log
+      // (or they have no logs at all, which trivially satisfies that).
+      const { data: lastLog } = await supabase
         .from('cycle_logs')
         .select('log_date')
         .eq('user_id', p.id)
-        .eq('log_date', dateStr)
+        .order('log_date', { ascending: false })
+        .limit(1)
         .maybeSingle()
 
-      if (todayLog) continue
+      if (lastLog && daysBetween(lastLog.log_date, dateStr) < 7) continue
 
       // ── Phase-aware message ───────────────────────────────────────────────
       // Fetch recent logs (90 days) to estimate current cycle phase
@@ -478,14 +516,13 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      sendPushToUser(p.id, {
+      addCandidate(p.id, PRIORITY.CYCLE, {
         title: 'Cycle log reminder',
         body,
         url: '/cycle',
         icon: '/icons/icon-192.png',
         tag: 'cycle-reminder',
-      }).catch(() => {/* silent */})
-      pushed++
+      })
     }
   }
   } catch (err) {
@@ -534,14 +571,13 @@ export async function GET(req: NextRequest) {
       if (notifiedInThisRun.has(clientId)) continue
 
       notifiedInThisRun.add(clientId)
-      sendPushToUser(clientId, {
+      addCandidate(clientId, PRIORITY.INACTIVITY_NUDGE, {
         title: 'Check in with your coach',
         body: "It's been a while — your coach would love to hear how you're going",
         url: '/dashboard',
         icon: '/icons/icon-192.png',
         tag: 'no-checkin-reminder',
-      }).catch(() => {/* silent */})
-      pushed++
+      })
     }
   }
   } catch (err) {
@@ -590,17 +626,20 @@ export async function GET(req: NextRequest) {
         } catch {
           timeLabel = new Date(b.start_at).toUTCString()
         }
-        sendPushToUser(b.client_id, {
+        addCandidate(b.client_id, PRIORITY.BOOKING, {
           title: `Reminder: ${b.service_name}`,
           body: `${timeLabel} · Let your coach know if you need to make any changes`,
           url: '/calendar',
           icon: '/icons/icon-192.png',
           tag: `booking-${b.id}-24h`,
-        }).catch(() => {/* silent */})
-        await supabase
-          .from('booking_reminders_sent')
-          .upsert({ booking_id: b.id, kind: '24h' }, { onConflict: 'booking_id,kind' })
-        pushed++
+        }, async () => {
+          // Only mark as sent if it actually gets dispatched below — if this
+          // gets bumped by a higher-priority nudge today, it stays eligible
+          // to try again on a later run within its 48h window.
+          await supabase
+            .from('booking_reminders_sent')
+            .upsert({ booking_id: b.id, kind: '24h' }, { onConflict: 'booking_id,kind' })
+        })
       }
     }
   } catch (err) {
@@ -678,7 +717,7 @@ export async function GET(req: NextRequest) {
         if (done) continue
 
         const dayName = day.name?.trim()
-        sendPushToUser(prog.client_id, {
+        addCandidate(prog.client_id, PRIORITY.WORKOUT, {
           title: dayName ? `Workout: ${dayName}` : 'Training session today',
           body: exerciseCount > 0
             ? `${exerciseCount} exercise${exerciseCount === 1 ? '' : 's'} ready — tap to start`
@@ -686,10 +725,9 @@ export async function GET(req: NextRequest) {
           url: '/dashboard',
           icon: '/icons/icon-192.png',
           tag: 'workout-reminder',
-        }).catch(() => {/* silent */})
+        })
 
         notifiedWorkoutClients.add(prog.client_id)
-        pushed++
       }
     }
   } catch (err) {
@@ -861,6 +899,22 @@ export async function GET(req: NextRequest) {
     }
   } catch (err) {
     console.error('[cron] program-ending section failed:', err)
+  }
+
+  // ── Dispatch: send each client's top 1-2 candidates, by priority ──────────
+  //
+  // Everything above registered candidates instead of sending — this is
+  // where the actual pushes go out, capped per client so a day where
+  // several nudges happen to apply doesn't turn into a wall of notifications.
+  for (const [clientId, candidates] of candidatesByClient) {
+    candidates.sort((a, b) => a.priority - b.priority)
+    for (const candidate of candidates.slice(0, 2)) {
+      sendPushToUser(clientId, candidate.payload).catch(() => {/* silent */})
+      pushed++
+      if (candidate.onSend) {
+        await candidate.onSend().catch(() => {/* silent */})
+      }
+    }
   }
 
   return Response.json({ ok: true, pushed, checkedAt: now.toISOString() })
