@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
 import { sendEmail } from '@/lib/email'
 import { INCLUDED_SEATS } from '@/lib/billing'
+import { getOrgFrontDoorUrl } from '@/lib/whitelabel'
 import type { NextRequest } from 'next/server'
 
 export async function POST(req: NextRequest) {
@@ -71,11 +72,19 @@ export async function POST(req: NextRequest) {
   // Fetch coach name/brand for the invite email
   const { data: coachProfile } = await supabase
     .from('profiles')
-    .select('full_name, email, brand_name')
+    .select('full_name, email, brand_name, org_id')
     .eq('id', coachId)
     .single()
   const brandName = (coachProfile as Record<string, unknown>)?.brand_name as string | null
   const coachName = brandName ?? coachProfile?.full_name ?? coachProfile?.email ?? 'Your coach'
+
+  // A new client has no account yet, so branding-follows-login can't show
+  // them anything — the invite link itself is the only chance to put the
+  // org's own branding in front of them before they sign up. inviteOrgId
+  // (an admin manually tagging a client to a different gym) takes priority
+  // over the inviting coach's own org, same precedence used for the tag itself.
+  const effectiveOrgId = inviteOrgId ?? (coachProfile as Record<string, unknown>)?.org_id as string | null
+  const orgFrontDoorUrl = effectiveOrgId ? await getOrgFrontDoorUrl(effectiveOrgId) : null
 
   // Check for an existing pending invite to this email from this coach
   const { data: existing } = await supabase
@@ -87,7 +96,8 @@ export async function POST(req: NextRequest) {
     .gt('expires_at', new Date().toISOString())
     .single()
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+  const baseUrl = orgFrontDoorUrl
+    ?? process.env.NEXT_PUBLIC_APP_URL
     ?? (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000')
 
   let token: string

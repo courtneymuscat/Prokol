@@ -39,6 +39,9 @@ vi.mock('@/lib/supabase/admin', () => ({
           select: () => ({
             eq: () => ({
               single: async () => ({ data: { coach_seat_count: 0, coach_seat_limit: 5, name: 'Test Org' } }),
+              // Also hit by getOrgFrontDoorUrl (branded invite links) —
+              // not white-labelled here, so invites fall back to the plain app URL.
+              maybeSingle: async () => ({ data: { slug: 'test-org', is_white_label: false, custom_domain: null, custom_domain_verified: false } }),
             }),
           }),
         }

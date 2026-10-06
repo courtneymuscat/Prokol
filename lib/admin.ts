@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { notifyClientsOfBrandingChange } from '@/lib/whitelabel'
-import { removeDomainFromVercel } from '@/lib/vercel'
+import { addDomainToVercel, removeDomainFromVercel } from '@/lib/vercel'
 
 export async function requirePlatformAdmin() {
   const supabase = await createClient()
@@ -773,6 +773,58 @@ export async function removeWhiteLabelDomain(orgId: string, adminId: string) {
     target_org_id: orgId,
     old_value: current.custom_domain,
     new_value: null,
+  })
+
+  return { success: true }
+}
+
+/**
+ * Assigns a custom domain to an org directly — the admin-side counterpart
+ * to the (now-removed) custom-domain field on the self-serve application
+ * form. Most orgs are well served by their free {slug}.prokol.io subdomain
+ * alone, so that field added DNS friction for little benefit; a custom
+ * domain is still useful for bigger gym partnerships Court sets up herself,
+ * so the capability stays — just admin-initiated rather than self-serve.
+ * Doesn't require the org to already be white-labelled, since this can be
+ * part of setting one up from scratch.
+ */
+export async function setWhiteLabelDomain(orgId: string, domain: string, adminId: string) {
+  const admin = createAdminClient()
+
+  const normalised = domain.trim().toLowerCase()
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9-.]+\.[a-zA-Z]{2,}$/.test(normalised)) {
+    return { error: 'Invalid domain format.' }
+  }
+
+  const { data: existing } = await admin
+    .from('organisations')
+    .select('id')
+    .eq('custom_domain', normalised)
+    .neq('id', orgId)
+    .maybeSingle()
+
+  if (existing) {
+    return { error: 'This domain is already in use by another organisation.' }
+  }
+
+  const vercelResult = await addDomainToVercel(normalised)
+  if (vercelResult.error) {
+    return { error: `Could not register domain with Vercel: ${vercelResult.error}` }
+  }
+
+  const { error } = await admin
+    .from('organisations')
+    .update({ custom_domain: normalised, custom_domain_verified: false })
+    .eq('id', orgId)
+
+  if (error) return { error: error.message }
+
+  await admin.from('admin_audit_log').insert({
+    admin_id: adminId,
+    action: 'set_white_label_domain',
+    target_org_id: orgId,
+    old_value: null,
+    new_value: normalised,
   })
 
   return { success: true }

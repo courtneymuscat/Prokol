@@ -119,6 +119,32 @@ export function applyBrandingHeaders(headers: Headers, org: OrgBrandingRecord): 
 }
 
 /**
+ * The best "front door" URL for a white-labelled org — their verified
+ * custom domain if they have one, otherwise their free {slug}.prokol.io
+ * subdomain. Returns null for an org that isn't white-labelled at all, so
+ * callers can fall back to the plain app URL.
+ *
+ * This matters specifically for invite links: branding-follows-login (see
+ * getOrgBrandingForUser) only works once someone has an account to look
+ * up. An invite recipient has no account yet, so the *link itself* is the
+ * only way they see the org's branding before signing up — sending them
+ * to plain prokol.io would show generic Prokol branding on their very
+ * first screen regardless of which org invited them.
+ */
+export async function getOrgFrontDoorUrl(orgId: string): Promise<string | null> {
+  const admin = createAdminClient()
+  const { data: org } = await admin
+    .from('organisations')
+    .select('slug, is_white_label, custom_domain, custom_domain_verified')
+    .eq('id', orgId)
+    .maybeSingle()
+
+  if (!org?.is_white_label) return null
+  if (org.custom_domain && org.custom_domain_verified) return `https://${org.custom_domain}`
+  return `https://${org.slug}.prokol.io`
+}
+
+/**
  * Emails every active client of an org to tell them branding just went
  * live, and — critically — that if they've already added the app to their
  * phone's home screen, they need to remove and re-add it to pick up the

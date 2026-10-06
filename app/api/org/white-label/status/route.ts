@@ -32,12 +32,22 @@ export async function GET() {
 
   // Once an org is approved, the free {slug}.prokol.io subdomain is live
   // immediately — no custom domain or DNS step required. Looked up here so
-  // the page can show it without a second round trip.
+  // the page can show it without a second round trip. Also pulls the org's
+  // *live* custom_domain rather than trusting the application row's own
+  // copy — an admin can assign a domain directly (see setWhiteLabelDomain)
+  // without the org ever having requested one on their original application,
+  // and the org owner's "Check DNS" button needs to see it either way.
   let subdomain: string | null = null
+  let liveCustomDomain: string | null = null
   if (application?.status === 'approved') {
-    const { data: org } = await admin.from('organisations').select('slug').eq('id', profile.org_id).single()
+    const { data: org } = await admin.from('organisations').select('slug, custom_domain').eq('id', profile.org_id).single()
     subdomain = org?.slug ? `${org.slug}.prokol.io` : null
+    liveCustomDomain = org?.custom_domain ?? null
   }
 
-  return NextResponse.json({ application: application ?? null, subscriptionTier, hasWhiteLabelTier, subdomain })
+  const mergedApplication = application
+    ? { ...application, custom_domain: liveCustomDomain ?? application.custom_domain }
+    : null
+
+  return NextResponse.json({ application: mergedApplication, subscriptionTier, hasWhiteLabelTier, subdomain })
 }

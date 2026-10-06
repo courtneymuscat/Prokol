@@ -29,7 +29,6 @@ export default function WhiteLabelPage() {
   const [upgrading, setUpgrading] = useState<string | null>(null)
 
   const [appName, setAppName] = useState('')
-  const [customDomain, setCustomDomain] = useState('')
   const [brandColour, setBrandColour] = useState('#F5C842')
   const [brandColourSecondary, setBrandColourSecondary] = useState('#1A1A1A')
   const [supportEmail, setSupportEmail] = useState('')
@@ -72,7 +71,6 @@ export default function WhiteLabelPage() {
 
     const formData = new FormData()
     formData.append('appName', appName)
-    formData.append('customDomain', customDomain.toLowerCase().trim())
     formData.append('brandColour', brandColour)
     formData.append('brandColourSecondary', brandColourSecondary)
     formData.append('supportEmail', supportEmail)
@@ -278,7 +276,7 @@ export default function WhiteLabelPage() {
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">Set up white-label</h1>
             <p className="text-sm text-gray-500 mt-1">
-              Once approved, you&apos;ll get a free branded link (yourname.prokol.io) instantly — no setup needed. A custom domain below is optional.
+              Once approved, you&apos;ll get a free branded link (yourname.prokol.io) instantly — no setup needed.
             </p>
           </div>
 
@@ -302,23 +300,6 @@ export default function WhiteLabelPage() {
                 className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <p className="text-xs text-gray-400 mt-1">What your clients see as the platform name.</p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Custom domain <span className="text-gray-400 font-normal">(optional)</span>
-              </label>
-              <input
-                type="text"
-                value={customDomain}
-                onChange={e => setCustomDomain(e.target.value)}
-                placeholder="e.g. app.yourstudio.com"
-                pattern="^[a-zA-Z0-9][a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}$"
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
-              />
-              <p className="text-xs text-gray-400 mt-1">
-                Leave blank to just use the free yourname.prokol.io link. If you want your own domain, you&apos;ll add one DNS record after approval (we check automatically every day).
-              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

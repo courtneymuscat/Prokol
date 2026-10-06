@@ -10,6 +10,7 @@ import {
   actionRevokeWhiteLabel,
   actionReinstateWhiteLabel,
   actionRemoveWhiteLabelDomain,
+  actionSetWhiteLabelDomain,
 } from '@/app/actions/admin'
 import type { OrgDetail, OrgMemberRow, PublicationWithGrants, ArchivedClientRow, PendingWhiteLabelApplication } from '@/lib/admin'
 import type { OrgAnalytics, OrgLead } from '@/lib/org'
@@ -62,6 +63,10 @@ export default function OrgDetailClient({
   const [removeDomainPending, startRemoveDomainTransition] = useTransition()
   const [removeDomainError, setRemoveDomainError] = useState<string | null>(null)
 
+  const [domainInput, setDomainInput] = useState('')
+  const [setDomainPending, startSetDomainTransition] = useTransition()
+  const [setDomainError, setSetDomainError] = useState<string | null>(null)
+
   const [pubList, setPubList] = useState(publications)
   const [selectedTemplateId, setSelectedTemplateId] = useState(publishableTemplates[0]?.id ?? '')
   const [publishPending, startPublishTransition] = useTransition()
@@ -106,6 +111,20 @@ export default function OrgDetailClient({
         setReinstateError(result.error)
       } else {
         setIsWhiteLabel(true)
+      }
+    })
+  }
+
+  function handleSetDomain() {
+    if (!domainInput.trim()) return
+    setSetDomainError(null)
+    startSetDomainTransition(async () => {
+      const result = await actionSetWhiteLabelDomain(org.id, domainInput.trim())
+      if (result.error) {
+        setSetDomainError(result.error)
+      } else {
+        setCustomDomain(domainInput.trim().toLowerCase())
+        setDomainInput('')
       }
     })
   }
@@ -376,6 +395,26 @@ export default function OrgDetailClient({
             <p className="text-zinc-200">{customDomain ? (org.custom_domain_verified ? 'Yes' : 'No') : '—'}</p>
           </div>
         </div>
+
+        {!customDomain && (
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="text"
+              value={domainInput}
+              onChange={(e) => setDomainInput(e.target.value)}
+              placeholder="app.theirgym.com"
+              className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-100 placeholder-zinc-500 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            <button
+              onClick={handleSetDomain}
+              disabled={setDomainPending || !domainInput.trim()}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-800 text-blue-200 hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+            >
+              {setDomainPending ? 'Setting…' : 'Set custom domain'}
+            </button>
+          </div>
+        )}
+        {setDomainError && <p className="text-xs text-red-400">{setDomainError}</p>}
 
         {isWhiteLabel && (
           <div className="bg-green-900/15 border border-green-800/60 rounded-lg px-4 py-2.5 flex items-center justify-between">

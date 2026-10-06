@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireOrgRole, getCoachPermissions } from '@/lib/org'
 import { sendEmail } from '@/lib/email'
+import { getOrgFrontDoorUrl } from '@/lib/whitelabel'
 import type { NextRequest } from 'next/server'
 
 export async function GET() {
@@ -174,7 +175,10 @@ export async function POST(req: NextRequest) {
     token = invite.token
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  // A new coach has no account yet, so branding-follows-login can't show
+  // them anything — the invite link itself is the only chance to put the
+  // org's own branding in front of them before they sign up.
+  const appUrl = (await getOrgFrontDoorUrl(membership.org_id)) ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
   const acceptUrl = `${appUrl}/org/invite/${token}`
   const loginUrl = `${appUrl}/login?next=${encodeURIComponent('/org/invite/' + token)}`
   const signupUrl = `${appUrl}/signup?org_invite=${token}`
