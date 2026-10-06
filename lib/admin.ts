@@ -654,6 +654,40 @@ export async function setOrgTenantType(
   return { success: true }
 }
 
+/**
+ * Turns white-label off for an org — the approval flow is currently the
+ * only thing that ever turns it on, so there was no way to undo that (e.g.
+ * a gym cancelling, or Court resetting her own test org). Leaves
+ * custom_domain, branding fields, logo etc. untouched so re-approving
+ * later doesn't lose anything — just flips the flag and clears the tier.
+ */
+export async function revokeWhiteLabel(orgId: string, adminId: string) {
+  const admin = createAdminClient()
+
+  const { data: current } = await admin
+    .from('organisations')
+    .select('white_label_tier')
+    .eq('id', orgId)
+    .single()
+
+  const { error } = await admin
+    .from('organisations')
+    .update({ is_white_label: false, white_label_tier: null })
+    .eq('id', orgId)
+
+  if (error) return { error: error.message }
+
+  await admin.from('admin_audit_log').insert({
+    admin_id: adminId,
+    action: 'revoke_white_label',
+    target_org_id: orgId,
+    old_value: current?.white_label_tier ?? null,
+    new_value: null,
+  })
+
+  return { success: true }
+}
+
 // ─── Independent coach detail screen ───────────────────────────────────────
 
 export type CoachDetailProfile = {

@@ -77,6 +77,47 @@ export async function getOrgBranding(orgId: string): Promise<OrgBrandingRecord |
 }
 
 /**
+ * Branding for whoever is logged in, regardless of which URL they're on —
+ * this is what makes white-label "seamless": a coach or client who signed
+ * up long before their org ever went white-label sees the right branding
+ * the moment they log in on plain prokol.io, no special link needed.
+ * Deliberately returns null (not just unbranded defaults) unless the
+ * user's org is actually white-labelled — merely belonging to an ordinary
+ * org must never reskin the app.
+ */
+export async function getOrgBrandingForUser(userId: string): Promise<OrgBrandingRecord | null> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('profiles')
+    .select(`org_id, organisations(${ORG_BRANDING_COLUMNS}, is_white_label)`)
+    .eq('id', userId)
+    .single()
+
+  const org = data?.organisations as unknown as (OrgBrandingRecord & { is_white_label: boolean }) | null
+  if (!org?.is_white_label) return null
+
+  const { is_white_label: _unused, ...branding } = org
+  return branding
+}
+
+/**
+ * Sets the x-* branding headers proxy forwards downstream — shared by both
+ * the domain-based lookup (an org's own subdomain/custom domain) and the
+ * login-based lookup (plain prokol.io, branding follows the account).
+ */
+export function applyBrandingHeaders(headers: Headers, org: OrgBrandingRecord): void {
+  headers.set('x-org-id', org.id)
+  headers.set('x-app-name', org.app_name ?? org.name)
+  headers.set('x-brand-colour', org.brand_colour ?? '#F5C842')
+  headers.set('x-brand-colour-secondary', org.brand_colour_secondary ?? '#1A1A1A')
+  headers.set('x-brand-colour-text', org.brand_colour_text ?? '#1A1A1A')
+  headers.set('x-is-white-label', 'true')
+  if (org.logo_url) headers.set('x-logo-url', org.logo_url)
+  if (org.favicon_url) headers.set('x-favicon-url', org.favicon_url)
+  if (org.app_icon_url) headers.set('x-app-icon-url', org.app_icon_url)
+}
+
+/**
  * Returns true when the hostname is a candidate white-label request — either
  * a {slug}.prokol.io subdomain or an org's own custom domain. Used in proxy
  * to decide whether to even attempt an org lookup; getOrgByDomain is what
