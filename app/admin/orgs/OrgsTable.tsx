@@ -134,7 +134,7 @@ export default function OrgsTable({
                             Suspend org owner
                           </button>
                           <a
-                            href={`/admin/coaches?search=${encodeURIComponent(org.owner_email ?? '')}`}
+                            href={`/admin/coaches/${org.owner_id}`}
                             onClick={close}
                             className="block px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 transition-colors"
                           >
