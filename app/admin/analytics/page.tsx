@@ -1,30 +1,25 @@
-import { requirePlatformAdmin } from '@/lib/admin'
-import { computeOrgAnalytics } from '@/lib/org'
+import { requirePlatformAdmin, computePlatformAnalytics } from '@/lib/admin'
 import AdminAnalyticsView from '../AdminAnalyticsView'
 
 export const dynamic = 'force-dynamic'
 
 export default async function AnalyticsPage() {
-  const admin = await requirePlatformAdmin()
+  await requirePlatformAdmin()
 
-  // This is Court's own coaching business performance, not a platform-wide
-  // rollup — the Overview page already covers platform-wide numbers, and
-  // mixing every organisation's clients into one churn/growth table here
-  // would be meaningless (different businesses, different baselines).
-  const analytics = admin.org_id ? await computeOrgAnalytics(admin.org_id) : null
+  // Platform-wide — this is the "Prokol umbrella" view (every coach, every
+  // org). Court's own coaching business has its own Analytics, same as any
+  // other org, reached from her regular Business dashboard or by clicking
+  // into her own org from the Organisations list in Admin Mode.
+  const analytics = await computePlatformAnalytics()
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold text-zinc-100">Analytics</h1>
-        <p className="text-sm text-zinc-500 mt-1">Your own coaching business — growth & churn overview</p>
+        <p className="text-sm text-zinc-500 mt-1">Growth & churn across every coach and organisation on Prokol</p>
       </div>
 
-      {analytics ? (
-        <AdminAnalyticsView data={analytics} />
-      ) : (
-        <p className="text-sm text-zinc-500">You don&apos;t have an organisation set up yet.</p>
-      )}
+      <AdminAnalyticsView data={analytics} />
     </div>
   )
 }

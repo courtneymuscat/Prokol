@@ -2,6 +2,7 @@
 
 import { Fragment, useState, useTransition } from 'react'
 import { actionUpdateCoachTier, actionSuspendAccount } from '@/app/actions/admin'
+import AdminActionsMenu from '../_components/AdminActionsMenu'
 
 type ArchivedClient = {
   client_id: string
@@ -47,7 +48,6 @@ export default function CoachesTable({
   const [coaches] = useState(initialCoaches)
   const [search, setSearch] = useState('')
   const [tierFilter, setTierFilter] = useState('')
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   // Tier modal
@@ -77,7 +77,7 @@ export default function CoachesTable({
     startTierTransition(async () => {
       const result = await actionUpdateCoachTier(tierModal.coach.id, selectedTier)
       setTierResult(result)
-      if (result.success) {
+      if (!result.error) {
         setTimeout(() => {
           setTierModal(null)
           setTierResult(null)
@@ -93,7 +93,7 @@ export default function CoachesTable({
     startSuspendTransition(async () => {
       const result = await actionSuspendAccount(suspendModal.coach.id, suspendReason)
       setSuspendResult(result)
-      if (result.success) {
+      if (!result.error) {
         setTimeout(() => {
           setSuspendModal(null)
           setSuspendResult(null)
@@ -151,8 +151,8 @@ export default function CoachesTable({
                 <Fragment key={coach.id}>
                 <tr className="hover:bg-zinc-800/30 transition-colors">
                   <td className="px-4 py-3 font-medium">
-                    <a href={`/admin/coaches/${coach.id}`} className="text-zinc-200 hover:text-blue-400 transition-colors">
-                      {coach.full_name ?? <span className="text-zinc-500 italic">No name</span>}
+                    <a href={`/admin/coaches/${coach.id}`} className="text-blue-400 hover:text-blue-300 underline decoration-blue-400/30 hover:decoration-blue-300 transition-colors">
+                      {coach.full_name ?? <span className="italic">No name</span>}
                     </a>
                   </td>
                   <td className="px-4 py-3 text-zinc-400 text-xs">{coach.email ?? '—'}</td>
@@ -179,18 +179,12 @@ export default function CoachesTable({
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="relative">
-                      <button
-                        onClick={() => setOpenDropdown(openDropdown === coach.id ? null : coach.id)}
-                        className="text-xs font-medium text-zinc-400 hover:text-zinc-200 px-2.5 py-1.5 rounded-md hover:bg-zinc-800 transition-colors border border-zinc-700"
-                      >
-                        Actions ▾
-                      </button>
-                      {openDropdown === coach.id && (
-                        <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-10 w-44 py-1">
+                    <AdminActionsMenu>
+                      {(close) => (
+                        <>
                           <button
                             onClick={() => {
-                              setOpenDropdown(null)
+                              close()
                               setSelectedTier(coach.subscription_tier ?? 'coach_solo')
                               setTierModal({ coach })
                             }}
@@ -200,7 +194,7 @@ export default function CoachesTable({
                           </button>
                           <button
                             onClick={() => {
-                              setOpenDropdown(null)
+                              close()
                               setSuspendReason('')
                               setSuspendModal({ coach })
                             }}
@@ -213,15 +207,15 @@ export default function CoachesTable({
                               href={`https://dashboard.stripe.com/customers/${coach.stripe_customer_id}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              onClick={() => setOpenDropdown(null)}
+                              onClick={close}
                               className="block px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 transition-colors"
                             >
                               View in Stripe ↗
                             </a>
                           )}
-                        </div>
+                        </>
                       )}
-                    </div>
+                    </AdminActionsMenu>
                   </td>
                 </tr>
                 {expandedId === coach.id && coach.archived_clients.length > 0 && (
@@ -360,13 +354,6 @@ export default function CoachesTable({
         </Modal>
       )}
 
-      {/* Backdrop for dropdown close */}
-      {openDropdown && (
-        <div
-          className="fixed inset-0 z-0"
-          onClick={() => setOpenDropdown(null)}
-        />
-      )}
     </>
   )
 }
