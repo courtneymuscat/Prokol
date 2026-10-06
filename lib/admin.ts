@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import type { OrgAnalytics } from '@/lib/org'
 
 export async function requirePlatformAdmin() {
   const supabase = await createClient()
@@ -101,57 +100,101 @@ function analyticsDateStr(d: Date): string {
   return d.toISOString().split('T')[0]
 }
 
+export type PlatformWeeklyCount = { label: string; new: number }
+
+export type PlatformAnalytics = {
+  active_orgs: number
+  active_gyms: number
+  active_coaches: number
+  active_white_label_orgs: number
+  orgs_weekly: PlatformWeeklyCount[]
+  gyms_weekly: PlatformWeeklyCount[]
+  clients: {
+    total_active: number
+    new_mtd: number
+    cancels_mtd: number
+    mtd_churn_pct: number
+    net_growth_mtd: number
+    weekly: { label: string; total: number; new: number; churned: number; net: number; churn_pct: number }[]
+  }
+  clients_by_org: { name: string; count: number }[]
+}
+
 /**
- * Platform-wide growth/churn analytics — every coach on Prokol, not scoped
- * to any one organisation. This is the "Prokol umbrella" view: Admin Mode's
- * Analytics tab is about running the platform, which is a different lens
- * than computeOrgAnalytics (lib/org.ts) — that one is "this org's own
- * business," used both by the regular Business dashboard and by the
- * per-org Analytics tab inside an org's own Admin Mode detail page.
+ * The "Prokol umbrella" view — Admin Mode's top-level Analytics tab.
+ * Multi-dimensional platform health: organisations, gyms specifically
+ * (since that's the strategic focus), coaches, white-label adoption, and
+ * client growth/churn broken down by organisation rather than by
+ * individual coach. This is deliberately a different shape from
+ * computeOrgAnalytics (lib/org.ts), which stays "one org's own business" —
+ * used by the regular Business dashboard and the per-org Analytics tab
+ * inside an org's own Admin Mode detail page, where breaking down by
+ * individual coach still makes sense.
+ *
+ * Org/gym weekly counts are new-orgs-created-this-week only — there's no
+ * deactivation timestamp on organisations (just a point-in-time is_active
+ * flag), so an org-level "churned this week" figure isn't computable from
+ * current data.
  */
-export async function computePlatformAnalytics(): Promise<OrgAnalytics> {
+export async function computePlatformAnalytics(): Promise<PlatformAnalytics> {
   const admin = createAdminClient()
   const now = new Date()
   const monthStart = analyticsDateStr(new Date(now.getFullYear(), now.getMonth(), 1))
 
-  const [rowsRes, coachesRes] = await Promise.all([
+  const [orgsRes, coachesRes, clientRowsRes] = await Promise.all([
+    admin.from('organisations').select('id, name, tenant_type, is_active, is_white_label, created_at'),
+    admin.from('profiles').select('id, org_id, full_name, email, is_suspended').eq('user_type', 'coach'),
     admin
       .from('coach_clients')
       .select('coach_id, client_id, accepted_at, archived_at, status')
       .in('status', ['active', 'archived']),
-    admin.from('profiles').select('id, full_name, email').eq('user_type', 'coach'),
   ])
 
-  const rows = rowsRes.data ?? []
-  const coachMap = Object.fromEntries((coachesRes.data ?? []).map((c) => [c.id, c.full_name ?? c.email ?? 'Unknown']))
+  const orgs = orgsRes.data ?? []
+  const coaches = coachesRes.data ?? []
+  const clientRows = clientRowsRes.data ?? []
 
-  const totalActive = rows.filter((r) => r.status === 'active').length
+  const activeOrgs = orgs.filter((o) => o.is_active)
+  const activeGyms = activeOrgs.filter((o) => o.tenant_type === 'gym')
+  const activeWhiteLabel = activeOrgs.filter((o) => o.is_white_label)
+  const activeCoaches = coaches.filter((c) => !c.is_suspended)
 
-  const byCoach: Record<string, number> = {}
-  for (const r of rows) {
-    if (r.status === 'active') byCoach[r.coach_id] = (byCoach[r.coach_id] ?? 0) + 1
+  function weeklyNewCounts(createdDates: string[]): PlatformWeeklyCount[] {
+    return Array.from({ length: 8 }, (_, i) => {
+      const ws = analyticsAddDays(analyticsWeekStart(now), -(7 - i) * 7)
+      const we = analyticsAddDays(ws, 6)
+      const wsStr = analyticsDateStr(ws)
+      const weEnd = analyticsDateStr(we) + 'T23:59:59'
+      const newCount = createdDates.filter((d) => d >= wsStr && d <= weEnd).length
+      return { label: ws.toLocaleDateString('en-AU', { day: '2-digit', month: 'short' }), new: newCount }
+    })
   }
-  const clientsByCoach = Object.entries(byCoach)
-    .map(([id, count]) => ({ name: coachMap[id] ?? 'Unknown', count }))
-    .sort((a, b) => b.count - a.count)
 
-  const newMTD = rows.filter((r) => r.accepted_at && r.accepted_at >= monthStart).length
-  const cancelsMTD = rows.filter((r) => r.archived_at && r.archived_at >= monthStart + 'T00:00:00').length
-  const totalAtMonthStart = rows.filter(
+  const orgsWeekly = weeklyNewCounts(orgs.map((o) => o.created_at).filter((d): d is string => !!d))
+  const gymsWeekly = weeklyNewCounts(
+    orgs.filter((o) => o.tenant_type === 'gym').map((o) => o.created_at).filter((d): d is string => !!d),
+  )
+
+  // Client growth/churn — platform-wide, same math as before, just grouped
+  // by organisation afterward instead of by individual coach.
+  const totalActiveClients = clientRows.filter((r) => r.status === 'active').length
+  const newMTD = clientRows.filter((r) => r.accepted_at && r.accepted_at >= monthStart).length
+  const cancelsMTD = clientRows.filter((r) => r.archived_at && r.archived_at >= monthStart + 'T00:00:00').length
+  const totalAtMonthStart = clientRows.filter(
     (r) => r.accepted_at && r.accepted_at < monthStart && (!r.archived_at || r.archived_at >= monthStart + 'T00:00:00'),
   ).length
   const mtdChurnPct = totalAtMonthStart > 0 ? Math.round((cancelsMTD / totalAtMonthStart) * 100) : 0
 
-  const weekly = Array.from({ length: 8 }, (_, i) => {
+  const clientsWeekly = Array.from({ length: 8 }, (_, i) => {
     const ws = analyticsAddDays(analyticsWeekStart(now), -(7 - i) * 7)
     const we = analyticsAddDays(ws, 6)
     const wsStr = analyticsDateStr(ws)
     const weEnd = analyticsDateStr(we) + 'T23:59:59'
     const wsStart = wsStr + 'T00:00:00'
 
-    const newC = rows.filter((r) => r.accepted_at && r.accepted_at >= wsStr && r.accepted_at <= weEnd).length
-    const churned = rows.filter((r) => r.archived_at && r.archived_at >= wsStart && r.archived_at <= weEnd).length
-    const totalAtStart = rows.filter(
+    const newC = clientRows.filter((r) => r.accepted_at && r.accepted_at >= wsStr && r.accepted_at <= weEnd).length
+    const churned = clientRows.filter((r) => r.archived_at && r.archived_at >= wsStart && r.archived_at <= weEnd).length
+    const totalAtStart = clientRows.filter(
       (r) => r.accepted_at && r.accepted_at < wsStr && (!r.archived_at || r.archived_at >= wsStart),
     ).length
 
@@ -165,14 +208,46 @@ export async function computePlatformAnalytics(): Promise<OrgAnalytics> {
     }
   })
 
+  // Active clients grouped by organisation — coaches with no org_id are
+  // combined into one "Independent coaches" bucket rather than listed
+  // individually, since the page is now org-centric.
+  const orgNameById = Object.fromEntries(orgs.map((o) => [o.id, o.name]))
+  const coachOrgById = Object.fromEntries(coaches.map((c) => [c.id, c.org_id]))
+
+  const byOrg: Record<string, number> = {}
+  let independentCount = 0
+  for (const r of clientRows) {
+    if (r.status !== 'active') continue
+    const orgId = coachOrgById[r.coach_id]
+    if (orgId) {
+      byOrg[orgId] = (byOrg[orgId] ?? 0) + 1
+    } else {
+      independentCount++
+    }
+  }
+  const clientsByOrg = Object.entries(byOrg)
+    .map(([id, count]) => ({ name: orgNameById[id] ?? 'Unknown org', count }))
+    .sort((a, b) => b.count - a.count)
+  if (independentCount > 0) {
+    clientsByOrg.push({ name: 'Independent coaches', count: independentCount })
+  }
+
   return {
-    total_active: totalActive,
-    new_mtd: newMTD,
-    cancels_mtd: cancelsMTD,
-    mtd_churn_pct: mtdChurnPct,
-    net_growth_mtd: newMTD - cancelsMTD,
-    clients_by_coach: clientsByCoach,
-    weekly,
+    active_orgs: activeOrgs.length,
+    active_gyms: activeGyms.length,
+    active_coaches: activeCoaches.length,
+    active_white_label_orgs: activeWhiteLabel.length,
+    orgs_weekly: orgsWeekly,
+    gyms_weekly: gymsWeekly,
+    clients: {
+      total_active: totalActiveClients,
+      new_mtd: newMTD,
+      cancels_mtd: cancelsMTD,
+      mtd_churn_pct: mtdChurnPct,
+      net_growth_mtd: newMTD - cancelsMTD,
+      weekly: clientsWeekly,
+    },
+    clients_by_org: clientsByOrg,
   }
 }
 
