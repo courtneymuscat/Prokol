@@ -21,6 +21,7 @@ export async function PATCH(
     .from('leads')
     .update(update)
     .eq('id', id)
+    .is('org_id', null)
     .select()
     .single()
 
@@ -36,7 +37,7 @@ export async function DELETE(
   const { id } = await params
   const admin = createAdminClient()
 
-  const { error } = await admin.from('leads').delete().eq('id', id)
+  const { error } = await admin.from('leads').delete().eq('id', id).is('org_id', null)
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json({ ok: true })
 }

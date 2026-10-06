@@ -9,7 +9,7 @@ export async function requirePlatformAdmin() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, full_name, email, role, subscription_tier, user_type')
+    .select('id, full_name, email, role, subscription_tier, user_type, org_id')
     .eq('id', session.user.id)
     .single()
 
@@ -89,6 +89,46 @@ export type ArchivedClientRow = {
   archived_at: string | null
 }
 
+/**
+ * Archived coach_clients for a set of coaches, grouped by coach_id. Shared
+ * by getAllCoaches, getOrgDetail, and getCoachDetail so the query + client
+ * profile lookup isn't copy-pasted three times.
+ */
+async function fetchArchivedClientsForCoaches(
+  admin: ReturnType<typeof createAdminClient>,
+  coachIds: string[],
+): Promise<Record<string, ArchivedClientRow[]>> {
+  if (coachIds.length === 0) return {}
+
+  const { data: archivedRows } = await admin
+    .from('coach_clients')
+    .select('coach_id, client_id, archived_at')
+    .in('coach_id', coachIds)
+    .eq('status', 'archived')
+    .order('archived_at', { ascending: false, nullsFirst: false })
+
+  const clientIds = [...new Set((archivedRows ?? []).map((r) => r.client_id))]
+  const clientProfilesRes = clientIds.length
+    ? await admin.from('profiles').select('id, full_name, email').in('id', clientIds)
+    : { data: [] }
+  const clientProfileMap: Record<string, { full_name: string | null; email: string | null }> = {}
+  for (const p of clientProfilesRes.data ?? []) {
+    clientProfileMap[p.id] = { full_name: p.full_name, email: p.email }
+  }
+
+  const byCoachId: Record<string, ArchivedClientRow[]> = {}
+  for (const row of archivedRows ?? []) {
+    if (!byCoachId[row.coach_id]) byCoachId[row.coach_id] = []
+    byCoachId[row.coach_id].push({
+      client_id: row.client_id,
+      client_name: clientProfileMap[row.client_id]?.full_name ?? null,
+      client_email: clientProfileMap[row.client_id]?.email ?? null,
+      archived_at: row.archived_at,
+    })
+  }
+  return byCoachId
+}
+
 export async function getAllCoaches(page = 1, limit = 50, independentOnly = false) {
   const admin = createAdminClient()
   const offset = (page - 1) * limit
@@ -117,7 +157,7 @@ export async function getAllCoaches(page = 1, limit = 50, independentOnly = fals
   const orgIds = [...new Set(coaches.filter(c => c.org_id).map(c => c.org_id as string))]
   const coachIds = coaches.map(c => c.id)
 
-  const [orgsRes, clientCountsRes, archivedRes] = await Promise.all([
+  const [orgsRes, clientCountsRes, archivedByCoachId] = await Promise.all([
     orgIds.length > 0
       ? admin.from('organisations').select('id, name').in('id', orgIds)
       : Promise.resolve({ data: [] }),
@@ -126,12 +166,7 @@ export async function getAllCoaches(page = 1, limit = 50, independentOnly = fals
       .select('coach_id')
       .in('coach_id', coachIds)
       .eq('status', 'active'),
-    admin
-      .from('coach_clients')
-      .select('coach_id, client_id, archived_at')
-      .in('coach_id', coachIds)
-      .eq('status', 'archived')
-      .order('archived_at', { ascending: false, nullsFirst: false }),
+    fetchArchivedClientsForCoaches(admin, coachIds),
   ])
 
   const orgMap: Record<string, string> = {}
@@ -142,26 +177,6 @@ export async function getAllCoaches(page = 1, limit = 50, independentOnly = fals
   const clientCountMap: Record<string, number> = {}
   for (const row of clientCountsRes.data ?? []) {
     clientCountMap[row.coach_id] = (clientCountMap[row.coach_id] ?? 0) + 1
-  }
-
-  const archivedClientIds = [...new Set((archivedRes.data ?? []).map(r => r.client_id))]
-  const archivedClientProfilesRes = archivedClientIds.length
-    ? await admin.from('profiles').select('id, full_name, email').in('id', archivedClientIds)
-    : { data: [] }
-  const archivedClientProfileMap: Record<string, { full_name: string | null; email: string | null }> = {}
-  for (const p of archivedClientProfilesRes.data ?? []) {
-    archivedClientProfileMap[p.id] = { full_name: p.full_name, email: p.email }
-  }
-
-  const archivedByCoachId: Record<string, ArchivedClientRow[]> = {}
-  for (const row of archivedRes.data ?? []) {
-    if (!archivedByCoachId[row.coach_id]) archivedByCoachId[row.coach_id] = []
-    archivedByCoachId[row.coach_id].push({
-      client_id: row.client_id,
-      client_name: archivedClientProfileMap[row.client_id]?.full_name ?? null,
-      client_email: archivedClientProfileMap[row.client_id]?.email ?? null,
-      archived_at: row.archived_at,
-    })
   }
 
   return {
@@ -390,31 +405,12 @@ export async function getOrgDetail(orgId: string) {
   )
 
   const coachIds = memberRows.map((m) => m.user_id)
-  let archivedClients: ArchivedClientRow[] = []
-  if (coachIds.length > 0) {
-    const { data: archivedRows } = await admin
-      .from('coach_clients')
-      .select('coach_id, client_id, archived_at')
-      .in('coach_id', coachIds)
-      .eq('status', 'archived')
-      .order('archived_at', { ascending: false, nullsFirst: false })
-
-    const clientIds = [...new Set((archivedRows ?? []).map((r) => r.client_id))]
-    const clientProfilesRes = clientIds.length
-      ? await admin.from('profiles').select('id, full_name, email').in('id', clientIds)
-      : { data: [] }
-    const clientProfileMap: Record<string, { full_name: string | null; email: string | null }> = {}
-    for (const p of clientProfilesRes.data ?? []) {
-      clientProfileMap[p.id] = { full_name: p.full_name, email: p.email }
-    }
-
-    archivedClients = (archivedRows ?? []).map((r) => ({
-      client_id: r.client_id,
-      client_name: clientProfileMap[r.client_id]?.full_name ?? null,
-      client_email: clientProfileMap[r.client_id]?.email ?? null,
-      archived_at: r.archived_at,
-    }))
-  }
+  const archivedByCoachId = await fetchArchivedClientsForCoaches(admin, coachIds)
+  // Flatten back into one list sorted by archived_at desc across every
+  // coach in the org (the helper only sorts within each coach's own group).
+  const archivedClients: ArchivedClientRow[] = Object.values(archivedByCoachId)
+    .flat()
+    .sort((a, b) => (b.archived_at ?? '').localeCompare(a.archived_at ?? ''))
 
   return {
     org: org as OrgDetail | null,
@@ -475,4 +471,89 @@ export async function setOrgTenantType(
   })
 
   return { success: true }
+}
+
+// ─── Independent coach detail screen ───────────────────────────────────────
+
+export type CoachDetailProfile = {
+  id: string
+  full_name: string | null
+  email: string | null
+  subscription_tier: string | null
+  stripe_customer_id: string | null
+  created_at: string | null
+  org_id: string | null
+  org_name: string | null
+  coach_grace_until: string | null
+}
+
+export type CoachActiveClientRow = {
+  client_id: string
+  client_name: string | null
+  client_email: string | null
+  tier: string | null
+  joined_at: string | null
+}
+
+/**
+ * A lightweight view of a single coach for Admin Mode — their own active
+ * and archived clients, the same at-a-glance numbers they'd see on their
+ * own Overview. Deliberately not a clone of the org Leads/Analytics tabs:
+ * independent coaches don't have those concepts in their own dashboard
+ * either (both are org-owner-only features).
+ */
+export async function getCoachDetail(coachId: string): Promise<{
+  coach: CoachDetailProfile
+  activeClients: CoachActiveClientRow[]
+  archivedClients: ArchivedClientRow[]
+} | null> {
+  const admin = createAdminClient()
+
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('id, full_name, email, subscription_tier, stripe_customer_id, created_at, org_id, coach_grace_until')
+    .eq('id', coachId)
+    .eq('user_type', 'coach')
+    .maybeSingle()
+
+  if (!profile) return null
+
+  let orgName: string | null = null
+  if (profile.org_id) {
+    const { data: org } = await admin.from('organisations').select('name').eq('id', profile.org_id).maybeSingle()
+    orgName = org?.name ?? null
+  }
+
+  const [{ data: activeRows }, archivedByCoachId] = await Promise.all([
+    admin
+      .from('coach_clients')
+      .select('client_id, accepted_at')
+      .eq('coach_id', coachId)
+      .eq('status', 'active')
+      .order('accepted_at', { ascending: false }),
+    fetchArchivedClientsForCoaches(admin, [coachId]),
+  ])
+
+  const clientIds = (activeRows ?? []).map((r) => r.client_id)
+  const clientProfilesRes = clientIds.length
+    ? await admin.from('profiles').select('id, full_name, email, subscription_tier').in('id', clientIds)
+    : { data: [] }
+  const clientProfileMap: Record<string, { full_name: string | null; email: string | null; subscription_tier: string | null }> = {}
+  for (const p of clientProfilesRes.data ?? []) {
+    clientProfileMap[p.id] = { full_name: p.full_name, email: p.email, subscription_tier: p.subscription_tier }
+  }
+
+  const activeClients: CoachActiveClientRow[] = (activeRows ?? []).map((r) => ({
+    client_id: r.client_id,
+    client_name: clientProfileMap[r.client_id]?.full_name ?? null,
+    client_email: clientProfileMap[r.client_id]?.email ?? null,
+    tier: clientProfileMap[r.client_id]?.subscription_tier ?? null,
+    joined_at: r.accepted_at,
+  }))
+
+  return {
+    coach: { ...profile, org_name: orgName },
+    activeClients,
+    archivedClients: archivedByCoachId[coachId] ?? [],
+  }
 }

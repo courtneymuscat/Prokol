@@ -1,4 +1,5 @@
 import { requirePlatformAdmin, getOrgDetail, getPublishableTemplates } from '@/lib/admin'
+import { computeOrgAnalytics, listOrgLeads } from '@/lib/org'
 import { notFound } from 'next/navigation'
 import OrgDetailClient from './OrgDetailClient'
 
@@ -12,9 +13,11 @@ export default async function AdminOrgDetailPage({
   const admin = await requirePlatformAdmin()
   const { orgId } = await params
 
-  const [{ org, members, publications, archivedClients, pendingWhiteLabelApplication }, publishableTemplates] = await Promise.all([
+  const [{ org, members, publications, archivedClients, pendingWhiteLabelApplication }, publishableTemplates, analytics, leads] = await Promise.all([
     getOrgDetail(orgId),
     getPublishableTemplates(admin.id),
+    computeOrgAnalytics(orgId),
+    listOrgLeads(orgId),
   ])
 
   if (!org) notFound()
@@ -33,6 +36,8 @@ export default async function AdminOrgDetailPage({
         publishableTemplates={publishableTemplates}
         archivedClients={archivedClients}
         pendingWhiteLabelApplication={pendingWhiteLabelApplication}
+        analytics={analytics}
+        initialLeads={leads}
       />
     </div>
   )

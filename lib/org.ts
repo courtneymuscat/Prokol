@@ -674,3 +674,213 @@ export async function isMasterSourcedForViewer(
 
   return !!data
 }
+
+// ─── Org analytics (shared by the regular Business dashboard and Admin Mode) ──
+
+export type OrgAnalytics = {
+  total_active: number
+  new_mtd: number
+  cancels_mtd: number
+  mtd_churn_pct: number
+  net_growth_mtd: number
+  clients_by_coach: { name: string; count: number }[]
+  weekly: { label: string; total: number; new: number; churned: number; net: number; churn_pct: number }[]
+}
+
+function weekStart(date: Date): Date {
+  const d = new Date(date)
+  const diff = d.getDay() === 0 ? -6 : 1 - d.getDay()
+  d.setDate(d.getDate() + diff)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function addDays(d: Date, n: number): Date {
+  const r = new Date(d)
+  r.setDate(r.getDate() + n)
+  return r
+}
+
+function dateStr(d: Date): string {
+  return d.toISOString().split('T')[0]
+}
+
+/**
+ * Growth/churn analytics for every coach who's an active member of `orgId`.
+ * Used by the regular Business dashboard (the viewer's own org) and by
+ * Admin Mode (either Court's own org, or any org she clicks into) — same
+ * computation either way, just a different org_id driving it.
+ */
+export async function computeOrgAnalytics(orgId: string): Promise<OrgAnalytics> {
+  const admin = createAdminClient()
+  const now = new Date()
+  const monthStart = dateStr(new Date(now.getFullYear(), now.getMonth(), 1))
+
+  const { data: orgMembers } = await admin
+    .from('org_members')
+    .select('user_id')
+    .eq('org_id', orgId)
+    .eq('is_active', true)
+
+  const coachIds = (orgMembers ?? []).map((m) => m.user_id)
+  if (!coachIds.length) {
+    return { total_active: 0, new_mtd: 0, cancels_mtd: 0, mtd_churn_pct: 0, net_growth_mtd: 0, clients_by_coach: [], weekly: [] }
+  }
+
+  const [rowsRes, coachProfilesRes] = await Promise.all([
+    admin
+      .from('coach_clients')
+      .select('coach_id, client_id, accepted_at, archived_at, status')
+      .in('coach_id', coachIds)
+      .in('status', ['active', 'archived']),
+    admin.from('profiles').select('id, full_name, email').in('id', coachIds),
+  ])
+
+  const rows = rowsRes.data ?? []
+  const coachMap = Object.fromEntries((coachProfilesRes.data ?? []).map((c) => [c.id, c.full_name ?? c.email ?? 'Unknown']))
+
+  const totalActive = rows.filter((r) => r.status === 'active').length
+
+  const byCoach: Record<string, number> = {}
+  for (const r of rows) {
+    if (r.status === 'active') byCoach[r.coach_id] = (byCoach[r.coach_id] ?? 0) + 1
+  }
+  const clientsByCoach = Object.entries(byCoach)
+    .map(([id, count]) => ({ name: coachMap[id] ?? 'Unknown', count }))
+    .sort((a, b) => b.count - a.count)
+
+  const newMTD = rows.filter((r) => r.accepted_at && r.accepted_at >= monthStart).length
+  const cancelsMTD = rows.filter((r) => r.archived_at && r.archived_at >= monthStart + 'T00:00:00').length
+  const totalAtMonthStart = rows.filter(
+    (r) => r.accepted_at && r.accepted_at < monthStart && (!r.archived_at || r.archived_at >= monthStart + 'T00:00:00'),
+  ).length
+  const mtdChurnPct = totalAtMonthStart > 0 ? Math.round((cancelsMTD / totalAtMonthStart) * 100) : 0
+
+  const weekly = Array.from({ length: 8 }, (_, i) => {
+    const ws = addDays(weekStart(now), -(7 - i) * 7)
+    const we = addDays(ws, 6)
+    const wsStr = dateStr(ws)
+    const weEnd = dateStr(we) + 'T23:59:59'
+    const wsStart = wsStr + 'T00:00:00'
+
+    const newC = rows.filter((r) => r.accepted_at && r.accepted_at >= wsStr && r.accepted_at <= weEnd).length
+    const churned = rows.filter((r) => r.archived_at && r.archived_at >= wsStart && r.archived_at <= weEnd).length
+    const totalAtStart = rows.filter(
+      (r) => r.accepted_at && r.accepted_at < wsStr && (!r.archived_at || r.archived_at >= wsStart),
+    ).length
+
+    return {
+      label: ws.toLocaleDateString('en-AU', { day: '2-digit', month: 'short' }),
+      total: totalAtStart + newC,
+      new: newC,
+      churned,
+      net: newC - churned,
+      churn_pct: totalAtStart > 0 ? Math.round((churned / totalAtStart) * 100) : 0,
+    }
+  })
+
+  return {
+    total_active: totalActive,
+    new_mtd: newMTD,
+    cancels_mtd: cancelsMTD,
+    mtd_churn_pct: mtdChurnPct,
+    net_growth_mtd: newMTD - cancelsMTD,
+    clients_by_coach: clientsByCoach,
+    weekly,
+  }
+}
+
+// ─── Org leads (shared by the regular Business dashboard and Admin Mode) ──────
+
+export type OrgLead = {
+  id: string
+  name: string
+  email: string | null
+  phone: string | null
+  source: string
+  status: string
+  notes: string | null
+  follow_up_done: boolean
+  follow_up_date: string | null
+  created_at: string
+}
+
+export type OrgLeadInput = {
+  name: string
+  email?: string | null
+  phone?: string | null
+  source?: string
+  status?: string
+  notes?: string | null
+  follow_up_done?: boolean
+  follow_up_date?: string | null
+}
+
+export async function listOrgLeads(orgId: string): Promise<OrgLead[]> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('leads')
+    .select('*')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false })
+  return data ?? []
+}
+
+export async function createOrgLead(
+  orgId: string,
+  createdBy: string,
+  input: OrgLeadInput,
+): Promise<{ lead?: OrgLead; error?: string }> {
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('leads')
+    .insert({
+      name: input.name.trim(),
+      email: input.email?.trim() || null,
+      phone: input.phone?.trim() || null,
+      source: input.source || 'other',
+      status: input.status || 'new',
+      notes: input.notes?.trim() || null,
+      follow_up_done: input.follow_up_done ?? false,
+      follow_up_date: input.follow_up_date || null,
+      created_by: createdBy,
+      org_id: orgId,
+    })
+    .select()
+    .single()
+
+  if (error) return { error: error.message }
+  return { lead: data }
+}
+
+export async function updateOrgLead(
+  orgId: string,
+  leadId: string,
+  update: Partial<OrgLeadInput>,
+): Promise<{ lead?: OrgLead; error?: string }> {
+  const admin = createAdminClient()
+  const allowed: (keyof OrgLeadInput)[] = [
+    'name', 'email', 'phone', 'source', 'status', 'notes', 'follow_up_done', 'follow_up_date',
+  ]
+  const row: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  for (const key of allowed) {
+    if (key in update) row[key] = update[key]
+  }
+
+  const { data, error } = await admin
+    .from('leads')
+    .update(row)
+    .eq('id', leadId)
+    .eq('org_id', orgId)
+    .select()
+    .single()
+
+  if (error) return { error: error.message }
+  return { lead: data }
+}
+
+export async function deleteOrgLead(orgId: string, leadId: string): Promise<{ error?: string }> {
+  const admin = createAdminClient()
+  const { error } = await admin.from('leads').delete().eq('id', leadId).eq('org_id', orgId)
+  return error ? { error: error.message } : {}
+}
