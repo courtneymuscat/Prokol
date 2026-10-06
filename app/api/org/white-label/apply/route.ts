@@ -5,6 +5,16 @@ import { sendEmail } from '@/lib/email'
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024 // 2 MB
 
+// wl_starter/wl_pro are real, paid Stripe tiers ($299/$499 AUD per month —
+// see lib/stripe.ts, app/components/BillingSection.tsx). Applying for
+// white-label requires already being on one of them, via the existing
+// self-serve /api/stripe/checkout flow — this route no longer gates on
+// coach_business, and no longer accepts a free-text requested tier.
+const TIER_TO_REQUESTED: Record<string, 'starter' | 'pro'> = {
+  wl_starter: 'starter',
+  wl_pro: 'pro',
+}
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession()
@@ -12,7 +22,7 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient()
 
-  // Verify org ownership
+  // Verify org ownership + paid white-label tier
   const { data: profile } = await admin
     .from('profiles')
     .select('org_id, subscription_tier')
@@ -22,8 +32,9 @@ export async function POST(req: NextRequest) {
   if (!profile?.org_id) {
     return NextResponse.json({ error: 'No organisation found' }, { status: 400 })
   }
-  if (profile.subscription_tier !== 'coach_business') {
-    return NextResponse.json({ error: 'Coach Business plan required' }, { status: 403 })
+  const requestedTier = TIER_TO_REQUESTED[profile.subscription_tier ?? '']
+  if (!requestedTier) {
+    return NextResponse.json({ error: 'A white-label plan (Web or App Store) is required' }, { status: 403 })
   }
 
   // Check for existing pending/approved application
@@ -45,67 +56,64 @@ export async function POST(req: NextRequest) {
   // Parse multipart form
   const formData = await req.formData()
   const appName = (formData.get('appName') as string)?.trim()
-  const customDomain = (formData.get('customDomain') as string)?.trim().toLowerCase()
+  // Custom domain is now optional — every approved org gets a free
+  // {slug}.prokol.io subdomain automatically, with zero DNS setup. A custom
+  // domain is an opt-in upgrade on top of that, not a requirement to apply.
+  const customDomainRaw = (formData.get('customDomain') as string)?.trim().toLowerCase()
+  const customDomain = customDomainRaw || null
   const brandColour = (formData.get('brandColour') as string)?.trim()
   const brandColourSecondary = (formData.get('brandColourSecondary') as string)?.trim() || null
   const supportEmail = (formData.get('supportEmail') as string)?.trim()
   const logoFile = formData.get('logo') as File | null
   const faviconFile = formData.get('favicon') as File | null
+  const appIconFile = formData.get('appIcon') as File | null
 
   // Validate required fields
-  if (!appName || !customDomain || !brandColour || !supportEmail) {
+  if (!appName || !brandColour || !supportEmail) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
 
-  // Basic domain format validation
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}$/.test(customDomain)) {
-    return NextResponse.json({ error: 'Invalid domain format' }, { status: 400 })
+  if (customDomain) {
+    // Basic domain format validation
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}$/.test(customDomain)) {
+      return NextResponse.json({ error: 'Invalid domain format' }, { status: 400 })
+    }
+
+    // Check domain not already in use
+    const { data: existingDomain } = await admin
+      .from('organisations')
+      .select('id')
+      .eq('custom_domain', customDomain)
+      .limit(1)
+      .single()
+
+    if (existingDomain) {
+      return NextResponse.json({ error: 'This domain is already in use' }, { status: 400 })
+    }
   }
 
-  // Check domain not already in use
-  const { data: existingDomain } = await admin
-    .from('organisations')
-    .select('id')
-    .eq('custom_domain', customDomain)
-    .limit(1)
-    .single()
-
-  if (existingDomain) {
-    return NextResponse.json({ error: 'This domain is already in use' }, { status: 400 })
+  async function uploadAsset(file: File | null, name: string): Promise<string | null> {
+    if (!file || file.size === 0) return null
+    if (file.size > MAX_FILE_SIZE) throw new Error(`${name} file too large (max 2 MB)`)
+    const ext = file.name.split('.').pop()
+    const path = `white-label/${profile!.org_id}/${name}.${ext}`
+    const { error: uploadError } = await admin.storage
+      .from('org-assets')
+      .upload(path, file, { upsert: true, contentType: file.type })
+    if (uploadError) return null
+    const { data: urlData } = admin.storage.from('org-assets').getPublicUrl(path)
+    return urlData.publicUrl
   }
 
-  // Upload logo if provided
   let logoUrl: string | null = null
-  if (logoFile && logoFile.size > 0) {
-    if (logoFile.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: 'Logo file too large (max 2 MB)' }, { status: 400 })
-    }
-    const ext = logoFile.name.split('.').pop()
-    const path = `white-label/${profile.org_id}/logo.${ext}`
-    const { error: uploadError } = await admin.storage
-      .from('org-assets')
-      .upload(path, logoFile, { upsert: true, contentType: logoFile.type })
-    if (!uploadError) {
-      const { data: urlData } = admin.storage.from('org-assets').getPublicUrl(path)
-      logoUrl = urlData.publicUrl
-    }
-  }
-
-  // Upload favicon if provided
   let faviconUrl: string | null = null
-  if (faviconFile && faviconFile.size > 0) {
-    if (faviconFile.size > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: 'Favicon file too large (max 2 MB)' }, { status: 400 })
-    }
-    const ext = faviconFile.name.split('.').pop()
-    const path = `white-label/${profile.org_id}/favicon.${ext}`
-    const { error: uploadError } = await admin.storage
-      .from('org-assets')
-      .upload(path, faviconFile, { upsert: true, contentType: faviconFile.type })
-    if (!uploadError) {
-      const { data: urlData } = admin.storage.from('org-assets').getPublicUrl(path)
-      faviconUrl = urlData.publicUrl
-    }
+  let appIconUrl: string | null = null
+  try {
+    logoUrl = await uploadAsset(logoFile, 'logo')
+    faviconUrl = await uploadAsset(faviconFile, 'favicon')
+    appIconUrl = await uploadAsset(appIconFile, 'app-icon')
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Upload failed' }, { status: 400 })
   }
 
   // Create application record
@@ -119,8 +127,9 @@ export async function POST(req: NextRequest) {
       brand_colour_secondary: brandColourSecondary,
       logo_url: logoUrl,
       favicon_url: faviconUrl,
+      app_icon_url: appIconUrl,
       support_email: supportEmail,
-      requested_tier: 'starter',
+      requested_tier: requestedTier,
       status: 'pending',
     })
     .select('id')
@@ -145,7 +154,8 @@ export async function POST(req: NextRequest) {
       <h2>New white-label application</h2>
       <p><strong>App name:</strong> ${appName}</p>
       <p><strong>Organisation:</strong> ${org?.name ?? profile.org_id}</p>
-      <p><strong>Domain:</strong> ${customDomain}</p>
+      <p><strong>Plan:</strong> ${requestedTier === 'pro' ? 'App Store White-label ($499/mo)' : 'Web White-label ($299/mo)'}</p>
+      <p><strong>Custom domain:</strong> ${customDomain ?? '(none requested — free subdomain only)'}</p>
       <p><strong>Support email:</strong> ${supportEmail}</p>
       <p><strong>Brand colour:</strong> ${brandColour}</p>
       <p><a href="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://prokol.io'}/admin/white-label">Review in admin dashboard →</a></p>

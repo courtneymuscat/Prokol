@@ -27,6 +27,7 @@ export async function proxy(req: NextRequest) {
     requestHeaders.set('x-is-white-label', 'true')
     if (org.logo_url) requestHeaders.set('x-logo-url', org.logo_url)
     if (org.favicon_url) requestHeaders.set('x-favicon-url', org.favicon_url)
+    if (org.app_icon_url) requestHeaders.set('x-app-icon-url', org.app_icon_url)
   }
 
   // ── Auth session refresh + route guards ───────────────────────────────────

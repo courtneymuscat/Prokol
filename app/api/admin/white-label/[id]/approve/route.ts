@@ -30,7 +30,7 @@ export async function POST(
   // Fetch the application
   const { data: app } = await admin
     .from('white_label_applications')
-    .select('*, organisations(name, owner_id)')
+    .select('*, organisations(name, owner_id, slug)')
     .eq('id', id)
     .single()
 
@@ -51,31 +51,43 @@ export async function POST(
     })
     .eq('id', id)
 
-  // Update the organisation with white-label branding
+  // Update the organisation with white-label branding. white_label_tier
+  // comes from what they actually paid for (requested_tier was derived from
+  // their wl_starter/wl_pro Stripe subscription at apply time), not
+  // hardcoded — approving used to always grant 'starter' regardless of
+  // which plan was requested.
   await admin
     .from('organisations')
     .update({
       is_white_label: true,
-      white_label_tier: 'starter',
+      white_label_tier: app.requested_tier,
       app_name: app.app_name,
       custom_domain: app.custom_domain,
       brand_colour: app.brand_colour,
       brand_colour_secondary: app.brand_colour_secondary,
       logo_url: app.logo_url,
       favicon_url: app.favicon_url,
+      app_icon_url: app.app_icon_url,
       support_email: app.support_email,
     })
     .eq('id', app.org_id)
 
-  // Add domain to Vercel
-  const vercelResult = await addDomainToVercel(app.custom_domain)
-  if (vercelResult.error) {
-    console.error('Vercel domain add failed:', vercelResult.error)
-    // Non-fatal — admin can retry manually
+  // Add domain to Vercel — only if they actually requested a custom domain.
+  // The free {slug}.prokol.io subdomain needs no per-org Vercel domain
+  // registration; it's covered by the wildcard *.prokol.io already added to
+  // the project once.
+  if (app.custom_domain) {
+    const vercelResult = await addDomainToVercel(app.custom_domain)
+    if (vercelResult.error) {
+      console.error('Vercel domain add failed:', vercelResult.error)
+      // Non-fatal — admin can retry manually
+    }
   }
 
   // Get org owner email
-  const orgData = app.organisations as { name: string; owner_id: string } | null
+  const orgData = app.organisations as { name: string; owner_id: string; slug: string } | null
+  const subdomain = orgData?.slug ? `${orgData.slug}.prokol.io` : null
+
   if (orgData?.owner_id) {
     const { data: ownerProfile } = await admin
       .from('profiles')
@@ -91,14 +103,19 @@ export async function POST(
           <h2>Your white-label application is approved!</h2>
           <p>Hi ${ownerProfile.full_name ?? 'there'},</p>
           <p>Your white-label setup for <strong>${app.app_name}</strong> has been approved.</p>
-          <p>To go live, add the following DNS record to your domain provider:</p>
+          ${subdomain ? `
+          <p><strong>Your link is live right now — nothing else to do:</strong></p>
+          <p><a href="https://${subdomain}">${subdomain}</a></p>
+          ` : ''}
+          ${app.custom_domain ? `
+          <p>You also requested the custom domain <strong>${app.custom_domain}</strong>. To connect it, add this DNS record at your domain provider:</p>
           <table style="border-collapse:collapse;margin:16px 0">
             <tr><td style="padding:4px 12px 4px 0;font-weight:bold">Type</td><td>CNAME</td></tr>
             <tr><td style="padding:4px 12px 4px 0;font-weight:bold">Host</td><td>app (or @ for root)</td></tr>
             <tr><td style="padding:4px 12px 4px 0;font-weight:bold">Value</td><td>cname.vercel-dns.com</td></tr>
           </table>
-          <p>Once you&apos;ve added the record, reply to this email and we&apos;ll activate your domain within 24 hours.</p>
-          <p>Your domain: <strong>${app.custom_domain}</strong></p>
+          <p>We check for this automatically every day and will email you the moment it's live — no need to come back and check yourself, though you're welcome to from your white-label settings page.</p>
+          ` : ''}
           <p>Questions? Email <a href="mailto:info@prokol.io">info@prokol.io</a></p>
         `,
       })

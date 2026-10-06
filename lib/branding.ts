@@ -7,6 +7,7 @@ export type Branding = {
   brandColourText: string
   logoUrl: string | null
   faviconUrl: string | null
+  appIconUrl: string | null
 }
 
 export const DEFAULT_BRANDING: Branding = {
@@ -18,6 +19,7 @@ export const DEFAULT_BRANDING: Branding = {
   brandColourText: '#1A1A1A',
   logoUrl: null,
   faviconUrl: null,
+  appIconUrl: null,
 }
 
 /**
@@ -40,5 +42,6 @@ export function getBrandingFromHeaders(headersList: Headers): Branding {
       headersList.get('x-brand-colour-text') ?? DEFAULT_BRANDING.brandColourText,
     logoUrl: headersList.get('x-logo-url') ?? null,
     faviconUrl: headersList.get('x-favicon-url') ?? null,
+    appIconUrl: headersList.get('x-app-icon-url') ?? null,
   }
 }
