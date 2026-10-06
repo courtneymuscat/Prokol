@@ -9,6 +9,7 @@ import {
   reinstateWhiteLabel,
   removeWhiteLabelDomain,
   setWhiteLabelDomain,
+  deleteWhiteLabelApplication,
 } from '@/lib/admin'
 import {
   publishMasterTemplate,
@@ -73,6 +74,12 @@ export async function actionSetWhiteLabelDomain(orgId: string, domain: string) {
   const adminId = await getAdminId()
   if (!adminId) return { error: 'Unauthorized' }
   return setWhiteLabelDomain(orgId, domain, adminId)
+}
+
+export async function actionDeleteWhiteLabelApplication(orgId: string) {
+  const adminId = await getAdminId()
+  if (!adminId) return { error: 'Unauthorized' }
+  return deleteWhiteLabelApplication(orgId, adminId)
 }
 
 export async function actionPublishTemplate(templateId: string, templateTable: MasterLibraryTable, orgId: string) {

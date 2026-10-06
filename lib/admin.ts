@@ -830,6 +830,69 @@ export async function setWhiteLabelDomain(orgId: string, domain: string, adminId
   return { success: true }
 }
 
+/**
+ * Full reset — deletes every white_label_applications row for the org and
+ * clears every white-label field on organisations, back to how it looked
+ * before the org ever applied. Unlike revokeWhiteLabel (reversible,
+ * branding stays saved for later), this is destructive and permanent: it
+ * exists so Court can test the apply → pay → approve flow start to finish
+ * on her own test org, or fully clear a gym partnership that fell through.
+ */
+export async function deleteWhiteLabelApplication(orgId: string, adminId: string) {
+  const admin = createAdminClient()
+
+  const { data: org } = await admin
+    .from('organisations')
+    .select('name, custom_domain')
+    .eq('id', orgId)
+    .single()
+
+  if (!org) return { error: 'Organisation not found.' }
+
+  if (org.custom_domain) {
+    const vercelResult = await removeDomainFromVercel(org.custom_domain)
+    if (!vercelResult.removed) {
+      return { error: vercelResult.error ?? 'Could not unregister domain from Vercel.' }
+    }
+  }
+
+  const { error: deleteError } = await admin
+    .from('white_label_applications')
+    .delete()
+    .eq('org_id', orgId)
+
+  if (deleteError) return { error: deleteError.message }
+
+  const { error: updateError } = await admin
+    .from('organisations')
+    .update({
+      is_white_label: false,
+      white_label_tier: null,
+      app_name: null,
+      brand_colour: null,
+      brand_colour_secondary: null,
+      logo_url: null,
+      favicon_url: null,
+      app_icon_url: null,
+      support_email: null,
+      custom_domain: null,
+      custom_domain_verified: false,
+    })
+    .eq('id', orgId)
+
+  if (updateError) return { error: updateError.message }
+
+  await admin.from('admin_audit_log').insert({
+    admin_id: adminId,
+    action: 'delete_white_label_application',
+    target_org_id: orgId,
+    old_value: org.name,
+    new_value: null,
+  })
+
+  return { success: true }
+}
+
 // ─── Independent coach detail screen ───────────────────────────────────────
 
 export type CoachDetailProfile = {

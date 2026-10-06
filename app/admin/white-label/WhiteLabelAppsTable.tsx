@@ -6,6 +6,7 @@ import {
   actionRevokeWhiteLabel,
   actionReinstateWhiteLabel,
   actionRemoveWhiteLabelDomain,
+  actionDeleteWhiteLabelApplication,
 } from '@/app/actions/admin'
 
 export default function WhiteLabelAppsTable({
@@ -21,6 +22,9 @@ export default function WhiteLabelAppsTable({
   const [pending, startTransition] = useTransition()
   const [actionResult, setActionResult] = useState<{ error?: string; success?: boolean } | null>(null)
   const [busyOrgId, setBusyOrgId] = useState<string | null>(null)
+
+  const [deleteModal, setDeleteModal] = useState<WhiteLabelApp | null>(null)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
   function handleApprove(app: WhiteLabelApp) {
     setActionResult(null)
@@ -102,6 +106,25 @@ export default function WhiteLabelAppsTable({
         setList(prev => prev.map(a => a.org_id === app.org_id ? { ...a, org_custom_domain: null } : a))
       }
       setBusyOrgId(null)
+    })
+  }
+
+  function openDelete(app: WhiteLabelApp) {
+    setDeleteConfirmText('')
+    setActionResult(null)
+    setDeleteModal(app)
+  }
+
+  function handleDeleteSubmit() {
+    if (!deleteModal || deleteConfirmText !== deleteModal.org_name) return
+    startTransition(async () => {
+      const result = await actionDeleteWhiteLabelApplication(deleteModal.org_id)
+      if (result.error) {
+        setActionResult({ error: result.error })
+      } else {
+        setList(prev => prev.filter(a => a.id !== deleteModal.id))
+        setDeleteModal(null)
+      }
     })
   }
 
@@ -234,9 +257,24 @@ export default function WhiteLabelAppsTable({
                             Remove domain
                           </button>
                         )}
+                        <button
+                          onClick={() => openDelete(app)}
+                          disabled={pending}
+                          className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-red-900 text-red-500 hover:bg-red-950 disabled:opacity-50 transition-colors"
+                        >
+                          Delete application
+                        </button>
                       </div>
                     )}
-                    {app.status === 'rejected' && <span className="text-zinc-600 text-xs">—</span>}
+                    {app.status === 'rejected' && (
+                      <button
+                        onClick={() => openDelete(app)}
+                        disabled={pending}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-red-900 text-red-500 hover:bg-red-950 disabled:opacity-50 transition-colors"
+                      >
+                        Delete application
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -280,6 +318,46 @@ export default function WhiteLabelAppsTable({
             </div>
           </div>
           <div className="absolute inset-0 -z-10" onClick={() => setRejectModal(null)} />
+        </div>
+      )}
+
+      {/* Delete application modal — typed confirmation since this is permanent */}
+      {deleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-zinc-900 border border-red-900 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+            <h3 className="text-base font-semibold text-red-400 mb-1">Delete application</h3>
+            <p className="text-xs text-zinc-400 mb-4">
+              This permanently deletes {deleteModal.org_name}&apos;s white-label application and resets their organisation to standard branding — logo, colours, domain, everything. This can&apos;t be undone; they&apos;d need to apply again from scratch.
+            </p>
+            <label className="block text-xs text-zinc-400 mb-1.5">
+              Type <span className="font-mono text-zinc-200">{deleteModal.org_name}</span> to confirm
+            </label>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={e => setDeleteConfirmText(e.target.value)}
+              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100 mb-4 focus:outline-none focus:ring-1 focus:ring-red-500"
+            />
+            {actionResult?.error && (
+              <p className="text-xs text-red-400 mb-3">{actionResult.error}</p>
+            )}
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setDeleteModal(null)}
+                className="text-xs px-3 py-1.5 rounded-md text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteSubmit}
+                disabled={pending || deleteConfirmText !== deleteModal.org_name}
+                className="text-xs font-semibold px-4 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {pending ? 'Deleting…' : 'Delete permanently'}
+              </button>
+            </div>
+          </div>
+          <div className="absolute inset-0 -z-10" onClick={() => setDeleteModal(null)} />
         </div>
       )}
     </>

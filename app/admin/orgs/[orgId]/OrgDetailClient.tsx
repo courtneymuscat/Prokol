@@ -11,6 +11,7 @@ import {
   actionReinstateWhiteLabel,
   actionRemoveWhiteLabelDomain,
   actionSetWhiteLabelDomain,
+  actionDeleteWhiteLabelApplication,
 } from '@/app/actions/admin'
 import type { OrgDetail, OrgMemberRow, PublicationWithGrants, ArchivedClientRow, PendingWhiteLabelApplication } from '@/lib/admin'
 import type { OrgAnalytics, OrgLead } from '@/lib/org'
@@ -66,6 +67,9 @@ export default function OrgDetailClient({
   const [domainInput, setDomainInput] = useState('')
   const [setDomainPending, startSetDomainTransition] = useTransition()
   const [setDomainError, setSetDomainError] = useState<string | null>(null)
+
+  const [deleteAppPending, startDeleteAppTransition] = useTransition()
+  const [deleteAppError, setDeleteAppError] = useState<string | null>(null)
 
   const [pubList, setPubList] = useState(publications)
   const [selectedTemplateId, setSelectedTemplateId] = useState(publishableTemplates[0]?.id ?? '')
@@ -138,6 +142,23 @@ export default function OrgDetailClient({
       if (result.error) {
         setRemoveDomainError(result.error)
       } else {
+        setCustomDomain(null)
+      }
+    })
+  }
+
+  function handleDeleteApplication() {
+    const typed = prompt(
+      `This permanently deletes ${org.name}'s white-label application and resets their organisation to standard branding — logo, colours, domain, everything. This can't be undone; they'd need to apply again from scratch.\n\nType "${org.name}" to confirm:`,
+    )
+    if (typed !== org.name) return
+    setDeleteAppError(null)
+    startDeleteAppTransition(async () => {
+      const result = await actionDeleteWhiteLabelApplication(org.id)
+      if (result.error) {
+        setDeleteAppError(result.error)
+      } else {
+        setIsWhiteLabel(false)
         setCustomDomain(null)
       }
     })
@@ -371,11 +392,19 @@ export default function OrgDetailClient({
                 {reinstatePending ? 'Reinstating…' : 'Reinstate white-label'}
               </button>
             )}
+            <button
+              onClick={handleDeleteApplication}
+              disabled={deleteAppPending}
+              className="text-xs font-medium text-red-500 hover:text-red-400 disabled:opacity-50 transition-colors"
+            >
+              {deleteAppPending ? 'Deleting…' : 'Delete application'}
+            </button>
           </div>
         </div>
         {revokeError && <p className="text-xs text-red-400">{revokeError}</p>}
         {reinstateError && <p className="text-xs text-red-400">{reinstateError}</p>}
         {removeDomainError && <p className="text-xs text-red-400">{removeDomainError}</p>}
+        {deleteAppError && <p className="text-xs text-red-400">{deleteAppError}</p>}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
           <div>
