@@ -30,24 +30,57 @@ export async function GET() {
     .limit(1)
     .single()
 
-  // Once an org is approved, the free {slug}.prokol.io subdomain is live
-  // immediately — no custom domain or DNS step required. Looked up here so
-  // the page can show it without a second round trip. Also pulls the org's
-  // *live* custom_domain rather than trusting the application row's own
-  // copy — an admin can assign a domain directly (see setWhiteLabelDomain)
-  // without the org ever having requested one on their original application,
-  // and the org owner's "Check DNS" button needs to see it either way.
+  // The application's own status ("approved") is a historical record — it
+  // stays "approved" even after an admin later revokes white-label (see
+  // revokeWhiteLabel), so it must never be used on its own to decide
+  // whether to show the "live" view. organisations.is_white_label is the
+  // only source of truth for what's actually switched on right now.
+  let isLive = false
   let subdomain: string | null = null
-  let liveCustomDomain: string | null = null
+  let liveBranding: {
+    custom_domain: string | null
+    app_name: string | null
+    brand_colour: string | null
+    brand_colour_secondary: string | null
+    support_email: string | null
+    logo_url: string | null
+    favicon_url: string | null
+    app_icon_url: string | null
+  } | null = null
+
   if (application?.status === 'approved') {
-    const { data: org } = await admin.from('organisations').select('slug, custom_domain').eq('id', profile.org_id).single()
-    subdomain = org?.slug ? `${org.slug}.prokol.io` : null
-    liveCustomDomain = org?.custom_domain ?? null
+    const { data: org } = await admin
+      .from('organisations')
+      .select('slug, is_white_label, custom_domain, app_name, brand_colour, brand_colour_secondary, support_email, logo_url, favicon_url, app_icon_url')
+      .eq('id', profile.org_id)
+      .single()
+
+    isLive = org?.is_white_label ?? false
+    if (isLive) {
+      subdomain = org?.slug ? `${org.slug}.prokol.io` : null
+      liveBranding = {
+        custom_domain: org?.custom_domain ?? null,
+        app_name: org?.app_name ?? null,
+        brand_colour: org?.brand_colour ?? null,
+        brand_colour_secondary: org?.brand_colour_secondary ?? null,
+        support_email: org?.support_email ?? null,
+        logo_url: org?.logo_url ?? null,
+        favicon_url: org?.favicon_url ?? null,
+        app_icon_url: org?.app_icon_url ?? null,
+      }
+    }
   }
 
   const mergedApplication = application
-    ? { ...application, custom_domain: liveCustomDomain ?? application.custom_domain }
+    ? { ...application, custom_domain: liveBranding?.custom_domain ?? application.custom_domain }
     : null
 
-  return NextResponse.json({ application: mergedApplication, subscriptionTier, hasWhiteLabelTier, subdomain })
+  return NextResponse.json({
+    application: mergedApplication,
+    subscriptionTier,
+    hasWhiteLabelTier,
+    subdomain,
+    isLive,
+    liveBranding,
+  })
 }
