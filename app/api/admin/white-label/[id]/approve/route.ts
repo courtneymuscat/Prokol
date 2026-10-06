@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/email'
 import { addDomainToVercel } from '@/lib/vercel'
+import { notifyClientsOfBrandingChange } from '@/lib/whitelabel'
 
 export async function POST(
   _req: NextRequest,
@@ -71,6 +72,15 @@ export async function POST(
       support_email: app.support_email,
     })
     .eq('id', app.org_id)
+
+  // Tells existing active clients that if they've already pinned the app to
+  // their home screen, they need to remove and re-add it to pick up the new
+  // icon/name (a platform limitation — manifests are snapshotted at install
+  // time, not re-fetched).
+  await notifyClientsOfBrandingChange(app.org_id).catch((err) => {
+    console.error('[approve] notifyClientsOfBrandingChange failed:', err)
+    return { sent: 0 }
+  })
 
   // Add domain to Vercel — only if they actually requested a custom domain.
   // The free {slug}.prokol.io subdomain needs no per-org Vercel domain

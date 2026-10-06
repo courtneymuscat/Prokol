@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendEmail } from '@/lib/email'
 import {
   checkDnsForVercel,
   addDomainToVercel,
@@ -115,6 +116,79 @@ export function applyBrandingHeaders(headers: Headers, org: OrgBrandingRecord): 
   if (org.logo_url) headers.set('x-logo-url', org.logo_url)
   if (org.favicon_url) headers.set('x-favicon-url', org.favicon_url)
   if (org.app_icon_url) headers.set('x-app-icon-url', org.app_icon_url)
+}
+
+/**
+ * Emails every active client of an org to tell them branding just went
+ * live, and — critically — that if they've already added the app to their
+ * phone's home screen, they need to remove and re-add it to pick up the
+ * new icon/name. This is the one piece of white-label that genuinely can't
+ * be seamless: in-app branding (logo, colours) follows login automatically
+ * (see getOrgBrandingForUser), but a home-screen icon is baked in at
+ * "Add to Home Screen" time and can't be updated remotely — that's a
+ * platform limitation (iOS/Android), not something fixable in app code.
+ * Called when white-label first goes live (or is reinstated) for an org —
+ * not on every branding tweak, since there's currently no self-serve way
+ * to edit branding after initial approval.
+ */
+export async function notifyClientsOfBrandingChange(orgId: string): Promise<{ sent: number }> {
+  const admin = createAdminClient()
+
+  const { data: org } = await admin
+    .from('organisations')
+    .select('name, app_name, slug, custom_domain, custom_domain_verified')
+    .eq('id', orgId)
+    .single()
+
+  if (!org) return { sent: 0 }
+
+  const appName = org.app_name ?? org.name
+  const homeLink = org.custom_domain && org.custom_domain_verified
+    ? `https://${org.custom_domain}`
+    : `https://${org.slug}.prokol.io`
+
+  const { data: coachRows } = await admin
+    .from('org_members')
+    .select('user_id')
+    .eq('org_id', orgId)
+    .eq('is_active', true)
+
+  const coachIds = (coachRows ?? []).map((r) => r.user_id)
+  if (coachIds.length === 0) return { sent: 0 }
+
+  const { data: clientRows } = await admin
+    .from('coach_clients')
+    .select('client_id')
+    .in('coach_id', coachIds)
+    .eq('status', 'active')
+
+  const clientIds = [...new Set((clientRows ?? []).map((r) => r.client_id))]
+  if (clientIds.length === 0) return { sent: 0 }
+
+  const { data: clientProfiles } = await admin
+    .from('profiles')
+    .select('email, full_name')
+    .in('id', clientIds)
+
+  const recipients = (clientProfiles ?? []).filter((p): p is { email: string; full_name: string | null } => !!p.email)
+
+  await Promise.all(
+    recipients.map((p) =>
+      sendEmail({
+        to: p.email,
+        subject: `${appName} has a new look`,
+        html: `
+          <p>Hi ${p.full_name ?? 'there'},</p>
+          <p><strong>${appName}</strong> just got new branding.</p>
+          <p>If you've added this app to your phone's home screen, the icon and name there won't update on their own — please remove it and add it again from this link to see the new look:</p>
+          <p><a href="${homeLink}">${homeLink}</a></p>
+          <p>Everything else (logging in, your programs, messages) stays exactly the same either way.</p>
+        `,
+      }),
+    ),
+  )
+
+  return { sent: recipients.length }
 }
 
 /**

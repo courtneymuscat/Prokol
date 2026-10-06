@@ -86,6 +86,36 @@ export async function addDomainToVercel(
 }
 
 /**
+ * Unregisters a custom domain from the Vercel project — used when an admin
+ * removes an org's white-label domain (e.g. they cancel, or switch away
+ * from a custom domain back to the free {slug}.prokol.io subdomain). The
+ * wildcard *.prokol.io registration is never touched by this; only one-off
+ * custom domains (app.theirgym.com etc.) are ever passed in here.
+ */
+export async function removeDomainFromVercel(
+  domain: string,
+): Promise<{ removed: boolean; error?: string }> {
+  if (!TOKEN || !PROJECT_ID) {
+    return { removed: false, error: 'VERCEL_API_TOKEN or VERCEL_PROJECT_ID not configured' }
+  }
+
+  const res = await fetch(`${VERCEL_API}/v9/projects/${PROJECT_ID}/domains/${domain}`, {
+    method: 'DELETE',
+    headers: authHeaders(),
+  })
+
+  // 404 = already not registered — treat as OK, nothing left to do
+  if (res.status === 404) return { removed: true }
+
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}))
+    return { removed: false, error: json.error?.message ?? `Vercel API error ${res.status}` }
+  }
+
+  return { removed: true }
+}
+
+/**
  * Asks Vercel to re-probe DNS for the domain and flip its verified flag.
  * Call this after confirming DNS is correctly configured.
  */

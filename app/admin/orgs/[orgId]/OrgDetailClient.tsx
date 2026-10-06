@@ -8,6 +8,8 @@ import {
   actionGrantMasterTemplateAccess,
   actionRevokeMasterTemplateAccess,
   actionRevokeWhiteLabel,
+  actionReinstateWhiteLabel,
+  actionRemoveWhiteLabelDomain,
 } from '@/app/actions/admin'
 import type { OrgDetail, OrgMemberRow, PublicationWithGrants, ArchivedClientRow, PendingWhiteLabelApplication } from '@/lib/admin'
 import type { OrgAnalytics, OrgLead } from '@/lib/org'
@@ -53,6 +55,13 @@ export default function OrgDetailClient({
   const [revokePending, startRevokeTransition] = useTransition()
   const [revokeError, setRevokeError] = useState<string | null>(null)
 
+  const [reinstatePending, startReinstateTransition] = useTransition()
+  const [reinstateError, setReinstateError] = useState<string | null>(null)
+
+  const [customDomain, setCustomDomain] = useState(org.custom_domain)
+  const [removeDomainPending, startRemoveDomainTransition] = useTransition()
+  const [removeDomainError, setRemoveDomainError] = useState<string | null>(null)
+
   const [pubList, setPubList] = useState(publications)
   const [selectedTemplateId, setSelectedTemplateId] = useState(publishableTemplates[0]?.id ?? '')
   const [publishPending, startPublishTransition] = useTransition()
@@ -84,6 +93,33 @@ export default function OrgDetailClient({
         setRevokeError(result.error)
       } else {
         setIsWhiteLabel(false)
+      }
+    })
+  }
+
+  function handleReinstateWhiteLabel() {
+    if (!confirm(`Turn white-label back on for ${org.name}? Their active clients will be emailed to re-add their home screen icon.`)) return
+    setReinstateError(null)
+    startReinstateTransition(async () => {
+      const result = await actionReinstateWhiteLabel(org.id)
+      if (result.error) {
+        setReinstateError(result.error)
+      } else {
+        setIsWhiteLabel(true)
+      }
+    })
+  }
+
+  function handleRemoveDomain() {
+    if (!customDomain) return
+    if (!confirm(`Remove the custom domain ${customDomain} from ${org.name}? They'll fall back to their free ${org.slug}.prokol.io subdomain.`)) return
+    setRemoveDomainError(null)
+    startRemoveDomainTransition(async () => {
+      const result = await actionRemoveWhiteLabelDomain(org.id)
+      if (result.error) {
+        setRemoveDomainError(result.error)
+      } else {
+        setCustomDomain(null)
       }
     })
   }
@@ -289,17 +325,38 @@ export default function OrgDetailClient({
       <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-zinc-300">White-label</h2>
-          {isWhiteLabel && (
-            <button
-              onClick={handleRevokeWhiteLabel}
-              disabled={revokePending}
-              className="text-xs font-medium text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors"
-            >
-              {revokePending ? 'Turning off…' : 'Turn off white-label'}
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            {customDomain && (
+              <button
+                onClick={handleRemoveDomain}
+                disabled={removeDomainPending}
+                className="text-xs font-medium text-amber-400 hover:text-amber-300 disabled:opacity-50 transition-colors"
+              >
+                {removeDomainPending ? 'Removing…' : 'Remove domain'}
+              </button>
+            )}
+            {isWhiteLabel ? (
+              <button
+                onClick={handleRevokeWhiteLabel}
+                disabled={revokePending}
+                className="text-xs font-medium text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors"
+              >
+                {revokePending ? 'Turning off…' : 'Turn off white-label'}
+              </button>
+            ) : (
+              <button
+                onClick={handleReinstateWhiteLabel}
+                disabled={reinstatePending}
+                className="text-xs font-medium text-green-400 hover:text-green-300 disabled:opacity-50 transition-colors"
+              >
+                {reinstatePending ? 'Reinstating…' : 'Reinstate white-label'}
+              </button>
+            )}
+          </div>
         </div>
         {revokeError && <p className="text-xs text-red-400">{revokeError}</p>}
+        {reinstateError && <p className="text-xs text-red-400">{reinstateError}</p>}
+        {removeDomainError && <p className="text-xs text-red-400">{removeDomainError}</p>}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
           <div>
@@ -312,11 +369,11 @@ export default function OrgDetailClient({
           </div>
           <div>
             <p className="text-zinc-500 mb-1">Custom domain</p>
-            <p className="text-zinc-200">{org.custom_domain ?? '— (optional)'}</p>
+            <p className="text-zinc-200">{customDomain ?? '— (optional)'}</p>
           </div>
           <div>
             <p className="text-zinc-500 mb-1">Domain verified</p>
-            <p className="text-zinc-200">{org.custom_domain ? (org.custom_domain_verified ? 'Yes' : 'No') : '—'}</p>
+            <p className="text-zinc-200">{customDomain ? (org.custom_domain_verified ? 'Yes' : 'No') : '—'}</p>
           </div>
         </div>
 

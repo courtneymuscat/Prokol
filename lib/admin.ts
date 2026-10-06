@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
+import { notifyClientsOfBrandingChange } from '@/lib/whitelabel'
+import { removeDomainFromVercel } from '@/lib/vercel'
 
 export async function requirePlatformAdmin() {
   const supabase = await createClient()
@@ -682,6 +684,94 @@ export async function revokeWhiteLabel(orgId: string, adminId: string) {
     action: 'revoke_white_label',
     target_org_id: orgId,
     old_value: current?.white_label_tier ?? null,
+    new_value: null,
+  })
+
+  return { success: true }
+}
+
+/**
+ * Turns white-label back on for an org that was previously revoked, without
+ * making them reapply — their branding fields (logo, colours, domain) were
+ * never cleared by revokeWhiteLabel, so this just restores the flag + tier.
+ * The tier comes from their own most recent approved application, not a
+ * guess, since revoking nulls organisations.white_label_tier.
+ */
+export async function reinstateWhiteLabel(orgId: string, adminId: string) {
+  const admin = createAdminClient()
+
+  const { data: app } = await admin
+    .from('white_label_applications')
+    .select('requested_tier')
+    .eq('org_id', orgId)
+    .eq('status', 'approved')
+    .order('reviewed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (!app) {
+    return { error: 'No approved white-label application found for this org — nothing to reinstate.' }
+  }
+
+  const { error } = await admin
+    .from('organisations')
+    .update({ is_white_label: true, white_label_tier: app.requested_tier })
+    .eq('id', orgId)
+
+  if (error) return { error: error.message }
+
+  await admin.from('admin_audit_log').insert({
+    admin_id: adminId,
+    action: 'reinstate_white_label',
+    target_org_id: orgId,
+    old_value: null,
+    new_value: app.requested_tier,
+  })
+
+  await notifyClientsOfBrandingChange(orgId).catch((err) =>
+    console.error('[reinstateWhiteLabel] notifyClientsOfBrandingChange failed:', err),
+  )
+
+  return { success: true }
+}
+
+/**
+ * Detaches an org's custom domain — clears it from Supabase and unregisters
+ * it from the Vercel project. Used for cancellations or an org switching
+ * away from a custom domain back to their free {slug}.prokol.io subdomain.
+ * Doesn't touch is_white_label itself — an org can still be white-labelled
+ * via the subdomain alone.
+ */
+export async function removeWhiteLabelDomain(orgId: string, adminId: string) {
+  const admin = createAdminClient()
+
+  const { data: current } = await admin
+    .from('organisations')
+    .select('custom_domain')
+    .eq('id', orgId)
+    .single()
+
+  if (!current?.custom_domain) {
+    return { error: 'This org has no custom domain to remove.' }
+  }
+
+  const vercelResult = await removeDomainFromVercel(current.custom_domain)
+  if (!vercelResult.removed) {
+    return { error: vercelResult.error ?? 'Could not unregister domain from Vercel.' }
+  }
+
+  const { error } = await admin
+    .from('organisations')
+    .update({ custom_domain: null, custom_domain_verified: false })
+    .eq('id', orgId)
+
+  if (error) return { error: error.message }
+
+  await admin.from('admin_audit_log').insert({
+    admin_id: adminId,
+    action: 'remove_white_label_domain',
+    target_org_id: orgId,
+    old_value: current.custom_domain,
     new_value: null,
   })
 

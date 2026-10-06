@@ -2,6 +2,11 @@
 
 import { useState, useTransition } from 'react'
 import type { WhiteLabelApp } from './page'
+import {
+  actionRevokeWhiteLabel,
+  actionReinstateWhiteLabel,
+  actionRemoveWhiteLabelDomain,
+} from '@/app/actions/admin'
 
 export default function WhiteLabelAppsTable({
   apps,
@@ -15,6 +20,7 @@ export default function WhiteLabelAppsTable({
   const [rejectReason, setRejectReason] = useState('')
   const [pending, startTransition] = useTransition()
   const [actionResult, setActionResult] = useState<{ error?: string; success?: boolean } | null>(null)
+  const [busyOrgId, setBusyOrgId] = useState<string | null>(null)
 
   function handleApprove(app: WhiteLabelApp) {
     setActionResult(null)
@@ -53,6 +59,52 @@ export default function WhiteLabelAppsTable({
     })
   }
 
+  function handleRevoke(app: WhiteLabelApp) {
+    if (!confirm(`Turn off white-label for ${app.org_name}? This won't delete their domain or branding — it can be reinstated later.`)) return
+    setActionResult(null)
+    setBusyOrgId(app.org_id)
+    startTransition(async () => {
+      const result = await actionRevokeWhiteLabel(app.org_id)
+      if (result.error) {
+        setActionResult({ error: result.error })
+      } else {
+        setList(prev => prev.map(a => a.org_id === app.org_id ? { ...a, org_is_white_label: false } : a))
+      }
+      setBusyOrgId(null)
+    })
+  }
+
+  function handleReinstate(app: WhiteLabelApp) {
+    if (!confirm(`Turn white-label back on for ${app.org_name}? Their active clients will be emailed to re-add their home screen icon.`)) return
+    setActionResult(null)
+    setBusyOrgId(app.org_id)
+    startTransition(async () => {
+      const result = await actionReinstateWhiteLabel(app.org_id)
+      if (result.error) {
+        setActionResult({ error: result.error })
+      } else {
+        setList(prev => prev.map(a => a.org_id === app.org_id ? { ...a, org_is_white_label: true } : a))
+      }
+      setBusyOrgId(null)
+    })
+  }
+
+  function handleRemoveDomain(app: WhiteLabelApp) {
+    if (!app.org_custom_domain) return
+    if (!confirm(`Remove the custom domain ${app.org_custom_domain} from ${app.org_name}? They'll fall back to their free subdomain.`)) return
+    setActionResult(null)
+    setBusyOrgId(app.org_id)
+    startTransition(async () => {
+      const result = await actionRemoveWhiteLabelDomain(app.org_id)
+      if (result.error) {
+        setActionResult({ error: result.error })
+      } else {
+        setList(prev => prev.map(a => a.org_id === app.org_id ? { ...a, org_custom_domain: null } : a))
+      }
+      setBusyOrgId(null)
+    })
+  }
+
   if (list.length === 0) {
     return <p className="text-zinc-500 text-sm">No applications in this group.</p>
   }
@@ -75,10 +127,11 @@ export default function WhiteLabelAppsTable({
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Domain</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Brand</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Submitted</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Status</th>
-                {!readonly && (
-                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Actions</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Application</th>
+                {readonly && (
+                  <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Live</th>
                 )}
+                <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60">
@@ -99,7 +152,9 @@ export default function WhiteLabelAppsTable({
                     </div>
                     <p className="text-zinc-500 text-xs mt-0.5">{app.support_email}</p>
                   </td>
-                  <td className="px-4 py-3 font-mono text-zinc-300 text-xs">{app.custom_domain}</td>
+                  <td className="px-4 py-3 font-mono text-zinc-300 text-xs">
+                    {app.org_custom_domain ?? app.custom_domain}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
                       <span
@@ -127,8 +182,13 @@ export default function WhiteLabelAppsTable({
                       </p>
                     )}
                   </td>
-                  {!readonly && (
+                  {readonly && (
                     <td className="px-4 py-3">
+                      {app.status === 'approved' ? <LiveBadge live={app.org_is_white_label} /> : <span className="text-zinc-600 text-xs">—</span>}
+                    </td>
+                  )}
+                  <td className="px-4 py-3">
+                    {app.status === 'pending' && (
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleApprove(app)}
@@ -145,8 +205,39 @@ export default function WhiteLabelAppsTable({
                           Reject
                         </button>
                       </div>
-                    </td>
-                  )}
+                    )}
+                    {app.status === 'approved' && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {app.org_is_white_label ? (
+                          <button
+                            onClick={() => handleRevoke(app)}
+                            disabled={pending && busyOrgId === app.org_id}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-900/50 text-red-300 hover:bg-red-800/60 disabled:opacity-50 transition-colors"
+                          >
+                            {pending && busyOrgId === app.org_id ? 'Working…' : 'Revoke'}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleReinstate(app)}
+                            disabled={pending && busyOrgId === app.org_id}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-green-800 text-green-200 hover:bg-green-700 disabled:opacity-50 transition-colors"
+                          >
+                            {pending && busyOrgId === app.org_id ? 'Working…' : 'Reinstate'}
+                          </button>
+                        )}
+                        {app.org_custom_domain && (
+                          <button
+                            onClick={() => handleRemoveDomain(app)}
+                            disabled={pending && busyOrgId === app.org_id}
+                            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-900/40 text-amber-300 hover:bg-amber-800/60 disabled:opacity-50 transition-colors"
+                          >
+                            Remove domain
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {app.status === 'rejected' && <span className="text-zinc-600 text-xs">—</span>}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -204,6 +295,16 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full border ${styles[status] ?? 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>
       {status}
+    </span>
+  )
+}
+
+function LiveBadge({ live }: { live: boolean }) {
+  return (
+    <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full border ${
+      live ? 'bg-green-900/40 text-green-300 border-green-800' : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+    }`}>
+      {live ? 'Live' : 'Inactive'}
     </span>
   )
 }

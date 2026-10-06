@@ -61,7 +61,22 @@ vi.mock('@/lib/supabase/admin', () => ({
             orgUpdate = row
             return { eq: async () => ({ error: null }) }
           },
+          // Read side, used by notifyClientsOfBrandingChange (fired after
+          // the update above) to look up the org's name/slug/domain.
+          select: () => ({
+            eq: () => ({
+              single: async () => ({
+                data: { name: 'Pro Gym Org', app_name: 'Pro Gym', slug: 'pro-gym', custom_domain: null, custom_domain_verified: false },
+                error: null,
+              }),
+            }),
+          }),
         }
+      }
+      if (table === 'org_members') {
+        // No active coaches in this org — notifyClientsOfBrandingChange
+        // should resolve to zero sent without reaching coach_clients/profiles.
+        return { select: () => ({ eq: () => ({ eq: async () => ({ data: [] }) }) }) }
       }
       throw new Error(`unexpected table: ${table}`)
     },

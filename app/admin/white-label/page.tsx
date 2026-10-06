@@ -22,6 +22,12 @@ export type WhiteLabelApp = {
   rejection_reason: string | null
   owner_email: string | null
   owner_name: string | null
+  // Live state on the org row itself — distinct from the application's own
+  // status. An application can stay "approved" (an honest historical
+  // record) long after an admin has turned white-label off, so the table
+  // needs both: what was decided, and what's actually live right now.
+  org_is_white_label: boolean
+  org_custom_domain: string | null
 }
 
 export default async function AdminWhiteLabelPage() {
@@ -61,9 +67,22 @@ export default async function AdminWhiteLabelPage() {
     ownerMap[o.id] = { email: o.email, full_name: o.full_name }
   }
 
+  // Live org state, fetched separately from the application history — an
+  // org's actual is_white_label/custom_domain can drift from what its
+  // original application said (revoked, domain removed, reinstated, etc.).
+  const appOrgIds = [...new Set(applications.map(a => a.org_id))]
+  const { data: liveOrgs } = appOrgIds.length
+    ? await admin.from('organisations').select('id, is_white_label, custom_domain').in('id', appOrgIds)
+    : { data: [] }
+  const liveOrgMap: Record<string, { is_white_label: boolean; custom_domain: string | null }> = {}
+  for (const o of liveOrgs ?? []) {
+    liveOrgMap[o.id] = { is_white_label: o.is_white_label, custom_domain: o.custom_domain }
+  }
+
   const apps: WhiteLabelApp[] = applications.map(a => {
     const org = a.organisations as { name: string; owner_id: string } | null
     const owner = org?.owner_id ? (ownerMap[org.owner_id] ?? null) : null
+    const live = liveOrgMap[a.org_id]
     return {
       id: a.id,
       org_id: a.org_id,
@@ -82,6 +101,8 @@ export default async function AdminWhiteLabelPage() {
       rejection_reason: a.rejection_reason,
       owner_email: owner?.email ?? null,
       owner_name: owner?.full_name ?? null,
+      org_is_white_label: live?.is_white_label ?? false,
+      org_custom_domain: live?.custom_domain ?? null,
     }
   })
 
