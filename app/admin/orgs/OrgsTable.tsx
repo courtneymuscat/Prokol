@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { actionSuspendAccount } from '@/app/actions/admin'
+import AdminActionsMenu from '../_components/AdminActionsMenu'
 
 type Org = {
   id: string
@@ -29,7 +30,6 @@ export default function OrgsTable({
   page: number
 }) {
   const [orgs] = useState(initialOrgs)
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
 
   const [suspendModal, setSuspendModal] = useState<{ org: Org } | null>(null)
   const [suspendReason, setSuspendReason] = useState('')
@@ -42,7 +42,7 @@ export default function OrgsTable({
     startSuspendTransition(async () => {
       const result = await actionSuspendAccount(suspendModal.org.owner_id, suspendReason)
       setSuspendResult(result)
-      if (result.success) {
+      if (!result.error) {
         setTimeout(() => {
           setSuspendModal(null)
           setSuspendResult(null)
@@ -113,25 +113,19 @@ export default function OrgsTable({
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="relative">
-                      <button
-                        onClick={() => setOpenDropdown(openDropdown === org.id ? null : org.id)}
-                        className="text-xs font-medium text-zinc-400 hover:text-zinc-200 px-2.5 py-1.5 rounded-md hover:bg-zinc-800 transition-colors border border-zinc-700"
-                      >
-                        Actions ▾
-                      </button>
-                      {openDropdown === org.id && (
-                        <div className="absolute right-0 top-full mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-10 w-40 py-1">
+                    <AdminActionsMenu>
+                      {(close) => (
+                        <>
                           <a
                             href={`/admin/orgs/${org.id}`}
-                            onClick={() => setOpenDropdown(null)}
+                            onClick={close}
                             className="block px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 transition-colors"
                           >
                             Open org →
                           </a>
                           <button
                             onClick={() => {
-                              setOpenDropdown(null)
+                              close()
                               setSuspendReason('')
                               setSuspendModal({ org })
                             }}
@@ -141,14 +135,14 @@ export default function OrgsTable({
                           </button>
                           <a
                             href={`/admin/coaches?search=${encodeURIComponent(org.owner_email ?? '')}`}
-                            onClick={() => setOpenDropdown(null)}
+                            onClick={close}
                             className="block px-3 py-2 text-xs text-zinc-300 hover:bg-zinc-700 transition-colors"
                           >
                             View owner →
                           </a>
-                        </div>
+                        </>
                       )}
-                    </div>
+                    </AdminActionsMenu>
                   </td>
                 </tr>
               ))}
@@ -224,11 +218,6 @@ export default function OrgsTable({
           </div>
           <div className="absolute inset-0 -z-10" onClick={() => setSuspendModal(null)} />
         </div>
-      )}
-
-      {/* Backdrop */}
-      {openDropdown && (
-        <div className="fixed inset-0 z-0" onClick={() => setOpenDropdown(null)} />
       )}
     </>
   )

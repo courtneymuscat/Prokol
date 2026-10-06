@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
+import type { OrgAnalytics } from '@/lib/org'
 
 export async function requirePlatformAdmin() {
   const supabase = await createClient()
@@ -79,6 +80,99 @@ export async function getPlatformStats() {
     new_signups_7d: signups7dRes.count ?? 0,
     new_signups_30d: signups30dRes.count ?? 0,
     active_trials: trialsRes.count ?? 0,
+  }
+}
+
+function analyticsWeekStart(date: Date): Date {
+  const d = new Date(date)
+  const diff = d.getDay() === 0 ? -6 : 1 - d.getDay()
+  d.setDate(d.getDate() + diff)
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
+function analyticsAddDays(d: Date, n: number): Date {
+  const r = new Date(d)
+  r.setDate(r.getDate() + n)
+  return r
+}
+
+function analyticsDateStr(d: Date): string {
+  return d.toISOString().split('T')[0]
+}
+
+/**
+ * Platform-wide growth/churn analytics — every coach on Prokol, not scoped
+ * to any one organisation. This is the "Prokol umbrella" view: Admin Mode's
+ * Analytics tab is about running the platform, which is a different lens
+ * than computeOrgAnalytics (lib/org.ts) — that one is "this org's own
+ * business," used both by the regular Business dashboard and by the
+ * per-org Analytics tab inside an org's own Admin Mode detail page.
+ */
+export async function computePlatformAnalytics(): Promise<OrgAnalytics> {
+  const admin = createAdminClient()
+  const now = new Date()
+  const monthStart = analyticsDateStr(new Date(now.getFullYear(), now.getMonth(), 1))
+
+  const [rowsRes, coachesRes] = await Promise.all([
+    admin
+      .from('coach_clients')
+      .select('coach_id, client_id, accepted_at, archived_at, status')
+      .in('status', ['active', 'archived']),
+    admin.from('profiles').select('id, full_name, email').eq('user_type', 'coach'),
+  ])
+
+  const rows = rowsRes.data ?? []
+  const coachMap = Object.fromEntries((coachesRes.data ?? []).map((c) => [c.id, c.full_name ?? c.email ?? 'Unknown']))
+
+  const totalActive = rows.filter((r) => r.status === 'active').length
+
+  const byCoach: Record<string, number> = {}
+  for (const r of rows) {
+    if (r.status === 'active') byCoach[r.coach_id] = (byCoach[r.coach_id] ?? 0) + 1
+  }
+  const clientsByCoach = Object.entries(byCoach)
+    .map(([id, count]) => ({ name: coachMap[id] ?? 'Unknown', count }))
+    .sort((a, b) => b.count - a.count)
+
+  const newMTD = rows.filter((r) => r.accepted_at && r.accepted_at >= monthStart).length
+  const cancelsMTD = rows.filter((r) => r.archived_at && r.archived_at >= monthStart + 'T00:00:00').length
+  const totalAtMonthStart = rows.filter(
+    (r) => r.accepted_at && r.accepted_at < monthStart && (!r.archived_at || r.archived_at >= monthStart + 'T00:00:00'),
+  ).length
+  const mtdChurnPct = totalAtMonthStart > 0 ? Math.round((cancelsMTD / totalAtMonthStart) * 100) : 0
+
+  const weekly = Array.from({ length: 8 }, (_, i) => {
+    const ws = analyticsAddDays(analyticsWeekStart(now), -(7 - i) * 7)
+    const we = analyticsAddDays(ws, 6)
+    const wsStr = analyticsDateStr(ws)
+    const weEnd = analyticsDateStr(we) + 'T23:59:59'
+    const wsStart = wsStr + 'T00:00:00'
+
+    const newC = rows.filter((r) => r.accepted_at && r.accepted_at >= wsStr && r.accepted_at <= weEnd).length
+    const churned = rows.filter((r) => r.archived_at && r.archived_at >= wsStart && r.archived_at <= weEnd).length
+    const totalAtStart = rows.filter(
+      (r) => r.accepted_at && r.accepted_at < wsStr && (!r.archived_at || r.archived_at >= wsStart),
+    ).length
+
+    return {
+      label: ws.toLocaleDateString('en-AU', { day: '2-digit', month: 'short' }),
+      total: totalAtStart + newC,
+      new: newC,
+      churned,
+      net: newC - churned,
+      churn_pct: totalAtStart > 0 ? Math.round((churned / totalAtStart) * 100) : 0,
+    }
+  })
+
+  return {
+    total_active: totalActive,
+    new_mtd: newMTD,
+    cancels_mtd: cancelsMTD,
+    mtd_churn_pct: mtdChurnPct,
+    net_growth_mtd: newMTD - cancelsMTD,
+    clients_by_coach: clientsByCoach,
+    weekly,
   }
 }
 
@@ -370,7 +464,7 @@ export async function getOrgDetail(orgId: string) {
       .single(),
     admin
       .from('org_members')
-      .select('id, user_id, role, is_active, profiles(full_name, email)')
+      .select('id, user_id, role, is_active')
       .eq('org_id', orgId)
       .order('role'),
     admin
@@ -383,17 +477,29 @@ export async function getOrgDetail(orgId: string) {
       .maybeSingle(),
   ])
 
-  const memberRows: OrgMemberRow[] = (members ?? []).map((m) => {
-    const profile = m.profiles as unknown as { full_name: string | null; email: string | null } | null
-    return {
-      id: m.id,
-      user_id: m.user_id,
-      role: m.role,
-      is_active: m.is_active,
-      full_name: profile?.full_name ?? null,
-      email: profile?.email ?? null,
-    }
-  })
+  // Fetched separately rather than via an embedded `profiles(...)` join —
+  // org_members.user_id has no FK PostgREST can discover against public
+  // profiles (it's keyed to auth.users), so the embed silently errors and
+  // returns null, which previously made every org look like it had zero
+  // members (and, downstream, zero archived clients) regardless of the
+  // actual data.
+  const memberUserIds = (members ?? []).map((m) => m.user_id)
+  const memberProfilesRes = memberUserIds.length
+    ? await admin.from('profiles').select('id, full_name, email').in('id', memberUserIds)
+    : { data: [] }
+  const memberProfileMap: Record<string, { full_name: string | null; email: string | null }> = {}
+  for (const p of memberProfilesRes.data ?? []) {
+    memberProfileMap[p.id] = { full_name: p.full_name, email: p.email }
+  }
+
+  const memberRows: OrgMemberRow[] = (members ?? []).map((m) => ({
+    id: m.id,
+    user_id: m.user_id,
+    role: m.role,
+    is_active: m.is_active,
+    full_name: memberProfileMap[m.user_id]?.full_name ?? null,
+    email: memberProfileMap[m.user_id]?.email ?? null,
+  }))
 
   const { listOrgPublications, listCoachGrantsForTemplate } = await import('@/lib/org')
   const rawPublications = await listOrgPublications(orgId)
