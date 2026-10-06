@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { updateCoachTier, suspendAccount, setOrgTenantType } from '@/lib/admin'
+import { updateCoachTier, suspendAccount, setOrgTenantType, revokeWhiteLabel } from '@/lib/admin'
 import {
   publishMasterTemplate,
   unpublishMasterTemplate,
@@ -41,6 +41,12 @@ export async function actionSetOrgTenantType(orgId: string, tenantType: 'coachin
   const adminId = await getAdminId()
   if (!adminId) return { error: 'Unauthorized' }
   return setOrgTenantType(orgId, tenantType, adminId)
+}
+
+export async function actionRevokeWhiteLabel(orgId: string) {
+  const adminId = await getAdminId()
+  if (!adminId) return { error: 'Unauthorized' }
+  return revokeWhiteLabel(orgId, adminId)
 }
 
 export async function actionPublishTemplate(templateId: string, templateTable: MasterLibraryTable, orgId: string) {

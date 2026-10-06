@@ -7,6 +7,7 @@ import {
   actionUnpublishTemplate,
   actionGrantMasterTemplateAccess,
   actionRevokeMasterTemplateAccess,
+  actionRevokeWhiteLabel,
 } from '@/app/actions/admin'
 import type { OrgDetail, OrgMemberRow, PublicationWithGrants, ArchivedClientRow, PendingWhiteLabelApplication } from '@/lib/admin'
 import type { OrgAnalytics, OrgLead } from '@/lib/org'
@@ -48,6 +49,10 @@ export default function OrgDetailClient({
   const [tenantTypeSaving, startTenantTypeTransition] = useTransition()
   const [tenantTypeMsg, setTenantTypeMsg] = useState<string | null>(null)
 
+  const [isWhiteLabel, setIsWhiteLabel] = useState(org.is_white_label)
+  const [revokePending, startRevokeTransition] = useTransition()
+  const [revokeError, setRevokeError] = useState<string | null>(null)
+
   const [pubList, setPubList] = useState(publications)
   const [selectedTemplateId, setSelectedTemplateId] = useState(publishableTemplates[0]?.id ?? '')
   const [publishPending, startPublishTransition] = useTransition()
@@ -66,6 +71,19 @@ export default function OrgDetailClient({
         setTenantTypeMsg(result.error)
       } else {
         setTenantTypeMsg('Saved.')
+      }
+    })
+  }
+
+  function handleRevokeWhiteLabel() {
+    if (!confirm(`Turn off white-label for ${org.name}? This won't delete their domain or branding — it can be re-approved later.`)) return
+    setRevokeError(null)
+    startRevokeTransition(async () => {
+      const result = await actionRevokeWhiteLabel(org.id)
+      if (result.error) {
+        setRevokeError(result.error)
+      } else {
+        setIsWhiteLabel(false)
       }
     })
   }
@@ -269,12 +287,24 @@ export default function OrgDetailClient({
 
       {/* White-label */}
       <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-5 space-y-4">
-        <h2 className="text-sm font-semibold text-zinc-300">White-label</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-zinc-300">White-label</h2>
+          {isWhiteLabel && (
+            <button
+              onClick={handleRevokeWhiteLabel}
+              disabled={revokePending}
+              className="text-xs font-medium text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors"
+            >
+              {revokePending ? 'Turning off…' : 'Turn off white-label'}
+            </button>
+          )}
+        </div>
+        {revokeError && <p className="text-xs text-red-400">{revokeError}</p>}
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
           <div>
             <p className="text-zinc-500 mb-1">Status</p>
-            <p className="text-zinc-200">{org.is_white_label ? 'White-labelled' : 'Standard branding'}</p>
+            <p className="text-zinc-200">{isWhiteLabel ? 'White-labelled' : 'Standard branding'}</p>
           </div>
           <div>
             <p className="text-zinc-500 mb-1">Tier</p>
@@ -290,7 +320,7 @@ export default function OrgDetailClient({
           </div>
         </div>
 
-        {org.is_white_label && (
+        {isWhiteLabel && (
           <div className="bg-green-900/15 border border-green-800/60 rounded-lg px-4 py-2.5 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-semibold text-green-400 uppercase tracking-wide">Free subdomain — live instantly, no DNS needed</p>
@@ -374,7 +404,7 @@ export default function OrgDetailClient({
           </div>
         )}
 
-        {!wlApp && !org.is_white_label && (
+        {!wlApp && !isWhiteLabel && (
           <p className="text-xs text-zinc-500">No pending or active white-label setup for this org.</p>
         )}
       </div>

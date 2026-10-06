@@ -1,15 +1,18 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { isWhiteLabelDomain, getOrgByDomain } from '@/lib/whitelabel'
+import { isWhiteLabelDomain, getOrgByDomain, getOrgBrandingForUser, applyBrandingHeaders } from '@/lib/whitelabel'
 
 export async function proxy(req: NextRequest) {
-  // ── White-label domain detection ──────────────────────────────────────────
-  // Must run before auth so branding headers are available to server components.
   const hostname = req.headers.get('host') ?? ''
-  let requestHeaders = new Headers(req.headers)
+  const path = req.nextUrl.pathname
+  const requestHeaders = new Headers(req.headers)
 
-  if (isWhiteLabelDomain(hostname)) {
+  // ── White-label domain detection ──────────────────────────────────────────
+  // A request arriving on an org's own subdomain/custom domain always gets
+  // that org's branding, regardless of who (if anyone) is logged in.
+  const onWhiteLabelDomain = isWhiteLabelDomain(hostname)
+  if (onWhiteLabelDomain) {
     const org = await getOrgByDomain(hostname)
 
     if (!org) {
@@ -19,25 +22,13 @@ export async function proxy(req: NextRequest) {
       )
     }
 
-    requestHeaders.set('x-org-id', org.id)
-    requestHeaders.set('x-app-name', org.app_name ?? org.name)
-    requestHeaders.set('x-brand-colour', org.brand_colour ?? '#F5C842')
-    requestHeaders.set('x-brand-colour-secondary', org.brand_colour_secondary ?? '#1A1A1A')
-    requestHeaders.set('x-brand-colour-text', org.brand_colour_text ?? '#1A1A1A')
-    requestHeaders.set('x-is-white-label', 'true')
-    if (org.logo_url) requestHeaders.set('x-logo-url', org.logo_url)
-    if (org.favicon_url) requestHeaders.set('x-favicon-url', org.favicon_url)
-    if (org.app_icon_url) requestHeaders.set('x-app-icon-url', org.app_icon_url)
+    applyBrandingHeaders(requestHeaders, org)
   }
 
-  // ── Auth session refresh + route guards ───────────────────────────────────
   // Surface the request path so server components can read it via headers().
   // Next 16's runtime doesn't always set x-invoke-path on its own.
-  requestHeaders.set('x-pathname', req.nextUrl.pathname)
+  requestHeaders.set('x-pathname', path)
 
-  const res = NextResponse.next({ request: { headers: requestHeaders } })
-
-  const path = req.nextUrl.pathname
   const isProtected =
     path.startsWith('/dashboard') ||
     path.startsWith('/onboarding') ||
@@ -46,6 +37,10 @@ export async function proxy(req: NextRequest) {
     path.startsWith('/org') ||
     path.startsWith('/print')
   const isAuthPage = path === '/login' || path === '/signup'
+  // Admin Mode always stays Prokol-branded — even for a platform admin who
+  // also owns a white-labelled org — it's the platform-operator surface,
+  // not that org's own experience.
+  const isAdminPath = path.startsWith('/admin')
 
   // Fast path: a request without any Supabase auth cookie can't be signed in,
   // so we skip the Supabase round-trip entirely. Saves ~50–150 ms on every
@@ -63,8 +58,15 @@ export async function proxy(req: NextRequest) {
   }
 
   if (!hasSupabaseCookie) {
-    return res
+    return NextResponse.next({ request: { headers: requestHeaders } })
   }
+
+  // Temporary response purely to let the Supabase client attach refreshed
+  // session cookies as a side effect of getSession() below. The real
+  // response is built at the very end, once every header decision —
+  // including the logged-in-user branding lookup, which needs the session
+  // first — is resolved; its cookies are copied over from this one.
+  const cookieCarrier = NextResponse.next()
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -77,7 +79,7 @@ export async function proxy(req: NextRequest) {
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
             req.cookies.set(name, value)
-            res.cookies.set(name, value, options)
+            cookieCarrier.cookies.set(name, value, options)
           })
         },
       },
@@ -107,6 +109,24 @@ export async function proxy(req: NextRequest) {
     }
     return NextResponse.redirect(new URL('/dashboard', req.url))
   }
+
+  // ── Logged-in-user white-label branding (by account, not domain) ─────────
+  // Makes white-label "seamless": a coach or client who signed up on plain
+  // prokol.io long before their org ever went white-label sees the right
+  // branding the moment they're logged in — no special link, no redirect
+  // (which would break anyway, since session cookies aren't shared across
+  // *.prokol.io subdomains or custom domains — see lib/supabase/server.ts).
+  // Only applies when the domain itself didn't already resolve branding,
+  // and never inside Admin Mode.
+  if (session && !onWhiteLabelDomain && !isAdminPath) {
+    const orgBranding = await getOrgBrandingForUser(session.user.id)
+    if (orgBranding) {
+      applyBrandingHeaders(requestHeaders, orgBranding)
+    }
+  }
+
+  const res = NextResponse.next({ request: { headers: requestHeaders } })
+  cookieCarrier.cookies.getAll().forEach((cookie) => res.cookies.set(cookie))
 
   return res
 }
