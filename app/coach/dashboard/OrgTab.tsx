@@ -708,7 +708,12 @@ export default function OrgTab() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                      {relativeDate(client.last_checkin_at)}
+                      <a
+                        href={`/coach/clients/${client.id}?tab=checkins`}
+                        className="hover:text-blue-600 hover:underline transition-colors"
+                      >
+                        {relativeDate(client.last_checkin_at)}
+                      </a>
                     </td>
                     <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
                       {client.join_date ? new Date(client.join_date).toLocaleDateString() : '—'}

@@ -44,8 +44,14 @@ export async function GET() {
 
   const clientIds = [...new Set(clientRows.map((r) => r.client_id))]
 
-  // Fetch client profiles and coach profiles in parallel
-  const [clientProfiles, coachProfiles, lastCheckIns] = await Promise.all([
+  // Fetch client profiles and coach profiles in parallel. "Last check-in"
+  // merges three sources, same as the coach's own /coach/clients list
+  // (app/coach/clients/page.tsx) — the raw daily check_ins table,
+  // autoflow_responses, and form_submissions (weekly check-in forms,
+  // onboarding forms, etc.). Querying check_ins alone — the original bug
+  // here — showed "Never" for any client who only ever submits via a form,
+  // which is the primary way most coaches actually run check-ins.
+  const [clientProfiles, coachProfiles, latestCheckIns, latestAutoflowResps, latestFormSubs] = await Promise.all([
     admin
       .from('profiles')
       .select('id, email, full_name, subscription_tier')
@@ -60,7 +66,20 @@ export async function GET() {
       .from('check_ins')
       .select('user_id, created_at')
       .in('user_id', clientIds)
+      .or('sleep_hours.not.is.null,notes.not.is.null,rhr.not.is.null,hrv.not.is.null')
       .order('created_at', { ascending: false }),
+
+    admin
+      .from('autoflow_responses')
+      .select('client_id, submitted_at')
+      .in('client_id', clientIds)
+      .order('submitted_at', { ascending: false }),
+
+    admin
+      .from('form_submissions')
+      .select('client_id, submitted_at')
+      .in('client_id', clientIds)
+      .order('submitted_at', { ascending: false }),
   ])
 
   const clientProfileMap = Object.fromEntries(
@@ -70,10 +89,18 @@ export async function GET() {
     (coachProfiles.data ?? []).map((p) => [p.id, p])
   )
 
-  // Latest check-in per client
+  // Latest check-in per client, across all three sources.
   const lastCheckInMap: Record<string, string> = {}
-  for (const ci of lastCheckIns.data ?? []) {
+  for (const ci of latestCheckIns.data ?? []) {
     if (!lastCheckInMap[ci.user_id]) lastCheckInMap[ci.user_id] = ci.created_at
+  }
+  for (const r of latestAutoflowResps.data ?? []) {
+    const existing = lastCheckInMap[r.client_id]
+    if (!existing || r.submitted_at > existing) lastCheckInMap[r.client_id] = r.submitted_at
+  }
+  for (const r of latestFormSubs.data ?? []) {
+    const existing = lastCheckInMap[r.client_id]
+    if (!existing || r.submitted_at > existing) lastCheckInMap[r.client_id] = r.submitted_at
   }
 
   const clients = clientRows.map((row) => ({
