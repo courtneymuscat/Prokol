@@ -310,6 +310,25 @@ export async function POST(req: NextRequest) {
             if (!COACH_TIERS.has(prevTier) && COACH_TIERS.has(tier)) {
               await restoreCoachedClientsForCoach(supabase, profile.id as string)
             }
+
+            // Keep an already-white-labelled org's white_label_tier in sync
+            // with its owner's actual paid tier, so an upgrade/downgrade
+            // between wl_starter/wl_pro doesn't silently drift from what
+            // they're actually paying for. Only touches orgs that are
+            // already white-labelled (via admin approval) — doesn't grant
+            // or revoke white-label status itself.
+            const WL_TIER_MAP: Record<string, 'starter' | 'pro'> = { wl_starter: 'starter', wl_pro: 'pro' }
+            const newWlTier = WL_TIER_MAP[tier] ?? null
+            if (WL_TIER_MAP[prevTier] || newWlTier) {
+              const { data: ownedOrg } = await supabase
+                .from('organisations')
+                .select('id, is_white_label')
+                .eq('owner_id', profile.id)
+                .maybeSingle()
+              if (ownedOrg?.is_white_label) {
+                await supabase.from('organisations').update({ white_label_tier: newWlTier }).eq('id', ownedOrg.id)
+              }
+            }
           }
         }
       }
