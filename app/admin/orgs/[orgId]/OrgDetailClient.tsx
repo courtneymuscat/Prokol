@@ -9,8 +9,20 @@ import {
   actionRevokeMasterTemplateAccess,
 } from '@/app/actions/admin'
 import type { OrgDetail, OrgMemberRow, PublicationWithGrants, ArchivedClientRow, PendingWhiteLabelApplication } from '@/lib/admin'
+import type { OrgAnalytics, OrgLead } from '@/lib/org'
+import AdminAnalyticsView from '../../AdminAnalyticsView'
+import AdminOrgLeadsPanel from './AdminOrgLeadsPanel'
 
 type PublishableTemplate = { id: string; name: string }
+
+const TABS = [
+  { id: 'org', label: 'Organisation' },
+  { id: 'leads', label: 'Leads' },
+  { id: 'archived', label: 'Archived' },
+  { id: 'analytics', label: 'Analytics' },
+  { id: 'templates', label: 'Templates' },
+] as const
+type TabId = typeof TABS[number]['id']
 
 export default function OrgDetailClient({
   org,
@@ -19,6 +31,8 @@ export default function OrgDetailClient({
   publishableTemplates,
   archivedClients,
   pendingWhiteLabelApplication,
+  analytics,
+  initialLeads,
 }: {
   org: OrgDetail
   members: OrgMemberRow[]
@@ -26,7 +40,10 @@ export default function OrgDetailClient({
   publishableTemplates: PublishableTemplate[]
   archivedClients: ArchivedClientRow[]
   pendingWhiteLabelApplication: PendingWhiteLabelApplication | null
+  analytics: OrgAnalytics
+  initialLeads: OrgLead[]
 }) {
+  const [activeTab, setActiveTab] = useState<TabId>('org')
   const [tenantType, setTenantType] = useState(org.tenant_type)
   const [tenantTypeSaving, startTenantTypeTransition] = useTransition()
   const [tenantTypeMsg, setTenantTypeMsg] = useState<string | null>(null)
@@ -153,6 +170,25 @@ export default function OrgDetailClient({
 
   return (
     <div className="space-y-6">
+      {/* Tab bar */}
+      <div className="flex gap-1 border-b border-zinc-800 overflow-x-auto">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              activeTab === t.id
+                ? 'border-blue-500 text-blue-400'
+                : 'border-transparent text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'org' && (
+      <>
       {/* Org info + tenant type */}
       <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-5 space-y-4">
         <h2 className="text-sm font-semibold text-zinc-300">Organisation</h2>
@@ -326,7 +362,19 @@ export default function OrgDetailClient({
           <p className="text-xs text-zinc-500">No pending or active white-label setup for this org.</p>
         )}
       </div>
+      </>
+      )}
 
+      {activeTab === 'leads' && (
+        <AdminOrgLeadsPanel orgId={org.id} initialLeads={initialLeads} />
+      )}
+
+      {activeTab === 'analytics' && (
+        <AdminAnalyticsView data={analytics} />
+      )}
+
+      {activeTab === 'archived' && (
+      <>
       {/* Archived clients */}
       <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-5 space-y-3">
         <h2 className="text-sm font-semibold text-zinc-300">Archived clients ({archivedClients.length})</h2>
@@ -358,7 +406,11 @@ export default function OrgDetailClient({
           </div>
         )}
       </div>
+      </>
+      )}
 
+      {activeTab === 'templates' && (
+      <>
       {/* Master templates published to this org */}
       <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-5 space-y-4">
         <h2 className="text-sm font-semibold text-zinc-300">Master templates published to this org</h2>
@@ -443,6 +495,8 @@ export default function OrgDetailClient({
           )}
         </div>
       </div>
+      </>
+      )}
     </div>
   )
 }

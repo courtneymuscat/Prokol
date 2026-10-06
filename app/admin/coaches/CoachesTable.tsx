@@ -150,8 +150,10 @@ export default function CoachesTable({
               {filtered.map(coach => (
                 <Fragment key={coach.id}>
                 <tr className="hover:bg-zinc-800/30 transition-colors">
-                  <td className="px-4 py-3 text-zinc-200 font-medium">
-                    {coach.full_name ?? <span className="text-zinc-500 italic">No name</span>}
+                  <td className="px-4 py-3 font-medium">
+                    <a href={`/admin/coaches/${coach.id}`} className="text-zinc-200 hover:text-blue-400 transition-colors">
+                      {coach.full_name ?? <span className="text-zinc-500 italic">No name</span>}
+                    </a>
                   </td>
                   <td className="px-4 py-3 text-zinc-400 text-xs">{coach.email ?? '—'}</td>
                   <td className="px-4 py-3">
