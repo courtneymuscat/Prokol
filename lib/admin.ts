@@ -464,7 +464,7 @@ export async function getOrgDetail(orgId: string) {
       .single(),
     admin
       .from('org_members')
-      .select('id, user_id, role, is_active, profiles(full_name, email)')
+      .select('id, user_id, role, is_active')
       .eq('org_id', orgId)
       .order('role'),
     admin
@@ -477,17 +477,29 @@ export async function getOrgDetail(orgId: string) {
       .maybeSingle(),
   ])
 
-  const memberRows: OrgMemberRow[] = (members ?? []).map((m) => {
-    const profile = m.profiles as unknown as { full_name: string | null; email: string | null } | null
-    return {
-      id: m.id,
-      user_id: m.user_id,
-      role: m.role,
-      is_active: m.is_active,
-      full_name: profile?.full_name ?? null,
-      email: profile?.email ?? null,
-    }
-  })
+  // Fetched separately rather than via an embedded `profiles(...)` join —
+  // org_members.user_id has no FK PostgREST can discover against public
+  // profiles (it's keyed to auth.users), so the embed silently errors and
+  // returns null, which previously made every org look like it had zero
+  // members (and, downstream, zero archived clients) regardless of the
+  // actual data.
+  const memberUserIds = (members ?? []).map((m) => m.user_id)
+  const memberProfilesRes = memberUserIds.length
+    ? await admin.from('profiles').select('id, full_name, email').in('id', memberUserIds)
+    : { data: [] }
+  const memberProfileMap: Record<string, { full_name: string | null; email: string | null }> = {}
+  for (const p of memberProfilesRes.data ?? []) {
+    memberProfileMap[p.id] = { full_name: p.full_name, email: p.email }
+  }
+
+  const memberRows: OrgMemberRow[] = (members ?? []).map((m) => ({
+    id: m.id,
+    user_id: m.user_id,
+    role: m.role,
+    is_active: m.is_active,
+    full_name: memberProfileMap[m.user_id]?.full_name ?? null,
+    email: memberProfileMap[m.user_id]?.email ?? null,
+  }))
 
   const { listOrgPublications, listCoachGrantsForTemplate } = await import('@/lib/org')
   const rawPublications = await listOrgPublications(orgId)
