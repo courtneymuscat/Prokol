@@ -152,6 +152,14 @@ function PlanCard({
         >
           Managed by organisation
         </button>
+      ) : current && (plan.id === 'wl_starter' || plan.id === 'wl_pro') ? (
+        <a
+          href="/org/white-label"
+          className="block w-full py-2.5 rounded-xl text-sm font-semibold text-center text-white transition-opacity hover:opacity-90"
+          style={{ backgroundColor: '#1D9E75' }}
+        >
+          Set up your branding →
+        </a>
       ) : current ? (
         <button disabled className="w-full py-2.5 rounded-xl text-sm font-semibold bg-gray-100 text-gray-400 cursor-not-allowed">
           Current plan

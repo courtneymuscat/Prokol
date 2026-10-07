@@ -60,6 +60,7 @@ export default async function SubscribeSuccessPage({
   let trialEnd: number | null = null
   let planName = 'your plan'
   let isCoach = false
+  let isWhiteLabel = false
 
   try {
     const session = await stripe.checkout.sessions.retrieve(session_id, {
@@ -104,6 +105,7 @@ export default async function SubscribeSuccessPage({
             : null,
         }, { onConflict: 'id' })
         isCoach = resolvedUserType === 'coach' || resolvedUserType === 'business'
+        isWhiteLabel = tier === 'wl_starter' || tier === 'wl_pro'
       }
     }
 
@@ -121,6 +123,8 @@ export default async function SubscribeSuccessPage({
       coach_nutritionist_solo: 'Coach Solo',
       coach_pro: 'Coach Pro',
       coach_business: 'Coach Business',
+      wl_starter: 'Web White-label',
+      wl_pro: 'App Store White-label',
     }
     planName = TIER_NAMES[tierKey] ?? 'your plan'
   } catch (err) {
@@ -169,20 +173,46 @@ export default async function SubscribeSuccessPage({
           </div>
         )}
 
+        {isWhiteLabel && (
+          <p className="text-xs text-gray-400 -mt-2">
+            One more step — set up your branding to go live.
+          </p>
+        )}
+
         <div className="space-y-3">
-          <Link
-            href={isCoach ? '/coach/dashboard' : '/dashboard'}
-            className="block w-full py-3 rounded-xl text-sm font-semibold text-center text-white transition-opacity hover:opacity-90"
-            style={{ backgroundColor: '#1D9E75' }}
-          >
-            Go to dashboard →
-          </Link>
-          <Link
-            href="/settings"
-            className="block w-full py-3 rounded-xl text-sm font-semibold text-center border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-          >
-            View billing & subscription
-          </Link>
+          {isWhiteLabel ? (
+            <>
+              <Link
+                href="/org/white-label"
+                className="block w-full py-3 rounded-xl text-sm font-semibold text-center text-white transition-opacity hover:opacity-90"
+                style={{ backgroundColor: '#1D9E75' }}
+              >
+                Set up your branding →
+              </Link>
+              <Link
+                href="/coach/dashboard"
+                className="block w-full py-3 rounded-xl text-sm font-semibold text-center border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Go to dashboard
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link
+                href={isCoach ? '/coach/dashboard' : '/dashboard'}
+                className="block w-full py-3 rounded-xl text-sm font-semibold text-center text-white transition-opacity hover:opacity-90"
+                style={{ backgroundColor: '#1D9E75' }}
+              >
+                Go to dashboard →
+              </Link>
+              <Link
+                href="/settings"
+                className="block w-full py-3 rounded-xl text-sm font-semibold text-center border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                View billing & subscription
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </div>
