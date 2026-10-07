@@ -4,6 +4,10 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { INDIVIDUAL_PLANS, COACH_SOLO_PLANS, COACH_PLANS, type PricingPlan } from '@/lib/features'
 
+function formatPrice(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(2)
+}
+
 function CheckIcon() {
   return (
     <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="#1D9E75" strokeWidth={2.5} viewBox="0 0 24 24">
@@ -114,12 +118,12 @@ function PlanCard({
           <p className="text-xs font-semibold text-amber-800">Additional usage</p>
           {plan.clientOveragePrice && plan.includedClients && (
             <p className="text-xs text-amber-700">
-              Over {plan.includedClients} clients: +${plan.clientOveragePrice}/client/mo — billed automatically
+              Over {plan.includedClients} clients: +${formatPrice(plan.clientOveragePrice)}/client/mo — billed automatically
             </p>
           )}
           {plan.coachOveragePrice && plan.includedCoaches && (
             <p className="text-xs text-amber-700">
-              Over {plan.includedCoaches} coaches: +${plan.coachOveragePrice}/coach/mo — billed automatically
+              Over {plan.includedCoaches} coaches: +${formatPrice(plan.coachOveragePrice)}/coach/mo — billed automatically
             </p>
           )}
         </div>

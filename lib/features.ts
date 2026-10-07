@@ -384,10 +384,13 @@ export const COACH_PLANS: PricingPlan[] = [
     priceAnnualMonthly: 0, // monthly only
     isMonthlyOnly: true,
     includedClients: 200,
+    clientOveragePrice: 1.5,
     includedCoaches: 5,
+    coachOveragePrice: 15,
     features: [
       'Everything in Business',
-      '5 coaches, 200 clients included (metered overages)',
+      '5 coaches included (+$15/mo per extra coach)',
+      '200 clients included (+$1.50/mo per extra client)',
       'Free instant branded link (yourname.prokol.io) — custom domain available on request',
       'Full white-label branding — zero Prokol references',
       'Custom logo, colours & favicon',

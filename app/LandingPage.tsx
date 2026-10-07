@@ -889,7 +889,7 @@ export default function LandingPage({
             <div className="grid md:grid-cols-2 gap-6">
               {[
                 {
-                  title: 'Web White-Label', price: '$299', setup: 'No setup fee', limit: '200 clients · 5 coaches', link: CKO.wlWeb, cta: 'Apply for Web White-Label →',
+                  title: 'Web White-Label', price: '$299', setup: 'No setup fee', limit: '200 clients · 5 coaches · +$1.50/client · +$15/coach', link: CKO.wlWeb, cta: 'Apply for Web White-Label →',
                   inc: ['Everything in Business','Free instant branded link (yourname.prokol.io) — custom domain available on request','Zero Prokol branding anywhere','Custom logo, colours, favicon','Coaches and clients install via your branded link as a web app'],
                   blk: ['Native iOS/Android app'],
                   comingSoon: false,
