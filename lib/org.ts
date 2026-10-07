@@ -1,5 +1,20 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// ─── Org area access (the /org/setup + /org/white-label tier gate) ────────────
+
+// wl_starter/wl_pro are white-label's own tiers, layered on top of
+// Business — a customer's subscription_tier changes away from
+// 'coach_business' the moment they actually pay for white-label, so a gate
+// requiring 'coach_business' exactly locks out the very customers it's
+// meant to let through right after they pay. Extracted to a pure function
+// (rather than left inline in the layout) specifically so this doesn't
+// regress silently again — it's a Server Component, which can't be unit
+// tested directly.
+const ORG_AREA_TIERS = new Set(['coach_business', 'wl_starter', 'wl_pro'])
+export function hasOrgAreaAccess(subscriptionTier: string | null | undefined): boolean {
+  return !!subscriptionTier && ORG_AREA_TIERS.has(subscriptionTier)
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type OrgRole = 'owner' | 'admin' | 'coach'

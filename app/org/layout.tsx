@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
+import { hasOrgAreaAccess } from '@/lib/org'
 
 export default async function OrgLayout({ children }: { children: React.ReactNode }) {
   // Invited coaches enter through /org/invite/[token] while their profile is
@@ -26,9 +27,9 @@ export default async function OrgLayout({ children }: { children: React.ReactNod
     .eq('id', session.user.id)
     .single()
 
-  // Must be on Business tier (the invite path bypassed above, so this only
-  // gates /org/setup and /org/white-label).
-  if (profile?.subscription_tier !== 'coach_business') {
+  // Must be on Business tier or higher (the invite path bypassed above, so
+  // this only gates /org/setup and /org/white-label).
+  if (!hasOrgAreaAccess(profile?.subscription_tier as string | null)) {
     redirect('/pricing')
   }
 
