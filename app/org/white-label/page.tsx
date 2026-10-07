@@ -185,8 +185,12 @@ export default function WhiteLabelPage() {
   const [upgrading, setUpgrading] = useState<string | null>(null)
 
   const [appName, setAppName] = useState('')
-  const [brandColour, setBrandColour] = useState('#F5C842')
-  const [brandColourSecondary, setBrandColourSecondary] = useState('#1A1A1A')
+  // Deliberately neutral, not Prokol's own brand colours (#F5C842 / #1A1A1A)
+  // — defaulting the picker to Prokol's exact colours meant anyone who
+  // didn't touch it submitted "Prokol's colours" without realising, then
+  // wondered why their white-labelled app still looked like Prokol.
+  const [brandColour, setBrandColour] = useState('#4B5563')
+  const [brandColourSecondary, setBrandColourSecondary] = useState('#111827')
   const [supportEmail, setSupportEmail] = useState('')
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [faviconFile, setFaviconFile] = useState<File | null>(null)

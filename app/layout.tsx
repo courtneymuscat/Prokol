@@ -112,9 +112,13 @@ export default async function RootLayout({
         <link rel="apple-touch-icon" href={branding.appIconUrl ?? branding.faviconUrl ?? '/icons/icon-180.png'} />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        {branding.faviconUrl && (
-          <link rel="icon" href={branding.faviconUrl} />
-        )}
+        {/*
+          Always rendered explicitly rather than relying on Next's
+          app/icon.svg file convention — that file auto-generated its own
+          <link rel="icon"> tag which silently won over this one for every
+          white-labelled org, since both tags existed in the page at once.
+        */}
+        <link rel="icon" href={branding.faviconUrl ?? '/icons/prokol-icon.svg'} />
       </head>
       <body className="min-h-full flex flex-col">
         <BrandingProvider branding={branding}>

@@ -211,12 +211,11 @@ export default function CoachSidebar({
       <aside className="hidden md:flex flex-col w-56 bg-white shrink-0 min-h-screen sticky top-0 h-screen border-r border-gray-100 print:hidden">
         <div className="px-5 pt-6 pb-5">
           <Link href="/dashboard" className="flex items-center gap-2">
-            {branding.logoUrl ? (
+            {branding.logoUrl && (
               <Image src={branding.logoUrl} alt={branding.appName} width={96} height={24} className="h-6 w-auto object-contain" />
-            ) : (
-              <span className="text-[15px] font-bold tracking-tight text-gray-900">{branding.appName}</span>
             )}
-            <span className="text-[10px] bg-blue-100 text-blue-700 font-semibold px-1.5 py-0.5 rounded-md leading-none">Coach</span>
+            <span className="text-[15px] font-bold tracking-tight text-gray-900 truncate">{branding.appName}</span>
+            <span className="text-[10px] bg-blue-100 text-blue-700 font-semibold px-1.5 py-0.5 rounded-md leading-none shrink-0">Coach</span>
           </Link>
         </div>
 
@@ -342,12 +341,11 @@ export default function CoachSidebar({
       <div className="md:hidden fixed top-0 left-0 right-0 z-30 bg-white px-4 border-b border-gray-100 print:hidden"
            style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div className="flex items-center gap-2 py-3">
-          {branding.logoUrl ? (
+          {branding.logoUrl && (
             <Image src={branding.logoUrl} alt={branding.appName} width={96} height={24} className="h-6 w-auto object-contain" />
-          ) : (
-            <span className="text-[15px] font-bold tracking-tight text-gray-900">{branding.appName}</span>
           )}
-          <span className="text-[10px] bg-blue-100 text-blue-700 font-semibold px-1.5 py-0.5 rounded-md leading-none">Coach</span>
+          <span className="text-[15px] font-bold tracking-tight text-gray-900 truncate">{branding.appName}</span>
+          <span className="text-[10px] bg-blue-100 text-blue-700 font-semibold px-1.5 py-0.5 rounded-md leading-none shrink-0">Coach</span>
         </div>
       </div>
 

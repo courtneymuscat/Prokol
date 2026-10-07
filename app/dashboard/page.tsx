@@ -358,9 +358,7 @@ export default async function DashboardPage() {
         {effectiveLogo ? (
           <div className="flex items-center gap-2.5">
             <Image src={effectiveLogo} alt={effectiveName} width={36} height={36} className="h-9 w-9 object-cover rounded-full border border-gray-100 flex-shrink-0" />
-            {coachBrandName && (
-              <span className="text-[15px] font-bold tracking-tight text-gray-900">{coachBrandName}</span>
-            )}
+            <span className="text-[15px] font-bold tracking-tight text-gray-900">{effectiveName}</span>
           </div>
         ) : (
           <span className="text-[15px] font-bold tracking-tight text-gray-900"
