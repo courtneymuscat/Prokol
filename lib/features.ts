@@ -221,6 +221,7 @@ export type PricingPlan = {
   includedCoaches?: number  // coaches included (business plans)
   coachOveragePrice?: number // AUD per additional coach per month
   isMonthlyOnly?: boolean   // no annual billing option
+  comingSoon?: boolean      // not purchasable yet — shown but disabled
 }
 
 export const INDIVIDUAL_PLANS: PricingPlan[] = [
@@ -386,12 +387,11 @@ export const COACH_PLANS: PricingPlan[] = [
     includedCoaches: 5,
     features: [
       'Everything in Business',
-      'Up to 5 coaches, 200 clients (metered overages)',
-      'Custom domain (e.g. app.yourstudio.com)',
+      '5 coaches, 200 clients included (metered overages)',
+      'Free instant branded link (yourname.prokol.io) — custom domain available on request',
       'Full white-label branding — zero Prokol references',
       'Custom logo, colours & favicon',
-      'Branded emails via your support address',
-      'DNS setup assistance',
+      'Branded sender name on emails to your clients',
     ],
     highlighted: false,
   },
@@ -405,9 +405,10 @@ export const COACH_PLANS: PricingPlan[] = [
     isMonthlyOnly: true,
     includedClients: 500,
     includedCoaches: 10,
+    comingSoon: true,
     features: [
       'Everything in Web White-label',
-      'Up to 10 coaches, 500 clients (metered overages)',
+      '10 coaches, 500 clients included (metered overages)',
       'White-label iOS & Android app',
       'Your own App Store & Google Play listing',
       'Push notifications under your brand',

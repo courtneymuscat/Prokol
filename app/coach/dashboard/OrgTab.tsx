@@ -351,8 +351,6 @@ function InviteCoachModal({ onClose, onDone }: { onClose: () => void; onDone: ()
   const [email, setEmail] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [atCap, setAtCap] = useState(false)
-  const [capInfo, setCapInfo] = useState<{ current: number; limit: number } | null>(null)
 
   async function submit() {
     if (!email.trim()) return
@@ -365,48 +363,11 @@ function InviteCoachModal({ onClose, onDone }: { onClose: () => void; onDone: ()
     })
     const data = await res.json()
     if (!res.ok) {
-      if (data.atCap) {
-        setAtCap(true)
-        setCapInfo({ current: data.current, limit: data.limit })
-      } else {
-        setError(data.error ?? 'Something went wrong')
-      }
+      setError(data.error ?? 'Something went wrong')
       setSaving(false)
       return
     }
     onDone()
-  }
-
-  if (atCap) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-        <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-5 text-center">
-          <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center mx-auto">
-            <svg className="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-            </svg>
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900">Coach limit reached</h3>
-            <p className="text-sm text-gray-500 mt-1">
-              {"You've reached your"} {capInfo?.limit ?? 3} coach limit. Add more coaches for $19/month each.
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <button onClick={onClose} className="flex-1 border border-gray-200 text-gray-600 rounded-xl py-2.5 text-sm">
-              Cancel
-            </button>
-            <a
-              href="/pricing"
-              className="flex-1 bg-blue-600 text-white rounded-xl py-2.5 text-sm font-medium hover:bg-blue-700 transition-colors flex items-center justify-center"
-            >
-              Upgrade Plan
-            </a>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (

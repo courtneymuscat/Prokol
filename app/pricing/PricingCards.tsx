@@ -136,7 +136,11 @@ function PlanCard({
 
       {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
 
-      {orgManaged ? (
+      {plan.comingSoon ? (
+        <span className="w-full block text-center py-2.5 rounded-xl text-sm font-semibold bg-gray-100 text-gray-400 cursor-not-allowed">
+          Coming soon
+        </span>
+      ) : orgManaged ? (
         <button
           disabled
           className="w-full py-2.5 rounded-xl text-sm font-semibold bg-blue-50 text-blue-700 border border-blue-100 cursor-not-allowed"

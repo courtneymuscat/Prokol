@@ -115,26 +115,21 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient()
 
-  // Check seat cap
+  // Coaches past the included seat count aren't blocked — they're billed.
+  // This used to hard-refuse any invite once coach_seat_count reached
+  // coach_seat_limit, which silently broke the advertised "+$19/mo per
+  // extra coach" (and the equivalent wl_starter/wl_pro overage) pricing:
+  // the invite never got far enough for the metered billing in
+  // app/api/org/invite/[token]/route.ts to ever run. Stripe already has
+  // overage prices configured for all three tiers (confirmed in env), so
+  // the cap was the bug, not the pricing copy.
   const { data: org } = await admin
     .from('organisations')
-    .select('coach_seat_count, coach_seat_limit, name')
+    .select('name')
     .eq('id', membership.org_id)
     .single()
 
   if (!org) return Response.json({ error: 'Organisation not found' }, { status: 404 })
-
-  if (org.coach_seat_count >= org.coach_seat_limit) {
-    return Response.json(
-      {
-        error: `You've reached your coach limit (${org.coach_seat_limit} included). Upgrade your plan to add more coaches.`,
-        atCap: true,
-        current: org.coach_seat_count,
-        limit: org.coach_seat_limit,
-      },
-      { status: 403 },
-    )
-  }
 
   const normalEmail = email.trim().toLowerCase()
 
