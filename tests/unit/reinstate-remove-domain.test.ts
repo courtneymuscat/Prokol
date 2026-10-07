@@ -80,6 +80,11 @@ describe('reinstateWhiteLabel', () => {
     expect(orgsData[0].white_label_tier).toBe('pro')
   })
 
+  it('raises coach_seat_limit to match the reinstated tier', async () => {
+    await reinstateWhiteLabel('org-1', 'admin-1')
+    expect(orgsData[0].coach_seat_limit).toBe(10)
+  })
+
   it('notifies active clients that branding is live again', async () => {
     await reinstateWhiteLabel('org-1', 'admin-1')
     expect(notifySpy).toHaveBeenCalledWith('org-1')

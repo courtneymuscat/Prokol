@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStripe, buildPriceToTierMap, OVERAGE_PRICE_IDS, TIER_TO_USER_TYPE } from '@/lib/stripe'
 import { createServiceClient } from '@/lib/supabase/service'
-import { TIER_TO_METER_EVENT, resolveTierFromPrice } from '@/lib/billing'
+import { TIER_TO_METER_EVENT, resolveTierFromPrice, WHITE_LABEL_COACH_SEAT_LIMIT, DEFAULT_COACH_SEAT_LIMIT } from '@/lib/billing'
 import { sendEmail } from '@/lib/email'
 import type Stripe from 'stripe'
 
@@ -331,9 +331,16 @@ export async function POST(req: NextRequest) {
                 .maybeSingle()
               if (ownedOrg?.is_white_label) {
                 if (newWlTier) {
-                  await supabase.from('organisations').update({ white_label_tier: newWlTier }).eq('id', ownedOrg.id)
+                  await supabase.from('organisations').update({
+                    white_label_tier: newWlTier,
+                    coach_seat_limit: WHITE_LABEL_COACH_SEAT_LIMIT[newWlTier],
+                  }).eq('id', ownedOrg.id)
                 } else {
-                  await supabase.from('organisations').update({ is_white_label: false, white_label_tier: null }).eq('id', ownedOrg.id)
+                  await supabase.from('organisations').update({
+                    is_white_label: false,
+                    white_label_tier: null,
+                    coach_seat_limit: DEFAULT_COACH_SEAT_LIMIT,
+                  }).eq('id', ownedOrg.id)
                   if (profile.email) {
                     await sendEmail({
                       to: profile.email as string,

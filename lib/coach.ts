@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { reportSeatUsage } from '@/lib/billing'
+import { reportSeatUsage, reportWhiteLabelClientSeatUsage } from '@/lib/billing'
 
 /**
  * Accept a coach invite by token.
@@ -106,6 +106,19 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
   // Report seat usage for overage billing (non-blocking)
   reportSeatUsage(invite.coach_id).catch((err) =>
     console.error('reportSeatUsage error:', err instanceof Error ? err.message : String(err))
+  )
+
+  // Also report against the org's own client allowance when this client
+  // belongs to a white-label org — invite.org_id (an admin manually tagging
+  // a gym member) takes priority over the inviting coach's own org, same
+  // precedence used for the tag itself (see app/api/coach/invite/route.ts).
+  ;(async () => {
+    const effectiveOrgId = invite.org_id
+      ?? (await admin.from('profiles').select('org_id').eq('id', invite.coach_id).single()).data?.org_id
+      ?? null
+    if (effectiveOrgId) await reportWhiteLabelClientSeatUsage(effectiveOrgId)
+  })().catch((err) =>
+    console.error('reportWhiteLabelClientSeatUsage error:', err instanceof Error ? err.message : String(err))
   )
 
   // One-time actions — only run on the first acceptance

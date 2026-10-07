@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
     .gt('expires_at', new Date().toISOString())
     .single()
 
-  const baseUrl = orgFrontDoorUrl
+  const baseUrl = orgFrontDoorUrl?.url
     ?? process.env.NEXT_PUBLIC_APP_URL
     ?? (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000')
 
@@ -106,6 +106,7 @@ export async function POST(req: NextRequest) {
     await sendEmail({
       to: email,
       subject: `You've been invited to join ${coachName} on Prokol`,
+      fromName: orgFrontDoorUrl?.appName,
       html: `
         <p>Hi,</p>
         <p>${coachName} has invited you to join them on Prokol Health, a coaching platform for nutrition and fitness.</p>
@@ -127,6 +128,7 @@ export async function POST(req: NextRequest) {
     await sendEmail({
       to: email,
       subject: `You've been invited to join ${coachName} on Prokol`,
+      fromName: orgFrontDoorUrl?.appName,
       html: `
         <p>Hi,</p>
         <p>${coachName} has invited you to join them on Prokol Health, a coaching platform for nutrition and fitness.</p>

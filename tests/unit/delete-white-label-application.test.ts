@@ -95,6 +95,7 @@ describe('deleteWhiteLabelApplication', () => {
       support_email: null,
       custom_domain: null,
       custom_domain_verified: false,
+      coach_seat_limit: 3,
     })
   })
 

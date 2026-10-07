@@ -1,19 +1,28 @@
 import { Resend } from 'resend'
 
-const FROM = 'Prokol <noreply@prokol.io>'
+const FROM_ADDRESS = 'noreply@prokol.io'
+const FROM = `Prokol <${FROM_ADDRESS}>`
 
 export async function sendEmail({
   to,
   subject,
   html,
+  fromName,
 }: {
   to: string
   subject: string
   html: string
+  // Shows a white-labelled org's own name in the inbox instead of "Prokol"
+  // (e.g. "Court's Gym <noreply@prokol.io>") — the address itself can't be
+  // the org's own subdomain without per-org DKIM/SPF DNS records, which is
+  // real infrastructure this doesn't build; the display name is what most
+  // people actually notice in their inbox anyway.
+  fromName?: string
 }): Promise<void> {
   try {
     const resend = new Resend(process.env.RESEND_API_KEY)
-    const { error } = await resend.emails.send({ from: FROM, to, subject, html })
+    const from = fromName ? `${fromName} <${FROM_ADDRESS}>` : FROM
+    const { error } = await resend.emails.send({ from, to, subject, html })
     if (error) {
       console.error('Resend error:', error)
     }

@@ -33,6 +33,8 @@ vi.mock('@/lib/stripe', () => ({
 vi.mock('@/lib/billing', () => ({
   TIER_TO_METER_EVENT: {},
   resolveTierFromPrice: async () => 'coach_business',
+  WHITE_LABEL_COACH_SEAT_LIMIT: { starter: 5, pro: 10 },
+  DEFAULT_COACH_SEAT_LIMIT: 3,
 }))
 
 vi.mock('@/lib/email', () => ({
@@ -95,7 +97,7 @@ beforeEach(() => {
 describe('Stripe webhook — downgrading away from white-label', () => {
   it('turns off is_white_label, not just the tier', async () => {
     await POST(fakeRequest())
-    expect(orgUpdatePatch).toMatchObject({ is_white_label: false, white_label_tier: null })
+    expect(orgUpdatePatch).toMatchObject({ is_white_label: false, white_label_tier: null, coach_seat_limit: 3 })
   })
 
   it('emails the owner that their branding was switched off', async () => {

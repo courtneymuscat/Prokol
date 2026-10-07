@@ -131,17 +131,20 @@ export function applyBrandingHeaders(headers: Headers, org: OrgBrandingRecord): 
  * to plain prokol.io would show generic Prokol branding on their very
  * first screen regardless of which org invited them.
  */
-export async function getOrgFrontDoorUrl(orgId: string): Promise<string | null> {
+export async function getOrgFrontDoorUrl(orgId: string): Promise<{ url: string; appName: string } | null> {
   const admin = createAdminClient()
   const { data: org } = await admin
     .from('organisations')
-    .select('slug, is_white_label, custom_domain, custom_domain_verified')
+    .select('slug, name, app_name, is_white_label, custom_domain, custom_domain_verified')
     .eq('id', orgId)
     .maybeSingle()
 
   if (!org?.is_white_label) return null
-  if (org.custom_domain && org.custom_domain_verified) return `https://${org.custom_domain}`
-  return `https://${org.slug}.prokol.io`
+  const appName = org.app_name ?? org.name
+  const url = org.custom_domain && org.custom_domain_verified
+    ? `https://${org.custom_domain}`
+    : `https://${org.slug}.prokol.io`
+  return { url, appName }
 }
 
 /**
@@ -203,6 +206,7 @@ export async function notifyClientsOfBrandingChange(orgId: string): Promise<{ se
       sendEmail({
         to: p.email,
         subject: `${appName} has a new look`,
+        fromName: appName,
         html: `
           <p>Hi ${p.full_name ?? 'there'},</p>
           <p><strong>${appName}</strong> just got new branding.</p>

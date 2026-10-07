@@ -56,6 +56,11 @@ describe('revokeWhiteLabel', () => {
     expect(orgsData[0].white_label_tier).toBeNull()
   })
 
+  it('drops coach_seat_limit back to the Business default', async () => {
+    await revokeWhiteLabel('org-1', 'admin-1')
+    expect(orgsData[0].coach_seat_limit).toBe(3)
+  })
+
   it('leaves custom_domain, app_name, and branding assets untouched', async () => {
     await revokeWhiteLabel('org-1', 'admin-1')
     expect(orgsData[0].custom_domain).toBe('app.gym.com')

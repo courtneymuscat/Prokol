@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { notifyClientsOfBrandingChange } from '@/lib/whitelabel'
 import { addDomainToVercel, removeDomainFromVercel } from '@/lib/vercel'
+import { WHITE_LABEL_COACH_SEAT_LIMIT, DEFAULT_COACH_SEAT_LIMIT } from '@/lib/billing'
 
 export async function requirePlatformAdmin() {
   const supabase = await createClient()
@@ -674,7 +675,9 @@ export async function revokeWhiteLabel(orgId: string, adminId: string) {
 
   const { error } = await admin
     .from('organisations')
-    .update({ is_white_label: false, white_label_tier: null })
+    // Drops back to the Business coach allowance — white-label's higher
+    // limit (5/10) shouldn't persist once the plan that paid for it is off.
+    .update({ is_white_label: false, white_label_tier: null, coach_seat_limit: DEFAULT_COACH_SEAT_LIMIT })
     .eq('id', orgId)
 
   if (error) return { error: error.message }
@@ -715,7 +718,11 @@ export async function reinstateWhiteLabel(orgId: string, adminId: string) {
 
   const { error } = await admin
     .from('organisations')
-    .update({ is_white_label: true, white_label_tier: app.requested_tier })
+    .update({
+      is_white_label: true,
+      white_label_tier: app.requested_tier,
+      coach_seat_limit: WHITE_LABEL_COACH_SEAT_LIMIT[app.requested_tier as 'starter' | 'pro'],
+    })
     .eq('id', orgId)
 
   if (error) return { error: error.message }
@@ -877,6 +884,7 @@ export async function deleteWhiteLabelApplication(orgId: string, adminId: string
       support_email: null,
       custom_domain: null,
       custom_domain_verified: false,
+      coach_seat_limit: DEFAULT_COACH_SEAT_LIMIT,
     })
     .eq('id', orgId)
 

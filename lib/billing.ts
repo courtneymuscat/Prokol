@@ -166,6 +166,20 @@ export const INCLUDED_COACHES: Record<string, number> = {
   wl_pro:         10,
 }
 
+// organisations.coach_seat_limit is the hard cap enforced when inviting a
+// coach (see app/api/org/coaches/route.ts, app/api/org/invite/[token]/route.ts)
+// — a different mechanism from the metered client-overage billing above.
+// Keyed by organisations.white_label_tier ('starter'/'pro'), not the
+// profile-level Stripe plan key ('wl_starter'/'wl_pro') used by
+// INCLUDED_COACHES, since that's the value white-label approval/reinstate
+// actually have on hand. DEFAULT_COACH_SEAT_LIMIT is what an org falls back
+// to when white-label is off — matches INCLUDED_COACHES.coach_business.
+export const WHITE_LABEL_COACH_SEAT_LIMIT: Record<'starter' | 'pro', number> = {
+  starter: INCLUDED_COACHES.wl_starter,
+  pro:     INCLUDED_COACHES.wl_pro,
+}
+export const DEFAULT_COACH_SEAT_LIMIT = INCLUDED_COACHES.coach_business
+
 // AUD per extra client per month (used for display + Stripe meter)
 export const CLIENT_OVERAGE_PRICE: Record<string, number> = {
   coach_solo:                4,  // legacy
@@ -188,28 +202,26 @@ export const TIER_TO_METER_EVENT: Record<string, string> = {
   coach_business:            'coach_business_seat_overage',
 }
 
-// ─── White-label org seat limits ─────────────────────────────────────────────
+// ─── White-label org client-seat limits ──────────────────────────────────────
+// Coach seats for white-label orgs are a hard cap, not metered — see
+// WHITE_LABEL_COACH_SEAT_LIMIT and organisations.coach_seat_limit above.
+// Clients are metered/billed past the included limit instead, same model
+// as an individual coach's own client overage.
 
-type WLSeatConfig = {
-  included_coaches: number
+type WLClientSeatConfig = {
   included_clients: number
-  coach_event: string
   client_event: string
 }
 
-const WL_SEAT_CONFIG: Record<string, WLSeatConfig> = {
-  wl_starter: {
-    included_coaches: 5,
-    included_clients: 200,
-    coach_event:  'wl_starter_coach_overage',
-    client_event: 'wl_starter_client_overage',
-  },
-  wl_pro: {
-    included_coaches: 10,
-    included_clients: 500,
-    coach_event:  'wl_pro_coach_overage',
-    client_event: 'wl_pro_client_overage',
-  },
+// Keyed by organisations.white_label_tier ('starter'/'pro') — NOT the
+// profile-level Stripe plan key ('wl_starter'/'wl_pro'). This used to be
+// keyed 'wl_starter'/'wl_pro' and read organisations.subscription_tier,
+// which doesn't exist in that value space (that column is constrained to
+// legacy 'org_starter'/'org_enterprise' values and is never set to a wl
+// tier anywhere) — reportWhiteLabelSeatUsage could never actually fire.
+const WL_CLIENT_SEAT_CONFIG: Record<'starter' | 'pro', WLClientSeatConfig> = {
+  starter: { included_clients: 200, client_event: 'wl_starter_client_overage' },
+  pro:     { included_clients: 500, client_event: 'wl_pro_client_overage' },
 }
 
 // ─── Individual coach seat reporting ─────────────────────────────────────────
@@ -261,6 +273,12 @@ export async function reportSeatUsage(coachId: string): Promise<void> {
 
 // ─── Coach_business org coach seat reporting ──────────────────────────────────
 
+const COACH_SEAT_OVERAGE_EVENT: Record<string, string> = {
+  coach_business: 'coach_business_coach_overage',
+  wl_starter:     'wl_starter_coach_overage',
+  wl_pro:         'wl_pro_coach_overage',
+}
+
 /**
  * Reports a coach seat overage meter event to Stripe for the given org.
  * Fired when a coach invite is accepted and the org's seat count exceeds its limit.
@@ -298,12 +316,18 @@ export async function reportCoachSeatUsage(orgId: string): Promise<void> {
     .update({ org_coach_seat_count: coachSeatCount + 1 })
     .eq('id', ownerMembership.user_id)
 
-  // Only fire overage event once included seats are exceeded
+  // Only fire overage event once included seats are exceeded. Event name
+  // varies by the owner's actual tier — this used to always report to
+  // coach_business_coach_overage even for wl_starter/wl_pro owners, so a
+  // white-label org's coach overage silently billed (or rather, didn't
+  // bill, since that meter has no price tied to a wl subscription) against
+  // the wrong Stripe meter entirely.
   if (coachSeatCount >= includedCoaches) {
+    const eventName = COACH_SEAT_OVERAGE_EVENT[tier] ?? COACH_SEAT_OVERAGE_EVENT.coach_business
     try {
       const stripe = getStripe()
       await stripe.billing.meterEvents.create({
-        event_name: 'coach_business_coach_overage',
+        event_name: eventName,
         payload: {
           stripe_customer_id: ownerProfile.stripe_customer_id as string,
           value: '1',
@@ -315,28 +339,29 @@ export async function reportCoachSeatUsage(orgId: string): Promise<void> {
   }
 }
 
-// ─── White-label org seat reporting ──────────────────────────────────────────
+// ─── White-label org client-seat reporting ───────────────────────────────────
 
 /**
- * Increment the white-label org's seat count (coach or client) and report a
- * Stripe meter overage event when the org exceeds its plan's included limit.
+ * Increment a white-label org's client seat count and report a Stripe meter
+ * overage event once it exceeds its plan's included client limit. Coaches
+ * are deliberately NOT handled here — organisations.coach_seat_count is
+ * already incremented and hard-capped directly in
+ * app/api/org/invite/[token]/route.ts; adding a second incrementer here
+ * would double-count every coach join.
  */
-export async function reportWhiteLabelSeatUsage(
-  orgId: string,
-  type: 'coach' | 'client',
-): Promise<void> {
+export async function reportWhiteLabelClientSeatUsage(orgId: string): Promise<void> {
   const admin = createAdminClient()
 
   const { data: org } = await admin
     .from('organisations')
-    .select('coach_seat_count, client_seat_count, subscription_tier, owner_id')
+    .select('client_seat_count, is_white_label, white_label_tier, owner_id')
     .eq('id', orgId)
     .single()
 
-  if (!org) return
+  if (!org?.is_white_label) return
 
-  const tier = org.subscription_tier as string
-  const config = WL_SEAT_CONFIG[tier]
+  const tier = org.white_label_tier as 'starter' | 'pro' | null
+  const config = tier ? WL_CLIENT_SEAT_CONFIG[tier] : undefined
   if (!config) return
 
   const { data: ownerProfile } = await admin
@@ -346,29 +371,15 @@ export async function reportWhiteLabelSeatUsage(
     .single()
 
   const stripeCustomerId = ownerProfile?.stripe_customer_id as string | null
+  const currentCount = (org.client_seat_count as number) ?? 0
 
-  if (type === 'coach') {
-    const currentCount = (org.coach_seat_count as number) ?? 0
+  await admin
+    .from('organisations')
+    .update({ client_seat_count: currentCount + 1 })
+    .eq('id', orgId)
 
-    await admin
-      .from('organisations')
-      .update({ coach_seat_count: currentCount + 1 })
-      .eq('id', orgId)
-
-    if (currentCount >= config.included_coaches && stripeCustomerId) {
-      await fireMeterEvent(config.coach_event, stripeCustomerId)
-    }
-  } else {
-    const currentCount = (org.client_seat_count as number) ?? 0
-
-    await admin
-      .from('organisations')
-      .update({ client_seat_count: currentCount + 1 })
-      .eq('id', orgId)
-
-    if (currentCount >= config.included_clients && stripeCustomerId) {
-      await fireMeterEvent(config.client_event, stripeCustomerId)
-    }
+  if (currentCount >= config.included_clients && stripeCustomerId) {
+    await fireMeterEvent(config.client_event, stripeCustomerId)
   }
 }
 

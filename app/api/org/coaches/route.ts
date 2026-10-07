@@ -178,7 +178,8 @@ export async function POST(req: NextRequest) {
   // A new coach has no account yet, so branding-follows-login can't show
   // them anything — the invite link itself is the only chance to put the
   // org's own branding in front of them before they sign up.
-  const appUrl = (await getOrgFrontDoorUrl(membership.org_id)) ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+  const frontDoor = await getOrgFrontDoorUrl(membership.org_id)
+  const appUrl = frontDoor?.url ?? process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
   const acceptUrl = `${appUrl}/org/invite/${token}`
   const loginUrl = `${appUrl}/login?next=${encodeURIComponent('/org/invite/' + token)}`
   const signupUrl = `${appUrl}/signup?org_invite=${token}`
@@ -187,6 +188,7 @@ export async function POST(req: NextRequest) {
   await sendEmail({
     to: normalEmail,
     subject: `You've been invited to join ${org.name} on Prokol`,
+    fromName: frontDoor?.appName,
     html: `
       <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;padding:40px 24px;background:#fff;">
         <p style="font-size:20px;font-weight:700;color:#111;margin:0 0 16px;">You've been invited to join ${org.name}</p>

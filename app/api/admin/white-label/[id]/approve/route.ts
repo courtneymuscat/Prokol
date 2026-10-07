@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/email'
 import { addDomainToVercel } from '@/lib/vercel'
 import { notifyClientsOfBrandingChange } from '@/lib/whitelabel'
+import { WHITE_LABEL_COACH_SEAT_LIMIT } from '@/lib/billing'
 
 export async function POST(
   _req: NextRequest,
@@ -70,6 +71,10 @@ export async function POST(
       favicon_url: app.favicon_url,
       app_icon_url: app.app_icon_url,
       support_email: app.support_email,
+      // White-label's coach allowance (5 for starter, 10 for pro) is higher
+      // than Business's — this used to never get applied, leaving a
+      // white-label org stuck at the Business default of 3.
+      coach_seat_limit: WHITE_LABEL_COACH_SEAT_LIMIT[app.requested_tier as 'starter' | 'pro'],
     })
     .eq('id', app.org_id)
 

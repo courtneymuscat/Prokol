@@ -100,4 +100,9 @@ describe('POST /api/admin/white-label/[id]/approve — tier from application', (
     expect(orgUpdate).not.toBeNull()
     expect(orgUpdate!.white_label_tier).toBe('pro')
   })
+
+  it('raises coach_seat_limit to match the pro tier (10), not left at the Business default', async () => {
+    await POST(fakeRequest(), { params: Promise.resolve({ id: 'app-1' }) })
+    expect(orgUpdate!.coach_seat_limit).toBe(10)
+  })
 })
