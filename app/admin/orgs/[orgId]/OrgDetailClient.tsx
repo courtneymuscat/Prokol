@@ -445,21 +445,6 @@ export default function OrgDetailClient({
         )}
         {setDomainError && <p className="text-xs text-red-400">{setDomainError}</p>}
 
-        {isWhiteLabel && (
-          <div className="bg-green-900/15 border border-green-800/60 rounded-lg px-4 py-2.5 flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-semibold text-green-400 uppercase tracking-wide">Free subdomain — live instantly, no DNS needed</p>
-              <a
-                href={`https://${org.slug}.prokol.io`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono text-xs text-green-300 hover:underline"
-              >
-                {org.slug}.prokol.io ↗
-              </a>
-            </div>
-          </div>
-        )}
 
         {wlApp && (
           <div className="bg-amber-900/15 border border-amber-800/60 rounded-lg px-4 py-3 space-y-3">

@@ -101,7 +101,6 @@ export async function POST(
 
   // Get org owner email
   const orgData = app.organisations as { name: string; owner_id: string; slug: string } | null
-  const subdomain = orgData?.slug ? `${orgData.slug}.prokol.io` : null
 
   if (orgData?.owner_id) {
     const { data: ownerProfile } = await admin
@@ -117,11 +116,7 @@ export async function POST(
         html: `
           <h2>Your white-label application is approved!</h2>
           <p>Hi ${ownerProfile.full_name ?? 'there'},</p>
-          <p>Your white-label setup for <strong>${app.app_name}</strong> has been approved.</p>
-          ${subdomain ? `
-          <p><strong>Your link is live right now — nothing else to do:</strong></p>
-          <p><a href="https://${subdomain}">${subdomain}</a></p>
-          ` : ''}
+          <p>Your white-label setup for <strong>${app.app_name}</strong> has been approved and is live — nothing else to do. You and your clients will see your branding automatically the moment you're logged in, on the app you already use.</p>
           ${app.custom_domain ? `
           <p>You also requested the custom domain <strong>${app.custom_domain}</strong>. To connect it, add this DNS record at your domain provider:</p>
           <table style="border-collapse:collapse;margin:16px 0">

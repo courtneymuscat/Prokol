@@ -317,7 +317,7 @@ export default function WhiteLabelPage() {
     )
   }
 
-  const { application: existing, hasWhiteLabelTier, subdomain, isLive, liveBranding } = status
+  const { application: existing, hasWhiteLabelTier, isLive, liveBranding } = status
 
   // ── Upsell: not on a white-label plan yet ──────────────────────────────────
   if (!existing && !hasWhiteLabelTier) {
@@ -423,19 +423,6 @@ export default function WhiteLabelPage() {
               </p>
             </div>
 
-            {subdomain && (
-              <div className="bg-green-50 border border-green-100 rounded-xl p-4 space-y-1">
-                <p className="text-sm font-medium text-gray-700">Your link is live right now</p>
-                <a
-                  href={`https://${subdomain}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-mono text-sm text-green-700 hover:underline"
-                >
-                  {subdomain} →
-                </a>
-              </div>
-            )}
 
             {liveBranding.custom_domain ? (
               <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
