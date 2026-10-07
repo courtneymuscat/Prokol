@@ -337,10 +337,14 @@ export default async function DashboardPage() {
     if (coachFormId && !submissionRes.data) pendingFormId = coachFormId
   }
 
-  // For coached clients on the main domain, apply coach's branding over defaults
-  const effectiveLogo = coachLogoUrl ?? branding.logoUrl
-  const effectiveName = coachBrandName ?? branding.appName
-  const effectiveColour = coachBrandColour ?? branding.brandColour
+  // A coach's personal legacy branding (Settings > Branding) only applies
+  // when their org isn't white-labelled — it used to take priority over
+  // branding.* unconditionally, which meant a coach who'd set a personal
+  // logo/colour before their org went white-label would keep overriding
+  // the org's actual (paid) white-label branding for their clients.
+  const effectiveLogo = branding.isWhiteLabel ? branding.logoUrl : (coachLogoUrl ?? branding.logoUrl)
+  const effectiveName = branding.isWhiteLabel ? branding.appName : (coachBrandName ?? branding.appName)
+  const effectiveColour = branding.isWhiteLabel ? branding.brandColour : (coachBrandColour ?? branding.brandColour)
 
   return (
     <div className="min-h-screen bg-gray-50">

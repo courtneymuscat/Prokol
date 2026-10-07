@@ -59,9 +59,13 @@ describe('notifyClientsOfBrandingChange', () => {
     expect(sentEmails[0].subject).toContain('Pro Gym')
   })
 
-  it('links to the free subdomain when no verified custom domain is set', async () => {
+  it('links to the plain app URL when no verified custom domain is set', async () => {
+    // Not the {slug}.prokol.io subdomain — that depends on a wildcard SSL
+    // cert for *.prokol.io that was never actually issued (every subdomain
+    // fails identically, confirmed directly). Branding follows login, so
+    // the plain URL already shows the right branding once logged in.
     await notifyClientsOfBrandingChange('org-1')
-    expect(sentEmails[0].html).toContain('https://pro-gym.prokol.io')
+    expect(sentEmails[0].html).not.toContain('pro-gym.prokol.io')
   })
 
   it('links to the custom domain once verified', async () => {

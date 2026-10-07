@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
   } else {
     const { data: invite, error } = await supabase
       .from('coach_invites')
-      .insert({ coach_id: coachId, email, service_id: service_id || null, form_id: form_id || null, form_save_to_file: form_id ? (form_save_to_file ?? false) : false, autoflow_id: autoflow_id || null, org_id: inviteOrgId })
+      .insert({ coach_id: coachId, email, service_id: service_id || null, form_id: form_id || null, form_save_to_file: form_id ? (form_save_to_file ?? false) : false, autoflow_id: autoflow_id || null, org_id: effectiveOrgId })
       .select('token')
       .single()
 

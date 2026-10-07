@@ -172,9 +172,16 @@ export async function notifyClientsOfBrandingChange(orgId: string): Promise<{ se
   if (!org) return { sent: 0 }
 
   const appName = org.app_name ?? org.name
+  // Only a verified custom domain is used here — the free {slug}.prokol.io
+  // subdomain depends on a wildcard SSL certificate for *.prokol.io that
+  // has never actually been issued (confirmed: every subdomain fails the
+  // same way, not just one), so linking to it would send someone to a
+  // broken page. Branding follows login now (see getOrgBrandingForUser),
+  // so the plain app URL already shows the right branding once logged in —
+  // no subdomain needed for this link to work correctly.
   const homeLink = org.custom_domain && org.custom_domain_verified
     ? `https://${org.custom_domain}`
-    : `https://${org.slug}.prokol.io`
+    : (process.env.NEXT_PUBLIC_APP_URL ?? 'https://prokol.io')
 
   const { data: coachRows } = await admin
     .from('org_members')
