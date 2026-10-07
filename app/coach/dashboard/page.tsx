@@ -57,6 +57,32 @@ export default async function CoachDashboard({
   const isBusinessTier = isOrgManager || isSoloBusiness
   const hasOrg = !!profile?.org_id
 
+  // Paid for white-label but haven't finished going live yet — shown
+  // regardless of which tab they land on, since after checkout they might
+  // click "Go to dashboard" instead of the setup CTA (or just get
+  // distracted) and otherwise have no reminder anywhere to come back.
+  let whiteLabelSetupStatus: 'pending' | 'rejected' | 'not_started' | null = null
+  const isWhiteLabelTier = profile?.subscription_tier === 'wl_starter' || profile?.subscription_tier === 'wl_pro'
+  if (isOrgManager && isWhiteLabelTier && profile?.org_id) {
+    const [{ data: org }, { data: application }] = await Promise.all([
+      supabase.from('organisations').select('is_white_label').eq('id', profile.org_id).single(),
+      supabase
+        .from('white_label_applications')
+        .select('status')
+        .eq('org_id', profile.org_id)
+        .order('submitted_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ])
+    if (!org?.is_white_label) {
+      whiteLabelSetupStatus = application?.status === 'pending'
+        ? 'pending'
+        : application?.status === 'rejected'
+          ? 'rejected'
+          : 'not_started'
+    }
+  }
+
   // Business-tier users land on Organisation, not the personal Overview —
   // their own clients are already visible inside the Organisation client
   // table, and the dedicated "Overview" home view duplicated that. Overview
@@ -157,6 +183,38 @@ export default async function CoachDashboard({
           >
             Choose a plan
           </a>
+        </div>
+      )}
+
+      {whiteLabelSetupStatus && (
+        <div className={`rounded-2xl border px-5 py-4 flex items-start gap-3 ${
+          whiteLabelSetupStatus === 'rejected' ? 'border-amber-200 bg-amber-50' : 'border-teal-200 bg-teal-50'
+        }`}>
+          <svg className={`w-5 h-5 mt-0.5 flex-shrink-0 ${whiteLabelSetupStatus === 'rejected' ? 'text-amber-600' : 'text-teal-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-semibold ${whiteLabelSetupStatus === 'rejected' ? 'text-amber-900' : 'text-teal-900'}`}>
+              {whiteLabelSetupStatus === 'not_started' && "You're subscribed to White-label — complete your branding to go live"}
+              {whiteLabelSetupStatus === 'pending' && 'Your white-label application is under review'}
+              {whiteLabelSetupStatus === 'rejected' && 'Your white-label application needs changes'}
+            </p>
+            <p className={`text-xs mt-0.5 ${whiteLabelSetupStatus === 'rejected' ? 'text-amber-800' : 'text-teal-800'}`}>
+              {whiteLabelSetupStatus === 'not_started' && "Add your logo, colours and app name — it's live the moment you submit."}
+              {whiteLabelSetupStatus === 'pending' && "We'll email you within 24–48 hours. No action needed in the meantime."}
+              {whiteLabelSetupStatus === 'rejected' && 'See the reason and update your application.'}
+            </p>
+          </div>
+          {whiteLabelSetupStatus !== 'pending' && (
+            <a
+              href="/org/white-label"
+              className={`flex-shrink-0 text-white px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                whiteLabelSetupStatus === 'rejected' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-teal-600 hover:bg-teal-700'
+              }`}
+            >
+              {whiteLabelSetupStatus === 'rejected' ? 'View details' : 'Complete setup'}
+            </a>
+          )}
         </div>
       )}
 
