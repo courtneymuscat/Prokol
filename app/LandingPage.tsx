@@ -890,16 +890,18 @@ export default function LandingPage({
               {[
                 {
                   title: 'Web White-Label', price: '$299', setup: 'No setup fee', limit: '200 clients · 5 coaches', link: CKO.wlWeb, cta: 'Apply for Web White-Label →',
-                  inc: ['Everything in Business','Custom domain (e.g. app.yourstudio.com)','Zero Prokol branding anywhere','Custom logo, colours, favicon','Branded emails sent from your address','DNS setup assistance included','Coaches and clients install via your branded domain as a web app'],
+                  inc: ['Everything in Business','Free instant branded link (yourname.prokol.io) — custom domain available on request','Zero Prokol branding anywhere','Custom logo, colours, favicon','Coaches and clients install via your branded link as a web app'],
                   blk: ['Native iOS/Android app'],
+                  comingSoon: false,
                 },
                 {
-                  title: 'App Store White-Label', price: '$499', setup: '$2,500 one-time setup', limit: '500 clients · 10 coaches', link: CKO.wlApp, cta: 'Apply for App White-Label →',
+                  title: 'App Store White-Label', price: '$499', setup: '$2,500 one-time setup', limit: '500 clients · 10 coaches', link: CKO.wlApp, cta: 'Coming soon',
                   inc: ['Everything in Web White-Label','Native iOS app under your brand name','Native Android app under your brand name','Listed in App Store + Google Play under your developer account','Push notifications sent under your brand','Custom app icon + splash screen'],
                   blk: [],
+                  comingSoon: true,
                 },
               ].map(p => (
-                <div key={p.title} style={{ border: '1px solid rgba(10,26,20,0.1)', borderRadius: 20, padding: 28, background: T.white }}>
+                <div key={p.title} style={{ border: '1px solid rgba(10,26,20,0.1)', borderRadius: 20, padding: 28, background: T.white, opacity: p.comingSoon ? 0.7 : 1 }}>
                   <p style={{ fontFamily: HEAD, fontWeight: 800, fontSize: '1.2rem', color: T.textPrimary, marginBottom: 4 }}>{p.title}</p>
                   <p style={{ fontSize: '2rem', fontWeight: 800, color: T.textPrimary }}>{p.price} <span style={{ fontSize: '0.9rem', fontWeight: 400, color: T.textSec }}>/mo</span></p>
                   <p style={{ fontSize: '0.78rem', color: T.amber, fontWeight: 600, marginBottom: 4 }}>{p.setup}</p>
@@ -908,7 +910,11 @@ export default function LandingPage({
                     {p.inc.map(f => <li key={f} className="flex items-start gap-2"><Check /><span style={{ fontSize: '0.8rem', color: T.textPrimary }}>{f}</span></li>)}
                     {p.blk.map(f => <li key={f} className="flex items-start gap-2"><Cross /><span style={{ fontSize: '0.8rem', color: T.textFaint }}>{f}</span></li>)}
                   </ul>
-                  <Link href={p.link} className="block text-center py-3 rounded-xl text-sm font-bold text-white hover:opacity-90" style={{ background: T.teal }}>{p.cta}</Link>
+                  {p.comingSoon ? (
+                    <span className="block text-center py-3 rounded-xl text-sm font-bold cursor-not-allowed" style={{ background: 'rgba(10,26,20,0.08)', color: T.textFaint }}>{p.cta}</span>
+                  ) : (
+                    <Link href={p.link} className="block text-center py-3 rounded-xl text-sm font-bold text-white hover:opacity-90" style={{ background: T.teal }}>{p.cta}</Link>
+                  )}
                 </div>
               ))}
             </div>

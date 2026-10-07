@@ -66,6 +66,13 @@ export async function POST(req: NextRequest) {
     }
 
     const isCoachPlan = ['coach_solo', 'coach_pt_solo', 'coach_nutritionist_solo', 'coach_pro', 'coach_business', 'wl_starter', 'wl_pro'].includes(planKey)
+    // White-label is a premium add-on almost always chosen by someone who
+    // already knows they want it (not evaluating the core product), and a
+    // free trial period on a $299-499/mo tier is real revenue risk for
+    // little acquisition benefit. Existing subscribers upgrading are routed
+    // through the Billing Portal above anyway (no trial there either) — this
+    // only matters for a brand-new signup going straight for white-label.
+    const isTrialEligible = isCoachPlan && planKey !== 'wl_starter' && planKey !== 'wl_pro'
 
     const mkSession = (cp: { customer?: string; customer_email?: string }) =>
       stripe.checkout.sessions.create({
@@ -80,7 +87,7 @@ export async function POST(req: NextRequest) {
           userType,
         },
         subscription_data: {
-          ...(isCoachPlan && {
+          ...(isTrialEligible && {
             trial_period_days: 14,
             trial_settings: {
               end_behavior: {

@@ -33,8 +33,8 @@ type StatusResponse = {
 }
 
 const PLAN_OPTIONS = [
-  { planKey: 'wl_starter', name: 'Web White-label', price: '$299 AUD/mo', description: 'Your own branded web app — logo, colours, and a free instant link.' },
-  { planKey: 'wl_pro', name: 'App Store White-label', price: '$499 AUD/mo', description: 'Everything in Web, plus a dedicated app listing on the App Store / Google Play.' },
+  { planKey: 'wl_starter', name: 'Web White-label', price: '$299 AUD/mo', description: 'Your own branded web app — logo, colours, and a free instant link.', comingSoon: false },
+  { planKey: 'wl_pro', name: 'App Store White-label', price: '$499 AUD/mo', description: 'Everything in Web, plus a dedicated app listing on the App Store / Google Play.', comingSoon: true },
 ] as const
 
 // Shared by the first-time application form and the post-approval edit
@@ -337,20 +337,26 @@ export default function WhiteLabelPage() {
             )}
             <div className="space-y-3">
               {PLAN_OPTIONS.map((plan) => (
-                <div key={plan.planKey} className="border border-gray-200 rounded-xl p-5 flex items-start justify-between gap-4">
+                <div key={plan.planKey} className={`border border-gray-200 rounded-xl p-5 flex items-start justify-between gap-4 ${plan.comingSoon ? 'opacity-60' : ''}`}>
                   <div>
                     <p className="font-semibold text-gray-900">{plan.name}</p>
                     <p className="text-sm text-gray-500 mt-0.5">{plan.description}</p>
                     <p className="text-sm font-medium text-gray-700 mt-2">{plan.price}</p>
                   </div>
-                  <button
-                    onClick={() => startUpgrade(plan.planKey)}
-                    disabled={upgrading !== null}
-                    className="shrink-0 px-4 py-2 text-sm font-semibold rounded-xl text-gray-900 hover:opacity-90 disabled:opacity-50 transition-colors whitespace-nowrap"
-                    style={{ backgroundColor: '#1D9E75' }}
-                  >
-                    {upgrading === plan.planKey ? 'Starting…' : 'Choose plan'}
-                  </button>
+                  {plan.comingSoon ? (
+                    <span className="shrink-0 px-4 py-2 text-sm font-semibold rounded-xl text-gray-500 bg-gray-100 whitespace-nowrap cursor-not-allowed">
+                      Coming soon
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => startUpgrade(plan.planKey)}
+                      disabled={upgrading !== null}
+                      className="shrink-0 px-4 py-2 text-sm font-semibold rounded-xl text-gray-900 hover:opacity-90 disabled:opacity-50 transition-colors whitespace-nowrap"
+                      style={{ backgroundColor: '#1D9E75' }}
+                    >
+                      {upgrading === plan.planKey ? 'Starting…' : 'Choose plan'}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
