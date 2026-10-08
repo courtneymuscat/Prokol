@@ -47,6 +47,45 @@ function normalizeHex(input: string): string | null {
   return null
 }
 
+// Swatch + pasteable hex text field, shared by every colour picker on this
+// page (primary/secondary brand colour, app icon background) — keeps the
+// text field's in-progress value separate from the committed colour so a
+// half-typed/pasted hex (e.g. "#F5C8") doesn't get clobbered back to the
+// last-valid colour on every keystroke.
+function HexColourInput({ value, onChange, swatchSize = 'w-10 h-10' }: {
+  value: string
+  onChange: (hex: string) => void
+  swatchSize?: string
+}) {
+  const [text, setText] = useState(value)
+  useEffect(() => { setText(value) }, [value])
+
+  function handleTextChange(raw: string) {
+    setText(raw)
+    const normalized = normalizeHex(raw)
+    if (normalized) onChange(normalized)
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="color"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className={`${swatchSize} rounded-lg border border-gray-200 cursor-pointer p-0.5 shrink-0`}
+      />
+      <input
+        type="text"
+        value={text}
+        onChange={e => handleTextChange(e.target.value)}
+        placeholder="#FFFFFF"
+        spellCheck={false}
+        className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-xs font-mono text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+  )
+}
+
 function compositeIconOntoSquare(img: HTMLImageElement, bgColor: string): Promise<Blob | null> {
   return new Promise((resolve) => {
     try {
@@ -95,6 +134,12 @@ type StatusResponse = {
   liveBranding?: LiveBranding | null
 }
 
+// Tiers that mean "already has a live Stripe subscription" — switching to
+// white-label from one of these goes through /api/stripe/change-plan
+// (instant, prorated on the next invoice) rather than a fresh Checkout
+// session, so the confirmation copy shown before switching needs to match.
+const EXISTING_COACH_TIERS = new Set(['coach_solo', 'coach_pt_solo', 'coach_nutritionist_solo', 'coach_pro', 'coach_business'])
+
 const PLAN_OPTIONS = [
   { planKey: 'wl_starter', name: 'Web White-label', price: '$299 AUD/mo', description: 'Your own branded web app — logo, colours, and a free instant link.', comingSoon: false },
   { planKey: 'wl_pro', name: 'App Store White-label', price: '$499 AUD/mo', description: 'Everything in Web, plus a dedicated app listing on the App Store / Google Play.', comingSoon: true },
@@ -127,18 +172,6 @@ function BrandingFields({
 }) {
   const [appIconPreview, setAppIconPreview] = useState<string | null>(null)
   const [appIconPreviewFailed, setAppIconPreviewFailed] = useState(false)
-
-  // Kept separate from appIconBackground itself so a half-typed/pasted hex
-  // value (e.g. "#F5C8") doesn't get clobbered back to the last-valid colour
-  // on every keystroke — only a complete, valid hex commits upstream.
-  const [appIconBgText, setAppIconBgText] = useState(appIconBackground)
-  useEffect(() => { setAppIconBgText(appIconBackground) }, [appIconBackground])
-
-  function handleAppIconBgTextChange(raw: string) {
-    setAppIconBgText(raw)
-    const normalized = normalizeHex(raw)
-    if (normalized) setAppIconBackground(normalized)
-  }
 
   useEffect(() => {
     let cancelled = false
@@ -200,29 +233,13 @@ function BrandingFields({
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Primary brand colour <span className="text-red-400">*</span>
           </label>
-          <div className="flex items-center gap-3">
-            <input
-              type="color"
-              value={brandColour}
-              onChange={e => setBrandColour(e.target.value)}
-              className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer p-0.5"
-            />
-            <span className="font-mono text-sm text-gray-600">{brandColour}</span>
-          </div>
+          <HexColourInput value={brandColour} onChange={setBrandColour} />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Secondary colour
           </label>
-          <div className="flex items-center gap-3">
-            <input
-              type="color"
-              value={brandColourSecondary}
-              onChange={e => setBrandColourSecondary(e.target.value)}
-              className="w-10 h-10 rounded-lg border border-gray-200 cursor-pointer p-0.5"
-            />
-            <span className="font-mono text-sm text-gray-600">{brandColourSecondary}</span>
-          </div>
+          <HexColourInput value={brandColourSecondary} onChange={setBrandColourSecondary} />
         </div>
       </div>
 
@@ -278,22 +295,7 @@ function BrandingFields({
             </div>
             <div className="flex-1">
               <p className="text-xs text-gray-500 mb-1">Home-screen preview</p>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={appIconBackground}
-                  onChange={e => setAppIconBackground(e.target.value)}
-                  className="w-7 h-7 rounded-lg border border-gray-200 cursor-pointer p-0.5 shrink-0"
-                />
-                <input
-                  type="text"
-                  value={appIconBgText}
-                  onChange={e => handleAppIconBgTextChange(e.target.value)}
-                  placeholder="#FFFFFF"
-                  spellCheck={false}
-                  className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-xs font-mono text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+              <HexColourInput value={appIconBackground} onChange={setAppIconBackground} swatchSize="w-7 h-7" />
               <p className="text-xs text-gray-400 mt-1">Background colour behind transparent or non-square icons</p>
               {appIconPreviewFailed && (
                 <p className="text-xs text-amber-600 mt-1">
@@ -341,6 +343,7 @@ function BrandingFields({
 export default function WhiteLabelPage() {
   const [status, setStatus] = useState<StatusResponse | 'loading'>('loading')
   const [upgrading, setUpgrading] = useState<string | null>(null)
+  const [confirmingPlan, setConfirmingPlan] = useState<(typeof PLAN_OPTIONS)[number] | null>(null)
 
   const [appName, setAppName] = useState('')
   // Deliberately neutral, not Prokol's own brand colours (#F5C842 / #1A1A1A)
@@ -520,7 +523,8 @@ export default function WhiteLabelPage() {
     )
   }
 
-  const { application: existing, hasWhiteLabelTier, isLive, liveBranding } = status
+  const { application: existing, hasWhiteLabelTier, isLive, liveBranding, subscriptionTier } = status
+  const hasExistingSubscription = !!subscriptionTier && EXISTING_COACH_TIERS.has(subscriptionTier)
 
   // ── Upsell: not on a white-label plan yet ──────────────────────────────────
   if (!existing && !hasWhiteLabelTier) {
@@ -556,7 +560,7 @@ export default function WhiteLabelPage() {
                     </span>
                   ) : (
                     <button
-                      onClick={() => startUpgrade(plan.planKey)}
+                      onClick={() => setConfirmingPlan(plan)}
                       disabled={upgrading !== null}
                       className="shrink-0 px-4 py-2 text-sm font-semibold rounded-xl text-gray-900 hover:opacity-90 disabled:opacity-50 transition-colors whitespace-nowrap"
                       style={{ backgroundColor: '#1D9E75' }}
@@ -569,6 +573,42 @@ export default function WhiteLabelPage() {
             </div>
           </div>
         </div>
+
+        {/* Confirm before switching — makes the billing consequence explicit
+            rather than firing a real subscription change on the first click. */}
+        {confirmingPlan && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full space-y-4">
+              <h4 className="text-base font-bold text-gray-900">Switch to {confirmingPlan.name}?</h4>
+              {hasExistingSubscription ? (
+                <p className="text-sm text-gray-600">
+                  Your subscription will change to <strong>{confirmingPlan.name}</strong> ({confirmingPlan.price}) immediately. Stripe will prorate the difference for the rest of this billing period and add it to your <strong>next invoice</strong> — then you&apos;ll be billed <strong>{confirmingPlan.price}</strong> every cycle going forward, on the card already on file.
+                </p>
+              ) : (
+                <p className="text-sm text-gray-600">
+                  You&apos;ll be taken to a secure Stripe checkout page to enter payment details. Once subscribed, you&apos;ll be billed <strong>{confirmingPlan.price}</strong> every cycle.
+                </p>
+              )}
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => setConfirmingPlan(null)}
+                  disabled={upgrading !== null}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold border border-gray-300 text-gray-700 hover:border-gray-500 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => { const planKey = confirmingPlan.planKey; setConfirmingPlan(null); startUpgrade(planKey) }}
+                  disabled={upgrading !== null}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-900 disabled:opacity-50"
+                  style={{ backgroundColor: '#1D9E75' }}
+                >
+                  {upgrading === confirmingPlan.planKey ? 'Switching…' : 'Confirm'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
