@@ -3,6 +3,37 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
+// Home-screen icons need to be square — iOS/Android both crop or pad a
+// non-square image with whatever background the platform defaults to
+// (often black), which the coach never chose and can't see coming from a
+// plain file picker. Compositing onto a square canvas of a colour they pick
+// — client-side, before upload — means the preview they see is exactly what
+// ships, and the server never has to do any image processing.
+function loadImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => { resolve(img); URL.revokeObjectURL(url) }
+    img.onerror = reject
+    img.src = url
+  })
+}
+
+function compositeIconOntoSquare(img: HTMLImageElement, bgColor: string): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    const size = Math.max(img.naturalWidth, img.naturalHeight)
+    const canvas = document.createElement('canvas')
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext('2d')
+    if (!ctx) { resolve(null); return }
+    ctx.fillStyle = bgColor
+    ctx.fillRect(0, 0, size, size)
+    ctx.drawImage(img, (size - img.naturalWidth) / 2, (size - img.naturalHeight) / 2)
+    canvas.toBlob((blob) => resolve(blob), 'image/png')
+  })
+}
+
 type ApplicationStatus = {
   id: string
   status: 'pending' | 'approved' | 'rejected'
@@ -45,6 +76,7 @@ function BrandingFields({
   brandColourSecondary, setBrandColourSecondary,
   supportEmail, setSupportEmail,
   setLogoFile, setFaviconFile, setAppIconFile,
+  appIconFile, appIconBackground, setAppIconBackground,
   currentLogoUrl, currentFaviconUrl, currentAppIconUrl,
 }: {
   appName: string; setAppName: (v: string) => void
@@ -54,10 +86,45 @@ function BrandingFields({
   setLogoFile: (f: File | null) => void
   setFaviconFile: (f: File | null) => void
   setAppIconFile: (f: File | null) => void
+  appIconFile: File | null
+  appIconBackground: string
+  setAppIconBackground: (v: string) => void
   currentLogoUrl?: string | null
   currentFaviconUrl?: string | null
   currentAppIconUrl?: string | null
 }) {
+  const [appIconPreview, setAppIconPreview] = useState<string | null>(null)
+  const [appIconNonSquare, setAppIconNonSquare] = useState(false)
+
+  useEffect(() => {
+    if (!appIconFile) {
+      setAppIconPreview(null)
+      setAppIconNonSquare(false)
+      return
+    }
+    let cancelled = false
+    let objectUrl: string | null = null
+    loadImage(appIconFile).then(async (img) => {
+      if (cancelled) return
+      const square = img.naturalWidth === img.naturalHeight
+      setAppIconNonSquare(!square)
+      if (square) {
+        objectUrl = URL.createObjectURL(appIconFile)
+        setAppIconPreview(objectUrl)
+        return
+      }
+      const blob = await compositeIconOntoSquare(img, appIconBackground)
+      if (cancelled || !blob) return
+      objectUrl = URL.createObjectURL(blob)
+      setAppIconPreview(objectUrl)
+    })
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+    // appIconBackground deliberately included: the composited preview must
+    // regenerate live as the coach picks a different background colour.
+  }, [appIconFile, appIconBackground])
   return (
     <>
       <div>
@@ -143,7 +210,9 @@ function BrandingFields({
         <label className="block text-sm font-medium text-gray-700 mb-1">
           App icon {currentAppIconUrl === undefined ? '(optional)' : ''}
         </label>
-        {currentAppIconUrl && (
+        {appIconPreview ? (
+          <img src={appIconPreview} alt="App icon preview" className="h-14 w-14 object-cover mb-2 rounded-xl border border-gray-100" />
+        ) : currentAppIconUrl && (
           <img src={currentAppIconUrl} alt="Current app icon" className="h-10 w-10 object-contain mb-2 rounded border border-gray-100 bg-gray-50 p-1" />
         )}
         <input
@@ -156,6 +225,19 @@ function BrandingFields({
           Square image, 512×512 px recommended. This is the icon shown when a client adds the app to their phone&apos;s home screen. Falls back to your favicon if skipped.
           {currentAppIconUrl !== undefined && ' Leave blank to keep your current icon.'}
         </p>
+        {appIconNonSquare && (
+          <div className="flex items-center gap-3 mt-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+            <input
+              type="color"
+              value={appIconBackground}
+              onChange={e => setAppIconBackground(e.target.value)}
+              className="w-8 h-8 rounded-lg border border-gray-200 cursor-pointer p-0.5 shrink-0"
+            />
+            <p className="text-xs text-amber-700">
+              That image isn&apos;t square, so your home-screen icon will show this background colour around it. Pick a colour above — the preview updates live.
+            </p>
+          </div>
+        )}
       </div>
 
       <div>
@@ -195,6 +277,7 @@ export default function WhiteLabelPage() {
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [faviconFile, setFaviconFile] = useState<File | null>(null)
   const [appIconFile, setAppIconFile] = useState<File | null>(null)
+  const [appIconBackground, setAppIconBackground] = useState('#FFFFFF')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -217,6 +300,20 @@ export default function WhiteLabelPage() {
       })
       .catch(() => setStatus({ application: null, subscriptionTier: null, hasWhiteLabelTier: false, subdomain: null }))
   }, [])
+
+  // Non-square uploads get composited onto a square canvas of the chosen
+  // background colour before they ever leave the browser — the server
+  // just stores whatever file it receives, no image processing there.
+  async function appendAppIcon(formData: FormData) {
+    if (!appIconFile) return
+    const img = await loadImage(appIconFile)
+    if (img.naturalWidth === img.naturalHeight) {
+      formData.append('appIcon', appIconFile)
+      return
+    }
+    const blob = await compositeIconOntoSquare(img, appIconBackground)
+    formData.append('appIcon', blob ?? appIconFile, 'app-icon.png')
+  }
 
   async function startUpgrade(planKey: string) {
     setUpgrading(planKey)
@@ -246,7 +343,7 @@ export default function WhiteLabelPage() {
     formData.append('supportEmail', supportEmail)
     if (logoFile) formData.append('logo', logoFile)
     if (faviconFile) formData.append('favicon', faviconFile)
-    if (appIconFile) formData.append('appIcon', appIconFile)
+    await appendAppIcon(formData)
 
     const res = await fetch('/api/org/white-label/apply', {
       method: 'POST',
@@ -277,7 +374,7 @@ export default function WhiteLabelPage() {
     formData.append('supportEmail', supportEmail)
     if (logoFile) formData.append('logo', logoFile)
     if (faviconFile) formData.append('favicon', faviconFile)
-    if (appIconFile) formData.append('appIcon', appIconFile)
+    await appendAppIcon(formData)
 
     const res = await fetch('/api/org/white-label/update-branding', {
       method: 'POST',
@@ -483,6 +580,7 @@ export default function WhiteLabelPage() {
                 brandColourSecondary={brandColourSecondary} setBrandColourSecondary={setBrandColourSecondary}
                 supportEmail={supportEmail} setSupportEmail={setSupportEmail}
                 setLogoFile={setLogoFile} setFaviconFile={setFaviconFile} setAppIconFile={setAppIconFile}
+                appIconFile={appIconFile} appIconBackground={appIconBackground} setAppIconBackground={setAppIconBackground}
                 currentLogoUrl={liveBranding.logo_url}
                 currentFaviconUrl={liveBranding.favicon_url}
                 currentAppIconUrl={liveBranding.app_icon_url}
@@ -553,6 +651,7 @@ export default function WhiteLabelPage() {
               brandColourSecondary={brandColourSecondary} setBrandColourSecondary={setBrandColourSecondary}
               supportEmail={supportEmail} setSupportEmail={setSupportEmail}
               setLogoFile={setLogoFile} setFaviconFile={setFaviconFile} setAppIconFile={setAppIconFile}
+              appIconFile={appIconFile} appIconBackground={appIconBackground} setAppIconBackground={setAppIconBackground}
             />
 
             <button
