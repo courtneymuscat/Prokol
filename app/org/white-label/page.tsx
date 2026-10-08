@@ -333,7 +333,7 @@ export default function WhiteLabelPage() {
             <div>
               <h1 className="text-2xl font-semibold text-gray-900">White-label</h1>
               <p className="text-sm text-gray-500 mt-1">
-                Give your clients a fully branded experience — your logo, your colours, your own link. Live instantly, no setup required.
+                Give your clients a fully branded experience — your logo, your colours, your name. Live instantly, no setup required.
               </p>
             </div>
             {error && (
@@ -536,7 +536,7 @@ export default function WhiteLabelPage() {
           <div>
             <h1 className="text-2xl font-semibold text-gray-900">Set up white-label</h1>
             <p className="text-sm text-gray-500 mt-1">
-              Once approved, you&apos;ll get a free branded link (yourname.prokol.io) instantly — no setup needed.
+              Once approved, you and your clients see your own branding automatically — no setup needed.
             </p>
           </div>
 

@@ -391,7 +391,7 @@ export const COACH_PLANS: PricingPlan[] = [
       'Everything in Business',
       '5 coaches included (+$15/mo per extra coach)',
       '200 clients included (+$1.50/mo per extra client)',
-      'Free instant branded link (yourname.prokol.io) — custom domain available on request',
+      'Custom domain available on request',
       'Full white-label branding — zero Prokol references',
       'Custom logo, colours & favicon',
       'Branded sender name on emails to your clients',
