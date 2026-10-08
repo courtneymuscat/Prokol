@@ -22,6 +22,7 @@ vi.mock('@/lib/stripe', () => ({
   }),
   getStripePriceId: () => 'price_123',
   getStripeOveragePriceId: () => null,
+  getStripeCoachOveragePriceId: () => null,
 }))
 
 const profileData = { stripe_customer_id: null, stripe_subscription_id: null }

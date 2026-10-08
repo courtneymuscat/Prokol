@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStripe, buildPriceToTierMap, OVERAGE_PRICE_IDS, TIER_TO_USER_TYPE } from '@/lib/stripe'
 import { createServiceClient } from '@/lib/supabase/service'
-import { TIER_TO_METER_EVENT, resolveTierFromPrice, WHITE_LABEL_COACH_SEAT_LIMIT, DEFAULT_COACH_SEAT_LIMIT } from '@/lib/billing'
+import { TIER_TO_METER_EVENT, resolveTierFromPrice } from '@/lib/billing'
 import { sendEmail } from '@/lib/email'
+import { syncWhiteLabelTierForOwner } from '@/lib/whitelabel'
 import type Stripe from 'stripe'
 
 // Stripe waits for our ack before retrying. If we exceed Vercel's default
@@ -312,50 +313,17 @@ export async function POST(req: NextRequest) {
             }
 
             // Keep an already-white-labelled org's white_label_tier in sync
-            // with its owner's actual paid tier. An upgrade/downgrade
-            // between wl_starter/wl_pro just updates which tier; downgrading
-            // away from white-label entirely (e.g. back to coach_business)
-            // actually turns white-label off — it used to only null the
-            // tier while leaving is_white_label stuck true, so a cancelled
-            // org kept full branding/domain access despite no longer
-            // paying for it. Branding fields (logo, colours, domain) are
-            // left in place, same as an admin revoke — re-upgrading later
-            // restores it without re-uploading anything (admin reinstate).
-            const WL_TIER_MAP: Record<string, 'starter' | 'pro'> = { wl_starter: 'starter', wl_pro: 'pro' }
-            const newWlTier = WL_TIER_MAP[tier] ?? null
-            if (WL_TIER_MAP[prevTier] || newWlTier) {
-              const { data: ownedOrg } = await supabase
-                .from('organisations')
-                .select('id, is_white_label, name')
-                .eq('owner_id', profile.id)
-                .maybeSingle()
-              if (ownedOrg?.is_white_label) {
-                if (newWlTier) {
-                  await supabase.from('organisations').update({
-                    white_label_tier: newWlTier,
-                    coach_seat_limit: WHITE_LABEL_COACH_SEAT_LIMIT[newWlTier],
-                  }).eq('id', ownedOrg.id)
-                } else {
-                  await supabase.from('organisations').update({
-                    is_white_label: false,
-                    white_label_tier: null,
-                    coach_seat_limit: DEFAULT_COACH_SEAT_LIMIT,
-                  }).eq('id', ownedOrg.id)
-                  if (profile.email) {
-                    await sendEmail({
-                      to: profile.email as string,
-                      subject: 'Your white-label branding has been turned off',
-                      html: `
-                        <p>Hi ${(profile.full_name as string | null) ?? 'there'},</p>
-                        <p>Since your plan changed away from a white-label tier, white-label branding for <strong>${ownedOrg.name}</strong> has been switched off — your app and clients are now back to standard Prokol branding.</p>
-                        <p>Your logo, colours and domain settings haven't been deleted — if you upgrade to white-label again, just let us know and we'll turn it straight back on.</p>
-                        <p>Questions? Email <a href="mailto:info@prokol.io">info@prokol.io</a></p>
-                      `,
-                    })
-                  }
-                }
-              }
-            }
+            // with its owner's actual paid tier. This is a best-effort
+            // fallback for paths other than the self-serve change-plan
+            // route (e.g. a Billing Portal change, or Court editing a
+            // subscription directly in Stripe) — change-plan handles this
+            // synchronously itself with a reliable prevTier, since by the
+            // time this webhook arrives profiles.subscription_tier may
+            // already show the new value (written by change-plan's own
+            // defensive update above), which would make the `!==` check
+            // above look like "nothing changed" for the very call that
+            // got us here, and skip this entirely.
+            await syncWhiteLabelTierForOwner(profile.id as string, prevTier, tier)
           }
         }
       }

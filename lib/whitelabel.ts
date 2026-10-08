@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/email'
+import { WHITE_LABEL_COACH_SEAT_LIMIT, DEFAULT_COACH_SEAT_LIMIT } from '@/lib/billing'
 import {
   checkDnsForVercel,
   addDomainToVercel,
@@ -226,6 +227,76 @@ export async function notifyClientsOfBrandingChange(orgId: string): Promise<{ se
   )
 
   return { sent: recipients.length }
+}
+
+/**
+ * Keeps an already-white-labelled org's white_label_tier in sync with its
+ * owner's actual paid Stripe tier. Takes prevTier/newTier explicitly from
+ * the caller rather than re-deriving "did it change" from the DB, since
+ * both real callers can know this reliably on their own (the Stripe
+ * webhook from the event's resolved tier, change-plan from the tiers it's
+ * switching between directly) — re-reading profiles.subscription_tier to
+ * detect a change is unsafe here specifically because change-plan writes
+ * the new tier to the DB synchronously, often before the webhook for the
+ * same change even arrives, which would make the webhook see "no change"
+ * and silently skip turning white-label off.
+ *
+ * An upgrade/downgrade between wl_starter/wl_pro just updates which tier;
+ * downgrading away from white-label entirely (e.g. back to coach_business)
+ * actually turns white-label off. Branding fields (logo, colours, domain)
+ * are left in place, same as an admin revoke — re-upgrading later restores
+ * it without re-uploading anything (admin reinstate).
+ */
+export async function syncWhiteLabelTierForOwner(
+  ownerId: string,
+  prevTier: string,
+  newTier: string,
+): Promise<void> {
+  const WL_TIER_MAP: Record<string, 'starter' | 'pro'> = { wl_starter: 'starter', wl_pro: 'pro' }
+  const newWlTier = WL_TIER_MAP[newTier] ?? null
+  if (!WL_TIER_MAP[prevTier] && !newWlTier) return
+
+  const admin = createAdminClient()
+  const { data: ownedOrg } = await admin
+    .from('organisations')
+    .select('id, is_white_label, name')
+    .eq('owner_id', ownerId)
+    .maybeSingle()
+
+  if (!ownedOrg?.is_white_label) return
+
+  if (newWlTier) {
+    await admin.from('organisations').update({
+      white_label_tier: newWlTier,
+      coach_seat_limit: WHITE_LABEL_COACH_SEAT_LIMIT[newWlTier],
+    }).eq('id', ownedOrg.id)
+    return
+  }
+
+  await admin.from('organisations').update({
+    is_white_label: false,
+    white_label_tier: null,
+    coach_seat_limit: DEFAULT_COACH_SEAT_LIMIT,
+  }).eq('id', ownedOrg.id)
+
+  const { data: ownerProfile } = await admin
+    .from('profiles')
+    .select('email, full_name')
+    .eq('id', ownerId)
+    .single()
+
+  if (ownerProfile?.email) {
+    await sendEmail({
+      to: ownerProfile.email,
+      subject: 'Your white-label branding has been turned off',
+      html: `
+        <p>Hi ${ownerProfile.full_name ?? 'there'},</p>
+        <p>Since your plan changed away from a white-label tier, white-label branding for <strong>${ownedOrg.name}</strong> has been switched off — your app and clients are now back to standard Prokol branding.</p>
+        <p>Your logo, colours and domain settings haven't been deleted — if you upgrade to white-label again, just let us know and we'll turn it straight back on.</p>
+        <p>Questions? Email <a href="mailto:info@prokol.io">info@prokol.io</a></p>
+      `,
+    })
+  }
 }
 
 /**

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getStripe, getStripePriceId, getStripeOveragePriceId, TIER_TO_USER_TYPE } from '@/lib/stripe'
+import { getStripe, getStripePriceId, getStripeOveragePriceId, getStripeCoachOveragePriceId, TIER_TO_USER_TYPE } from '@/lib/stripe'
+import { syncWhiteLabelTierForOwner } from '@/lib/whitelabel'
 
 /**
  * POST /api/stripe/change-plan { planKey: 'coach_pro' | ... }
@@ -23,6 +24,8 @@ const SELF_SERVE_COACH_TIERS = new Set([
   'coach_nutritionist_solo',
   'coach_pro',
   'coach_business',
+  'wl_starter',
+  'wl_pro',
 ])
 
 const SELF_SERVE_INDIVIDUAL_TIERS = new Set([
@@ -39,6 +42,8 @@ const PLAN_KEY_TO_TIER: Record<string, string> = {
   coach_nutritionist_solo: 'coach_nutritionist_solo',
   coach_pro: 'coach_pro',
   coach_business: 'coach_business',
+  wl_starter: 'wl_starter',
+  wl_pro: 'wl_pro',
 }
 
 const TIER_TO_BILLING_KEY: Record<string, string> = {
@@ -48,6 +53,8 @@ const TIER_TO_BILLING_KEY: Record<string, string> = {
   coach_nutritionist_solo: 'coach_nutritionist_solo',
   coach_pro: 'coach_pro',
   coach_business: 'coach_business',
+  wl_starter: 'wl_starter',
+  wl_pro: 'wl_pro',
 }
 
 function isSameFamily(currentTier: string, targetTier: string): boolean {
@@ -106,6 +113,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Price not configured for ${targetTier}` }, { status: 500 })
     }
     const newOveragePriceId = getStripeOveragePriceId(billingKey)
+    const newCoachOveragePriceId = getStripeCoachOveragePriceId(billingKey)
 
     const stripe = getStripe()
 
@@ -120,6 +128,7 @@ export async function POST(req: NextRequest) {
     const items: ItemPatch[] = sub.items.data.map((item) => ({ id: item.id, deleted: true }))
     items.push({ price: newFlatPriceId, quantity: 1 })
     if (newOveragePriceId) items.push({ price: newOveragePriceId })
+    if (newCoachOveragePriceId) items.push({ price: newCoachOveragePriceId })
 
     const updated = await stripe.subscriptions.update(profile.stripe_subscription_id as string, {
       items,
@@ -145,6 +154,16 @@ export async function POST(req: NextRequest) {
       .update(dbUpdates)
       .eq('id', user.id)
     if (dbErr) console.error('change-plan defensive profile update error:', dbErr.message)
+
+    // Also synchronous and deliberately not left to the webhook — this
+    // route already writes the new tier to the DB above, which typically
+    // lands before the webhook for this same change even arrives. The
+    // webhook's own version of this check reads profiles.subscription_tier
+    // to detect "did the tier change", which would already show the new
+    // tier by then and silently skip turning white-label off.
+    await syncWhiteLabelTierForOwner(user.id, currentTier, targetTier).catch((err) => {
+      console.error('change-plan syncWhiteLabelTierForOwner error:', err instanceof Error ? err.message : err)
+    })
 
     return NextResponse.json({
       ok: true,

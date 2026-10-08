@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getStripe, getStripePriceId, getStripeOveragePriceId } from '@/lib/stripe'
+import { getStripe, getStripePriceId, getStripeOveragePriceId, getStripeCoachOveragePriceId } from '@/lib/stripe'
 import type Stripe from 'stripe'
 
 export async function POST(req: NextRequest) {
@@ -63,6 +63,16 @@ export async function POST(req: NextRequest) {
     const overagePriceId = getStripeOveragePriceId(planKey)
     if (overagePriceId) {
       lineItems.push({ price: overagePriceId }) // no quantity — metered billing
+    }
+    // Org-tier plans (coach_business/wl_starter/wl_pro) have a second,
+    // separate overage dimension for coach seats. This was never attached
+    // to the subscription before — coach-seat overage was being correctly
+    // computed and reported to Stripe's meter (see lib/billing.ts
+    // reportCoachSeatUsage) but had no corresponding line item to bill
+    // against, so none of that usage ever actually generated a charge.
+    const coachOveragePriceId = getStripeCoachOveragePriceId(planKey)
+    if (coachOveragePriceId) {
+      lineItems.push({ price: coachOveragePriceId })
     }
 
     const isCoachPlan = ['coach_solo', 'coach_pt_solo', 'coach_nutritionist_solo', 'coach_pro', 'coach_business', 'wl_starter', 'wl_pro'].includes(planKey)

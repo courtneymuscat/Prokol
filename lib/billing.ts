@@ -2,8 +2,6 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getStripe, buildPriceToTierMap, OVERAGE_PRICE_IDS, TIER_TO_USER_TYPE } from '@/lib/stripe'
 import type Stripe from 'stripe'
 
-export const COACH_SEAT_OVERAGE_PRICE = process.env.STRIPE_PRICE_COACH_BUSINESS_COACH_OVERAGE
-
 /**
  * Resolve a subscription_tier from a Stripe price (and its parent product).
  *

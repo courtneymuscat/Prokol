@@ -12,8 +12,29 @@ export function getStripePriceId(planKey: string, billing: 'monthly' | 'annual')
   return process.env[key] ?? null
 }
 
+// Client-seat overage price. coach_pt_solo/coach_nutritionist_solo/coach_pro/
+// coach_business only ever have one overage dimension (clients), so their
+// env vars are named plainly (STRIPE_PRICE_COACH_BUSINESS_OVERAGE).
+// wl_starter/wl_pro have a second, separate overage dimension for coach
+// seats, so their client-overage vars are named explicitly
+// (STRIPE_PRICE_WL_STARTER_CLIENT_OVERAGE) to avoid ambiguity — tried
+// first, falling back to the plain name for tiers that only have the one.
 export function getStripeOveragePriceId(planKey: string): string | null {
-  const key = `STRIPE_PRICE_${planKey.toUpperCase()}_OVERAGE`
+  const upper = planKey.toUpperCase()
+  return process.env[`STRIPE_PRICE_${upper}_CLIENT_OVERAGE`]
+    ?? process.env[`STRIPE_PRICE_${upper}_OVERAGE`]
+    ?? null
+}
+
+// Coach-seat overage price — only coach_business/wl_starter/wl_pro have
+// this second overage dimension. Previously only wired up as a one-off
+// constant for coach_business alone (lib/billing.ts's now-removed
+// COACH_SEAT_OVERAGE_PRICE) and never actually attached to any real
+// subscription — checkout and change-plan only ever added the client
+// overage item, so coach-overage usage had nothing on the subscription to
+// bill against regardless of how correctly it was being reported.
+export function getStripeCoachOveragePriceId(planKey: string): string | null {
+  const key = `STRIPE_PRICE_${planKey.toUpperCase()}_COACH_OVERAGE`
   return process.env[key] ?? null
 }
 
@@ -53,6 +74,12 @@ export const OVERAGE_PRICE_IDS = new Set([
   'price_1TMSPhDCfk3knikLI9nqnrkC',
   'price_1TMSStDCfk3knikL2L7pwjHB',
   'price_1TMSTxDCfk3knikLneM05qz8',
+  // coach_business's separate coach-seat overage price — wasn't previously
+  // attached to any real subscription (see getStripeCoachOveragePriceId),
+  // so the webhook's flat-price detection never needed to exclude it.
+  // Now that change-plan/checkout actually add it, it must be excluded
+  // here too or the webhook could mistake it for the flat subscription price.
+  'price_1TLx5RDCfk3knikLsQ38AQGp',
 ])
 
 // Tier → user_type mapping shared across webhook and billing routes.
