@@ -324,6 +324,63 @@ type OrgManagedBranding = {
   brand_name: string | null
 }
 
+type WhiteLabelOverrideBranding = {
+  org_name: string
+  app_name: string | null
+  brand_colour: string | null
+  logo_url: string | null
+}
+
+// Shown instead of the editable (or org_managed read-only) branding card
+// once the coach's org is white-labelled — their personal brand_colour/
+// logo_url/brand_name stop doing anything the moment that's on (see
+// lib/whitelabel.ts's getOrgBrandingForUser), for the owner as much as any
+// member, so this takes priority over both other branches regardless of role.
+function WhiteLabelOverrideCard({ branding }: { branding: WhiteLabelOverrideBranding }) {
+  const colour = branding.brand_colour ?? '#F5C842'
+  return (
+    <div className="bg-white rounded-2xl border p-6 space-y-5">
+      <div>
+        <h2 className="text-sm font-semibold text-gray-900">Branding</h2>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Your logo and brand colour appear in your clients&apos; app experience.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+        Overridden by white-label — these settings don&apos;t apply while white-label is active.{' '}
+        <a href="/org/white-label" className="font-semibold underline">Manage your white-label branding instead →</a>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="block text-xs font-medium text-gray-500">App name</label>
+        <div className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50 text-gray-500">
+          {branding.app_name ?? branding.org_name}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="block text-xs font-medium text-gray-500">Logo</label>
+        {branding.logo_url ? (
+          <Image src={branding.logo_url} alt={`${branding.org_name} logo`} width={48} height={48} className="h-12 w-12 object-contain rounded-xl border bg-white" />
+        ) : (
+          <div className="h-12 w-12 rounded-xl border border-dashed border-gray-200 flex items-center justify-center text-gray-300 text-xs">
+            No logo
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <label className="block text-xs font-medium text-gray-500">Brand colour</label>
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl border border-gray-200" style={{ backgroundColor: colour }} />
+          <span className="text-sm font-mono text-gray-500">{colour}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function BrandingSection({
   initialColour,
   initialLogoUrl,
@@ -558,6 +615,7 @@ export default function CoachSettingsPage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [brandName, setBrandName] = useState<string | null>(null)
   const [orgManaged, setOrgManaged] = useState<OrgManagedBranding | null>(null)
+  const [whiteLabelOverride, setWhiteLabelOverride] = useState<WhiteLabelOverrideBranding | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -574,6 +632,7 @@ export default function CoachSettingsPage() {
         setLogoUrl(d.logo_url ?? null)
         setBrandName(d.brand_name ?? null)
         setOrgManaged(d.org_managed ?? null)
+        setWhiteLabelOverride(d.white_label_override ?? null)
         setLoading(false)
       })
   }, [])
@@ -664,7 +723,9 @@ export default function CoachSettingsPage() {
             </form>
 
             {/* Branding — Pro and above (or read-only org branding for org members) */}
-            {orgManaged ? (
+            {whiteLabelOverride ? (
+              <WhiteLabelOverrideCard branding={whiteLabelOverride} />
+            ) : orgManaged ? (
               <BrandingSection
                 initialColour={brandColour}
                 initialLogoUrl={logoUrl}

@@ -150,12 +150,17 @@ export async function syncProfileFromStripe(userId: string): Promise<{
 
 // ─── Individual coach client-seat limits ─────────────────────────────────────
 
+// Keep in sync with lib/features.ts's pricing-page plan cards (includedClients)
+// and WL_CLIENT_SEAT_CONFIG below — three places that should agree on the
+// same number but can't share one constant (different key spaces).
 export const INCLUDED_SEATS: Record<string, number> = {
   coach_solo:                5,  // legacy
   coach_pt_solo:             5,
   coach_nutritionist_solo:   5,
   coach_pro:                 15,
   coach_business:            75,
+  wl_starter:                200,
+  wl_pro:                    500,
 }
 
 export const INCLUDED_COACHES: Record<string, number> = {
@@ -185,11 +190,13 @@ export const CLIENT_OVERAGE_PRICE: Record<string, number> = {
   coach_nutritionist_solo:   4,
   coach_pro:                 3,
   coach_business:            3,
+  wl_starter:                1.5,
 }
 
 // AUD per extra coach per month (business plans only)
 export const COACH_OVERAGE_PRICE: Record<string, number> = {
   coach_business: 19,
+  wl_starter:     15,
 }
 
 export const TIER_TO_METER_EVENT: Record<string, string> = {
