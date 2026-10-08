@@ -393,6 +393,36 @@ export default function WhiteLabelPage() {
 
   async function startUpgrade(planKey: string) {
     setUpgrading(planKey)
+    setError(null)
+
+    // Anyone already on a paid coach plan (the common case here — white-label
+    // is an upgrade from Business, not a first subscription) gets switched
+    // in place via the app's own instant, prorated plan-change route rather
+    // than a new Checkout session. /api/stripe/checkout would otherwise send
+    // them to Stripe's hosted Billing Portal to avoid a duplicate
+    // subscription — but the portal isn't configured for self-serve product
+    // switching here, so it just showed "Cancel subscription" with no way to
+    // actually pick White-label.
+    const changeRes = await fetch('/api/stripe/change-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ planKey }),
+    })
+    const changeData = await changeRes.json()
+    if (changeRes.ok) {
+      // Reload so /api/org/white-label/status re-fetches the new
+      // subscription_tier and swaps the upsell screen for the application form.
+      window.location.reload()
+      return
+    }
+    if (changeData.error !== 'no_subscription') {
+      setUpgrading(null)
+      setError(changeData.message ?? changeData.error ?? 'Could not switch plan')
+      return
+    }
+
+    // No existing subscription to switch — this is a brand-new subscriber,
+    // so go through normal Stripe Checkout instead.
     const res = await fetch('/api/stripe/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
