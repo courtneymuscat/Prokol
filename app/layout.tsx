@@ -62,7 +62,21 @@ export async function generateMetadata(): Promise<Metadata> {
     appleWebApp: {
       capable: true,
       statusBarStyle: "default",
+      // This is what iOS's "Add to Home Screen" name field actually reads.
+      // Used to also be hand-written as a <meta> tag directly in the root
+      // layout's JSX <head> below — a duplicate of this same tag, which is
+      // exactly the kind of conflict that silently dropped the white-label
+      // favicon link in this same file (see the icons comment below). Moved
+      // fully into the Metadata API so there's only ever one copy.
       title: branding.appName,
+    },
+    icons: {
+      // Also used to be a hand-written <link> in the JSX <head> — same
+      // duplicate-tag issue, this time dropping org branding from both the
+      // browser-tab favicon and the home-screen icon depending on which
+      // copy won the merge.
+      icon: branding.faviconUrl ?? '/icons/prokol-icon.svg',
+      apple: branding.appIconUrl ?? branding.faviconUrl ?? '/icons/icon-180.png',
     },
     openGraph: {
       title: branding.appName,
@@ -108,17 +122,14 @@ export default async function RootLayout({
       className={cn("h-full", "antialiased", inter.variable, "font-sans", geist.variable)}
     >
       <head>
-        <style dangerouslySetInnerHTML={{ __html: cssVars }} />
-        <link rel="apple-touch-icon" href={branding.appIconUrl ?? branding.faviconUrl ?? '/icons/icon-180.png'} />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         {/*
-          Always rendered explicitly rather than relying on Next's
-          app/icon.svg file convention — that file auto-generated its own
-          <link rel="icon"> tag which silently won over this one for every
-          white-labelled org, since both tags existed in the page at once.
+          Only the CSS custom properties live here now — everything else
+          (icons, apple-mobile-web-app-title, etc.) moved into
+          generateMetadata above. A hand-written <head> alongside the
+          Metadata API's own output is exactly what caused the white-label
+          favicon/title tags to silently lose to a duplicate before.
         */}
-        <link rel="icon" href={branding.faviconUrl ?? '/icons/prokol-icon.svg'} />
+        <style dangerouslySetInnerHTML={{ __html: cssVars }} />
       </head>
       <body className="min-h-full flex flex-col">
         <BrandingProvider branding={branding}>
