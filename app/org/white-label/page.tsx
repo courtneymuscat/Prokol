@@ -35,6 +35,18 @@ function loadRemoteImage(url: string): Promise<HTMLImageElement> {
   })
 }
 
+// Accepts "#F5C842", "F5C842", or the 3-digit shorthand, so pasting a hex
+// value copied from anywhere (brand guidelines, another tool) just works.
+function normalizeHex(input: string): string | null {
+  const v = input.trim().replace(/^#/, '')
+  if (/^[0-9A-Fa-f]{6}$/.test(v)) return `#${v}`.toUpperCase()
+  if (/^[0-9A-Fa-f]{3}$/.test(v)) {
+    const [r, g, b] = v.split('')
+    return `#${r}${r}${g}${g}${b}${b}`.toUpperCase()
+  }
+  return null
+}
+
 function compositeIconOntoSquare(img: HTMLImageElement, bgColor: string): Promise<Blob | null> {
   return new Promise((resolve) => {
     try {
@@ -115,6 +127,18 @@ function BrandingFields({
 }) {
   const [appIconPreview, setAppIconPreview] = useState<string | null>(null)
   const [appIconPreviewFailed, setAppIconPreviewFailed] = useState(false)
+
+  // Kept separate from appIconBackground itself so a half-typed/pasted hex
+  // value (e.g. "#F5C8") doesn't get clobbered back to the last-valid colour
+  // on every keystroke — only a complete, valid hex commits upstream.
+  const [appIconBgText, setAppIconBgText] = useState(appIconBackground)
+  useEffect(() => { setAppIconBgText(appIconBackground) }, [appIconBackground])
+
+  function handleAppIconBgTextChange(raw: string) {
+    setAppIconBgText(raw)
+    const normalized = normalizeHex(raw)
+    if (normalized) setAppIconBackground(normalized)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -261,8 +285,16 @@ function BrandingFields({
                   onChange={e => setAppIconBackground(e.target.value)}
                   className="w-7 h-7 rounded-lg border border-gray-200 cursor-pointer p-0.5 shrink-0"
                 />
-                <span className="text-xs text-gray-400">Background colour behind transparent or non-square icons</span>
+                <input
+                  type="text"
+                  value={appIconBgText}
+                  onChange={e => handleAppIconBgTextChange(e.target.value)}
+                  placeholder="#FFFFFF"
+                  spellCheck={false}
+                  className="w-24 border border-gray-200 rounded-lg px-2 py-1 text-xs font-mono text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
               </div>
+              <p className="text-xs text-gray-400 mt-1">Background colour behind transparent or non-square icons</p>
               {appIconPreviewFailed && (
                 <p className="text-xs text-amber-600 mt-1">
                   Can&apos;t preview your saved icon&apos;s background live. Choose the file again to preview and apply a new background colour.
