@@ -3,12 +3,14 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
-// Home-screen icons need to be square — iOS/Android both crop or pad a
-// non-square image with whatever background the platform defaults to
-// (often black), which the coach never chose and can't see coming from a
-// plain file picker. Compositing onto a square canvas of a colour they pick
-// — client-side, before upload — means the preview they see is exactly what
-// ships, and the server never has to do any image processing.
+// Home-screen icons are flattened onto an opaque square — iOS in particular
+// fills transparent regions with black rather than showing the page behind
+// them, which a raw <img> preview never reveals (browsers happily render
+// transparent PNGs over whatever's behind them). Compositing onto a canvas
+// of a colour the coach picks — client-side, before upload — means the
+// preview they see is exactly what ships, whether the source image is
+// non-square, has a transparent background, or both; the server never has
+// to do any image processing.
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file)
@@ -19,18 +21,36 @@ function loadImage(file: File): Promise<HTMLImageElement> {
   })
 }
 
+// For the already-saved icon, loaded from Supabase Storage's public URL
+// rather than a local file — needs crossOrigin so the canvas isn't tainted,
+// which fails if the bucket's CORS config ever changes; callers must treat
+// a thrown/rejected promise as "live preview unavailable," not a hard error.
+function loadRemoteImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = url
+  })
+}
+
 function compositeIconOntoSquare(img: HTMLImageElement, bgColor: string): Promise<Blob | null> {
   return new Promise((resolve) => {
-    const size = Math.max(img.naturalWidth, img.naturalHeight)
-    const canvas = document.createElement('canvas')
-    canvas.width = size
-    canvas.height = size
-    const ctx = canvas.getContext('2d')
-    if (!ctx) { resolve(null); return }
-    ctx.fillStyle = bgColor
-    ctx.fillRect(0, 0, size, size)
-    ctx.drawImage(img, (size - img.naturalWidth) / 2, (size - img.naturalHeight) / 2)
-    canvas.toBlob((blob) => resolve(blob), 'image/png')
+    try {
+      const size = Math.max(img.naturalWidth, img.naturalHeight)
+      const canvas = document.createElement('canvas')
+      canvas.width = size
+      canvas.height = size
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { resolve(null); return }
+      ctx.fillStyle = bgColor
+      ctx.fillRect(0, 0, size, size)
+      ctx.drawImage(img, (size - img.naturalWidth) / 2, (size - img.naturalHeight) / 2)
+      canvas.toBlob((blob) => resolve(blob), 'image/png')
+    } catch {
+      resolve(null)
+    }
   })
 }
 
@@ -94,37 +114,46 @@ function BrandingFields({
   currentAppIconUrl?: string | null
 }) {
   const [appIconPreview, setAppIconPreview] = useState<string | null>(null)
-  const [appIconNonSquare, setAppIconNonSquare] = useState(false)
+  const [appIconPreviewFailed, setAppIconPreviewFailed] = useState(false)
 
   useEffect(() => {
-    if (!appIconFile) {
-      setAppIconPreview(null)
-      setAppIconNonSquare(false)
-      return
-    }
     let cancelled = false
     let objectUrl: string | null = null
-    loadImage(appIconFile).then(async (img) => {
+
+    async function run() {
+      const source = appIconFile
+        ? await loadImage(appIconFile).catch(() => null)
+        : currentAppIconUrl
+          ? await loadRemoteImage(currentAppIconUrl).catch(() => null)
+          : null
+
       if (cancelled) return
-      const square = img.naturalWidth === img.naturalHeight
-      setAppIconNonSquare(!square)
-      if (square) {
-        objectUrl = URL.createObjectURL(appIconFile)
-        setAppIconPreview(objectUrl)
+      if (!source) {
+        setAppIconPreview(null)
+        setAppIconPreviewFailed(!!(!appIconFile && currentAppIconUrl))
         return
       }
-      const blob = await compositeIconOntoSquare(img, appIconBackground)
-      if (cancelled || !blob) return
+
+      const blob = await compositeIconOntoSquare(source, appIconBackground)
+      if (cancelled) return
+      if (!blob) {
+        setAppIconPreview(null)
+        setAppIconPreviewFailed(true)
+        return
+      }
       objectUrl = URL.createObjectURL(blob)
       setAppIconPreview(objectUrl)
-    })
+      setAppIconPreviewFailed(false)
+    }
+
+    run()
     return () => {
       cancelled = true
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
     // appIconBackground deliberately included: the composited preview must
     // regenerate live as the coach picks a different background colour.
-  }, [appIconFile, appIconBackground])
+  }, [appIconFile, currentAppIconUrl, appIconBackground])
   return (
     <>
       <div>
@@ -210,11 +239,39 @@ function BrandingFields({
         <label className="block text-sm font-medium text-gray-700 mb-1">
           App icon {currentAppIconUrl === undefined ? '(optional)' : ''}
         </label>
-        {appIconPreview ? (
-          <img src={appIconPreview} alt="App icon preview" className="h-14 w-14 object-cover mb-2 rounded-xl border border-gray-100" />
-        ) : currentAppIconUrl && (
-          <img src={currentAppIconUrl} alt="Current app icon" className="h-10 w-10 object-contain mb-2 rounded border border-gray-100 bg-gray-50 p-1" />
+
+        {(appIconFile || currentAppIconUrl) && (
+          <div className="flex items-center gap-3 mb-2">
+            <div
+              className="h-16 w-16 rounded-2xl border border-gray-200 overflow-hidden flex items-center justify-center shrink-0"
+              style={{ backgroundColor: appIconPreview ? appIconBackground : undefined }}
+            >
+              {appIconPreview ? (
+                <img src={appIconPreview} alt="App icon preview" className="w-full h-full object-cover" />
+              ) : currentAppIconUrl ? (
+                <img src={currentAppIconUrl} alt="Current app icon" className="max-w-full max-h-full object-contain" />
+              ) : null}
+            </div>
+            <div className="flex-1">
+              <p className="text-xs text-gray-500 mb-1">Home-screen preview</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={appIconBackground}
+                  onChange={e => setAppIconBackground(e.target.value)}
+                  className="w-7 h-7 rounded-lg border border-gray-200 cursor-pointer p-0.5 shrink-0"
+                />
+                <span className="text-xs text-gray-400">Background colour behind transparent or non-square icons</span>
+              </div>
+              {appIconPreviewFailed && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Can&apos;t preview your saved icon&apos;s background live. Choose the file again to preview and apply a new background colour.
+                </p>
+              )}
+            </div>
+          </div>
         )}
+
         <input
           type="file"
           accept="image/png,image/jpeg,image/webp"
@@ -225,19 +282,6 @@ function BrandingFields({
           Square image, 512×512 px recommended. This is the icon shown when a client adds the app to their phone&apos;s home screen. Falls back to your favicon if skipped.
           {currentAppIconUrl !== undefined && ' Leave blank to keep your current icon.'}
         </p>
-        {appIconNonSquare && (
-          <div className="flex items-center gap-3 mt-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-            <input
-              type="color"
-              value={appIconBackground}
-              onChange={e => setAppIconBackground(e.target.value)}
-              className="w-8 h-8 rounded-lg border border-gray-200 cursor-pointer p-0.5 shrink-0"
-            />
-            <p className="text-xs text-amber-700">
-              That image isn&apos;t square, so your home-screen icon will show this background colour around it. Pick a colour above — the preview updates live.
-            </p>
-          </div>
-        )}
       </div>
 
       <div>
@@ -301,16 +345,16 @@ export default function WhiteLabelPage() {
       .catch(() => setStatus({ application: null, subscriptionTier: null, hasWhiteLabelTier: false, subdomain: null }))
   }, [])
 
-  // Non-square uploads get composited onto a square canvas of the chosen
-  // background colour before they ever leave the browser — the server
-  // just stores whatever file it receives, no image processing there.
+  // Every new upload gets flattened onto a square canvas of the chosen
+  // background colour before it ever leaves the browser — covers
+  // non-square images and transparent ones alike (a square image with a
+  // transparent background still needs flattening; letting that ship
+  // as-is just defers the black-fill problem to whatever the phone OS
+  // decides to do with the transparent pixels). The server just stores
+  // whatever file it receives, no image processing there.
   async function appendAppIcon(formData: FormData) {
     if (!appIconFile) return
     const img = await loadImage(appIconFile)
-    if (img.naturalWidth === img.naturalHeight) {
-      formData.append('appIcon', appIconFile)
-      return
-    }
     const blob = await compositeIconOntoSquare(img, appIconBackground)
     formData.append('appIcon', blob ?? appIconFile, 'app-icon.png')
   }
