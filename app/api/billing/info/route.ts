@@ -87,15 +87,45 @@ export async function GET() {
       }
     }
 
-    // Build overage breakdown for coach plans
-    const { count: activeClientCount } = await admin
-      .from('coach_clients')
-      .select('*', { count: 'exact', head: true })
-      .eq('coach_id', user.id)
-      .eq('status', 'active')
+    // If this user is an org member, billing/seat allowances are org-wide —
+    // moved ahead of the seat count so both can be computed together below.
+    const membership = await getOrgForUser(user.id)
 
-    const seatCount = activeClientCount ?? 0
-    const coachSeatCount = 0
+    // Build overage breakdown for coach plans. For an org tier
+    // (coach_business/wl_starter/wl_pro) the included-seat allowance is
+    // for the whole organisation, so usage must be counted across every
+    // coach in the org, not just the logged-in user — this used to only
+    // count this user's own coach_clients (undercounting for any org with
+    // more than one coach) and hardcoded coachSeatCount to 0 always,
+    // regardless of how many coaches were actually in the org.
+    let seatCount = 0
+    let coachSeatCount = 0
+    if (membership) {
+      const { data: activeMembers } = await admin
+        .from('org_members')
+        .select('user_id')
+        .eq('org_id', membership.org_id)
+        .eq('is_active', true)
+      const orgCoachIds = (activeMembers ?? []).map((m) => m.user_id)
+      coachSeatCount = orgCoachIds.length
+
+      const { count: orgClientCount } = orgCoachIds.length
+        ? await admin
+            .from('coach_clients')
+            .select('*', { count: 'exact', head: true })
+            .in('coach_id', orgCoachIds)
+            .eq('status', 'active')
+        : { count: 0 }
+      seatCount = orgClientCount ?? 0
+    } else {
+      const { count: activeClientCount } = await admin
+        .from('coach_clients')
+        .select('*', { count: 'exact', head: true })
+        .eq('coach_id', user.id)
+        .eq('status', 'active')
+      seatCount = activeClientCount ?? 0
+    }
+
     const includedClients = INCLUDED_SEATS[tier] ?? 0
     const includedCoaches = INCLUDED_COACHES[tier] ?? 0
     const clientOverageRate = CLIENT_OVERAGE_PRICE[tier] ?? 0
@@ -118,7 +148,7 @@ export async function GET() {
     }
 
     // If this user is a non-owner org member, billing is covered by the org.
-    const membership = await getOrgForUser(user.id)
+    // (membership itself was already fetched above, for the seat counts.)
     let org_managed: { org_name: string; role: string; owner_email: string | null } | null = null
     if (membership && membership.role !== 'owner') {
       const { data: ownerMember } = await admin

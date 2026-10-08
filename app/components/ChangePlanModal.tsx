@@ -49,6 +49,15 @@ const COACH_OPTIONS: TierOption[] = [
     overageRate: 3,
     blurb: 'Teams up to 75 clients. Adds organisation features and team coaches.',
   },
+  {
+    planKey: 'wl_starter',
+    tier: 'wl_starter',
+    name: 'Web White-label',
+    price: '$299 AUD/mo',
+    includedClients: 200,
+    overageRate: 1.5,
+    blurb: 'Everything in Business, fully white-labelled — your name, your branding, zero Prokol references.',
+  },
 ]
 
 const INDIVIDUAL_OPTIONS: TierOption[] = [
@@ -90,14 +99,22 @@ export default function ChangePlanModal({
 
   if (!open) return null
 
+  // wl_starter/wl_pro are white-label's own tiers, layered on top of
+  // Business — this used to only recognise the plain coach_* tiers, so a
+  // white-labelled coach opening "Change plan" fell through to the
+  // individual tracker tiers (Optimiser/Elite) instead of their own
+  // coach/business/white-label options.
   const isCoach =
     currentTier === 'coach_solo' ||
     currentTier === 'coach_pt_solo' ||
     currentTier === 'coach_nutritionist_solo' ||
     currentTier === 'coach_pro' ||
-    currentTier === 'coach_business'
+    currentTier === 'coach_business' ||
+    currentTier === 'wl_starter' ||
+    currentTier === 'wl_pro'
 
   const options = isCoach ? COACH_OPTIONS : INDIVIDUAL_OPTIONS
+  const optionsLabel = isCoach ? 'Coach' : 'Individual'
   const confirming = options.find((o) => o.planKey === confirmingPlanKey) ?? null
 
   async function handleSwitch(planKey: string) {
@@ -178,6 +195,9 @@ export default function ChangePlanModal({
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-semibold text-gray-900">{opt.name}</p>
+                        <span className="text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
+                          {optionsLabel}
+                        </span>
                         {isCurrent && (
                           <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">
                             Current
