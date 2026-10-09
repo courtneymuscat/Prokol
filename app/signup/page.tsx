@@ -27,6 +27,7 @@ function SignupForm() {
   const searchParams = useSearchParams()
   const invite = searchParams.get('invite')
   const orgInvite = searchParams.get('org_invite')
+  const orgJoin = searchParams.get('org_join')
   const planKey = searchParams.get('plan') ?? ''
   const billing = searchParams.get('billing') ?? 'monthly'
   const type = searchParams.get('type') ?? 'individual'
@@ -54,6 +55,8 @@ function SignupForm() {
     ? orgInfo?.orgName
       ? `Join ${orgInfo.orgName} as a coach`
       : 'Accept your coach invite'
+    : orgJoin
+    ? `Join ${branding.appName}`
     : invite
     ? 'Accept your invite'
     : isCoach
@@ -64,6 +67,8 @@ function SignupForm() {
     ? orgInfo?.orgName
       ? `Create your coach account to join ${orgInfo.orgName}. Your plan is covered by the organisation's subscription.`
       : 'Create your coach account to accept this invite. Your plan is covered by the organisation’s subscription.'
+    : orgJoin
+    ? 'Your programs and targets will be set up automatically once you sign up.'
     : invite
     ? 'Create an account to accept your coaching invite.'
     : planLabel
@@ -74,6 +79,8 @@ function SignupForm() {
     ? 'Creating account…'
     : orgInvite
     ? 'Create coach account'
+    : orgJoin
+    ? 'Create account'
     : planLabel
     ? 'Create account & continue to checkout'
     : 'Create free account'
@@ -109,6 +116,7 @@ function SignupForm() {
         <form action={action} className="space-y-4">
           {invite && <input type="hidden" name="invite" value={invite} />}
           {orgInvite && <input type="hidden" name="org_invite" value={orgInvite} />}
+          {orgJoin && <input type="hidden" name="org_join" value={orgJoin} />}
           {planKey && <input type="hidden" name="planKey" value={planKey} />}
           {billing && <input type="hidden" name="billing" value={billing} />}
           {type && <input type="hidden" name="userType" value={type} />}
@@ -149,6 +157,8 @@ function SignupForm() {
                         ? `/login?next=${encodeURIComponent('/org/invite/' + orgInvite)}`
                         : invite
                         ? `/login?invite=${invite}`
+                        : orgJoin
+                        ? `/login?org_join=${orgJoin}`
                         : '/login?next=/pricing'
                     }
                     className="underline font-medium"
@@ -200,6 +210,8 @@ function SignupForm() {
                 ? `/login?next=${encodeURIComponent('/org/invite/' + orgInvite)}`
                 : invite
                 ? `/login?invite=${invite}`
+                : orgJoin
+                ? `/login?org_join=${orgJoin}`
                 : '/login'
             }
             className="text-gray-900 font-medium hover:underline"

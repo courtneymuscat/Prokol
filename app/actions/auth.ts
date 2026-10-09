@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import { acceptInvite } from '@/lib/coach'
+import { acceptInvite, acceptOrgSignupLink } from '@/lib/coach'
 import { STARTER_NOTE_TEMPLATES } from '@/lib/noteTemplates'
 import { sendEmail, sendConfirmationEmail } from '@/lib/email'
 import { syncProfileFromStripe } from '@/lib/billing'
@@ -34,6 +34,11 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
   const password = formData.get('password') as string
   const invite = (formData.get('invite') as string) || null
   const orgInvite = (formData.get('org_invite') as string) || null
+  // A gym's reusable signup link (org_signup_links.code) — distinct from
+  // `invite` (a per-recipient, single-use coach_invites token) and
+  // `orgInvite` (a coach joining an organisation's staff). See
+  // acceptOrgSignupLink in lib/coach.ts.
+  const orgJoin = (formData.get('org_join') as string) || null
   const planKey = (formData.get('planKey') as string) || ''
   const billing = (formData.get('billing') as string) || 'monthly'
   const typeParam = (formData.get('userType') as string) || 'individual'
@@ -50,7 +55,7 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
 
   const emailRedirectTo = orgInvite
     ? `${origin}/auth/callback?next=${encodeURIComponent('/org/invite/' + orgInvite)}`
-    : invite
+    : invite || orgJoin
     ? `${origin}/auth/callback?next=/dashboard`
     : checkoutPath
     ? `${origin}/auth/callback?next=${encodeURIComponent(checkoutPath)}`
@@ -162,6 +167,7 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
       )
     }
     if (invite) await acceptInvite(invite, user.id)
+    if (orgJoin) await acceptOrgSignupLink(orgJoin, user.id)
 
     // Send branded confirmation email via Resend (bypasses Supabase's default template)
     // Build the confirmation URL directly using hashed_token so the user's browser
@@ -193,6 +199,7 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const invite = (formData.get('invite') as string) || null
+  const orgJoin = (formData.get('org_join') as string) || null
   const next = (formData.get('next') as string) || null
 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
@@ -222,6 +229,11 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
 
   if (invite && data.session?.user) {
     await acceptInvite(invite, data.session.user.id)
+    redirect('/dashboard')
+  }
+
+  if (orgJoin && data.session?.user) {
+    await acceptOrgSignupLink(orgJoin, data.session.user.id)
     redirect('/dashboard')
   }
 

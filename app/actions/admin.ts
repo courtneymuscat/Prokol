@@ -10,6 +10,8 @@ import {
   removeWhiteLabelDomain,
   setWhiteLabelDomain,
   deleteWhiteLabelApplication,
+  createGymOrg,
+  type CreateGymOrgParams,
 } from '@/lib/admin'
 import {
   publishMasterTemplate,
@@ -50,6 +52,12 @@ export async function actionSetOrgTenantType(orgId: string, tenantType: 'coachin
   const adminId = await getAdminId()
   if (!adminId) return { error: 'Unauthorized' }
   return setOrgTenantType(orgId, tenantType, adminId)
+}
+
+export async function actionCreateGymOrg(params: CreateGymOrgParams) {
+  const adminId = await getAdminId()
+  if (!adminId) return { error: 'Unauthorized' }
+  return createGymOrg(params, adminId)
 }
 
 export async function actionRevokeWhiteLabel(orgId: string) {

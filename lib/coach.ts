@@ -178,6 +178,153 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
 }
 
 /**
+ * Accept a gym's reusable signup link by code. Unlike acceptInvite's
+ * coach_invites (single-recipient, single-use — gated on invite.status
+ * ever flipping pending -> accepted so the one-time effects only fire
+ * once), an org_signup_links code is shared by an entire gym's membership
+ * and reusable indefinitely: every distinct signup through it runs the
+ * full enrollment, each with their own fresh client_id, so there's no
+ * "already accepted" state to guard against here.
+ *
+ * coach_id for every gym client is the org's owner (Court) rather than an
+ * inviting coach's id — gyms have no dedicated staff in this model, and
+ * this is what makes the existing coach client-detail page
+ * (app/coach/clients/[clientId]/page.tsx, which authorizes purely on
+ * coach_clients.coach_id = you) work for gym clients with no new UI.
+ *
+ * Mirrors acceptInvite's proven autoflow-enrollment logic (same template
+ * fetch -> client_autoflows insert -> calendar_events for day-offset
+ * steps), looped over every autoflow attached to the link, plus two
+ * enrollments acceptInvite doesn't do: a protocol and starting macro
+ * targets, both optional on the link.
+ */
+export async function acceptOrgSignupLink(code: string, clientId: string): Promise<void> {
+  const admin = createAdminClient()
+
+  const { data: link } = await admin
+    .from('org_signup_links')
+    .select('id, org_id, protocol_sections, target_calories, target_protein, target_carbs, target_fat, is_active')
+    .eq('code', code)
+    .single()
+
+  if (!link || !link.is_active) return
+
+  const { data: org } = await admin
+    .from('organisations')
+    .select('owner_id')
+    .eq('id', link.org_id)
+    .single()
+
+  if (!org?.owner_id) return
+  const coachId = org.owner_id as string
+
+  // Same update-then-insert pattern as acceptInvite — deterministic
+  // regardless of whether a unique constraint on (coach_id, client_id)
+  // exists in every environment.
+  const { data: updatedRows } = await admin
+    .from('coach_clients')
+    .update({ accepted_at: new Date().toISOString(), status: 'active', org_id: link.org_id })
+    .eq('coach_id', coachId)
+    .eq('client_id', clientId)
+    .select('id')
+
+  if (!updatedRows || updatedRows.length === 0) {
+    await admin.from('coach_clients').insert({
+      coach_id: coachId,
+      client_id: clientId,
+      accepted_at: new Date().toISOString(),
+      status: 'active',
+      org_id: link.org_id,
+    })
+  }
+
+  await admin.from('profiles').update({
+    org_id: link.org_id,
+    subscription_tier: 'coached',
+    onboarding_completed: true,
+  }).eq('id', clientId)
+
+  reportSeatUsage(coachId).catch((err) =>
+    console.error('acceptOrgSignupLink: reportSeatUsage error:', err instanceof Error ? err.message : String(err))
+  )
+  reportWhiteLabelClientSeatUsage(link.org_id).catch((err) =>
+    console.error('acceptOrgSignupLink: reportWhiteLabelClientSeatUsage error:', err instanceof Error ? err.message : String(err))
+  )
+
+  // Autoflows — a link can carry more than one (e.g. nutrition + check-in),
+  // all enrolling simultaneously, each with start_date = today.
+  const { data: linkAutoflows } = await admin
+    .from('org_signup_link_autoflows')
+    .select('autoflow_id')
+    .eq('link_id', link.id)
+
+  for (const { autoflow_id: autoflowId } of linkAutoflows ?? []) {
+    try {
+      const { data: tpl } = await admin
+        .from('autoflow_templates')
+        .select('id, name, total_steps')
+        .eq('id', autoflowId)
+        .single()
+      if (!tpl) continue
+
+      const startDate = new Date().toISOString().split('T')[0]
+      const { data: flow } = await admin
+        .from('client_autoflows')
+        .insert({
+          coach_id: coachId,
+          client_id: clientId,
+          template_id: autoflowId,
+          name: tpl.name,
+          start_date: startDate,
+          status: 'active',
+        })
+        .select('id')
+        .single()
+      if (!flow) continue
+
+      const { data: steps } = await admin
+        .from('autoflow_template_steps')
+        .select('step_number, title, day_offset, trigger_type')
+        .eq('template_id', autoflowId)
+        .order('step_number')
+
+      if (steps && steps.length > 0) {
+        const [y, m, d] = startDate.split('-').map(Number)
+        const events = steps
+          .filter((s) => (s as Record<string, unknown>).trigger_type !== 'on_step_complete')
+          .map((s) => ({
+            coach_id: coachId,
+            client_id: clientId,
+            event_date: new Date(Date.UTC(y, m - 1, d + s.day_offset)).toISOString().split('T')[0],
+            type: 'autoflow',
+            title: `${tpl.name} — Step ${s.step_number}${s.title ? `: ${s.title}` : ''}`,
+            content: { flow_id: flow.id, step_number: s.step_number, link: `/autoflows/${flow.id}/${s.step_number}` },
+          }))
+        if (events.length > 0) await admin.from('calendar_events').insert(events)
+      }
+    } catch { /* per-autoflow enrollment is non-critical — don't block the rest */ }
+  }
+
+  if (link.protocol_sections) {
+    await admin.from('client_protocol').upsert({
+      client_id: clientId,
+      coach_id: coachId,
+      sections: link.protocol_sections,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'client_id,coach_id' })
+  }
+
+  const macroPatch: Record<string, number> = {}
+  if (link.target_calories != null) macroPatch.target_calories = link.target_calories
+  if (link.target_protein != null) macroPatch.target_protein = link.target_protein
+  if (link.target_carbs != null) macroPatch.target_carbs = link.target_carbs
+  if (link.target_fat != null) macroPatch.target_fat = link.target_fat
+  if (Object.keys(macroPatch).length > 0) {
+    await admin.from('profiles').update(macroPatch).eq('id', clientId)
+  }
+}
+
+/**
  * Verify the current request is from a coach and return their user id.
  * Returns null if the user is not authenticated or not a coach.
  */

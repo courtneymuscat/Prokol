@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { notifyClientsOfBrandingChange } from '@/lib/whitelabel'
 import { addDomainToVercel, removeDomainFromVercel } from '@/lib/vercel'
 import { WHITE_LABEL_COACH_SEAT_LIMIT, DEFAULT_COACH_SEAT_LIMIT } from '@/lib/billing'
+import { slugify } from '@/lib/org'
 
 export async function requirePlatformAdmin() {
   const supabase = await createClient()
@@ -984,4 +985,87 @@ export async function getCoachDetail(coachId: string): Promise<{
     activeClients,
     archivedClients: archivedByCoachId[coachId] ?? [],
   }
+}
+
+export type CreateGymOrgParams = {
+  name: string
+  appName?: string | null
+  brandColour?: string | null
+  brandColourSecondary?: string | null
+  logoUrl?: string | null
+  faviconUrl?: string | null
+  appIconUrl?: string | null
+  supportEmail?: string | null
+}
+
+/**
+ * Creates a gym organisation owned by the platform admin — used instead of
+ * the self-serve app/api/org/setup/route.ts, which is hard-wired to the
+ * calling session's own user id as both the subscription-tier gate subject
+ * and owner_id, with no way to create an org for (or owned by) someone
+ * else. A gym is just a normal organisation (tenant_type stays
+ * 'coaching_business' — see lib/org.ts's gym-tenant-type comment for why
+ * that stricter model isn't used here) marked white-label immediately,
+ * with no Stripe/billing involved — these are Court's own businesses, not
+ * self-serve customers going through the apply/approve/payment flow.
+ */
+export async function createGymOrg(
+  params: CreateGymOrgParams,
+  adminId: string,
+): Promise<{ data?: { id: string; slug: string }; error?: string }> {
+  const admin = createAdminClient()
+
+  const name = params.name.trim()
+  if (!name) return { error: 'Gym name is required' }
+
+  let slug = slugify(name)
+  const { data: existing } = await admin
+    .from('organisations')
+    .select('id')
+    .eq('slug', slug)
+    .maybeSingle()
+  if (existing) {
+    slug = `${slug}-${Math.random().toString(36).slice(2, 6)}`
+  }
+
+  const { data: org, error } = await admin
+    .from('organisations')
+    .insert({
+      name,
+      slug,
+      owner_id: adminId,
+      tenant_type: 'coaching_business',
+      subscription_tier: 'org_enterprise',
+      is_white_label: true,
+      white_label_tier: 'starter',
+      coach_seat_limit: WHITE_LABEL_COACH_SEAT_LIMIT.starter,
+      app_name: params.appName ?? name,
+      brand_colour: params.brandColour ?? null,
+      brand_colour_secondary: params.brandColourSecondary ?? null,
+      logo_url: params.logoUrl ?? null,
+      favicon_url: params.faviconUrl ?? null,
+      app_icon_url: params.appIconUrl ?? null,
+      support_email: params.supportEmail ?? null,
+    })
+    .select('id, slug')
+    .single()
+
+  if (error || !org) return { error: error?.message ?? 'Failed to create gym organisation' }
+
+  await admin.from('org_members').insert({
+    org_id: org.id,
+    user_id: adminId,
+    role: 'owner',
+    accepted_at: new Date().toISOString(),
+    is_active: true,
+  })
+
+  await admin.from('admin_audit_log').insert({
+    admin_id: adminId,
+    action: 'create_gym_org',
+    target_org_id: org.id,
+    new_value: name,
+  })
+
+  return { data: org }
 }

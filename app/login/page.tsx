@@ -14,6 +14,7 @@ function LoginForm() {
   const [showPw, setShowPw] = useState(false)
   const searchParams = useSearchParams()
   const invite = searchParams.get('invite')
+  const orgJoin = searchParams.get('org_join')
   const next = searchParams.get('next')
   const deleted = searchParams.get('deleted')
   const linkExpired = searchParams.get('error') === 'link_expired'
@@ -65,12 +66,13 @@ function LoginForm() {
           <div>
             <h1 className="text-xl font-semibold text-gray-900">Welcome back</h1>
             <p className="text-sm text-gray-500 mt-1">
-              {invite ? 'Log in to accept your coaching invite.' : 'Log in to your account.'}
+              {invite ? 'Log in to accept your coaching invite.' : orgJoin ? `Log in to join ${branding.appName}.` : 'Log in to your account.'}
             </p>
           </div>
 
           <form action={action} className="space-y-4">
             {invite && <input type="hidden" name="invite" value={invite} />}
+            {orgJoin && <input type="hidden" name="org_join" value={orgJoin} />}
             {next && <input type="hidden" name="next" value={next} />}
             <div className="space-y-1">
               <label htmlFor="email" className="block text-xs font-medium text-gray-600">
@@ -143,6 +145,8 @@ function LoginForm() {
                   ? `/signup?org_invite=${next.slice('/org/invite/'.length).split('?')[0]}`
                   : invite
                   ? `/signup?invite=${invite}`
+                  : orgJoin
+                  ? `/signup?org_join=${orgJoin}`
                   : next
                   ? `/signup?next=${encodeURIComponent(next)}`
                   : '/signup'
