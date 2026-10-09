@@ -963,3 +963,71 @@ export async function createGymOrg(
 
   return { data: org }
 }
+
+export type GymMember = {
+  id: string
+  name: string | null
+  email: string
+  joinedAt: string | null
+  lastActivity: string | null
+}
+
+/**
+ * The client roster for one of Court's gym organisations — scoped to both
+ * adminId (every gym client's coach_id is the org owner, per
+ * acceptOrgSignupLink) and org_id, so a client never leaks into the wrong
+ * gym's roster if Court owns more than one.
+ *
+ * lastActivity is computed the same way app/coach/clients/page.tsx already
+ * does: the latest of raw check-ins, autoflow step responses, and form
+ * submissions. Autoflow responses matter most here specifically — gym
+ * members' entire program is the autoflow(s) attached to their signup
+ * link, so that's where most of their real activity shows up, not the
+ * generic check_ins table alone.
+ */
+export async function getGymMembers(orgId: string, adminId: string): Promise<GymMember[]> {
+  const admin = createAdminClient()
+
+  const { data: memberRows } = await admin
+    .from('coach_clients')
+    .select('client_id, accepted_at')
+    .eq('coach_id', adminId)
+    .eq('org_id', orgId)
+    .eq('status', 'active')
+    .order('accepted_at', { ascending: false })
+
+  const memberIds = (memberRows ?? []).map((r) => r.client_id)
+  if (memberIds.length === 0) return []
+
+  const { data: memberProfiles } = await admin
+    .from('profiles')
+    .select('id, email, full_name, first_name')
+    .in('id', memberIds)
+  const profileMap = Object.fromEntries((memberProfiles ?? []).map((p) => [p.id, p]))
+
+  const [{ data: latestCheckIns }, { data: latestAutoflowResps }, { data: latestFormSubs }] = await Promise.all([
+    admin.from('check_ins').select('user_id, created_at').in('user_id', memberIds).order('created_at', { ascending: false }),
+    admin.from('autoflow_responses').select('client_id, submitted_at').in('client_id', memberIds).order('submitted_at', { ascending: false }),
+    admin.from('form_submissions').select('client_id, submitted_at').in('client_id', memberIds).order('submitted_at', { ascending: false }),
+  ])
+
+  const lastActivity: Record<string, string> = {}
+  for (const c of latestCheckIns ?? []) {
+    if (!lastActivity[c.user_id]) lastActivity[c.user_id] = c.created_at
+  }
+  for (const r of [...(latestAutoflowResps ?? []), ...(latestFormSubs ?? [])]) {
+    const existing = lastActivity[r.client_id]
+    if (!existing || r.submitted_at > existing) lastActivity[r.client_id] = r.submitted_at
+  }
+
+  return (memberRows ?? []).map((r) => {
+    const p = profileMap[r.client_id] as { email: string | null; full_name: string | null; first_name: string | null } | undefined
+    return {
+      id: r.client_id,
+      name: p?.full_name ?? p?.first_name ?? null,
+      email: p?.email ?? 'Unknown',
+      joinedAt: r.accepted_at as string | null,
+      lastActivity: lastActivity[r.client_id] ?? null,
+    }
+  })
+}

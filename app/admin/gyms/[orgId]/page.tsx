@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { requirePlatformAdmin } from '@/lib/admin'
+import { requirePlatformAdmin, getGymMembers } from '@/lib/admin'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getOrgFrontDoorUrl } from '@/lib/whitelabel'
 import SignupLinkPanel from './SignupLinkPanel'
@@ -46,6 +46,11 @@ export default async function GymDetailPage({
     autoflowsByLink.set(row.link_id, names)
   }
 
+  // Links straight into the existing /coach/clients/[clientId] page — that
+  // page authorizes purely on coach_clients.coach_id = you, so it already
+  // works for gym clients with no new client-detail UI at all.
+  const members = await getGymMembers(orgId, adminProfile.id)
+
   return (
     <div className="space-y-6">
       <div>
@@ -64,6 +69,36 @@ export default async function GymDetailPage({
           )}
           <h1 className="text-2xl font-bold text-zinc-100">{org.app_name ?? org.name}</h1>
         </div>
+      </div>
+
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4 max-w-2xl">
+        <h2 className="text-sm font-semibold text-zinc-200">Members ({members.length})</h2>
+        {members.length === 0 ? (
+          <p className="text-xs text-zinc-500">No members yet — share a signup link below to get started.</p>
+        ) : (
+          <div className="divide-y divide-zinc-800">
+            {members.map((m) => (
+              <Link
+                key={m.id}
+                href={`/coach/clients/${m.id}`}
+                className="flex items-center justify-between py-3 hover:bg-zinc-800/40 -mx-2 px-2 rounded-lg transition-colors"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm text-zinc-100 truncate">{m.name ?? m.email}</p>
+                  <p className="text-xs text-zinc-500 truncate">{m.email}</p>
+                </div>
+                <div className="text-right shrink-0 ml-4">
+                  <p className="text-xs text-zinc-500">
+                    Last activity: {m.lastActivity ? new Date(m.lastActivity).toLocaleDateString() : 'Never'}
+                  </p>
+                  <p className="text-xs text-zinc-600">
+                    Joined {m.joinedAt ? new Date(m.joinedAt).toLocaleDateString() : '—'}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       <SignupLinkPanel
