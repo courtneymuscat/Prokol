@@ -28,7 +28,7 @@ export default async function GymDetailPage({
 
   const { data: links } = await admin
     .from('org_signup_links')
-    .select('id, code, is_active, created_at, target_calories, target_protein, target_carbs, target_fat')
+    .select('id, code, is_active, created_at')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false })
 
@@ -74,10 +74,6 @@ export default async function GymDetailPage({
           code: l.code,
           isActive: l.is_active,
           autoflowNames: autoflowsByLink.get(l.id) ?? [],
-          targetCalories: l.target_calories,
-          targetProtein: l.target_protein,
-          targetCarbs: l.target_carbs,
-          targetFat: l.target_fat,
         }))}
       />
     </div>

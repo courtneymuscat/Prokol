@@ -9,10 +9,6 @@ type ExistingLink = {
   code: string
   isActive: boolean
   autoflowNames: string[]
-  targetCalories: number | null
-  targetProtein: number | null
-  targetCarbs: number | null
-  targetFat: number | null
 }
 
 export default function SignupLinkPanel({
@@ -26,10 +22,6 @@ export default function SignupLinkPanel({
 }) {
   const [autoflows, setAutoflows] = useState<AutoflowOption[]>([])
   const [selectedAutoflows, setSelectedAutoflows] = useState<Set<string>>(new Set())
-  const [targetCalories, setTargetCalories] = useState('')
-  const [targetProtein, setTargetProtein] = useState('')
-  const [targetCarbs, setTargetCarbs] = useState('')
-  const [targetFat, setTargetFat] = useState('')
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [links, setLinks] = useState(existingLinks)
@@ -59,13 +51,7 @@ export default function SignupLinkPanel({
     const res = await fetch(`/api/admin/gyms/${orgId}/signup-link`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        autoflowIds: Array.from(selectedAutoflows),
-        targetCalories: targetCalories ? Number(targetCalories) : null,
-        targetProtein: targetProtein ? Number(targetProtein) : null,
-        targetCarbs: targetCarbs ? Number(targetCarbs) : null,
-        targetFat: targetFat ? Number(targetFat) : null,
-      }),
+      body: JSON.stringify({ autoflowIds: Array.from(selectedAutoflows) }),
     })
     const data = await res.json()
     setCreating(false)
@@ -78,16 +64,8 @@ export default function SignupLinkPanel({
       code: data.code,
       isActive: true,
       autoflowNames: autoflows.filter((a) => selectedAutoflows.has(a.id)).map((a) => a.name),
-      targetCalories: targetCalories ? Number(targetCalories) : null,
-      targetProtein: targetProtein ? Number(targetProtein) : null,
-      targetCarbs: targetCarbs ? Number(targetCarbs) : null,
-      targetFat: targetFat ? Number(targetFat) : null,
     }, ...prev])
     setSelectedAutoflows(new Set())
-    setTargetCalories('')
-    setTargetProtein('')
-    setTargetCarbs('')
-    setTargetFat('')
   }
 
   return (
@@ -96,7 +74,7 @@ export default function SignupLinkPanel({
         <div>
           <h2 className="text-sm font-semibold text-zinc-200">New signup link</h2>
           <p className="text-xs text-zinc-500 mt-1">
-            Anyone who signs up through this link is enrolled in the autoflow(s) and starting macros below, starting the day they actually sign up.
+            Anyone who signs up through this link is enrolled in the autoflow(s) below starting the day they actually sign up. They set their own starting macros by completing the onboarding questions right after — there's no coach here to set them manually.
           </p>
         </div>
 
@@ -119,16 +97,6 @@ export default function SignupLinkPanel({
               ))}
             </div>
           )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-zinc-300 mb-2">Starting macros <span className="text-zinc-500">(optional)</span></label>
-          <div className="grid grid-cols-4 gap-2">
-            <input type="number" value={targetCalories} onChange={e => setTargetCalories(e.target.value)} placeholder="Cals" className="bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-1.5 text-sm text-zinc-100" />
-            <input type="number" value={targetProtein} onChange={e => setTargetProtein(e.target.value)} placeholder="Protein" className="bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-1.5 text-sm text-zinc-100" />
-            <input type="number" value={targetCarbs} onChange={e => setTargetCarbs(e.target.value)} placeholder="Carbs" className="bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-1.5 text-sm text-zinc-100" />
-            <input type="number" value={targetFat} onChange={e => setTargetFat(e.target.value)} placeholder="Fat" className="bg-zinc-950 border border-zinc-700 rounded-lg px-2 py-1.5 text-sm text-zinc-100" />
-          </div>
         </div>
 
         {error && <p className="text-sm text-red-400">{error}</p>}

@@ -4,16 +4,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // logic, but for a gym's reusable signup link rather than a per-recipient
 // coach_invites token: no single-use gate (every distinct signup runs full
 // enrollment), coach_id is always the org's owner, and it can enroll
-// multiple autoflows plus an optional protocol and starting macros.
+// multiple autoflows plus an optional protocol. Deliberately does NOT set
+// onboarding_completed or any macro targets — a gym has no coaching staff
+// to set those manually, so the member gets their own targets from the
+// self-service TDEE onboarding flow they complete right after signing up.
 
 type Link = {
   id: string
   org_id: string
   protocol_sections: unknown
-  target_calories: number | null
-  target_protein: number | null
-  target_carbs: number | null
-  target_fat: number | null
   is_active: boolean
 }
 
@@ -129,10 +128,6 @@ beforeEach(() => {
     id: 'link-1',
     org_id: 'gym-org-1',
     protocol_sections: null,
-    target_calories: null,
-    target_protein: null,
-    target_carbs: null,
-    target_fat: null,
     is_active: true,
   }
 })
@@ -155,9 +150,10 @@ describe('acceptOrgSignupLink', () => {
     expect(coachClientRows[0]).toMatchObject({ coach_id: orgOwnerId, client_id: 'client-1', status: 'active', org_id: 'gym-org-1' })
   })
 
-  it('sets profile org_id, subscription_tier, and onboarding_completed', async () => {
+  it('sets profile org_id and subscription_tier, but leaves onboarding_completed untouched', async () => {
     await acceptOrgSignupLink('code-1', 'client-1')
-    expect(profileUpdates[0]).toMatchObject({ id: 'client-1', org_id: 'gym-org-1', subscription_tier: 'coached', onboarding_completed: true })
+    expect(profileUpdates[0]).toMatchObject({ id: 'client-1', org_id: 'gym-org-1', subscription_tier: 'coached' })
+    expect(profileUpdates[0]).not.toHaveProperty('onboarding_completed')
   })
 
   it('enrolls every autoflow attached to the link, each starting today', async () => {
@@ -187,13 +183,10 @@ describe('acceptOrgSignupLink', () => {
     expect(protocolUpserts).toHaveLength(0)
   })
 
-  it('writes only the macro fields that are set on the link', async () => {
-    link!.target_calories = 2200
-    link!.target_protein = 180
+  it('never writes macro target fields — those come from the member\'s own onboarding', async () => {
     await acceptOrgSignupLink('code-1', 'client-1')
     const macroUpdate = profileUpdates.find((u) => 'target_calories' in u)
-    expect(macroUpdate).toMatchObject({ id: 'client-1', target_calories: 2200, target_protein: 180 })
-    expect(macroUpdate).not.toHaveProperty('target_carbs')
+    expect(macroUpdate).toBeUndefined()
   })
 
   it('is reusable — a second, different signup against the same code also fully enrolls', async () => {

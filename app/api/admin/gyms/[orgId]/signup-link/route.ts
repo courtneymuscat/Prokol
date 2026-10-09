@@ -6,9 +6,12 @@ type Ctx = { params: Promise<{ orgId: string }> }
 
 /**
  * Creates a reusable signup link for a gym — a code anyone can use to sign
- * up and be automatically enrolled in the chosen autoflow(s), with the
- * optional starting macro targets. See lib/coach.ts's acceptOrgSignupLink
- * for the enrollment logic this link drives.
+ * up and be automatically enrolled in the chosen autoflow(s). Starting
+ * macros are deliberately not set here: a gym has no coaching staff to
+ * hand-pick them, so each member gets their own targets from the
+ * self-service TDEE onboarding flow they complete right after signing up
+ * (see lib/coach.ts's acceptOrgSignupLink for why onboarding_completed is
+ * left false for this signup path specifically).
  */
 export async function POST(req: NextRequest, { params }: Ctx) {
   const { orgId } = await params
@@ -26,13 +29,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const body = await req.json() as {
-    autoflowIds?: string[]
-    targetCalories?: number | null
-    targetProtein?: number | null
-    targetCarbs?: number | null
-    targetFat?: number | null
-  }
+  const body = await req.json() as { autoflowIds?: string[] }
   const autoflowIds = Array.isArray(body.autoflowIds) ? body.autoflowIds.filter(Boolean) : []
 
   // Short, URL-safe, collision-checked code — not a guessable sequential id,
@@ -43,15 +40,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   const { data: link, error } = await admin
     .from('org_signup_links')
-    .insert({
-      org_id: orgId,
-      code,
-      target_calories: body.targetCalories ?? null,
-      target_protein: body.targetProtein ?? null,
-      target_carbs: body.targetCarbs ?? null,
-      target_fat: body.targetFat ?? null,
-      created_by: session.user.id,
-    })
+    .insert({ org_id: orgId, code, created_by: session.user.id })
     .select('id, code')
     .single()
 
@@ -86,7 +75,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
   const { data: links } = await admin
     .from('org_signup_links')
-    .select('id, code, is_active, created_at, target_calories, target_protein, target_carbs, target_fat')
+    .select('id, code, is_active, created_at')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false })
 

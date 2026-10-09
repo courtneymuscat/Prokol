@@ -55,10 +55,13 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
 
   const emailRedirectTo = orgInvite
     ? `${origin}/auth/callback?next=${encodeURIComponent('/org/invite/' + orgInvite)}`
-    : invite || orgJoin
+    : invite
     ? `${origin}/auth/callback?next=/dashboard`
     : checkoutPath
     ? `${origin}/auth/callback?next=${encodeURIComponent(checkoutPath)}`
+    // orgJoin falls through to here deliberately — a gym signup has no
+    // coach to set macros manually, so (like a brand-new individual
+    // signup) they need the self-service TDEE onboarding flow themselves.
     : `${origin}/auth/callback?next=/onboarding`
 
   // Use admin.generateLink instead of supabase.auth.signUp so that Supabase does NOT send

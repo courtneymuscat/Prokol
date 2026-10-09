@@ -194,16 +194,17 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
  *
  * Mirrors acceptInvite's proven autoflow-enrollment logic (same template
  * fetch -> client_autoflows insert -> calendar_events for day-offset
- * steps), looped over every autoflow attached to the link, plus two
- * enrollments acceptInvite doesn't do: a protocol and starting macro
- * targets, both optional on the link.
+ * steps), looped over every autoflow attached to the link, plus an
+ * optional protocol enrollment acceptInvite doesn't do. Macro targets are
+ * deliberately NOT set here — see the onboarding_completed comment below
+ * for why a member's own /onboarding submission is what sets those.
  */
 export async function acceptOrgSignupLink(code: string, clientId: string): Promise<void> {
   const admin = createAdminClient()
 
   const { data: link } = await admin
     .from('org_signup_links')
-    .select('id, org_id, protocol_sections, target_calories, target_protein, target_carbs, target_fat, is_active')
+    .select('id, org_id, protocol_sections, is_active')
     .eq('code', code)
     .single()
 
@@ -238,10 +239,17 @@ export async function acceptOrgSignupLink(code: string, clientId: string): Promi
     })
   }
 
+  // Deliberately NOT onboarding_completed: true — gyms have no coaching
+  // staff to manually set a new member's macros (unlike a regular
+  // coach_invites acceptance), so the member needs to actually go through
+  // the self-service TDEE onboarding flow (/onboarding) themselves to get
+  // real targets. app/api/onboarding/complete already resolves their tier
+  // to 'coached' on its own once it sees this active coach_clients row, so
+  // setting subscription_tier here is just so coached-only UI (bottom nav,
+  // messaging) is correct immediately rather than only after onboarding.
   await admin.from('profiles').update({
     org_id: link.org_id,
     subscription_tier: 'coached',
-    onboarding_completed: true,
   }).eq('id', clientId)
 
   reportSeatUsage(coachId).catch((err) =>
@@ -312,15 +320,6 @@ export async function acceptOrgSignupLink(code: string, clientId: string): Promi
       sections: link.protocol_sections,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'client_id,coach_id' })
-  }
-
-  const macroPatch: Record<string, number> = {}
-  if (link.target_calories != null) macroPatch.target_calories = link.target_calories
-  if (link.target_protein != null) macroPatch.target_protein = link.target_protein
-  if (link.target_carbs != null) macroPatch.target_carbs = link.target_carbs
-  if (link.target_fat != null) macroPatch.target_fat = link.target_fat
-  if (Object.keys(macroPatch).length > 0) {
-    await admin.from('profiles').update(macroPatch).eq('id', clientId)
   }
 }
 
