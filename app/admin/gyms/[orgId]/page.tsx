@@ -18,13 +18,14 @@ export default async function GymDetailPage({
 
   const { data: org } = await admin
     .from('organisations')
-    .select('id, name, app_name, slug, logo_url, brand_colour, owner_id')
+    .select('id, name, app_name, logo_url, brand_colour, owner_id')
     .eq('id', orgId)
     .maybeSingle()
 
   if (!org || org.owner_id !== adminProfile.id) notFound()
 
   const frontDoor = await getOrgFrontDoorUrl(orgId)
+  const frontDoorUrl = frontDoor?.url ?? process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.prokol.io'
 
   const { data: links } = await admin
     .from('org_signup_links')
@@ -63,12 +64,11 @@ export default async function GymDetailPage({
           )}
           <h1 className="text-2xl font-bold text-zinc-100">{org.app_name ?? org.name}</h1>
         </div>
-        <p className="text-sm text-zinc-500 mt-1">{frontDoor?.url ?? `${org.slug}.prokol.io`}</p>
       </div>
 
       <SignupLinkPanel
         orgId={org.id}
-        frontDoorUrl={frontDoor?.url ?? `https://${org.slug}.prokol.io`}
+        frontDoorUrl={frontDoorUrl}
         existingLinks={(links ?? []).map((l) => ({
           id: l.id,
           code: l.code,

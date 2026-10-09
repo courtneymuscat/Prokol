@@ -1,14 +1,6 @@
-import { unstable_cache } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/email'
 import { WHITE_LABEL_COACH_SEAT_LIMIT, DEFAULT_COACH_SEAT_LIMIT } from '@/lib/billing'
-import {
-  checkDnsForVercel,
-  addDomainToVercel,
-  triggerVercelDomainVerify,
-  VERCEL_CNAME_TARGET,
-  VERCEL_A_TARGET,
-} from '@/lib/vercel'
 
 export type OrgBrandingRecord = {
   id: string
@@ -26,46 +18,6 @@ export type OrgBrandingRecord = {
 
 const ORG_BRANDING_COLUMNS =
   'id, name, app_name, brand_colour, brand_colour_secondary, brand_colour_text, logo_url, favicon_url, app_icon_url, support_email, slug'
-
-// Exported directly (not just via the cached wrapper below) so it's
-// testable without needing a Next.js server-request context for unstable_cache.
-export async function fetchOrgByDomain(domain: string): Promise<OrgBrandingRecord | null> {
-  const admin = createAdminClient()
-
-  // {slug}.prokol.io — the free, zero-DNS white-label subdomain. No
-  // custom_domain_verified check: there's no DNS to verify for a subdomain
-  // of a domain Prokol already controls, so it's live the moment an org is
-  // approved, not gated on anything the org owner has to do.
-  if (domain.endsWith('.prokol.io')) {
-    const slug = domain.slice(0, -'.prokol.io'.length)
-    const { data } = await admin
-      .from('organisations')
-      .select(ORG_BRANDING_COLUMNS)
-      .eq('slug', slug)
-      .eq('is_white_label', true)
-      .maybeSingle()
-    return data ?? null
-  }
-
-  const { data } = await admin
-    .from('organisations')
-    .select(ORG_BRANDING_COLUMNS)
-    .eq('custom_domain', domain)
-    .eq('is_white_label', true)
-    .eq('custom_domain_verified', true)
-    .maybeSingle()
-
-  return data ?? null
-}
-
-// Cached for 5 minutes — used by server components and proxy.
-// NOTE: unstable_cache is deprecated in Next.js 16 (see `use cache` directive).
-// In Edge (proxy) context the cache wrapper is a passthrough; the query still runs.
-export const getOrgByDomain = unstable_cache(
-  fetchOrgByDomain,
-  ['org-by-domain'],
-  { revalidate: 300 },
-)
 
 export async function getOrgBranding(orgId: string): Promise<OrgBrandingRecord | null> {
   const admin = createAdminClient()
@@ -103,9 +55,8 @@ export async function getOrgBrandingForUser(userId: string): Promise<OrgBranding
 }
 
 /**
- * Sets the x-* branding headers proxy forwards downstream — shared by both
- * the domain-based lookup (an org's own subdomain/custom domain) and the
- * login-based lookup (plain prokol.io, branding follows the account).
+ * Sets the x-* branding headers proxy forwards downstream, based on
+ * whoever's logged in (see getOrgBrandingForUser).
  */
 export function applyBrandingHeaders(headers: Headers, org: OrgBrandingRecord): void {
   headers.set('x-org-id', org.id)
@@ -120,31 +71,25 @@ export function applyBrandingHeaders(headers: Headers, org: OrgBrandingRecord): 
 }
 
 /**
- * The best "front door" URL for a white-labelled org — their verified
- * custom domain if they have one, otherwise their free {slug}.prokol.io
- * subdomain. Returns null for an org that isn't white-labelled at all, so
- * callers can fall back to the plain app URL.
- *
- * This matters specifically for invite links: branding-follows-login (see
- * getOrgBrandingForUser) only works once someone has an account to look
- * up. An invite recipient has no account yet, so the *link itself* is the
- * only way they see the org's branding before signing up — sending them
- * to plain prokol.io would show generic Prokol branding on their very
- * first screen regardless of which org invited them.
+ * The app URL + display name for a white-labelled org's invite/join links.
+ * Always the plain app URL now that domains/subdomains have been removed —
+ * branding-follows-login (see getOrgBrandingForUser) only applies once
+ * someone has an account, so an invite recipient's very first screen is
+ * unbranded Prokol regardless; this is a known, accepted trade-off. Returns
+ * null for an org that isn't white-labelled at all, so callers can fall
+ * back to generic copy.
  */
 export async function getOrgFrontDoorUrl(orgId: string): Promise<{ url: string; appName: string } | null> {
   const admin = createAdminClient()
   const { data: org } = await admin
     .from('organisations')
-    .select('slug, name, app_name, is_white_label, custom_domain, custom_domain_verified')
+    .select('name, app_name, is_white_label')
     .eq('id', orgId)
     .maybeSingle()
 
   if (!org?.is_white_label) return null
   const appName = org.app_name ?? org.name
-  const url = org.custom_domain && org.custom_domain_verified
-    ? `https://${org.custom_domain}`
-    : `https://${org.slug}.prokol.io`
+  const url = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.prokol.io'
   return { url, appName }
 }
 
@@ -166,23 +111,16 @@ export async function notifyClientsOfBrandingChange(orgId: string): Promise<{ se
 
   const { data: org } = await admin
     .from('organisations')
-    .select('name, app_name, slug, custom_domain, custom_domain_verified')
+    .select('name, app_name')
     .eq('id', orgId)
     .single()
 
   if (!org) return { sent: 0 }
 
   const appName = org.app_name ?? org.name
-  // Only a verified custom domain is used here — the free {slug}.prokol.io
-  // subdomain depends on a wildcard SSL certificate for *.prokol.io that
-  // has never actually been issued (confirmed: every subdomain fails the
-  // same way, not just one), so linking to it would send someone to a
-  // broken page. Branding follows login now (see getOrgBrandingForUser),
-  // so the plain app URL already shows the right branding once logged in —
-  // no subdomain needed for this link to work correctly.
-  const homeLink = org.custom_domain && org.custom_domain_verified
-    ? `https://${org.custom_domain}`
-    : (process.env.NEXT_PUBLIC_APP_URL ?? 'https://prokol.io')
+  // Branding follows login (see getOrgBrandingForUser), so the plain app
+  // URL already shows the right branding once logged in.
+  const homeLink = process.env.NEXT_PUBLIC_APP_URL ?? 'https://prokol.io'
 
   const { data: coachRows } = await admin
     .from('org_members')
@@ -292,131 +230,10 @@ export async function syncWhiteLabelTierForOwner(
       html: `
         <p>Hi ${ownerProfile.full_name ?? 'there'},</p>
         <p>Since your plan changed away from a white-label tier, white-label branding for <strong>${ownedOrg.name}</strong> has been switched off — your app and clients are now back to standard Prokol branding.</p>
-        <p>Your logo, colours and domain settings haven't been deleted — if you upgrade to white-label again, just let us know and we'll turn it straight back on.</p>
+        <p>Your logo and colours haven't been deleted — if you upgrade to white-label again, just let us know and we'll turn it straight back on.</p>
         <p>Questions? Email <a href="mailto:info@prokol.io">info@prokol.io</a></p>
       `,
     })
   }
 }
 
-/**
- * Returns true when the hostname is a candidate white-label request — either
- * a {slug}.prokol.io subdomain or an org's own custom domain. Used in proxy
- * to decide whether to even attempt an org lookup; getOrgByDomain is what
- * actually confirms the org exists and is white-labelled.
- */
-export function isWhiteLabelDomain(hostname: string): boolean {
-  const host = hostname.split(':')[0] // strip port
-  if (!host) return false
-  if (host === 'prokol.io') return false
-  if (host === 'www.prokol.io') return false
-  if (host.endsWith('.vercel.app')) return false
-  if (host === 'localhost') return false
-  if (host.match(/^127\.|^192\.168\.|^10\./)) return false
-  return true
-}
-
-export type DomainVerificationResult =
-  | { verified: true; domain: string; vercelVerified: boolean; message: string }
-  | {
-      verified: false
-      kind: 'dns_not_configured'
-      dnsFound: boolean
-      message: string
-      instructions: {
-        summary: string
-        records: { type: string; host: string; value: string; ttl: string }[]
-      }
-    }
-  | { verified: false; kind: 'vercel_add_failed'; error: string }
-  | { verified: false; kind: 'db_update_failed'; error: string }
-
-/**
- * The actual "is this custom domain ready, and if so flip it live" logic —
- * shared by the manual "Check DNS" button (app/api/org/white-label/verify-domain)
- * and the daily background cron (app/api/cron/white-label-dns-check), so an
- * org owner doesn't have to remember to come back and click a button for
- * their DNS change to take effect.
- */
-export async function attemptDomainVerification(
-  orgId: string,
-  domain: string,
-): Promise<DomainVerificationResult> {
-  const admin = createAdminClient()
-
-  // ── Step 1: Real DNS check ────────────────────────────────────────────────
-  const dns = await checkDnsForVercel(domain)
-
-  if (!dns.valid) {
-    const isApex = !domain.includes('.', domain.indexOf('.') + 1)
-      || domain.split('.').length === 2
-
-    const instructions = isApex
-      ? [
-          { type: 'A',     host: '@',   value: VERCEL_A_TARGET,     ttl: '3600' },
-          { type: 'CNAME', host: 'www', value: VERCEL_CNAME_TARGET, ttl: '3600' },
-        ]
-      : [
-          { type: 'CNAME', host: domain.split('.')[0], value: VERCEL_CNAME_TARGET, ttl: '3600' },
-        ]
-
-    const foundSummary = dns.found.length
-      ? `Found: ${dns.recordType} → ${dns.found.join(', ')}`
-      : 'No DNS records found for this domain yet'
-
-    return {
-      verified: false,
-      kind: 'dns_not_configured',
-      dnsFound: dns.found.length > 0,
-      message: `DNS not configured correctly. ${foundSummary}.`,
-      instructions: {
-        summary: `Add the following DNS record at your domain registrar (GoDaddy, Cloudflare, Namecheap, etc.), then click Verify again. Changes can take up to 24 hours to propagate.`,
-        records: instructions,
-      },
-    }
-  }
-
-  // ── Step 2: Ensure domain is registered on this Vercel project ────────────
-  // The admin-approve flow calls addDomainToVercel already, but it may have
-  // failed or the project may have been relinked. This call is idempotent.
-  const addResult = await addDomainToVercel(domain)
-  if (addResult.error) {
-    console.error('[attemptDomainVerification] Vercel add failed:', addResult.error)
-    return {
-      verified: false,
-      kind: 'vercel_add_failed',
-      error: `Could not register domain with Vercel: ${addResult.error}`,
-    }
-  }
-
-  // ── Step 3: Trigger Vercel's own DNS re-probe ─────────────────────────────
-  // This flips verified=true on their side so routing works immediately.
-  const vercelVerify = await triggerVercelDomainVerify(domain)
-  if (vercelVerify.error) {
-    // Non-fatal — Vercel sometimes returns an error here while still processing.
-    // Log it but continue; the DNS check already confirmed everything is correct.
-    console.warn('[attemptDomainVerification] Vercel verify trigger warning:', vercelVerify.error)
-  }
-
-  // ── Step 4: Mark domain verified in Supabase ──────────────────────────────
-  const { error: dbError } = await admin
-    .from('organisations')
-    .update({ custom_domain_verified: true })
-    .eq('id', orgId)
-
-  if (dbError) {
-    console.error('[attemptDomainVerification] Supabase update failed:', dbError.message)
-    return {
-      verified: false,
-      kind: 'db_update_failed',
-      error: 'Domain verified but database update failed. Please try again.',
-    }
-  }
-
-  return {
-    verified: true,
-    domain,
-    vercelVerified: vercelVerify.verified,
-    message: `${domain} is verified and active.`,
-  }
-}

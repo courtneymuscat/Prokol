@@ -24,7 +24,7 @@ export async function GET() {
 
   const { data: application } = await admin
     .from('white_label_applications')
-    .select('id, status, app_name, custom_domain, submitted_at, rejection_reason')
+    .select('id, status, app_name, submitted_at, rejection_reason')
     .eq('org_id', profile.org_id)
     .order('submitted_at', { ascending: false })
     .limit(1)
@@ -36,9 +36,7 @@ export async function GET() {
   // whether to show the "live" view. organisations.is_white_label is the
   // only source of truth for what's actually switched on right now.
   let isLive = false
-  let subdomain: string | null = null
   let liveBranding: {
-    custom_domain: string | null
     app_name: string | null
     brand_colour: string | null
     brand_colour_secondary: string | null
@@ -51,15 +49,13 @@ export async function GET() {
   if (application?.status === 'approved') {
     const { data: org } = await admin
       .from('organisations')
-      .select('slug, is_white_label, custom_domain, app_name, brand_colour, brand_colour_secondary, support_email, logo_url, favicon_url, app_icon_url')
+      .select('is_white_label, app_name, brand_colour, brand_colour_secondary, support_email, logo_url, favicon_url, app_icon_url')
       .eq('id', profile.org_id)
       .single()
 
     isLive = org?.is_white_label ?? false
     if (isLive) {
-      subdomain = org?.slug ? `${org.slug}.prokol.io` : null
       liveBranding = {
-        custom_domain: org?.custom_domain ?? null,
         app_name: org?.app_name ?? null,
         brand_colour: org?.brand_colour ?? null,
         brand_colour_secondary: org?.brand_colour_secondary ?? null,
@@ -71,15 +67,10 @@ export async function GET() {
     }
   }
 
-  const mergedApplication = application
-    ? { ...application, custom_domain: liveBranding?.custom_domain ?? application.custom_domain }
-    : null
-
   return NextResponse.json({
-    application: mergedApplication,
+    application,
     subscriptionTier,
     hasWhiteLabelTier,
-    subdomain,
     isLive,
     liveBranding,
   })

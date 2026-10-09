@@ -93,11 +93,4 @@ describe('POST /api/org/white-label/apply — tier gate', () => {
     expect(res.status).toBe(200)
     expect(insertedApplications[0].requested_tier).toBe('pro')
   })
-
-  it('allows submitting with no custom domain at all (free subdomain only)', async () => {
-    profilesData = [{ id: 'user-1', org_id: 'org-1', subscription_tier: 'wl_starter' }]
-    const res = await POST(fakeRequest(BASE_FIELDS))
-    expect(res.status).toBe(200)
-    expect(insertedApplications[0].custom_domain).toBeNull()
-  })
 })

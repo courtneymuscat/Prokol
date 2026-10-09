@@ -14,7 +14,7 @@ export default async function AdminGymsPage() {
   // regular coach dashboard rather than this screen.
   const { data: gyms } = await admin
     .from('organisations')
-    .select('id, name, app_name, slug, logo_url, brand_colour, created_at')
+    .select('id, name, app_name, logo_url, brand_colour, created_at')
     .eq('owner_id', adminProfile.id)
     .order('created_at', { ascending: false })
 
@@ -57,7 +57,6 @@ export default async function AdminGymsPage() {
             )}
             <div className="min-w-0">
               <p className="text-sm font-semibold text-zinc-100 truncate">{gym.app_name ?? gym.name}</p>
-              <p className="text-xs text-zinc-500">{gym.slug}.prokol.io</p>
             </div>
           </Link>
         ))}

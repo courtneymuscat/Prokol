@@ -1,29 +1,11 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { isWhiteLabelDomain, getOrgByDomain, getOrgBrandingForUser, applyBrandingHeaders } from '@/lib/whitelabel'
+import { getOrgBrandingForUser, applyBrandingHeaders } from '@/lib/whitelabel'
 
 export async function proxy(req: NextRequest) {
-  const hostname = req.headers.get('host') ?? ''
   const path = req.nextUrl.pathname
   const requestHeaders = new Headers(req.headers)
-
-  // ── White-label domain detection ──────────────────────────────────────────
-  // A request arriving on an org's own subdomain/custom domain always gets
-  // that org's branding, regardless of who (if anyone) is logged in.
-  const onWhiteLabelDomain = isWhiteLabelDomain(hostname)
-  if (onWhiteLabelDomain) {
-    const org = await getOrgByDomain(hostname)
-
-    if (!org) {
-      return new NextResponse(
-        '<!doctype html><html><body><h1>Domain not configured</h1><p>This domain has not been set up yet.</p></body></html>',
-        { status: 404, headers: { 'Content-Type': 'text/html' } },
-      )
-    }
-
-    applyBrandingHeaders(requestHeaders, org)
-  }
 
   // Surface the request path so server components can read it via headers().
   // Next 16's runtime doesn't always set x-invoke-path on its own.
@@ -110,15 +92,13 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', req.url))
   }
 
-  // ── Logged-in-user white-label branding (by account, not domain) ─────────
-  // Makes white-label "seamless": a coach or client who signed up on plain
-  // prokol.io long before their org ever went white-label sees the right
-  // branding the moment they're logged in — no special link, no redirect
-  // (which would break anyway, since session cookies aren't shared across
-  // *.prokol.io subdomains or custom domains — see lib/supabase/server.ts).
-  // Only applies when the domain itself didn't already resolve branding,
-  // and never inside Admin Mode.
-  if (session && !onWhiteLabelDomain && !isAdminPath) {
+  // ── Logged-in-user white-label branding ───────────────────────────────────
+  // Branding is tied entirely to the account, not to any domain — a coach
+  // or client sees their org's white-label branding the moment they're
+  // logged in, on plain prokol.io, same as everywhere else. Never inside
+  // Admin Mode (the platform-operator surface stays Prokol-branded even for
+  // a platform admin who also owns a white-labelled org).
+  if (session && !isAdminPath) {
     const orgBranding = await getOrgBrandingForUser(session.user.id)
     if (orgBranding) {
       applyBrandingHeaders(requestHeaders, orgBranding)

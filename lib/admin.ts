@@ -2,7 +2,6 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { notifyClientsOfBrandingChange } from '@/lib/whitelabel'
-import { addDomainToVercel, removeDomainFromVercel } from '@/lib/vercel'
 import { WHITE_LABEL_COACH_SEAT_LIMIT, DEFAULT_COACH_SEAT_LIMIT } from '@/lib/billing'
 import { slugify } from '@/lib/org'
 
@@ -490,8 +489,6 @@ export type OrgDetail = {
   created_at: string | null
   is_white_label: boolean
   white_label_tier: string | null
-  custom_domain: string | null
-  custom_domain_verified: boolean
   support_email: string | null
   favicon_url: string | null
 }
@@ -499,7 +496,6 @@ export type OrgDetail = {
 export type PendingWhiteLabelApplication = {
   id: string
   app_name: string
-  custom_domain: string
   brand_colour: string
   brand_colour_secondary: string | null
   logo_url: string | null
@@ -538,7 +534,7 @@ export async function getOrgDetail(orgId: string) {
   const [{ data: org }, { data: members }, { data: pendingApp }] = await Promise.all([
     admin
       .from('organisations')
-      .select('id, name, slug, tenant_type, billing_status, subscription_tier, is_active, logo_url, brand_colour, brand_colour_secondary, app_name, created_at, is_white_label, white_label_tier, custom_domain, custom_domain_verified, support_email, favicon_url')
+      .select('id, name, slug, tenant_type, billing_status, subscription_tier, is_active, logo_url, brand_colour, brand_colour_secondary, app_name, created_at, is_white_label, white_label_tier, support_email, favicon_url')
       .eq('id', orgId)
       .single(),
     admin
@@ -548,7 +544,7 @@ export async function getOrgDetail(orgId: string) {
       .order('role'),
     admin
       .from('white_label_applications')
-      .select('id, app_name, custom_domain, brand_colour, brand_colour_secondary, logo_url, favicon_url, support_email, requested_tier, submitted_at')
+      .select('id, app_name, brand_colour, brand_colour_secondary, logo_url, favicon_url, support_email, requested_tier, submitted_at')
       .eq('org_id', orgId)
       .eq('status', 'pending')
       .order('submitted_at', { ascending: false })
@@ -744,101 +740,6 @@ export async function reinstateWhiteLabel(orgId: string, adminId: string) {
 }
 
 /**
- * Detaches an org's custom domain — clears it from Supabase and unregisters
- * it from the Vercel project. Used for cancellations or an org switching
- * away from a custom domain back to their free {slug}.prokol.io subdomain.
- * Doesn't touch is_white_label itself — an org can still be white-labelled
- * via the subdomain alone.
- */
-export async function removeWhiteLabelDomain(orgId: string, adminId: string) {
-  const admin = createAdminClient()
-
-  const { data: current } = await admin
-    .from('organisations')
-    .select('custom_domain')
-    .eq('id', orgId)
-    .single()
-
-  if (!current?.custom_domain) {
-    return { error: 'This org has no custom domain to remove.' }
-  }
-
-  const vercelResult = await removeDomainFromVercel(current.custom_domain)
-  if (!vercelResult.removed) {
-    return { error: vercelResult.error ?? 'Could not unregister domain from Vercel.' }
-  }
-
-  const { error } = await admin
-    .from('organisations')
-    .update({ custom_domain: null, custom_domain_verified: false })
-    .eq('id', orgId)
-
-  if (error) return { error: error.message }
-
-  await admin.from('admin_audit_log').insert({
-    admin_id: adminId,
-    action: 'remove_white_label_domain',
-    target_org_id: orgId,
-    old_value: current.custom_domain,
-    new_value: null,
-  })
-
-  return { success: true }
-}
-
-/**
- * Assigns a custom domain to an org directly — the admin-side counterpart
- * to the (now-removed) custom-domain field on the self-serve application
- * form. Most orgs are well served by their free {slug}.prokol.io subdomain
- * alone, so that field added DNS friction for little benefit; a custom
- * domain is still useful for bigger gym partnerships Court sets up herself,
- * so the capability stays — just admin-initiated rather than self-serve.
- * Doesn't require the org to already be white-labelled, since this can be
- * part of setting one up from scratch.
- */
-export async function setWhiteLabelDomain(orgId: string, domain: string, adminId: string) {
-  const admin = createAdminClient()
-
-  const normalised = domain.trim().toLowerCase()
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9-.]+\.[a-zA-Z]{2,}$/.test(normalised)) {
-    return { error: 'Invalid domain format.' }
-  }
-
-  const { data: existing } = await admin
-    .from('organisations')
-    .select('id')
-    .eq('custom_domain', normalised)
-    .neq('id', orgId)
-    .maybeSingle()
-
-  if (existing) {
-    return { error: 'This domain is already in use by another organisation.' }
-  }
-
-  const vercelResult = await addDomainToVercel(normalised)
-  if (vercelResult.error) {
-    return { error: `Could not register domain with Vercel: ${vercelResult.error}` }
-  }
-
-  const { error } = await admin
-    .from('organisations')
-    .update({ custom_domain: normalised, custom_domain_verified: false })
-    .eq('id', orgId)
-
-  if (error) return { error: error.message }
-
-  await admin.from('admin_audit_log').insert({
-    admin_id: adminId,
-    action: 'set_white_label_domain',
-    target_org_id: orgId,
-    old_value: null,
-    new_value: normalised,
-  })
-
-  return { success: true }
-}
-
-/**
  * Full reset — deletes every white_label_applications row for the org and
  * clears every white-label field on organisations, back to how it looked
  * before the org ever applied. Unlike revokeWhiteLabel (reversible,
@@ -851,18 +752,11 @@ export async function deleteWhiteLabelApplication(orgId: string, adminId: string
 
   const { data: org } = await admin
     .from('organisations')
-    .select('name, custom_domain')
+    .select('name')
     .eq('id', orgId)
     .single()
 
   if (!org) return { error: 'Organisation not found.' }
-
-  if (org.custom_domain) {
-    const vercelResult = await removeDomainFromVercel(org.custom_domain)
-    if (!vercelResult.removed) {
-      return { error: vercelResult.error ?? 'Could not unregister domain from Vercel.' }
-    }
-  }
 
   const { error: deleteError } = await admin
     .from('white_label_applications')

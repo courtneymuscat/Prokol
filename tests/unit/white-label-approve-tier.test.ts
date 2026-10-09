@@ -14,7 +14,6 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 
 vi.mock('@/lib/email', () => ({ sendEmail: vi.fn(async () => {}) }))
-vi.mock('@/lib/vercel', () => ({ addDomainToVercel: vi.fn(async () => ({ verified: false })) }))
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({
@@ -37,7 +36,6 @@ vi.mock('@/lib/supabase/admin', () => ({
                   id: 'app-1',
                   status: 'pending',
                   app_name: 'Pro Gym',
-                  custom_domain: null,
                   brand_colour: '#111',
                   brand_colour_secondary: null,
                   logo_url: null,
@@ -46,7 +44,7 @@ vi.mock('@/lib/supabase/admin', () => ({
                   support_email: 's@test.com',
                   requested_tier: 'pro',
                   org_id: 'org-1',
-                  organisations: { name: 'Pro Gym Org', owner_id: 'owner-1', slug: 'pro-gym' },
+                  organisations: { name: 'Pro Gym Org', owner_id: 'owner-1' },
                 },
                 error: null,
               }),
@@ -66,7 +64,7 @@ vi.mock('@/lib/supabase/admin', () => ({
           select: () => ({
             eq: () => ({
               single: async () => ({
-                data: { name: 'Pro Gym Org', app_name: 'Pro Gym', slug: 'pro-gym', custom_domain: null, custom_domain_verified: false },
+                data: { name: 'Pro Gym Org', app_name: 'Pro Gym' },
                 error: null,
               }),
             }),

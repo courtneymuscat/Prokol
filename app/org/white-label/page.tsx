@@ -8,13 +8,11 @@ type ApplicationStatus = {
   id: string
   status: 'pending' | 'approved' | 'rejected'
   app_name: string
-  custom_domain: string | null
   submitted_at: string
   rejection_reason: string | null
 }
 
 type LiveBranding = {
-  custom_domain: string | null
   app_name: string | null
   brand_colour: string | null
   brand_colour_secondary: string | null
@@ -28,7 +26,6 @@ type StatusResponse = {
   application: ApplicationStatus | null
   subscriptionTier: string | null
   hasWhiteLabelTier: boolean
-  subdomain: string | null
   isLive?: boolean
   liveBranding?: LiveBranding | null
 }
@@ -259,8 +256,6 @@ export default function WhiteLabelPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [dnsChecking, setDnsChecking] = useState(false)
-  const [dnsStatus, setDnsStatus] = useState<string | null>(null)
 
   const [editSaved, setEditSaved] = useState(false)
 
@@ -276,7 +271,7 @@ export default function WhiteLabelPage() {
           setSupportEmail(d.liveBranding.support_email ?? '')
         }
       })
-      .catch(() => setStatus({ application: null, subscriptionTier: null, hasWhiteLabelTier: false, subdomain: null }))
+      .catch(() => setStatus({ application: null, subscriptionTier: null, hasWhiteLabelTier: false }))
   }, [])
 
   // Every new upload gets flattened onto a square canvas of the chosen
@@ -403,15 +398,6 @@ export default function WhiteLabelPage() {
     // Refresh so the "current asset" previews reflect what was just uploaded.
     const refreshed: StatusResponse = await fetch('/api/org/white-label/status').then(r => r.json())
     setStatus(refreshed)
-  }
-
-  async function checkDns() {
-    setDnsChecking(true)
-    setDnsStatus(null)
-    const res = await fetch('/api/org/white-label/verify-domain', { method: 'POST' })
-    const data = await res.json()
-    setDnsStatus(data.verified ? 'verified' : data.message ?? data.error ?? 'Not verified yet')
-    setDnsChecking(false)
   }
 
   if (status === 'loading') {
@@ -564,39 +550,6 @@ export default function WhiteLabelPage() {
                 Changes below save immediately — no need to reapply.
               </p>
             </div>
-
-
-            {liveBranding.custom_domain ? (
-              <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
-                <p className="font-medium text-gray-700">Your own domain ({liveBranding.custom_domain})</p>
-                <p className="text-gray-500">
-                  Add a CNAME record at your domain registrar and we&apos;ll pick it up automatically (checked once a day), or click below to check right now.
-                </p>
-                <div className="font-mono text-xs bg-white border rounded-lg p-3 space-y-1">
-                  <p><span className="text-gray-400">Type:</span> CNAME</p>
-                  <p><span className="text-gray-400">Host:</span> @ (or subdomain)</p>
-                  <p><span className="text-gray-400">Value:</span> cname.vercel-dns.com</p>
-                </div>
-                <div className="flex items-center gap-3 pt-1">
-                  <button
-                    onClick={checkDns}
-                    disabled={dnsChecking}
-                    className="px-4 py-2 text-sm font-medium rounded-xl border border-gray-200 hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                  >
-                    {dnsChecking ? 'Checking…' : 'Check now'}
-                  </button>
-                  {dnsStatus && (
-                    <span className={`text-sm font-medium ${dnsStatus === 'verified' ? 'text-green-600' : 'text-amber-600'}`}>
-                      {dnsStatus === 'verified' ? '✓ Verified' : dnsStatus}
-                    </span>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <p className="text-xs text-gray-400">
-                Want your own domain too (e.g. app.yourstudio.com)? Contact <a href="mailto:info@prokol.io" className="underline">info@prokol.io</a>.
-              </p>
-            )}
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-100 p-8 space-y-6">

@@ -41,7 +41,7 @@ const { notifyClientsOfBrandingChange } = await import('@/lib/whitelabel')
 
 beforeEach(() => {
   sentEmails.length = 0
-  orgRow = { name: 'Pro Gym Org', app_name: 'Pro Gym', slug: 'pro-gym', custom_domain: null, custom_domain_verified: false }
+  orgRow = { name: 'Pro Gym Org', app_name: 'Pro Gym' }
   orgMembersRows = [{ user_id: 'coach-1' }]
   coachClientsRows = [{ client_id: 'client-1' }, { client_id: 'client-2' }]
   profileRows = [
@@ -59,19 +59,11 @@ describe('notifyClientsOfBrandingChange', () => {
     expect(sentEmails[0].subject).toContain('Pro Gym')
   })
 
-  it('links to the plain app URL when no verified custom domain is set', async () => {
-    // Not the {slug}.prokol.io subdomain — that depends on a wildcard SSL
-    // cert for *.prokol.io that was never actually issued (every subdomain
-    // fails identically, confirmed directly). Branding follows login, so
-    // the plain URL already shows the right branding once logged in.
+  it('always links to the plain app URL — domains/subdomains were removed entirely', async () => {
+    // Branding follows login, so the plain URL already shows the right
+    // branding once logged in; no per-org domain needed for this to work.
     await notifyClientsOfBrandingChange('org-1')
     expect(sentEmails[0].html).not.toContain('pro-gym.prokol.io')
-  })
-
-  it('links to the custom domain once verified', async () => {
-    orgRow = { ...orgRow, custom_domain: 'app.progym.com', custom_domain_verified: true }
-    await notifyClientsOfBrandingChange('org-1')
-    expect(sentEmails[0].html).toContain('https://app.progym.com')
   })
 
   it('sends nothing when the org has no active coaches', async () => {

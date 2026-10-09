@@ -9,7 +9,6 @@ export type WhiteLabelApp = {
   org_id: string
   org_name: string
   app_name: string
-  custom_domain: string
   brand_colour: string
   brand_colour_secondary: string | null
   logo_url: string | null
@@ -27,7 +26,6 @@ export type WhiteLabelApp = {
   // record) long after an admin has turned white-label off, so the table
   // needs both: what was decided, and what's actually live right now.
   org_is_white_label: boolean
-  org_custom_domain: string | null
 }
 
 export default async function AdminWhiteLabelPage() {
@@ -68,15 +66,15 @@ export default async function AdminWhiteLabelPage() {
   }
 
   // Live org state, fetched separately from the application history — an
-  // org's actual is_white_label/custom_domain can drift from what its
-  // original application said (revoked, domain removed, reinstated, etc.).
+  // org's actual is_white_label can drift from what its original
+  // application said (revoked, reinstated, etc.).
   const appOrgIds = [...new Set(applications.map(a => a.org_id))]
   const { data: liveOrgs } = appOrgIds.length
-    ? await admin.from('organisations').select('id, is_white_label, custom_domain').in('id', appOrgIds)
+    ? await admin.from('organisations').select('id, is_white_label').in('id', appOrgIds)
     : { data: [] }
-  const liveOrgMap: Record<string, { is_white_label: boolean; custom_domain: string | null }> = {}
+  const liveOrgMap: Record<string, { is_white_label: boolean }> = {}
   for (const o of liveOrgs ?? []) {
-    liveOrgMap[o.id] = { is_white_label: o.is_white_label, custom_domain: o.custom_domain }
+    liveOrgMap[o.id] = { is_white_label: o.is_white_label }
   }
 
   const apps: WhiteLabelApp[] = applications.map(a => {
@@ -88,7 +86,6 @@ export default async function AdminWhiteLabelPage() {
       org_id: a.org_id,
       org_name: org?.name ?? '—',
       app_name: a.app_name,
-      custom_domain: a.custom_domain,
       brand_colour: a.brand_colour,
       brand_colour_secondary: a.brand_colour_secondary,
       logo_url: a.logo_url,
@@ -102,7 +99,6 @@ export default async function AdminWhiteLabelPage() {
       owner_email: owner?.email ?? null,
       owner_name: owner?.full_name ?? null,
       org_is_white_label: live?.is_white_label ?? false,
-      org_custom_domain: live?.custom_domain ?? null,
     }
   })
 

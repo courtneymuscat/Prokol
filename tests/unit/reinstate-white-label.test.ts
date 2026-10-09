@@ -5,10 +5,8 @@ const auditInserts: Record<string, unknown>[] = []
 let latestApprovedApp: { requested_tier: string } | null = null
 
 const notifySpy = vi.fn(async () => ({ sent: 0 }))
-const removeDomainSpy = vi.fn(async (): Promise<{ removed: boolean; error?: string }> => ({ removed: true }))
 
 vi.mock('@/lib/whitelabel', () => ({ notifyClientsOfBrandingChange: notifySpy }))
-vi.mock('@/lib/vercel', () => ({ removeDomainFromVercel: removeDomainSpy }))
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({
@@ -55,20 +53,16 @@ vi.mock('@/lib/supabase/admin', () => ({
   }),
 }))
 
-const { reinstateWhiteLabel, removeWhiteLabelDomain } = await import('@/lib/admin')
+const { reinstateWhiteLabel } = await import('@/lib/admin')
 
 beforeEach(() => {
   auditInserts.length = 0
   notifySpy.mockClear()
-  removeDomainSpy.mockClear()
-  removeDomainSpy.mockResolvedValue({ removed: true })
   latestApprovedApp = { requested_tier: 'pro' }
   orgsData = [{
     id: 'org-1',
     is_white_label: false,
     white_label_tier: null,
-    custom_domain: 'app.gym.com',
-    custom_domain_verified: true,
   }]
 })
 
@@ -107,39 +101,5 @@ describe('reinstateWhiteLabel', () => {
     expect(result.error).toBeTruthy()
     expect(orgsData[0].is_white_label).toBe(false)
     expect(notifySpy).not.toHaveBeenCalled()
-  })
-})
-
-describe('removeWhiteLabelDomain', () => {
-  it('clears the custom domain and unregisters it from Vercel', async () => {
-    const result = await removeWhiteLabelDomain('org-1', 'admin-1')
-    expect(result.success).toBe(true)
-    expect(removeDomainSpy).toHaveBeenCalledWith('app.gym.com')
-    expect(orgsData[0].custom_domain).toBeNull()
-    expect(orgsData[0].custom_domain_verified).toBe(false)
-  })
-
-  it('writes an audit log entry recording the removed domain', async () => {
-    await removeWhiteLabelDomain('org-1', 'admin-1')
-    expect(auditInserts[0]).toMatchObject({
-      action: 'remove_white_label_domain',
-      target_org_id: 'org-1',
-      old_value: 'app.gym.com',
-      new_value: null,
-    })
-  })
-
-  it('errors when the org has no custom domain to remove', async () => {
-    orgsData[0].custom_domain = null
-    const result = await removeWhiteLabelDomain('org-1', 'admin-1')
-    expect(result.error).toBeTruthy()
-    expect(removeDomainSpy).not.toHaveBeenCalled()
-  })
-
-  it('errors without touching the database when the Vercel removal fails', async () => {
-    removeDomainSpy.mockResolvedValue({ removed: false, error: 'Vercel down' })
-    const result = await removeWhiteLabelDomain('org-1', 'admin-1')
-    expect(result.error).toBe('Vercel down')
-    expect(orgsData[0].custom_domain).toBe('app.gym.com')
   })
 })

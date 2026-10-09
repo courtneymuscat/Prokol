@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendEmail } from '@/lib/email'
-import { addDomainToVercel } from '@/lib/vercel'
 import { notifyClientsOfBrandingChange } from '@/lib/whitelabel'
 import { WHITE_LABEL_COACH_SEAT_LIMIT } from '@/lib/billing'
 
@@ -32,7 +31,7 @@ export async function POST(
   // Fetch the application
   const { data: app } = await admin
     .from('white_label_applications')
-    .select('*, organisations(name, owner_id, slug)')
+    .select('*, organisations(name, owner_id)')
     .eq('id', id)
     .single()
 
@@ -64,7 +63,6 @@ export async function POST(
       is_white_label: true,
       white_label_tier: app.requested_tier,
       app_name: app.app_name,
-      custom_domain: app.custom_domain,
       brand_colour: app.brand_colour,
       brand_colour_secondary: app.brand_colour_secondary,
       logo_url: app.logo_url,
@@ -87,20 +85,8 @@ export async function POST(
     return { sent: 0 }
   })
 
-  // Add domain to Vercel — only if they actually requested a custom domain.
-  // The free {slug}.prokol.io subdomain needs no per-org Vercel domain
-  // registration; it's covered by the wildcard *.prokol.io already added to
-  // the project once.
-  if (app.custom_domain) {
-    const vercelResult = await addDomainToVercel(app.custom_domain)
-    if (vercelResult.error) {
-      console.error('Vercel domain add failed:', vercelResult.error)
-      // Non-fatal — admin can retry manually
-    }
-  }
-
   // Get org owner email
-  const orgData = app.organisations as { name: string; owner_id: string; slug: string } | null
+  const orgData = app.organisations as { name: string; owner_id: string } | null
 
   if (orgData?.owner_id) {
     const { data: ownerProfile } = await admin
@@ -117,15 +103,6 @@ export async function POST(
           <h2>Your white-label application is approved!</h2>
           <p>Hi ${ownerProfile.full_name ?? 'there'},</p>
           <p>Your white-label setup for <strong>${app.app_name}</strong> has been approved and is live — nothing else to do. You and your clients will see your branding automatically the moment you're logged in, on the app you already use.</p>
-          ${app.custom_domain ? `
-          <p>You also requested the custom domain <strong>${app.custom_domain}</strong>. To connect it, add this DNS record at your domain provider:</p>
-          <table style="border-collapse:collapse;margin:16px 0">
-            <tr><td style="padding:4px 12px 4px 0;font-weight:bold">Type</td><td>CNAME</td></tr>
-            <tr><td style="padding:4px 12px 4px 0;font-weight:bold">Host</td><td>app (or @ for root)</td></tr>
-            <tr><td style="padding:4px 12px 4px 0;font-weight:bold">Value</td><td>cname.vercel-dns.com</td></tr>
-          </table>
-          <p>We check for this automatically every day and will email you the moment it's live — no need to come back and check yourself, though you're welcome to from your white-label settings page.</p>
-          ` : ''}
           <p>Questions? Email <a href="mailto:info@prokol.io">info@prokol.io</a></p>
         `,
       })

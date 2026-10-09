@@ -9,8 +9,6 @@ import {
   actionRevokeMasterTemplateAccess,
   actionRevokeWhiteLabel,
   actionReinstateWhiteLabel,
-  actionRemoveWhiteLabelDomain,
-  actionSetWhiteLabelDomain,
   actionDeleteWhiteLabelApplication,
 } from '@/app/actions/admin'
 import type { OrgDetail, OrgMemberRow, PublicationWithGrants, ArchivedClientRow, PendingWhiteLabelApplication } from '@/lib/admin'
@@ -60,14 +58,6 @@ export default function OrgDetailClient({
   const [reinstatePending, startReinstateTransition] = useTransition()
   const [reinstateError, setReinstateError] = useState<string | null>(null)
 
-  const [customDomain, setCustomDomain] = useState(org.custom_domain)
-  const [removeDomainPending, startRemoveDomainTransition] = useTransition()
-  const [removeDomainError, setRemoveDomainError] = useState<string | null>(null)
-
-  const [domainInput, setDomainInput] = useState('')
-  const [setDomainPending, startSetDomainTransition] = useTransition()
-  const [setDomainError, setSetDomainError] = useState<string | null>(null)
-
   const [deleteAppPending, startDeleteAppTransition] = useTransition()
   const [deleteAppError, setDeleteAppError] = useState<string | null>(null)
 
@@ -94,7 +84,7 @@ export default function OrgDetailClient({
   }
 
   function handleRevokeWhiteLabel() {
-    if (!confirm(`Turn off white-label for ${org.name}? This won't delete their domain or branding — it can be re-approved later.`)) return
+    if (!confirm(`Turn off white-label for ${org.name}? This won't delete their branding — it can be re-approved later.`)) return
     setRevokeError(null)
     startRevokeTransition(async () => {
       const result = await actionRevokeWhiteLabel(org.id)
@@ -119,37 +109,9 @@ export default function OrgDetailClient({
     })
   }
 
-  function handleSetDomain() {
-    if (!domainInput.trim()) return
-    setSetDomainError(null)
-    startSetDomainTransition(async () => {
-      const result = await actionSetWhiteLabelDomain(org.id, domainInput.trim())
-      if (result.error) {
-        setSetDomainError(result.error)
-      } else {
-        setCustomDomain(domainInput.trim().toLowerCase())
-        setDomainInput('')
-      }
-    })
-  }
-
-  function handleRemoveDomain() {
-    if (!customDomain) return
-    if (!confirm(`Remove the custom domain ${customDomain} from ${org.name}? They'll fall back to their free ${org.slug}.prokol.io subdomain.`)) return
-    setRemoveDomainError(null)
-    startRemoveDomainTransition(async () => {
-      const result = await actionRemoveWhiteLabelDomain(org.id)
-      if (result.error) {
-        setRemoveDomainError(result.error)
-      } else {
-        setCustomDomain(null)
-      }
-    })
-  }
-
   function handleDeleteApplication() {
     const typed = prompt(
-      `This permanently deletes ${org.name}'s white-label application and resets their organisation to standard branding — logo, colours, domain, everything. This can't be undone; they'd need to apply again from scratch.\n\nType "${org.name}" to confirm:`,
+      `This permanently deletes ${org.name}'s white-label application and resets their organisation to standard branding — logo, colours, everything. This can't be undone; they'd need to apply again from scratch.\n\nType "${org.name}" to confirm:`,
     )
     if (typed !== org.name) return
     setDeleteAppError(null)
@@ -159,7 +121,6 @@ export default function OrgDetailClient({
         setDeleteAppError(result.error)
       } else {
         setIsWhiteLabel(false)
-        setCustomDomain(null)
       }
     })
   }
@@ -366,15 +327,6 @@ export default function OrgDetailClient({
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-zinc-300">White-label</h2>
           <div className="flex items-center gap-3">
-            {customDomain && (
-              <button
-                onClick={handleRemoveDomain}
-                disabled={removeDomainPending}
-                className="text-xs font-medium text-amber-400 hover:text-amber-300 disabled:opacity-50 transition-colors"
-              >
-                {removeDomainPending ? 'Removing…' : 'Remove domain'}
-              </button>
-            )}
             {isWhiteLabel ? (
               <button
                 onClick={handleRevokeWhiteLabel}
@@ -403,10 +355,9 @@ export default function OrgDetailClient({
         </div>
         {revokeError && <p className="text-xs text-red-400">{revokeError}</p>}
         {reinstateError && <p className="text-xs text-red-400">{reinstateError}</p>}
-        {removeDomainError && <p className="text-xs text-red-400">{removeDomainError}</p>}
         {deleteAppError && <p className="text-xs text-red-400">{deleteAppError}</p>}
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+        <div className="grid grid-cols-2 gap-4 text-xs">
           <div>
             <p className="text-zinc-500 mb-1">Status</p>
             <p className="text-zinc-200">{isWhiteLabel ? 'White-labelled' : 'Standard branding'}</p>
@@ -415,36 +366,7 @@ export default function OrgDetailClient({
             <p className="text-zinc-500 mb-1">Tier</p>
             <p className="text-zinc-200">{org.white_label_tier ?? '—'}</p>
           </div>
-          <div>
-            <p className="text-zinc-500 mb-1">Custom domain</p>
-            <p className="text-zinc-200">{customDomain ?? '— (optional)'}</p>
-          </div>
-          <div>
-            <p className="text-zinc-500 mb-1">Domain verified</p>
-            <p className="text-zinc-200">{customDomain ? (org.custom_domain_verified ? 'Yes' : 'No') : '—'}</p>
-          </div>
         </div>
-
-        {!customDomain && (
-          <div className="flex items-center gap-2 pt-1">
-            <input
-              type="text"
-              value={domainInput}
-              onChange={(e) => setDomainInput(e.target.value)}
-              placeholder="app.theirgym.com"
-              className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-1.5 text-xs text-zinc-100 placeholder-zinc-500 font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-            <button
-              onClick={handleSetDomain}
-              disabled={setDomainPending || !domainInput.trim()}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-800 text-blue-200 hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap"
-            >
-              {setDomainPending ? 'Setting…' : 'Set custom domain'}
-            </button>
-          </div>
-        )}
-        {setDomainError && <p className="text-xs text-red-400">{setDomainError}</p>}
-
 
         {wlApp && (
           <div className="bg-amber-900/15 border border-amber-800/60 rounded-lg px-4 py-3 space-y-3">
@@ -453,10 +375,6 @@ export default function OrgDetailClient({
               <div>
                 <p className="text-zinc-500 mb-1">App name</p>
                 <p className="text-zinc-200">{wlApp.app_name}</p>
-              </div>
-              <div>
-                <p className="text-zinc-500 mb-1">Domain</p>
-                <p className="text-zinc-200 font-mono">{wlApp.custom_domain}</p>
               </div>
               <div>
                 <p className="text-zinc-500 mb-1">Requested tier</p>

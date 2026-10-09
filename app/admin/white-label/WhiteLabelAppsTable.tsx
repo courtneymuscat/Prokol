@@ -5,7 +5,6 @@ import type { WhiteLabelApp } from './page'
 import {
   actionRevokeWhiteLabel,
   actionReinstateWhiteLabel,
-  actionRemoveWhiteLabelDomain,
   actionDeleteWhiteLabelApplication,
 } from '@/app/actions/admin'
 
@@ -64,7 +63,7 @@ export default function WhiteLabelAppsTable({
   }
 
   function handleRevoke(app: WhiteLabelApp) {
-    if (!confirm(`Turn off white-label for ${app.org_name}? This won't delete their domain or branding — it can be reinstated later.`)) return
+    if (!confirm(`Turn off white-label for ${app.org_name}? This won't delete their branding — it can be reinstated later.`)) return
     setActionResult(null)
     setBusyOrgId(app.org_id)
     startTransition(async () => {
@@ -88,22 +87,6 @@ export default function WhiteLabelAppsTable({
         setActionResult({ error: result.error })
       } else {
         setList(prev => prev.map(a => a.org_id === app.org_id ? { ...a, org_is_white_label: true } : a))
-      }
-      setBusyOrgId(null)
-    })
-  }
-
-  function handleRemoveDomain(app: WhiteLabelApp) {
-    if (!app.org_custom_domain) return
-    if (!confirm(`Remove the custom domain ${app.org_custom_domain} from ${app.org_name}? They'll fall back to their free subdomain.`)) return
-    setActionResult(null)
-    setBusyOrgId(app.org_id)
-    startTransition(async () => {
-      const result = await actionRemoveWhiteLabelDomain(app.org_id)
-      if (result.error) {
-        setActionResult({ error: result.error })
-      } else {
-        setList(prev => prev.map(a => a.org_id === app.org_id ? { ...a, org_custom_domain: null } : a))
       }
       setBusyOrgId(null)
     })
@@ -147,7 +130,6 @@ export default function WhiteLabelAppsTable({
               <tr className="border-b border-zinc-800">
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Org</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">App name</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Domain</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Brand</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Submitted</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-zinc-500">Application</th>
@@ -174,9 +156,6 @@ export default function WhiteLabelAppsTable({
                       <span className="text-zinc-200">{app.app_name}</span>
                     </div>
                     <p className="text-zinc-500 text-xs mt-0.5">{app.support_email}</p>
-                  </td>
-                  <td className="px-4 py-3 font-mono text-zinc-300 text-xs">
-                    {app.org_custom_domain ?? app.custom_domain}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5">
@@ -248,15 +227,6 @@ export default function WhiteLabelAppsTable({
                             {pending && busyOrgId === app.org_id ? 'Working…' : 'Reinstate'}
                           </button>
                         )}
-                        {app.org_custom_domain && (
-                          <button
-                            onClick={() => handleRemoveDomain(app)}
-                            disabled={pending && busyOrgId === app.org_id}
-                            className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-900/40 text-amber-300 hover:bg-amber-800/60 disabled:opacity-50 transition-colors"
-                          >
-                            Remove domain
-                          </button>
-                        )}
                         <button
                           onClick={() => openDelete(app)}
                           disabled={pending}
@@ -289,7 +259,7 @@ export default function WhiteLabelAppsTable({
           <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
             <h3 className="text-base font-semibold text-red-400 mb-1">Reject application</h3>
             <p className="text-xs text-zinc-400 mb-4">
-              {rejectModal.app_name} — {rejectModal.custom_domain}
+              {rejectModal.app_name}
             </p>
             <textarea
               placeholder="Reason for rejection (sent to org owner)…"
@@ -327,7 +297,7 @@ export default function WhiteLabelAppsTable({
           <div className="bg-zinc-900 border border-red-900 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
             <h3 className="text-base font-semibold text-red-400 mb-1">Delete application</h3>
             <p className="text-xs text-zinc-400 mb-4">
-              This permanently deletes {deleteModal.org_name}&apos;s white-label application and resets their organisation to standard branding — logo, colours, domain, everything. This can&apos;t be undone; they&apos;d need to apply again from scratch.
+              This permanently deletes {deleteModal.org_name}&apos;s white-label application and resets their organisation to standard branding — logo, colours, everything. This can&apos;t be undone; they&apos;d need to apply again from scratch.
             </p>
             <label className="block text-xs text-zinc-400 mb-1.5">
               Type <span className="font-mono text-zinc-200">{deleteModal.org_name}</span> to confirm

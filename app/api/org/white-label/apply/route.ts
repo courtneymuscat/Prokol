@@ -56,11 +56,6 @@ export async function POST(req: NextRequest) {
   // Parse multipart form
   const formData = await req.formData()
   const appName = (formData.get('appName') as string)?.trim()
-  // Custom domain is now optional — every approved org gets a free
-  // {slug}.prokol.io subdomain automatically, with zero DNS setup. A custom
-  // domain is an opt-in upgrade on top of that, not a requirement to apply.
-  const customDomainRaw = (formData.get('customDomain') as string)?.trim().toLowerCase()
-  const customDomain = customDomainRaw || null
   const brandColour = (formData.get('brandColour') as string)?.trim()
   const brandColourSecondary = (formData.get('brandColourSecondary') as string)?.trim() || null
   const supportEmail = (formData.get('supportEmail') as string)?.trim()
@@ -71,25 +66,6 @@ export async function POST(req: NextRequest) {
   // Validate required fields
   if (!appName || !brandColour || !supportEmail) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-  }
-
-  if (customDomain) {
-    // Basic domain format validation
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}$/.test(customDomain)) {
-      return NextResponse.json({ error: 'Invalid domain format' }, { status: 400 })
-    }
-
-    // Check domain not already in use
-    const { data: existingDomain } = await admin
-      .from('organisations')
-      .select('id')
-      .eq('custom_domain', customDomain)
-      .limit(1)
-      .single()
-
-    if (existingDomain) {
-      return NextResponse.json({ error: 'This domain is already in use' }, { status: 400 })
-    }
   }
 
   async function uploadAsset(file: File | null, name: string): Promise<string | null> {
@@ -122,7 +98,6 @@ export async function POST(req: NextRequest) {
     .insert({
       org_id: profile.org_id,
       app_name: appName,
-      custom_domain: customDomain,
       brand_colour: brandColour,
       brand_colour_secondary: brandColourSecondary,
       logo_url: logoUrl,
@@ -155,7 +130,6 @@ export async function POST(req: NextRequest) {
       <p><strong>App name:</strong> ${appName}</p>
       <p><strong>Organisation:</strong> ${org?.name ?? profile.org_id}</p>
       <p><strong>Plan:</strong> ${requestedTier === 'pro' ? 'App Store White-label ($499/mo)' : 'Web White-label ($299/mo)'}</p>
-      <p><strong>Custom domain:</strong> ${customDomain ?? '(none requested — free subdomain only)'}</p>
       <p><strong>Support email:</strong> ${supportEmail}</p>
       <p><strong>Brand colour:</strong> ${brandColour}</p>
       <p><a href="${process.env.NEXT_PUBLIC_APP_URL ?? 'https://prokol.io'}/admin/white-label">Review in admin dashboard →</a></p>

@@ -7,8 +7,6 @@ import {
   setOrgTenantType,
   revokeWhiteLabel,
   reinstateWhiteLabel,
-  removeWhiteLabelDomain,
-  setWhiteLabelDomain,
   deleteWhiteLabelApplication,
   createGymOrg,
   type CreateGymOrgParams,
@@ -70,18 +68,6 @@ export async function actionReinstateWhiteLabel(orgId: string) {
   const adminId = await getAdminId()
   if (!adminId) return { error: 'Unauthorized' }
   return reinstateWhiteLabel(orgId, adminId)
-}
-
-export async function actionRemoveWhiteLabelDomain(orgId: string) {
-  const adminId = await getAdminId()
-  if (!adminId) return { error: 'Unauthorized' }
-  return removeWhiteLabelDomain(orgId, adminId)
-}
-
-export async function actionSetWhiteLabelDomain(orgId: string, domain: string) {
-  const adminId = await getAdminId()
-  if (!adminId) return { error: 'Unauthorized' }
-  return setWhiteLabelDomain(orgId, domain, adminId)
 }
 
 export async function actionDeleteWhiteLabelApplication(orgId: string) {
