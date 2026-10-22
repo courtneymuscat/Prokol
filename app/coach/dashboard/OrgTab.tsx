@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import InviteForm from './InviteForm'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -427,6 +428,7 @@ export default function OrgTab() {
   const [drawerCoach, setDrawerCoach] = useState<Coach | null>(null)
   const [reassignClient, setReassignClient] = useState<Client | null>(null)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteClientOpen, setInviteClientOpen] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -583,6 +585,15 @@ export default function OrgTab() {
 
       {/* ── Client table ──────────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-gray-100">
+        <div className="flex items-center justify-between p-4 pb-0">
+          <h2 className="font-semibold text-gray-900">Clients</h2>
+          <button
+            onClick={() => setInviteClientOpen(true)}
+            className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+          >
+            + Invite client
+          </button>
+        </div>
         {/* Filters */}
         <div className="p-4 border-b border-gray-50 flex flex-col sm:flex-row gap-2.5">
           <input
@@ -746,6 +757,21 @@ export default function OrgTab() {
           onClose={() => setInviteOpen(false)}
           onDone={() => { setInviteOpen(false); fetchData() }}
         />
+      )}
+
+      {inviteClientOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setInviteClientOpen(false)} />
+          <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setInviteClientOpen(false)}
+              className="absolute -top-2 -right-2 bg-white rounded-full w-7 h-7 flex items-center justify-center shadow border border-gray-200 text-gray-500 hover:text-gray-700 z-10"
+            >
+              ✕
+            </button>
+            <InviteForm />
+          </div>
+        </div>
       )}
     </div>
   )
