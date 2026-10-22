@@ -1,5 +1,6 @@
 import { requireCoach } from '@/lib/coach'
 import { createClient } from '@/lib/supabase/server'
+import { getOrgForUser } from '@/lib/org'
 import { redirect } from 'next/navigation'
 import ClientSearch from './ClientSearch'
 
@@ -9,12 +10,20 @@ export default async function CoachClientsPage() {
 
   const supabase = await createClient()
 
-  const { data: rawRows } = await supabase
+  // A coach who owns more than one organisation (gym org-switching, see
+  // lib/admin.ts enterGymOrg) is still the same coach_id in every one of
+  // them — without scoping by org_id too, this page would show every org's
+  // clients regardless of which one is currently active. A solo coach with
+  // no org membership at all has no org_id filter applied, same as before.
+  const membership = await getOrgForUser(coachId)
+
+  let clientsQuery = supabase
     .from('coach_clients')
     .select('client_id, accepted_at, status')
     .eq('coach_id', coachId)
     .in('status', ['active', 'archived', 'pending_invite'])
-    .order('accepted_at', { ascending: false })
+  if (membership) clientsQuery = clientsQuery.eq('org_id', membership.org_id)
+  const { data: rawRows } = await clientsQuery.order('accepted_at', { ascending: false })
 
   // Dedup by client_id, preferring active > archived > pending_invite. This
   // protects the coach view from showing a client twice if some legacy
@@ -119,14 +128,19 @@ export default async function CoachClientsPage() {
     }
   }
 
-  // Also fetch pending invites for emails that don't have an account yet
-  const { data: rawPendingInvites } = await admin
+  // Also fetch pending invites for emails that don't have an account yet.
+  // Unlike the pendingEmails lookup above (transitively org-scoped via the
+  // already-filtered coach_clients rows), this queries coach_invites
+  // directly with no coach_clients row to inherit scoping from, so it needs
+  // its own org_id filter.
+  let pendingInvitesQuery = admin
     .from('coach_invites')
     .select('email, token, created_at')
     .eq('coach_id', coachId)
     .eq('status', 'pending')
     .gt('expires_at', new Date().toISOString())
-    .order('created_at', { ascending: false })
+  if (membership) pendingInvitesQuery = pendingInvitesQuery.eq('org_id', membership.org_id)
+  const { data: rawPendingInvites } = await pendingInvitesQuery.order('created_at', { ascending: false })
 
   // Only show invites for emails not already in coach_clients
   const knownEmails = new Set(active.map(c => c.email).concat(archived.map(c => c.email)))
