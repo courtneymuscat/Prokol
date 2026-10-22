@@ -332,7 +332,7 @@ export default function BillingSection({ returnPath = '/settings' }: { returnPat
             <a
               href="/pricing"
               className="inline-block text-xs font-semibold px-4 py-2 rounded-xl text-gray-900"
-              style={{ backgroundColor: '#1D9E75' }}
+              style={{ backgroundColor: 'var(--nc-primary)' }}
             >
               Upgrade plan →
             </a>
@@ -362,7 +362,7 @@ export default function BillingSection({ returnPath = '/settings' }: { returnPat
                 onClick={() => setShowChangePlan(true)}
                 disabled={redirecting}
                 className="text-xs font-semibold px-4 py-2 rounded-xl text-white hover:opacity-90 transition-opacity disabled:opacity-50"
-                style={{ backgroundColor: '#1D9E75' }}
+                style={{ backgroundColor: 'var(--nc-primary)' }}
               >
                 Change plan
               </button>
@@ -374,7 +374,7 @@ export default function BillingSection({ returnPath = '/settings' }: { returnPat
             <a
               href="/pricing"
               className="inline-block text-xs font-semibold px-4 py-2 rounded-xl text-gray-900"
-              style={{ backgroundColor: '#1D9E75' }}
+              style={{ backgroundColor: 'var(--nc-primary)' }}
             >
               Subscribe →
             </a>
@@ -393,7 +393,7 @@ export default function BillingSection({ returnPath = '/settings' }: { returnPat
                 <button
                   onClick={() => { setShowCancelWarning(false); setShowChangePlan(true) }}
                   className="font-semibold underline"
-                  style={{ color: '#1D9E75' }}
+                  style={{ color: 'var(--nc-primary)' }}
                 >
                   Use Change plan instead
                 </button>
@@ -435,7 +435,7 @@ export default function BillingSection({ returnPath = '/settings' }: { returnPat
               <button
                 onClick={() => setShowCancelWarning(false)}
                 className="px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-900"
-                style={{ backgroundColor: '#1D9E75' }}
+                style={{ backgroundColor: 'var(--nc-primary)' }}
               >
                 Go back
               </button>

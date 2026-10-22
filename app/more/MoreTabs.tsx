@@ -187,7 +187,7 @@ export default function MoreTabs({ isCoached, hasVisiblePlan, hasResources, reso
               {isCoached ? (
                 <p className="text-xs text-gray-400">Your coach will set your nutrition targets for you.</p>
               ) : (
-                <a href="/onboarding" className="inline-block text-xs font-semibold px-4 py-2 rounded-xl text-white" style={{ backgroundColor: '#1D9E75' }}>
+                <a href="/onboarding" className="inline-block text-xs font-semibold px-4 py-2 rounded-xl text-white" style={{ backgroundColor: 'var(--nc-primary)' }}>
                   Set my targets →
                 </a>
               )}

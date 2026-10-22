@@ -207,7 +207,7 @@ export default function MetricsClient() {
             type="button"
             onClick={() => setShowAdd(true)}
             className="text-sm font-semibold px-4 py-2 rounded-xl text-white"
-            style={{ backgroundColor: '#1D9E75' }}
+            style={{ backgroundColor: 'var(--nc-primary)' }}
           >
             Add your first metric
           </button>
@@ -374,7 +374,7 @@ function MetricCard({
           type="submit"
           disabled={saving || !value}
           className="w-full text-sm font-semibold px-4 py-2.5 rounded-lg text-white disabled:opacity-40 transition-colors"
-          style={{ backgroundColor: '#1D9E75' }}
+          style={{ backgroundColor: 'var(--nc-primary)' }}
         >
           {saving ? 'Saving…' : `Log ${metric.name}`}
         </button>
@@ -736,7 +736,7 @@ function AddMetricModal({
                   onClick={() => addCustom()}
                   disabled={busy || !customName.trim() || !customUnit.trim()}
                   className="text-sm font-semibold px-4 py-2 rounded-lg text-white disabled:opacity-40"
-                  style={{ backgroundColor: '#1D9E75' }}
+                  style={{ backgroundColor: 'var(--nc-primary)' }}
                 >
                   Add
                 </button>

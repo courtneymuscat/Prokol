@@ -9,7 +9,7 @@ export default function NewGymForm() {
   const [name, setName] = useState('')
   const [appName, setAppName] = useState('')
   const [supportEmail, setSupportEmail] = useState('')
-  const [brandColour, setBrandColour] = useState('#1D9E75')
+  const [brandColour, setBrandColour] = useState('var(--nc-primary)')
   const [brandColourSecondary, setBrandColourSecondary] = useState('#111827')
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [faviconFile, setFaviconFile] = useState<File | null>(null)
@@ -143,7 +143,7 @@ export default function NewGymForm() {
         type="submit"
         disabled={submitting}
         className="w-full py-3 rounded-xl text-sm font-semibold text-zinc-900 hover:opacity-90 disabled:opacity-50 transition-colors"
-        style={{ backgroundColor: '#1D9E75' }}
+        style={{ backgroundColor: 'var(--nc-primary)' }}
       >
         {submitting ? 'Creating…' : 'Create gym'}
       </button>

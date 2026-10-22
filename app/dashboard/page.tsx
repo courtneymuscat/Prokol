@@ -410,9 +410,9 @@ export default async function DashboardPage() {
           </div>
           {/* Tier badge */}
           <a href="/pricing" className="text-xs font-semibold px-3 py-1.5 rounded-full border hover:opacity-80 transition-colors" style={{
-            backgroundColor: isCoach ? '#eff6ff' : tier === 'individual_elite' ? '#f3e8ff' : tier === 'individual_optimiser' || tier === 'coached' ? 'rgba(29,158,117,0.08)' : '#f3f4f6',
-            color: isCoach ? '#1d4ed8' : tier === 'individual_elite' ? '#7c3aed' : tier === 'individual_optimiser' || tier === 'coached' ? '#1D9E75' : '#6b7280',
-            borderColor: isCoach ? '#bfdbfe' : tier === 'individual_elite' ? '#e9d5ff' : tier === 'individual_optimiser' || tier === 'coached' ? 'rgba(29,158,117,0.18)' : '#e5e7eb',
+            backgroundColor: isCoach ? '#eff6ff' : tier === 'individual_elite' ? '#f3e8ff' : tier === 'individual_optimiser' || tier === 'coached' ? 'color-mix(in srgb, var(--nc-primary) 8%, transparent)' : '#f3f4f6',
+            color: isCoach ? '#1d4ed8' : tier === 'individual_elite' ? '#7c3aed' : tier === 'individual_optimiser' || tier === 'coached' ? 'var(--nc-primary)' : '#6b7280',
+            borderColor: isCoach ? '#bfdbfe' : tier === 'individual_elite' ? '#e9d5ff' : tier === 'individual_optimiser' || tier === 'coached' ? 'color-mix(in srgb, var(--nc-primary) 18%, transparent)' : '#e5e7eb',
           }}>
             {isCoach
               ? `Coach — ${tier === 'coach_business' ? 'Business' : tier === 'coach_pro' ? 'Pro' : 'Solo'}`
@@ -428,7 +428,7 @@ export default async function DashboardPage() {
           <a
             href="/coach/dashboard"
             className="flex items-center justify-between gap-4 rounded-2xl px-5 py-4 transition-opacity hover:opacity-90"
-            style={{ backgroundColor: '#1D9E75' }}
+            style={{ backgroundColor: 'var(--nc-primary)' }}
           >
             <div className="flex items-center gap-3">
               <svg className="w-5 h-5 flex-shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -452,11 +452,11 @@ export default async function DashboardPage() {
           <a
             href={`/forms/${pendingFormId}`}
             className="flex items-center justify-between rounded-2xl px-5 py-4 hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: 'rgba(29,158,117,0.08)', border: '1px solid rgba(29,158,117,0.18)' }}
+            style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--nc-primary) 18%, transparent)' }}
           >
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(29,158,117,0.15)' }}>
-                <svg className="w-5 h-5" style={{ color: '#1D9E75' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 15%, transparent)' }}>
+                <svg className="w-5 h-5" style={{ color: 'var(--nc-primary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
               </div>
@@ -465,7 +465,7 @@ export default async function DashboardPage() {
                 <p className="text-xs text-gray-500 mt-0.5">Tap to fill it in.</p>
               </div>
             </div>
-            <svg className="w-4 h-4 flex-shrink-0" style={{ color: '#1D9E75' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--nc-primary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </a>
@@ -571,7 +571,7 @@ export default async function DashboardPage() {
               <p className="text-sm font-semibold text-gray-700">No targets set yet</p>
               <p className="text-xs text-gray-400 mt-0.5">Get personalised calorie & macro targets based on your activity.</p>
             </div>
-            <a href="/onboarding" className="flex-shrink-0 text-sm font-semibold px-4 py-2 rounded-xl text-gray-900 ml-4" style={{ backgroundColor: '#1D9E75' }}>
+            <a href="/onboarding" className="flex-shrink-0 text-sm font-semibold px-4 py-2 rounded-xl text-gray-900 ml-4" style={{ backgroundColor: 'var(--nc-primary)' }}>
               Set targets →
             </a>
           </div>

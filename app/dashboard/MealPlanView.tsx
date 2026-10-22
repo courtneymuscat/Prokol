@@ -442,7 +442,7 @@ function FoodRow({ food, onSwap, showMacros }: FoodRowProps) {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-medium text-gray-800">{food.food_name}</span>
             {food.swapped_from && (
-              <span className="inline-flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5 font-medium" style={{ backgroundColor: 'rgba(29,158,117,0.08)', color: '#1D9E75', border: '1px solid rgba(29,158,117,0.2)' }}>
+              <span className="inline-flex items-center gap-1 text-[10px] rounded-full px-2 py-0.5 font-medium" style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 8%, transparent)', color: 'var(--nc-primary)', border: '1px solid color-mix(in srgb, var(--nc-primary) 20%, transparent)' }}>
                 ↔ swapped
               </span>
             )}
@@ -635,8 +635,8 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
 
       {/* Plan-level notes from coach */}
       {plan.notes && (
-        <div className="rounded-xl px-4 py-3" style={{ backgroundColor: 'rgba(29,158,117,0.06)', border: '1px solid rgba(29,158,117,0.15)' }}>
-          <p className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#1D9E75' }}>Notes from your coach</p>
+        <div className="rounded-xl px-4 py-3" style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--nc-primary) 15%, transparent)' }}>
+          <p className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--nc-primary)' }}>Notes from your coach</p>
           <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{plan.notes}</p>
         </div>
       )}
@@ -706,8 +706,8 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
             </div>
             {slot.notes && (
               <div className="px-4 pb-3">
-                <div className="rounded-lg px-3 py-2.5" style={{ backgroundColor: 'rgba(29,158,117,0.06)', border: '1px solid rgba(29,158,117,0.15)' }}>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#1D9E75' }}>Notes</p>
+                <div className="rounded-lg px-3 py-2.5" style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--nc-primary) 15%, transparent)' }}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--nc-primary)' }}>Notes</p>
                   <p className="text-xs text-gray-700 whitespace-pre-wrap">{slot.notes}</p>
                 </div>
               </div>

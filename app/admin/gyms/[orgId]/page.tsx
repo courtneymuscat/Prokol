@@ -59,7 +59,7 @@ export default async function GymDetailPage({
             ) : (
               <div
                 className="h-10 w-10 rounded-lg flex items-center justify-center text-white text-sm font-bold"
-                style={{ backgroundColor: org.brand_colour ?? '#1D9E75' }}
+                style={{ backgroundColor: org.brand_colour ?? 'var(--nc-primary)' }}
               >
                 {(org.app_name ?? org.name).charAt(0).toUpperCase()}
               </div>
@@ -71,7 +71,7 @@ export default async function GymDetailPage({
           <button
             type="submit"
             className="text-sm font-semibold px-4 py-2 rounded-xl text-zinc-900 hover:opacity-90 transition-opacity whitespace-nowrap"
-            style={{ backgroundColor: '#1D9E75' }}
+            style={{ backgroundColor: 'var(--nc-primary)' }}
           >
             Enter gym dashboard →
           </button>

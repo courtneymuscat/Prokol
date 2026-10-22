@@ -278,7 +278,7 @@ export default function CoachSidebar({
                   >
                     <span className={`flex-shrink-0 ${active ? 'text-teal-500' : 'text-gray-400'}`}>{item.icon}</span>
                     <span>{item.label}</span>
-                    <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded leading-none" style={{ backgroundColor: 'rgba(29,158,117,0.1)', color: '#1D9E75' }}>
+                    <span className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded leading-none" style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 10%, transparent)', color: 'var(--nc-primary)' }}>
                       Biz
                     </span>
                   </Link>

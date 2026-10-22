@@ -125,7 +125,7 @@ function LoginForm() {
               type="submit"
               disabled={pending}
               className="w-full rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50 transition-colors mt-1"
-              style={{ backgroundColor: '#1D9E75', color: '#ffffff' }}
+              style={{ backgroundColor: 'var(--nc-primary)', color: '#ffffff' }}
             >
               {pending ? 'Logging in…' : 'Log in'}
             </button>
@@ -152,7 +152,7 @@ function LoginForm() {
                   : '/signup'
               }
               className="font-medium hover:underline"
-              style={{ color: '#1D9E75' }}
+              style={{ color: 'var(--nc-primary)' }}
             >
               Sign up
             </Link>

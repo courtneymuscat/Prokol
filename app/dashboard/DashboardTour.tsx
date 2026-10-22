@@ -248,7 +248,7 @@ export default function DashboardTour() {
             {STEPS.map((_, i) => (
               <div key={i} className="h-1.5 rounded-full transition-all duration-300" style={{
                 width: i === stepIndex ? '18px' : '6px',
-                backgroundColor: i <= stepIndex ? '#1D9E75' : '#e5e7eb',
+                backgroundColor: i <= stepIndex ? 'var(--nc-primary)' : '#e5e7eb',
               }} />
             ))}
           </div>
@@ -271,7 +271,7 @@ export default function DashboardTour() {
               <button
                 onClick={advance}
                 className="flex-[2] py-2 rounded-xl text-sm font-bold text-gray-900 transition-colors"
-                style={{ backgroundColor: '#1D9E75' }}
+                style={{ backgroundColor: 'var(--nc-primary)' }}
               >
                 {step.cta}
               </button>

@@ -200,7 +200,7 @@ function UploadModal({ onClose, onUploaded }: {
         <div className="flex-shrink-0 p-4 border-t border-gray-100">
           <button onClick={handleUpload} disabled={!file || uploading}
             className="w-full py-3 rounded-2xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-900"
-            style={{ backgroundColor: '#1D9E75' }}>
+            style={{ backgroundColor: 'var(--nc-primary)' }}>
             {uploading ? 'Uploading…' : 'Save photo'}
           </button>
         </div>
@@ -357,7 +357,7 @@ function EditModal({ photo, onClose, onUpdated }: {
         <div className="flex-shrink-0 p-4 border-t border-gray-100">
           <button onClick={handleSave} disabled={saving}
             className="w-full py-3 rounded-2xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-900"
-            style={{ backgroundColor: '#1D9E75' }}>
+            style={{ backgroundColor: 'var(--nc-primary)' }}>
             {saving ? 'Saving…' : 'Save changes'}
           </button>
         </div>
@@ -669,7 +669,7 @@ export default function ProgressPhotos({ canCompare = false }: { canCompare?: bo
             )}
             <button onClick={() => setShowUpload(true)}
               className="text-xs font-semibold px-3 py-1.5 rounded-lg text-gray-900 transition-colors hover:opacity-90"
-              style={{ backgroundColor: '#1D9E75' }}>
+              style={{ backgroundColor: 'var(--nc-primary)' }}>
               + Add photo
             </button>
           </div>
@@ -747,7 +747,7 @@ export default function ProgressPhotos({ canCompare = false }: { canCompare?: bo
             </div>
             <button onClick={() => setShowUpload(true)}
               className="inline-block text-xs font-semibold px-4 py-2 rounded-xl text-gray-900 hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: '#1D9E75' }}>
+              style={{ backgroundColor: 'var(--nc-primary)' }}>
               Add your first photo →
             </button>
           </div>

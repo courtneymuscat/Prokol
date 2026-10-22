@@ -21,7 +21,7 @@ function RemindButton({ clientId }: { clientId: string }) {
       onClick={handle}
       disabled={state === 'sending'}
       className="text-xs font-semibold border px-2.5 py-1 rounded-lg transition-colors disabled:opacity-40 flex-shrink-0"
-      style={{ color: '#1D9E75', borderColor: 'rgba(29,158,117,0.3)' }}
+      style={{ color: 'var(--nc-primary)', borderColor: 'color-mix(in srgb, var(--nc-primary) 30%, transparent)' }}
     >
       {state === 'sending' ? '…' : 'Remind'}
     </button>
@@ -45,7 +45,7 @@ export default function LapsedClients() {
         <p className="text-sm font-semibold text-gray-900">No check-in</p>
         {!loading && lapsed.length > 0 && (
           <span className="text-xs font-semibold px-2 py-0.5 rounded-full border"
-            style={{ backgroundColor: 'rgba(29,158,117,0.08)', color: '#1D9E75', borderColor: 'rgba(29,158,117,0.2)' }}>
+            style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 8%, transparent)', color: 'var(--nc-primary)', borderColor: 'color-mix(in srgb, var(--nc-primary) 20%, transparent)' }}>
             {lapsed.length} client{lapsed.length !== 1 ? 's' : ''} · no check-in in 7+ days
           </span>
         )}
@@ -55,8 +55,8 @@ export default function LapsedClients() {
         <p className="text-xs text-gray-400 py-2">Loading…</p>
       ) : lapsed.length === 0 ? (
         <div className="flex items-center gap-2 py-1">
-          <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(29,158,117,0.1)' }}>
-            <svg className="w-3 h-3" style={{ color: '#1D9E75' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 10%, transparent)' }}>
+            <svg className="w-3 h-3" style={{ color: 'var(--nc-primary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
             </svg>
           </div>
@@ -70,8 +70,8 @@ export default function LapsedClients() {
             return (
               <div key={c.clientId} className="flex items-center gap-2.5 py-1.5 px-2 rounded-xl hover:bg-gray-50 transition-colors">
                 <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ backgroundColor: 'rgba(29,158,117,0.1)' }}>
-                  <span className="text-[10px] font-bold" style={{ color: '#1D9E75' }}>{initial}</span>
+                  style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 10%, transparent)' }}>
+                  <span className="text-[10px] font-bold" style={{ color: 'var(--nc-primary)' }}>{initial}</span>
                 </div>
                 <a href={`/coach/clients/${c.clientId}`}
                   className="flex-1 min-w-0 hover:opacity-70 transition-opacity">

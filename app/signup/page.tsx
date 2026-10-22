@@ -105,7 +105,7 @@ function SignupForm() {
         </div>
 
         {planLabel && (
-          <div className="flex items-center gap-2 text-sm rounded-xl px-4 py-3 border" style={{ backgroundColor: '#EEF4F0', borderColor: 'rgba(29,158,117,0.18)' }}>
+          <div className="flex items-center gap-2 text-sm rounded-xl px-4 py-3 border" style={{ backgroundColor: '#EEF4F0', borderColor: 'color-mix(in srgb, var(--nc-primary) 18%, transparent)' }}>
             <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="#B08000" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -196,7 +196,7 @@ function SignupForm() {
             type="submit"
             disabled={pending || !agreed}
             className="w-full py-3 rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-colors"
-            style={{ backgroundColor: '#1D9E75', color: '#ffffff' }}
+            style={{ backgroundColor: 'var(--nc-primary)', color: '#ffffff' }}
           >
             {submitLabel}
           </button>

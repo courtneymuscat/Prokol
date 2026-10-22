@@ -73,7 +73,7 @@ function PlanCard({
     }`}>
       {plan.highlighted && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className="text-xs font-semibold px-3 py-1 rounded-full text-gray-900" style={{ backgroundColor: '#1D9E75' }}>
+          <span className="text-xs font-semibold px-3 py-1 rounded-full text-gray-900" style={{ backgroundColor: 'var(--nc-primary)' }}>
             {plan.tagline}
           </span>
         </div>
@@ -156,7 +156,7 @@ function PlanCard({
         <a
           href="/org/white-label"
           className="block w-full py-2.5 rounded-xl text-sm font-semibold text-center text-white transition-opacity hover:opacity-90"
-          style={{ backgroundColor: '#1D9E75' }}
+          style={{ backgroundColor: 'var(--nc-primary)' }}
         >
           Set up your branding →
         </a>
@@ -173,7 +173,7 @@ function PlanCard({
               ? 'text-gray-900 hover:opacity-90'
               : 'bg-gray-900 text-white hover:bg-gray-800'
           }`}
-          style={plan.highlighted ? { backgroundColor: '#1D9E75' } : undefined}
+          style={plan.highlighted ? { backgroundColor: 'var(--nc-primary)' } : undefined}
         >
           {loading ? 'Loading…' : isFree ? 'Get started free' : `Get ${plan.name.split(' — ')[0]}`}
         </button>
@@ -302,7 +302,7 @@ export default function PricingCards({
             }`}
           >
             Annual
-            <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ backgroundColor: 'rgba(29,158,117,0.08)', color: '#B08000' }}>
+            <span className="text-xs px-1.5 py-0.5 rounded-full font-semibold" style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 8%, transparent)', color: '#B08000' }}>
               Save 10%
             </span>
           </button>

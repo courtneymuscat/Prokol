@@ -105,7 +105,7 @@ export default function SignupLinkPanel({
           onClick={handleCreate}
           disabled={creating}
           className="text-sm font-semibold px-4 py-2 rounded-xl text-zinc-900 hover:opacity-90 disabled:opacity-50 transition-opacity"
-          style={{ backgroundColor: '#1D9E75' }}
+          style={{ backgroundColor: 'var(--nc-primary)' }}
         >
           {creating ? 'Creating…' : 'Generate link'}
         </button>

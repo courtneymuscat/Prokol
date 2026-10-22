@@ -218,7 +218,7 @@ export default function ChangePlanModal({
                         onClick={() => setConfirmingPlanKey(opt.planKey)}
                         disabled={!!submitting}
                         className="flex-shrink-0 text-xs font-semibold px-3 py-2 rounded-xl text-gray-900 disabled:opacity-50"
-                        style={{ backgroundColor: '#1D9E75' }}
+                        style={{ backgroundColor: 'var(--nc-primary)' }}
                       >
                         {isSubmittingThis ? 'Switching…' : 'Switch'}
                       </button>
@@ -266,7 +266,7 @@ export default function ChangePlanModal({
                 onClick={() => handleSwitch(confirming.planKey)}
                 disabled={!!submitting}
                 className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-900 disabled:opacity-50"
-                style={{ backgroundColor: '#1D9E75' }}
+                style={{ backgroundColor: 'var(--nc-primary)' }}
               >
                 {submitting === confirming.planKey ? 'Switching…' : 'Confirm switch'}
               </button>

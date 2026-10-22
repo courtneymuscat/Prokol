@@ -137,7 +137,7 @@ export default async function SubscribeSuccessPage({
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
       <div className="bg-white rounded-2xl border p-10 max-w-md w-full text-center space-y-6">
         {/* Check icon */}
-        <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto" style={{ backgroundColor: 'rgba(29,158,117,0.08)' }}>
+        <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto" style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 8%, transparent)' }}>
           <svg className="w-8 h-8" fill="none" stroke="#1D9E75" strokeWidth={2.5} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
@@ -185,7 +185,7 @@ export default async function SubscribeSuccessPage({
               <Link
                 href="/org/white-label"
                 className="block w-full py-3 rounded-xl text-sm font-semibold text-center text-white transition-opacity hover:opacity-90"
-                style={{ backgroundColor: '#1D9E75' }}
+                style={{ backgroundColor: 'var(--nc-primary)' }}
               >
                 Set up your branding →
               </Link>
@@ -201,7 +201,7 @@ export default async function SubscribeSuccessPage({
               <Link
                 href={isCoach ? '/coach/dashboard' : '/dashboard'}
                 className="block w-full py-3 rounded-xl text-sm font-semibold text-center text-white transition-opacity hover:opacity-90"
-                style={{ backgroundColor: '#1D9E75' }}
+                style={{ backgroundColor: 'var(--nc-primary)' }}
               >
                 Go to dashboard →
               </Link>

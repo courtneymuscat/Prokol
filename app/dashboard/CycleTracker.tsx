@@ -631,7 +631,7 @@ function CycleModal({ log, saving, onUpdate, onClose, advancedAccess = true }: {
             <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center space-y-3">
               <p className="text-sm font-semibold text-gray-700">Symptoms, BBT, Cervical Mucus & Mood tracking</p>
               <p className="text-xs text-gray-400">Unlock advanced cycle tracking on the Optimiser plan</p>
-              <a href="/pricing" className="inline-block text-xs font-semibold px-4 py-2 rounded-xl text-gray-900 hover:opacity-90" style={{ backgroundColor: '#1D9E75' }}>Upgrade to Optimiser →</a>
+              <a href="/pricing" className="inline-block text-xs font-semibold px-4 py-2 rounded-xl text-gray-900 hover:opacity-90" style={{ backgroundColor: 'var(--nc-primary)' }}>Upgrade to Optimiser →</a>
             </div>
           )}
 

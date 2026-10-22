@@ -1146,8 +1146,8 @@ function WorkoutModal({ workout, onClose, onSaved, onMoved }: {
                       </div>
                     )}
                     {savedResult?.coachNote && (
-                      <div className="rounded-lg px-3 py-2" style={{ backgroundColor: 'rgba(29,158,117,0.06)' }}>
-                        <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: '#1D9E75' }}>Coach feedback</p>
+                      <div className="rounded-lg px-3 py-2" style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 6%, transparent)' }}>
+                        <p className="text-[10px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: 'var(--nc-primary)' }}>Coach feedback</p>
                         <p className="text-xs text-gray-700">{savedResult.coachNote}</p>
                       </div>
                     )}

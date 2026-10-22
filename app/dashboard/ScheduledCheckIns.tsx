@@ -232,11 +232,11 @@ export default function ScheduledCheckIns({ onEmpty }: Props) {
         <div key={`${step.flow_id}-${step.step_number}`} className="relative mb-3">
           <a
             href={`/autoflows/${step.flow_id}/${step.step_number}`}
-            className="flex items-center justify-between rounded-2xl px-5 py-4 hover:opacity-90 transition-colors group" style={{ backgroundColor: 'rgba(29,158,117,0.07)', border: '1px solid rgba(29,158,117,0.18)' }}
+            className="flex items-center justify-between rounded-2xl px-5 py-4 hover:opacity-90 transition-colors group" style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 7%, transparent)', border: '1px solid color-mix(in srgb, var(--nc-primary) 18%, transparent)' }}
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'rgba(29,158,117,0.12)' }}>
-                <svg className="w-5 h-5" style={{ color: '#1D9E75' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 12%, transparent)' }}>
+                <svg className="w-5 h-5" style={{ color: 'var(--nc-primary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                 </svg>
               </div>
@@ -244,12 +244,12 @@ export default function ScheduledCheckIns({ onEmpty }: Props) {
                 <p className="text-sm font-semibold text-gray-900">
                   {step.title || `Step ${step.step_number}`}
                 </p>
-                <p className="text-xs mt-0.5" style={{ color: '#1D9E75' }}>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--nc-primary)' }}>
                   {step.flow_name} · Due today
                 </p>
               </div>
             </div>
-            <span className="text-xs font-semibold text-white px-3 py-1.5 rounded-lg flex-shrink-0 mr-7" style={{ backgroundColor: '#1D9E75' }}>Fill in →</span>
+            <span className="text-xs font-semibold text-white px-3 py-1.5 rounded-lg flex-shrink-0 mr-7" style={{ backgroundColor: 'var(--nc-primary)' }}>Fill in →</span>
           </a>
           <button
             type="button"
@@ -276,20 +276,20 @@ export default function ScheduledCheckIns({ onEmpty }: Props) {
             <a
               href={`/forms/${s.form_id}`}
               key={s.id}
-              className="flex items-center justify-between rounded-2xl px-5 py-4 hover:opacity-90 transition-colors group mb-3" style={{ backgroundColor: 'rgba(29,158,117,0.07)', border: '1px solid rgba(29,158,117,0.18)' }}
+              className="flex items-center justify-between rounded-2xl px-5 py-4 hover:opacity-90 transition-colors group mb-3" style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 7%, transparent)', border: '1px solid color-mix(in srgb, var(--nc-primary) 18%, transparent)' }}
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5" style={{ color: '#1D9E75' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" style={{ color: 'var(--nc-primary)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                   </svg>
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-gray-900">{s.title}</p>
-                  <p className="text-xs mt-0.5" style={{ color: '#1D9E75' }}>{repeatLabel(s.repeat_type)} · Due today</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--nc-primary)' }}>{repeatLabel(s.repeat_type)} · Due today</p>
                 </div>
               </div>
-              <span className="text-xs font-semibold text-white px-3 py-1.5 rounded-lg flex-shrink-0" style={{ backgroundColor: '#1D9E75' }}>Fill in →</span>
+              <span className="text-xs font-semibold text-white px-3 py-1.5 rounded-lg flex-shrink-0" style={{ backgroundColor: 'var(--nc-primary)' }}>Fill in →</span>
             </a>
           )
         }

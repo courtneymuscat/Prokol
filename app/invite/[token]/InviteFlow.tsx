@@ -207,7 +207,7 @@ export default function InviteFlow({
                     <button
                       onClick={handlePayNow}
                       className="w-full text-center py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-                      style={{ backgroundColor: brandColour ?? '#1D9E75' }}
+                      style={{ backgroundColor: brandColour ?? 'var(--nc-primary)' }}
                     >
                       Pay now →
                     </button>

@@ -2560,7 +2560,7 @@ function CheckinSchedulesPanel({ clientId }: { clientId: string }) {
         <button
           onClick={openAddModal}
           className="text-xs font-semibold px-3 py-1.5 rounded-lg text-gray-900 hover:opacity-90 transition-colors"
-          style={{ backgroundColor: '#1D9E75' }}
+          style={{ backgroundColor: 'var(--nc-primary)' }}
         >
           + Add Schedule
         </button>
@@ -2709,7 +2709,7 @@ function CheckinSchedulesPanel({ clientId }: { clientId: string }) {
                 onClick={handleSave}
                 disabled={saving}
                 className="flex-1 text-sm font-semibold px-4 py-2.5 rounded-xl text-gray-900 hover:opacity-90 transition-colors disabled:opacity-50"
-                style={{ backgroundColor: '#1D9E75' }}
+                style={{ backgroundColor: 'var(--nc-primary)' }}
               >
                 {saving ? 'Saving…' : modal.editing ? 'Save Changes' : 'Add Schedule'}
               </button>

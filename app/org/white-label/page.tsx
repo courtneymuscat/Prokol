@@ -448,7 +448,7 @@ export default function WhiteLabelPage() {
                       onClick={() => setConfirmingPlan(plan)}
                       disabled={upgrading !== null}
                       className="shrink-0 px-4 py-2 text-sm font-semibold rounded-xl text-gray-900 hover:opacity-90 disabled:opacity-50 transition-colors whitespace-nowrap"
-                      style={{ backgroundColor: '#1D9E75' }}
+                      style={{ backgroundColor: 'var(--nc-primary)' }}
                     >
                       {upgrading === plan.planKey ? 'Starting…' : 'Choose plan'}
                     </button>
@@ -486,7 +486,7 @@ export default function WhiteLabelPage() {
                   onClick={() => { const planKey = confirmingPlan.planKey; setConfirmingPlan(null); startUpgrade(planKey) }}
                   disabled={upgrading !== null}
                   className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-900 disabled:opacity-50"
-                  style={{ backgroundColor: '#1D9E75' }}
+                  style={{ backgroundColor: 'var(--nc-primary)' }}
                 >
                   {upgrading === confirmingPlan.planKey ? 'Switching…' : 'Confirm'}
                 </button>
@@ -588,7 +588,7 @@ export default function WhiteLabelPage() {
                 type="submit"
                 disabled={loading}
                 className="w-full py-3 rounded-xl text-sm font-semibold text-gray-900 hover:opacity-90 disabled:opacity-50 transition-colors"
-                style={{ backgroundColor: '#1D9E75' }}
+                style={{ backgroundColor: 'var(--nc-primary)' }}
               >
                 {loading ? 'Saving…' : 'Save changes'}
               </button>
@@ -656,7 +656,7 @@ export default function WhiteLabelPage() {
               type="submit"
               disabled={loading}
               className="w-full py-3 rounded-xl text-sm font-semibold text-gray-900 hover:opacity-90 disabled:opacity-50 transition-colors"
-              style={{ backgroundColor: '#1D9E75' }}
+              style={{ backgroundColor: 'var(--nc-primary)' }}
             >
               {loading ? 'Submitting…' : 'Submit application'}
             </button>

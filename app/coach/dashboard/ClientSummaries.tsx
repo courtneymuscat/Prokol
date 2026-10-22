@@ -140,7 +140,7 @@ export default async function ClientSummaries({ coachId, clients }: ClientSummar
                   <span className="font-semibold text-gray-700">{Number(profile.target_calories).toLocaleString()}</span>
                   <span className="text-gray-400">kcal</span>
                   {profile.target_protein && <span className="text-pink-500 font-medium ml-1">{profile.target_protein}P</span>}
-                  {profile.target_carbs && <span className="font-medium" style={{ color: '#1D9E75' }}>{profile.target_carbs}C</span>}
+                  {profile.target_carbs && <span className="font-medium" style={{ color: 'var(--nc-primary)' }}>{profile.target_carbs}C</span>}
                   {profile.target_fat && <span className="text-green-600 font-medium">{profile.target_fat}F</span>}
                 </div>
               )}

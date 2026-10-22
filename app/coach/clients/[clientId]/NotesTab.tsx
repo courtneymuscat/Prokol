@@ -179,7 +179,7 @@ function MedicationsPanel({ clientId }: { clientId: string }) {
   )
 }
 
-const FONT_COLORS = ['#111827', '#ef4444', '#f97316', '#eab308', '#22c55e', '#1D9E75', '#3b82f6', '#8b5cf6', '#ec4899', '#6b7280']
+const FONT_COLORS = ['#111827', '#ef4444', '#f97316', '#eab308', '#22c55e', 'var(--nc-primary)', '#3b82f6', '#8b5cf6', '#ec4899', '#6b7280']
 
 function RichToolbar({ editorRef }: { editorRef: React.RefObject<HTMLDivElement | null> }) {
   const colorInputRef = useRef<HTMLInputElement>(null)

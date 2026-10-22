@@ -39,7 +39,7 @@ export default function UpcomingBookings() {
         {bookings.map((b) => (
           <div key={b.id} className="bg-white rounded-2xl border border-gray-200 px-4 py-3">
             <div className="flex items-start gap-3">
-              <span className="w-2.5 h-2.5 mt-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: b.service_color ?? '#1D9E75' }} />
+              <span className="w-2.5 h-2.5 mt-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: b.service_color ?? 'var(--nc-primary)' }} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-sm font-semibold text-gray-900">{b.service_name}</p>

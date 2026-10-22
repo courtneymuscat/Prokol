@@ -29,7 +29,7 @@ export default async function AdminGymsPage() {
         <Link
           href="/admin/gyms/new"
           className="text-sm font-semibold px-4 py-2 rounded-xl text-zinc-900 hover:opacity-90 transition-opacity"
-          style={{ backgroundColor: '#1D9E75' }}
+          style={{ backgroundColor: 'var(--nc-primary)' }}
         >
           + Add gym
         </Link>
@@ -55,7 +55,7 @@ export default async function AdminGymsPage() {
                 ) : (
                   <div
                     className="h-10 w-10 rounded-lg flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                    style={{ backgroundColor: gym.brand_colour ?? '#1D9E75' }}
+                    style={{ backgroundColor: gym.brand_colour ?? 'var(--nc-primary)' }}
                   >
                     {(gym.app_name ?? gym.name).charAt(0).toUpperCase()}
                   </div>

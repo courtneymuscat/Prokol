@@ -235,11 +235,11 @@ export default function ClientCheatSheet() {
             {PALM_GUIDE[activeGroup] && (() => {
               const guide = PALM_GUIDE[activeGroup]
               return (
-                <div className="rounded-2xl px-4 py-3 flex items-start gap-3" style={{ backgroundColor: 'rgba(29,158,117,0.07)', border: '1px solid rgba(29,158,117,0.15)' }}>
+                <div className="rounded-2xl px-4 py-3 flex items-start gap-3" style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 7%, transparent)', border: '1px solid color-mix(in srgb, var(--nc-primary) 15%, transparent)' }}>
                   <span className="text-2xl leading-none mt-0.5">{guide.icon}</span>
                   <div>
                     <p className="text-xs font-semibold" style={{ color: '#0F6E56' }}>{guide.headline}</p>
-                    <p className="text-xs mt-0.5 leading-relaxed" style={{ color: '#1D9E75' }}>{guide.body}</p>
+                    <p className="text-xs mt-0.5 leading-relaxed" style={{ color: 'var(--nc-primary)' }}>{guide.body}</p>
                   </div>
                 </div>
               )

@@ -255,7 +255,7 @@ export default async function CoachDashboard({
               className={`${tabBase} ${activeTab === t ? tabOrgActive : tabInactive} flex items-center gap-1.5`}
             >
               {label}
-              <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold leading-none" style={{ backgroundColor: 'rgba(29,158,117,0.08)', color: '#1D9E75' }}>Biz</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold leading-none" style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 8%, transparent)', color: 'var(--nc-primary)' }}>Biz</span>
             </Link>
           ))}
         </div>

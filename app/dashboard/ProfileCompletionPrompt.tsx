@@ -94,7 +94,7 @@ export default function ProfileCompletionPrompt({ initialName, initialPhone, ini
         onClick={handleSave}
         disabled={!name.trim() || status === 'saving' || status === 'saved'}
         className="px-5 py-2.5 rounded-xl text-sm font-semibold text-gray-900 disabled:opacity-50 transition-colors"
-        style={{ backgroundColor: '#1D9E75' }}
+        style={{ backgroundColor: 'var(--nc-primary)' }}
       >
         {status === 'saving' ? 'Saving…' : status === 'saved' ? 'Saved ✓' : 'Save profile details'}
       </button>

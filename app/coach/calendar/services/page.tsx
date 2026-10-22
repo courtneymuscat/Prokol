@@ -14,7 +14,7 @@ type Service = {
   active: boolean
 }
 
-const SWATCHES = ['#1D9E75', '#3b82f6', '#a855f7', '#ec4899', '#ef4444', '#f97316', '#eab308', '#14b8a6']
+const SWATCHES = ['var(--nc-primary)', '#3b82f6', '#a855f7', '#ec4899', '#ef4444', '#f97316', '#eab308', '#14b8a6']
 
 function emptyDraft(): Partial<Service> {
   return {

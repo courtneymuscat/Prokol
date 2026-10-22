@@ -235,7 +235,7 @@ export default function CoachCalendar({ coachId, coachTz }: { coachId: string; c
                         key={b.id}
                         onClick={() => setModal({ kind: 'view', booking: b })}
                         className="absolute left-1 right-1 rounded-lg p-1.5 text-left text-white text-[11px] shadow-sm hover:shadow-md transition-shadow overflow-hidden"
-                        style={{ top, height, backgroundColor: b.service_color ?? '#1D9E75' }}
+                        style={{ top, height, backgroundColor: b.service_color ?? 'var(--nc-primary)' }}
                       >
                         <div className="font-semibold truncate">
                           {formatInTz(new Date(b.start_at), coachTz, { hour: '2-digit', minute: '2-digit' })} {b.service_name}
@@ -336,7 +336,7 @@ function MonthGrid({
                       key={b.id}
                       onClick={(e) => { e.stopPropagation(); onView(b) }}
                       className="block w-full text-left rounded px-1 py-0.5 text-[10px] truncate text-white"
-                      style={{ backgroundColor: b.service_color ?? '#1D9E75' }}
+                      style={{ backgroundColor: b.service_color ?? 'var(--nc-primary)' }}
                     >
                       <span className="font-semibold">{formatInTz(new Date(b.start_at), coachTz, { hour: 'numeric', minute: '2-digit' })}</span>{' '}
                       {client?.full_name || client?.email || b.service_name}
@@ -679,7 +679,7 @@ function ViewBookingModal({
         <div className="flex items-start justify-between mb-3">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: booking.service_color ?? '#1D9E75' }} />
+              <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: booking.service_color ?? 'var(--nc-primary)' }} />
               <h2 className="text-base font-bold text-gray-900">{booking.service_name}</h2>
             </div>
             <p className="text-sm text-gray-600">{client?.full_name || client?.email}</p>

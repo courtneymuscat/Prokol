@@ -149,7 +149,7 @@ export default function LandingContent() {
       </section>
 
       {/* ── Hero ────────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #EEF4F0 0%, rgba(29,158,117,0.08) 50%, #EEF4F0 100%)' }}>
+      <section className="relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #EEF4F0 0%, color-mix(in srgb, var(--nc-primary) 8%, transparent) 50%, #EEF4F0 100%)' }}>
         <div className="max-w-4xl mx-auto px-6 py-24 text-center space-y-8">
           {isCoach ? (
             <>
@@ -170,7 +170,7 @@ export default function LandingContent() {
                 <Link
                   href="/pricing#coach"
                   className="text-base font-semibold px-8 py-4 rounded-2xl text-gray-900 transition-colors hover:opacity-90 shadow-sm"
-                  style={{ backgroundColor: '#1D9E75' }}
+                  style={{ backgroundColor: 'var(--nc-primary)' }}
                 >
                   Start coaching free →
                 </Link>
@@ -208,7 +208,7 @@ export default function LandingContent() {
                 <Link
                   href="/signup"
                   className="text-base font-semibold px-8 py-4 rounded-2xl text-gray-900 transition-colors hover:opacity-90 shadow-sm"
-                  style={{ backgroundColor: '#1D9E75' }}
+                  style={{ backgroundColor: 'var(--nc-primary)' }}
                 >
                   Start for free →
                 </Link>
@@ -250,7 +250,7 @@ export default function LandingContent() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {(isCoach ? COACH_FEATURES : INDIVIDUAL_FEATURES).map((f) => (
               <div key={f.title} className="space-y-4">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: 'rgba(29,158,117,0.08)' }}>
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 8%, transparent)' }}>
                   {f.emoji}
                 </div>
                 <div>
@@ -294,7 +294,7 @@ export default function LandingContent() {
 
             {/* Client retention callout */}
             <div className="bg-white rounded-2xl border border-gray-100 p-7 flex flex-col md:flex-row items-start md:items-center gap-6">
-              <div className="w-12 h-12 rounded-2xl flex-shrink-0 flex items-center justify-center text-2xl" style={{ backgroundColor: 'rgba(29,158,117,0.08)' }}>
+              <div className="w-12 h-12 rounded-2xl flex-shrink-0 flex items-center justify-center text-2xl" style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 8%, transparent)' }}>
                 🔄
               </div>
               <div className="flex-1">
@@ -357,7 +357,7 @@ export default function LandingContent() {
             <div className="overflow-x-auto rounded-2xl border border-gray-100">
               <table className="w-full text-sm">
                 <thead>
-                  <tr style={{ backgroundColor: 'rgba(29,158,117,0.08)' }}>
+                  <tr style={{ backgroundColor: 'color-mix(in srgb, var(--nc-primary) 8%, transparent)' }}>
                     <th className="text-left px-5 py-3.5 font-semibold text-gray-700 w-1/3">Feature</th>
                     <th className="px-5 py-3.5 font-semibold text-gray-500 text-center">Trainerize / Everfit</th>
                     <th className="px-5 py-3.5 font-semibold text-gray-500 text-center">MyFitnessPal</th>
@@ -382,7 +382,7 @@ export default function LandingContent() {
                       <td className="px-5 py-3 text-center">{trainerize ? '✓' : <span className="text-gray-300">—</span>}</td>
                       <td className="px-5 py-3 text-center">{mfp ? '✓' : <span className="text-gray-300">—</span>}</td>
                       <td className="px-5 py-3 text-center">
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold" style={{ backgroundColor: '#1D9E75', color: '#FFFFFF' }}>✓</span>
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold" style={{ backgroundColor: 'var(--nc-primary)', color: '#FFFFFF' }}>✓</span>
                       </td>
                     </tr>
                   ))}
@@ -412,7 +412,7 @@ export default function LandingContent() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {(isCoach ? COACH_STEPS : INDIVIDUAL_STEPS).map((s) => (
               <div key={s.step} className="space-y-3">
-                <span className="text-4xl font-bold" style={{ color: '#1D9E75' }}>{s.step}</span>
+                <span className="text-4xl font-bold" style={{ color: 'var(--nc-primary)' }}>{s.step}</span>
                 <h3 className="text-lg font-bold text-gray-900">{s.title}</h3>
                 <p className="text-sm text-gray-500 leading-relaxed">{s.desc}</p>
               </div>
@@ -424,7 +424,7 @@ export default function LandingContent() {
               <Link
                 href="/pricing#coach"
                 className="inline-block text-base font-semibold px-10 py-4 rounded-2xl text-gray-900 hover:opacity-90 transition-colors"
-                style={{ backgroundColor: '#1D9E75' }}
+                style={{ backgroundColor: 'var(--nc-primary)' }}
               >
                 Start coaching free →
               </Link>
@@ -443,7 +443,7 @@ export default function LandingContent() {
               <Link
                 href="/pricing#coach"
                 className="inline-block text-base font-semibold px-10 py-4 rounded-2xl text-gray-900 hover:opacity-90 transition-colors"
-                style={{ backgroundColor: '#1D9E75' }}
+                style={{ backgroundColor: 'var(--nc-primary)' }}
               >
                 Create coach account →
               </Link>
@@ -455,7 +455,7 @@ export default function LandingContent() {
               <Link
                 href="/signup"
                 className="inline-block text-base font-semibold px-10 py-4 rounded-2xl text-gray-900 hover:opacity-90 transition-colors"
-                style={{ backgroundColor: '#1D9E75' }}
+                style={{ backgroundColor: 'var(--nc-primary)' }}
               >
                 Create free account →
               </Link>

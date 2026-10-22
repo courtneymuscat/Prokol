@@ -43,7 +43,7 @@ const PHASE_CONFIG: Record<PhaseType, { label: string; color: string; bg: string
   maintenance:  { label: 'Maintenance',  color: '#3b82f6', bg: '#eff6ff', textColor: '#1d4ed8' },
   diet_break:   { label: 'Diet Break',   color: '#f59e0b', bg: '#fffbeb', textColor: '#b45309' },
   reverse_diet: { label: 'Reverse Diet', color: '#8b5cf6', bg: '#f5f3ff', textColor: '#7c3aed' },
-  recomp:       { label: 'Recomp',       color: '#1D9E75', bg: '#f0fdf9', textColor: '#065f46' },
+  recomp:       { label: 'Recomp',       color: 'var(--nc-primary)', bg: '#f0fdf9', textColor: '#065f46' },
   peak_week:    { label: 'Peak Week',    color: '#f97316', bg: '#fff7ed', textColor: '#c2410c' },
   custom:       { label: 'Custom',       color: '#6b7280', bg: '#f9fafb', textColor: '#374151' },
 }

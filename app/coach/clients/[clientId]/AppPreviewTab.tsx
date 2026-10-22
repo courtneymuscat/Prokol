@@ -229,7 +229,7 @@ const PHASE_COLOURS: Record<string, { color: string; bg: string; text: string }>
   maintenance:  { color: '#3b82f6', bg: '#eff6ff', text: '#1d4ed8' },
   diet_break:   { color: '#f59e0b', bg: '#fffbeb', text: '#b45309' },
   reverse_diet: { color: '#8b5cf6', bg: '#f5f3ff', text: '#7c3aed' },
-  recomp:       { color: '#1D9E75', bg: '#f0fdf9', text: '#065f46' },
+  recomp:       { color: 'var(--nc-primary)', bg: '#f0fdf9', text: '#065f46' },
   peak_week:    { color: '#f97316', bg: '#fff7ed', text: '#c2410c' },
   custom:       { color: '#6b7280', bg: '#f9fafb', text: '#374151' },
 }
@@ -394,7 +394,7 @@ export default function AppPreviewTab({
   // Clients see main_goal + mini_goals only — key_notes are coach-only
   const hasGoals = !!(goals.main_goal || goals.mini_goals.length)
   const hasCheckins = checkin_schedules.length > 0 || due_autoflow_steps.length > 0
-  const brandColour = branding.brand_colour ?? '#1D9E75'
+  const brandColour = branding.brand_colour ?? 'var(--nc-primary)'
   const appName = branding.brand_name ?? 'Prokol'
 
   const isFemale = profile?.sex !== 'male'

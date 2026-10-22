@@ -134,7 +134,7 @@ export default async function SettingsPage() {
                 <a
                   href="/onboarding"
                   className="inline-block text-xs font-semibold px-4 py-2 rounded-xl text-gray-900"
-                  style={{ backgroundColor: '#1D9E75' }}
+                  style={{ backgroundColor: 'var(--nc-primary)' }}
                 >
                   Set my targets →
                 </a>

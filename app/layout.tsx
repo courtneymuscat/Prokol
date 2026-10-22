@@ -8,7 +8,7 @@ import ClientBottomNav from "@/app/components/ClientBottomNav";
 import PushSetup from "@/app/components/PushSetup";
 import AppRefresh from "@/app/components/AppRefresh";
 import { BrandingProvider } from "@/app/components/BrandingProvider";
-import { getBrandingFromHeaders, DEFAULT_BRANDING } from "@/lib/branding";
+import { getBrandingFromHeaders, DEFAULT_BRANDING, brandColourOverrideCss } from "@/lib/branding";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 
@@ -108,12 +108,22 @@ export default async function RootLayout({
 
   const navContext = await loadNavContext()
 
+  // --brand-primary/secondary/text alone only ever fed one page
+  // (app/cheat-sheet/ClientCheatSheet.tsx) before today. The actual
+  // app-wide accent — every button/badge/focus-ring Tailwind class styled
+  // as "blue" (globals.css's "remap blue utilities → teal" block) — reads
+  // --nc-primary and friends, hardcoded to Prokol's own teal, never tied to
+  // an org's brand colour. brandColourOverrideCss (lib/branding.ts) is what
+  // actually threads a white-labelled org's colour through to those tokens
+  // too — deliberately gated on isWhiteLabel so an ordinary (non-white-
+  // label) user's UI keeps the real Prokol teal untouched.
   const cssVars = `
     :root {
       --brand-primary: ${branding.brandColour};
       --brand-secondary: ${branding.brandColourSecondary};
       --brand-text: ${branding.brandColourText};
     }
+    ${branding.isWhiteLabel ? brandColourOverrideCss(branding.brandColour) : ''}
   `.trim()
 
   return (

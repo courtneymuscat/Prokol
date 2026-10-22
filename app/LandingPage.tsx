@@ -8,11 +8,11 @@ const T = {
   bg:           '#F4F7F5',
   white:        '#FFFFFF',
   dark:         '#060E10',
-  teal:         '#1D9E75',
+  teal:         'var(--nc-primary)',
   tealLight:    '#5DCAA5',
   tealDeep:     '#0F6E56',
-  tealDim:      'rgba(29,158,117,0.08)',
-  tealBorder:   'rgba(29,158,117,0.18)',
+  tealDim:      'color-mix(in srgb, var(--nc-primary) 8%, transparent)',
+  tealBorder:   'color-mix(in srgb, var(--nc-primary) 18%, transparent)',
   textPrimary:  '#0A1A14',
   textSec:      'rgba(10,26,20,0.55)',
   textFaint:    'rgba(10,26,20,0.35)',
@@ -253,7 +253,7 @@ export default function LandingPage({
         background: scrolled ? 'rgba(244,247,245,0.92)' : T.bg,
         backdropFilter: scrolled ? 'blur(12px)' : 'none',
         boxShadow: scrolled ? '0 1px 20px rgba(0,0,0,0.08)' : 'none',
-        borderBottom: scrolled ? '1px solid rgba(29,158,117,0.1)' : '1px solid transparent',
+        borderBottom: scrolled ? '1px solid color-mix(in srgb, var(--nc-primary) 10%, transparent)' : '1px solid transparent',
         transition: 'all 0.3s',
       }}>
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -325,7 +325,7 @@ export default function LandingPage({
 
       {/* ══ HERO ═════════════════════════════════════════════════════════════ */}
       <section style={{ paddingTop: 80, paddingBottom: 80, paddingLeft: 24, paddingRight: 24, position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: -200, left: '50%', transform: 'translateX(-50%)', width: 800, height: 600, background: 'radial-gradient(ellipse at 50% 0%,rgba(29,158,117,0.12) 0%,transparent 70%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', top: -200, left: '50%', transform: 'translateX(-50%)', width: 800, height: 600, background: 'radial-gradient(ellipse at 50% 0%,color-mix(in srgb, var(--nc-primary) 12%, transparent) 0%,transparent 70%)', pointerEvents: 'none' }} />
         <div className="max-w-5xl mx-auto text-center" style={{ position: 'relative' }}>
           <div className="inline-flex items-center px-4 py-1.5 rounded-full text-xs font-semibold tracking-wide mb-8"
             style={{ border: `1px solid ${T.tealBorder}`, background: T.tealDim, color: T.tealDeep }}>
@@ -339,7 +339,7 @@ export default function LandingPage({
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
             <a href="#pricing" className="px-8 py-4 rounded-2xl text-base font-bold text-white hover:opacity-90 transition-all hover:scale-[1.02]"
-              style={{ background: T.teal, boxShadow: '0 8px 32px rgba(29,158,117,0.3)' }}>
+              style={{ background: T.teal, boxShadow: '0 8px 32px color-mix(in srgb, var(--nc-primary) 30%, transparent)' }}>
               Start 14-Day Free Trial
             </a>
             <a href="#features" className="px-8 py-4 rounded-2xl text-base font-semibold hover:opacity-80"
@@ -704,7 +704,7 @@ export default function LandingPage({
                 Most coaches piece together a food log, a training app, a separate check-in form, cycle data, notes, and billing across different platforms — switching between all of them just to prep for one client call.
               </p>
             </div>
-            <div style={{ background: 'rgba(29,158,117,0.08)', border: '1px solid rgba(29,158,117,0.2)', borderRadius: 16, padding: '28px 28px 24px' }}>
+            <div style={{ background: 'color-mix(in srgb, var(--nc-primary) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--nc-primary) 20%, transparent)', borderRadius: 16, padding: '28px 28px 24px' }}>
               <p style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: T.tealLight, marginBottom: 12 }}>The Prokol way</p>
               <p style={{ fontSize: '1rem', fontWeight: 700, color: '#fff', lineHeight: 1.5, marginBottom: 12 }}>
                 Everything in one place. One login.
@@ -782,7 +782,7 @@ export default function LandingPage({
           {orgManaged && (
             <div
               className="max-w-2xl mx-auto mb-10 rounded-2xl border bg-blue-50 px-6 py-5 flex items-start gap-4"
-              style={{ borderColor: 'rgba(29,158,117,0.18)' }}
+              style={{ borderColor: 'color-mix(in srgb, var(--nc-primary) 18%, transparent)' }}
             >
               <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0" style={{ border: '1px solid rgba(10,26,20,0.06)' }}>
                 <svg className="w-5 h-5" fill="none" stroke="#1D9E75" strokeWidth={2} viewBox="0 0 24 24">
@@ -1017,8 +1017,8 @@ export default function LandingPage({
             </p>
           </div>
           <div style={{ marginBottom: 56 }}>
-            <div style={{ position: 'relative', paddingBottom: '56.25%', borderRadius: 16, overflow: 'hidden', border: `2px solid ${T.tealBorder}`, boxShadow: '0 0 60px rgba(29,158,117,0.15)' }}>
-              <div style={{ position: 'absolute', inset: 0, background: 'rgba(29,158,117,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
+            <div style={{ position: 'relative', paddingBottom: '56.25%', borderRadius: 16, overflow: 'hidden', border: `2px solid ${T.tealBorder}`, boxShadow: '0 0 60px color-mix(in srgb, var(--nc-primary) 15%, transparent)' }}>
+              <div style={{ position: 'absolute', inset: 0, background: 'color-mix(in srgb, var(--nc-primary) 5%, transparent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
                 <div style={{ width: 64, height: 64, borderRadius: '50%', background: T.teal, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <svg width="24" height="24" fill="white" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                 </div>
