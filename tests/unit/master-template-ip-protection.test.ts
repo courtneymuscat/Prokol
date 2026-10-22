@@ -85,8 +85,9 @@ describe('grantMasterTemplateAccess / revokeMasterTemplateAccess', () => {
   })
 
   it('grant is rejected when the template was never published to this org', async () => {
-    singleResponses.profiles = { role: 'platform_admin', org_id: 'court-org' }
+    singleResponses.profiles = { role: 'platform_admin' }
     singleResponses.autoflow_templates = { org_id: 'court-org' }
+    singleResponses.organisations = { owner_id: 'court-user' }
     singleResponses.master_template_publications = null
 
     const result = await grantMasterTemplateAccess('court-user', 'template-1', 'autoflow_templates', 'gym-org', 'gym-coach')
@@ -94,8 +95,9 @@ describe('grantMasterTemplateAccess / revokeMasterTemplateAccess', () => {
   })
 
   it('grant succeeds for a platform admin publishing their own template to an org it was published to', async () => {
-    singleResponses.profiles = { role: 'platform_admin', org_id: 'court-org' }
+    singleResponses.profiles = { role: 'platform_admin' }
     singleResponses.autoflow_templates = { org_id: 'court-org' }
+    singleResponses.organisations = { owner_id: 'court-user' }
     singleResponses.master_template_publications = { id: 'pub-1' }
 
     const result = await grantMasterTemplateAccess('court-user', 'template-1', 'autoflow_templates', 'gym-org', 'gym-coach')
@@ -111,8 +113,9 @@ describe('grantMasterTemplateAccess / revokeMasterTemplateAccess', () => {
   })
 
   it('revoke succeeds for the template owner / platform admin', async () => {
-    singleResponses.profiles = { role: 'platform_admin', org_id: 'court-org' }
+    singleResponses.profiles = { role: 'platform_admin' }
     singleResponses.autoflow_templates = { org_id: 'court-org' }
+    singleResponses.organisations = { owner_id: 'court-user' }
 
     const result = await revokeMasterTemplateAccess('court-user', 'template-1', 'autoflow_templates', 'gym-org', 'gym-coach')
     expect(result.error).toBeUndefined()

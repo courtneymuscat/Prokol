@@ -1,5 +1,6 @@
 'use server'
 
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import {
   updateCoachTier,
@@ -9,6 +10,8 @@ import {
   reinstateWhiteLabel,
   deleteWhiteLabelApplication,
   createGymOrg,
+  enterGymOrg,
+  exitToHomeOrg,
   type CreateGymOrgParams,
 } from '@/lib/admin'
 import {
@@ -56,6 +59,33 @@ export async function actionCreateGymOrg(params: CreateGymOrgParams) {
   const adminId = await getAdminId()
   if (!adminId) return { error: 'Unauthorized' }
   return createGymOrg(params, adminId)
+}
+
+/**
+ * Makes the admin "enter" a gym she owns — becomes its real owner-coach for
+ * the rest of this session, reusing the entire coach dashboard. Redirects
+ * itself on success so this can be used directly as a <form action={...}>
+ * target with no client-side handling needed — a bare `<form>` action must
+ * return void/Promise<void>, so failures (ownership check, DB error) are
+ * logged server-side rather than returned; the only realistic failure mode
+ * is an infra error, since the UI that calls this only ever lists orgs the
+ * admin already owns.
+ */
+export async function actionEnterGymOrg(gymOrgId: string): Promise<void> {
+  const adminId = await getAdminId()
+  if (!adminId) { console.error('actionEnterGymOrg: unauthorized'); return }
+  const result = await enterGymOrg(gymOrgId, adminId)
+  if (result.error) { console.error('actionEnterGymOrg:', result.error); return }
+  redirect('/coach/dashboard')
+}
+
+/** Reverses actionEnterGymOrg — back to the admin's own home organisation. */
+export async function actionExitToHomeOrg(): Promise<void> {
+  const adminId = await getAdminId()
+  if (!adminId) { console.error('actionExitToHomeOrg: unauthorized'); return }
+  const result = await exitToHomeOrg(adminId)
+  if (result.error) { console.error('actionExitToHomeOrg:', result.error); return }
+  redirect('/admin/gyms')
 }
 
 export async function actionRevokeWhiteLabel(orgId: string) {

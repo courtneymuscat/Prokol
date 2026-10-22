@@ -964,70 +964,107 @@ export async function createGymOrg(
   return { data: org }
 }
 
-export type GymMember = {
-  id: string
-  name: string | null
-  email: string
-  joinedAt: string | null
-  lastActivity: string | null
+/**
+ * Makes the platform admin "enter" a gym she owns — becomes its real
+ * owner-coach, reusing the entire existing coach dashboard (Organisation,
+ * Clients, Messages, Templates, invite flows, everything) rather than a
+ * parallel admin UI. Only ever touches the admin's own org_members rows
+ * and profiles.org_id — exactly one org_members row stays is_active at a
+ * time, which is what keeps getOrgForUser()'s existing `.single()` query
+ * (used by 24+ files across the app) working completely unmodified.
+ *
+ * Refuses to enter an org the admin doesn't own — this is a one-admin
+ * "act as my own org" mechanism, not a general impersonation feature.
+ */
+export async function enterGymOrg(
+  gymOrgId: string,
+  adminId: string,
+): Promise<{ success?: true; error?: string }> {
+  const admin = createAdminClient()
+
+  const { data: gym } = await admin
+    .from('organisations')
+    .select('id, owner_id, name')
+    .eq('id', gymOrgId)
+    .maybeSingle()
+
+  if (!gym || gym.owner_id !== adminId) {
+    return { error: 'You can only enter an organisation you own.' }
+  }
+
+  const { error: deactivateError } = await admin
+    .from('org_members')
+    .update({ is_active: false })
+    .eq('user_id', adminId)
+  if (deactivateError) return { error: deactivateError.message }
+
+  const { error: upsertError } = await admin
+    .from('org_members')
+    .upsert(
+      { org_id: gymOrgId, user_id: adminId, role: 'owner', is_active: true, accepted_at: new Date().toISOString() },
+      { onConflict: 'org_id,user_id' },
+    )
+  if (upsertError) return { error: upsertError.message }
+
+  const { error: profileError } = await admin
+    .from('profiles')
+    .update({ org_id: gymOrgId })
+    .eq('id', adminId)
+  if (profileError) return { error: profileError.message }
+
+  await admin.from('admin_audit_log').insert({
+    admin_id: adminId,
+    action: 'enter_gym_org',
+    target_org_id: gymOrgId,
+    new_value: gym.name,
+  })
+
+  return { success: true }
 }
 
 /**
- * The client roster for one of Court's gym organisations — scoped to both
- * adminId (every gym client's coach_id is the org owner, per
- * acceptOrgSignupLink) and org_id, so a client never leaks into the wrong
- * gym's roster if Court owns more than one.
- *
- * lastActivity is computed the same way app/coach/clients/page.tsx already
- * does: the latest of raw check-ins, autoflow step responses, and form
- * submissions. Autoflow responses matter most here specifically — gym
- * members' entire program is the autoflow(s) attached to their signup
- * link, so that's where most of their real activity shows up, not the
- * generic check_ins table alone.
+ * Reverses enterGymOrg — restores the admin's own home organisation
+ * (profiles.home_org_id) as her single active membership and resets
+ * profiles.org_id to match. No-ops with an error if home_org_id was never
+ * set (meaningless for any account other than the platform admin).
  */
-export async function getGymMembers(orgId: string, adminId: string): Promise<GymMember[]> {
+export async function exitToHomeOrg(adminId: string): Promise<{ success?: true; error?: string }> {
   const admin = createAdminClient()
 
-  const { data: memberRows } = await admin
-    .from('coach_clients')
-    .select('client_id, accepted_at')
-    .eq('coach_id', adminId)
-    .eq('org_id', orgId)
-    .eq('status', 'active')
-    .order('accepted_at', { ascending: false })
-
-  const memberIds = (memberRows ?? []).map((r) => r.client_id)
-  if (memberIds.length === 0) return []
-
-  const { data: memberProfiles } = await admin
+  const { data: profile } = await admin
     .from('profiles')
-    .select('id, email, full_name, first_name')
-    .in('id', memberIds)
-  const profileMap = Object.fromEntries((memberProfiles ?? []).map((p) => [p.id, p]))
+    .select('home_org_id')
+    .eq('id', adminId)
+    .maybeSingle()
 
-  const [{ data: latestCheckIns }, { data: latestAutoflowResps }, { data: latestFormSubs }] = await Promise.all([
-    admin.from('check_ins').select('user_id, created_at').in('user_id', memberIds).order('created_at', { ascending: false }),
-    admin.from('autoflow_responses').select('client_id, submitted_at').in('client_id', memberIds).order('submitted_at', { ascending: false }),
-    admin.from('form_submissions').select('client_id, submitted_at').in('client_id', memberIds).order('submitted_at', { ascending: false }),
-  ])
+  const homeOrgId = profile?.home_org_id as string | null | undefined
+  if (!homeOrgId) return { error: 'No home organisation set for this account.' }
 
-  const lastActivity: Record<string, string> = {}
-  for (const c of latestCheckIns ?? []) {
-    if (!lastActivity[c.user_id]) lastActivity[c.user_id] = c.created_at
-  }
-  for (const r of [...(latestAutoflowResps ?? []), ...(latestFormSubs ?? [])]) {
-    const existing = lastActivity[r.client_id]
-    if (!existing || r.submitted_at > existing) lastActivity[r.client_id] = r.submitted_at
-  }
+  const { error: deactivateError } = await admin
+    .from('org_members')
+    .update({ is_active: false })
+    .eq('user_id', adminId)
+  if (deactivateError) return { error: deactivateError.message }
 
-  return (memberRows ?? []).map((r) => {
-    const p = profileMap[r.client_id] as { email: string | null; full_name: string | null; first_name: string | null } | undefined
-    return {
-      id: r.client_id,
-      name: p?.full_name ?? p?.first_name ?? null,
-      email: p?.email ?? 'Unknown',
-      joinedAt: r.accepted_at as string | null,
-      lastActivity: lastActivity[r.client_id] ?? null,
-    }
+  const { error: upsertError } = await admin
+    .from('org_members')
+    .upsert(
+      { org_id: homeOrgId, user_id: adminId, role: 'owner', is_active: true, accepted_at: new Date().toISOString() },
+      { onConflict: 'org_id,user_id' },
+    )
+  if (upsertError) return { error: upsertError.message }
+
+  const { error: profileError } = await admin
+    .from('profiles')
+    .update({ org_id: homeOrgId })
+    .eq('id', adminId)
+  if (profileError) return { error: profileError.message }
+
+  await admin.from('admin_audit_log').insert({
+    admin_id: adminId,
+    action: 'exit_to_home_org',
+    target_org_id: homeOrgId,
   })
+
+  return { success: true }
 }

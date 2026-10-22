@@ -87,30 +87,38 @@ describe('getEffectiveCoachPermissions', () => {
 })
 
 describe('canPublishMasterTemplate', () => {
-  it('allows a platform admin to publish a template that belongs to their own org', async () => {
-    responses.profiles = { role: 'platform_admin', org_id: 'court-org' }
+  // Ownership is resolved via organisations.owner_id, not the admin's own
+  // (mutable, org-switchable) profiles.org_id — see
+  // can-publish-master-template-org-switch.test.ts for the dedicated
+  // regression coverage of why that distinction matters.
+  it('allows a platform admin to publish a template that belongs to an org they own', async () => {
+    responses.profiles = { role: 'platform_admin' }
     responses.autoflow_templates = { org_id: 'court-org' }
+    responses.organisations = { owner_id: 'court-user' }
 
     expect(await canPublishMasterTemplate('court-user', 'template-1', 'autoflow_templates')).toBe(true)
   })
 
   it('blocks a platform admin from publishing a template owned by a different org', async () => {
-    responses.profiles = { role: 'platform_admin', org_id: 'court-org' }
+    responses.profiles = { role: 'platform_admin' }
     responses.autoflow_templates = { org_id: 'some-gym-org' }
+    responses.organisations = { owner_id: 'someone-else' }
 
     expect(await canPublishMasterTemplate('court-user', 'template-1', 'autoflow_templates')).toBe(false)
   })
 
   it('blocks a non-platform-admin even if the template belongs to their own org', async () => {
-    responses.profiles = { role: 'coach', org_id: 'court-org' }
+    responses.profiles = { role: 'coach' }
     responses.autoflow_templates = { org_id: 'court-org' }
+    responses.organisations = { owner_id: 'some-coach' }
 
     expect(await canPublishMasterTemplate('some-coach', 'template-1', 'autoflow_templates')).toBe(false)
   })
 
-  it('blocks when the user has no org at all', async () => {
-    responses.profiles = { role: 'platform_admin', org_id: null }
+  it('blocks when the template\'s org cannot be found', async () => {
+    responses.profiles = { role: 'platform_admin' }
     responses.autoflow_templates = { org_id: 'court-org' }
+    responses.organisations = null
 
     expect(await canPublishMasterTemplate('court-user', 'template-1', 'autoflow_templates')).toBe(false)
   })

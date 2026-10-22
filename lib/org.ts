@@ -408,10 +408,19 @@ export async function getEffectiveCoachPermissions(
 
 /**
  * True only when `userId` is a platform admin AND the template they're
- * trying to publish belongs to their own organisation. This is the entire
- * enforcement of "only Court can publish a master template into another
- * org" — no org (gym or otherwise) can publish its own templates elsewhere,
- * and a platform admin can't publish someone else's templates either.
+ * trying to publish belongs to an organisation they themselves own. This
+ * is the entire enforcement of "only Court can publish a master template
+ * into another org" — no org (gym or otherwise) can publish its own
+ * templates elsewhere, and a platform admin can't publish someone else's
+ * templates either.
+ *
+ * Deliberately resolves ownership via organisations.owner_id rather than
+ * the admin's own profiles.org_id — that field is mutable (it's also
+ * "which org the admin is currently acting as," via enterGymOrg/
+ * exitToHomeOrg in lib/admin.ts), so comparing against it directly would
+ * make publishing intermittently fail depending on which gym the admin
+ * happened to be "inside" at that moment, even though she owns both the
+ * template's org and the one she's publishing to.
  */
 export async function canPublishMasterTemplate(
   userId: string,
@@ -422,11 +431,11 @@ export async function canPublishMasterTemplate(
 
   const { data: profile } = await admin
     .from('profiles')
-    .select('role, org_id')
+    .select('role')
     .eq('id', userId)
     .maybeSingle()
 
-  if (!profile || profile.role !== 'platform_admin' || !profile.org_id) return false
+  if (!profile || profile.role !== 'platform_admin') return false
 
   const { data: template } = await admin
     .from(templateTable)
@@ -434,7 +443,16 @@ export async function canPublishMasterTemplate(
     .eq('id', templateId)
     .maybeSingle()
 
-  return !!template && (template as { org_id: string | null }).org_id === profile.org_id
+  const templateOrgId = (template as { org_id: string | null } | null)?.org_id
+  if (!templateOrgId) return false
+
+  const { data: templateOrg } = await admin
+    .from('organisations')
+    .select('owner_id')
+    .eq('id', templateOrgId)
+    .maybeSingle()
+
+  return templateOrg?.owner_id === userId
 }
 
 export type MasterTemplatePublication = {

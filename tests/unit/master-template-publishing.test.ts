@@ -50,8 +50,9 @@ describe('publishMasterTemplate', () => {
   })
 
   it('inserts the publication and an audit log entry when allowed', async () => {
-    responses.profiles = { role: 'platform_admin', org_id: 'court-org' }
+    responses.profiles = { role: 'platform_admin' }
     responses.autoflow_templates = { org_id: 'court-org' }
+    responses.organisations = { owner_id: 'court-user' }
     responses.master_template_publications = { id: 'pub-1' }
 
     const result = await publishMasterTemplate('court-user', 'template-1', 'autoflow_templates', 'gym-org')

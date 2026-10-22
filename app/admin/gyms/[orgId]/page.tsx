@@ -1,8 +1,9 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { requirePlatformAdmin, getGymMembers } from '@/lib/admin'
+import { requirePlatformAdmin } from '@/lib/admin'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getOrgFrontDoorUrl } from '@/lib/whitelabel'
+import { actionEnterGymOrg } from '@/app/actions/admin'
 import SignupLinkPanel from './SignupLinkPanel'
 
 export const dynamic = 'force-dynamic'
@@ -46,59 +47,35 @@ export default async function GymDetailPage({
     autoflowsByLink.set(row.link_id, names)
   }
 
-  // Links straight into the existing /coach/clients/[clientId] page — that
-  // page authorizes purely on coach_clients.coach_id = you, so it already
-  // works for gym clients with no new client-detail UI at all.
-  const members = await getGymMembers(orgId, adminProfile.id)
-
   return (
     <div className="space-y-6">
-      <div>
-        <Link href="/admin/gyms" className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors">← Gyms</Link>
-        <div className="flex items-center gap-3 mt-2">
-          {org.logo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={org.logo_url} alt={org.name} className="h-10 w-10 rounded-lg object-contain bg-zinc-800" />
-          ) : (
-            <div
-              className="h-10 w-10 rounded-lg flex items-center justify-center text-white text-sm font-bold"
-              style={{ backgroundColor: org.brand_colour ?? '#1D9E75' }}
-            >
-              {(org.app_name ?? org.name).charAt(0).toUpperCase()}
-            </div>
-          )}
-          <h1 className="text-2xl font-bold text-zinc-100">{org.app_name ?? org.name}</h1>
-        </div>
-      </div>
-
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-4 max-w-2xl">
-        <h2 className="text-sm font-semibold text-zinc-200">Members ({members.length})</h2>
-        {members.length === 0 ? (
-          <p className="text-xs text-zinc-500">No members yet — share a signup link below to get started.</p>
-        ) : (
-          <div className="divide-y divide-zinc-800">
-            {members.map((m) => (
-              <Link
-                key={m.id}
-                href={`/coach/clients/${m.id}`}
-                className="flex items-center justify-between py-3 hover:bg-zinc-800/40 -mx-2 px-2 rounded-lg transition-colors"
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Link href="/admin/gyms" className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors">← Gyms</Link>
+          <div className="flex items-center gap-3 mt-2">
+            {org.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={org.logo_url} alt={org.name} className="h-10 w-10 rounded-lg object-contain bg-zinc-800" />
+            ) : (
+              <div
+                className="h-10 w-10 rounded-lg flex items-center justify-center text-white text-sm font-bold"
+                style={{ backgroundColor: org.brand_colour ?? '#1D9E75' }}
               >
-                <div className="min-w-0">
-                  <p className="text-sm text-zinc-100 truncate">{m.name ?? m.email}</p>
-                  <p className="text-xs text-zinc-500 truncate">{m.email}</p>
-                </div>
-                <div className="text-right shrink-0 ml-4">
-                  <p className="text-xs text-zinc-500">
-                    Last activity: {m.lastActivity ? new Date(m.lastActivity).toLocaleDateString() : 'Never'}
-                  </p>
-                  <p className="text-xs text-zinc-600">
-                    Joined {m.joinedAt ? new Date(m.joinedAt).toLocaleDateString() : '—'}
-                  </p>
-                </div>
-              </Link>
-            ))}
+                {(org.app_name ?? org.name).charAt(0).toUpperCase()}
+              </div>
+            )}
+            <h1 className="text-2xl font-bold text-zinc-100">{org.app_name ?? org.name}</h1>
           </div>
-        )}
+        </div>
+        <form action={actionEnterGymOrg.bind(null, org.id)}>
+          <button
+            type="submit"
+            className="text-sm font-semibold px-4 py-2 rounded-xl text-zinc-900 hover:opacity-90 transition-opacity whitespace-nowrap"
+            style={{ backgroundColor: '#1D9E75' }}
+          >
+            Enter gym dashboard →
+          </button>
+        </form>
       </div>
 
       <SignupLinkPanel

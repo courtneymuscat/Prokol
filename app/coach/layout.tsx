@@ -10,6 +10,7 @@ export default async function CoachLayout({ children }: { children: React.ReactN
   let isBusinessTier = false
   let tier: string = 'individual_free'
   let isPlatformAdmin = false
+  let actingAsGymName: string | null = null
 
   try {
     const supabase = await createClient()
@@ -22,7 +23,7 @@ export default async function CoachLayout({ children }: { children: React.ReactN
           .eq('coach_id', session.user.id),
         supabase
           .from('profiles')
-          .select('subscription_tier, coach_grace_until, role')
+          .select('subscription_tier, coach_grace_until, role, home_org_id')
           .eq('id', session.user.id)
           .single(),
         supabase
@@ -51,6 +52,14 @@ export default async function CoachLayout({ children }: { children: React.ReactN
       isBusinessTier = isOrgManager || isSoloBusiness
       tier = (profileResult.data?.subscription_tier as string | null) ?? 'individual_free'
       isPlatformAdmin = (profileResult.data as { role?: string | null } | null)?.role === 'platform_admin'
+
+      // Only ever meaningful for the platform admin — see lib/admin.ts's
+      // enterGymOrg/exitToHomeOrg. home_org_id is null for every other
+      // account, so this never shows for a regular coach.
+      const homeOrgId = (profileResult.data as { home_org_id?: string | null } | null)?.home_org_id ?? null
+      if (isPlatformAdmin && homeOrgId && membership && membership.org_id !== homeOrgId) {
+        actingAsGymName = membership.org_name
+      }
 
       const clientIds = (clientsResult.data ?? []).map((r) => r.client_id)
       const convoIds = (convosResult.data ?? []).map((c) => c.id)
@@ -177,6 +186,7 @@ export default async function CoachLayout({ children }: { children: React.ReactN
           isBusinessTier={isBusinessTier}
           tier={tier}
           isPlatformAdmin={isPlatformAdmin}
+          actingAsGymName={actingAsGymName}
         />
       </Suspense>
       <div

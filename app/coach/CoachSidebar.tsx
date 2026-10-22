@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 import { useBranding } from '@/app/components/BrandingProvider'
 import { logout } from '@/app/actions/auth'
+import { actionExitToHomeOrg } from '@/app/actions/admin'
 import Link from 'next/link'
 import Image from 'next/image'
 
@@ -183,6 +184,7 @@ export default function CoachSidebar({
   isBusinessTier,
   tier,
   isPlatformAdmin,
+  actingAsGymName,
 }: {
   unreadCount: number
   unreadMessages: number
@@ -190,6 +192,7 @@ export default function CoachSidebar({
   isBusinessTier: boolean
   tier: string
   isPlatformAdmin?: boolean
+  actingAsGymName?: string | null
 }) {
   const branding = useBranding()
   const path = usePathname()
@@ -284,6 +287,19 @@ export default function CoachSidebar({
             </>
           )}
         </nav>
+
+        {isPlatformAdmin && actingAsGymName && (
+          <div className="px-3 pb-1">
+            <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
+              <p className="text-[12px] font-medium text-amber-800 truncate">Acting as {actingAsGymName}</p>
+              <form action={actionExitToHomeOrg}>
+                <button type="submit" className="text-[12px] font-semibold text-amber-700 hover:text-amber-900 whitespace-nowrap">
+                  Exit
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
 
         {isPlatformAdmin && (
           <div className="px-3 pb-1">
@@ -425,6 +441,23 @@ export default function CoachSidebar({
                 </svg>
                 <span className="text-[11px] font-medium text-center leading-tight">My Dashboard</span>
               </Link>
+              {/* Exit acting-as-gym — only shown while the platform admin is
+                  currently inside a gym's dashboard (see lib/admin.ts
+                  enterGymOrg/exitToHomeOrg) */}
+              {isPlatformAdmin && actingAsGymName && (
+                <form action={actionExitToHomeOrg} className="contents">
+                  <button
+                    type="submit"
+                    onClick={() => setMoreOpen(false)}
+                    className="flex flex-col items-center justify-center gap-1.5 py-4 bg-white text-amber-700"
+                  >
+                    <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    <span className="text-[11px] font-medium text-center leading-tight">Exit {actingAsGymName}</span>
+                  </button>
+                </form>
+              )}
               {/* Admin Mode — only ever shown to the platform admin account */}
               {isPlatformAdmin && (
                 <Link
