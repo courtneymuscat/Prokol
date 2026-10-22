@@ -172,7 +172,7 @@ export async function POST(req: NextRequest) {
       admin
         .from('coach_clients')
         .upsert(
-          { coach_id: coachId, client_id: clientId, status: 'pending_invite', service_id: service_id || null },
+          { coach_id: coachId, client_id: clientId, status: 'pending_invite', service_id: service_id || null, org_id: effectiveOrgId },
           { onConflict: 'coach_id,client_id', ignoreDuplicates: true }
         ),
       // Upgrade client tier to 'coached' so they have full access immediately

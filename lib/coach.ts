@@ -49,10 +49,18 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
   // the original 'pending_invite' row — the coach then sees the client twice
   // (once as Pending, once as Active). Explicit update-then-insert is
   // deterministic and doesn't depend on a particular constraint shape.
+  // invite.org_id tags which org this client belongs to (set at invite
+  // creation — see app/api/coach/invite/route.ts's effectiveOrgId). Writing
+  // it onto coach_clients here too (not just the invite row) is what lets
+  // every org-scoped client query actually filter by org_id instead of just
+  // coach_id — without it, a coach who owns more than one org (see gym
+  // org-switching in lib/admin.ts) would see every org's clients bleed
+  // into every other org's client list, since they're all the same coach_id.
   const updatePatch: Record<string, unknown> = {
     accepted_at: new Date().toISOString(),
     status: 'active',
     service_id: invite.service_id ?? null,
+    org_id: invite.org_id ?? null,
   }
   if (formId !== null) updatePatch.form_id = formId
 
@@ -74,6 +82,7 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
       accepted_at: new Date().toISOString(),
       status: 'active',
       service_id: invite.service_id ?? null,
+      org_id: invite.org_id ?? null,
     }
     if (formId !== null) insertRow.form_id = formId
     const { error: insertError } = await admin.from('coach_clients').insert(insertRow)

@@ -114,6 +114,7 @@ export async function GET() {
             .from('coach_clients')
             .select('*', { count: 'exact', head: true })
             .in('coach_id', orgCoachIds)
+            .eq('org_id', membership.org_id)
             .eq('status', 'active')
         : { count: 0 }
       seatCount = orgClientCount ?? 0

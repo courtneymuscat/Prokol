@@ -57,7 +57,7 @@ vi.mock('@/lib/supabase/admin', () => ({
         return {
           select: () => ({
             eq: () => ({ eq: async () => ({ count: coachClientsCount }) }),
-            in: () => ({ eq: async () => ({ count: coachClientsCount }) }),
+            in: () => ({ eq: () => ({ eq: async () => ({ count: coachClientsCount }) }) }),
           }),
         }
       }

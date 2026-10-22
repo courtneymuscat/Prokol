@@ -28,12 +28,14 @@ vi.mock('@/lib/supabase/admin', () => ({
         return {
           select: () => ({
             in: () => ({
-              eq: async () => ({
-                data: [
-                  { client_id: 'client-form-only', coach_id: 'coach-1', accepted_at: '2026-01-01' },
-                  { client_id: 'client-daily-only', coach_id: 'coach-1', accepted_at: '2026-01-01' },
-                  { client_id: 'client-never', coach_id: 'coach-1', accepted_at: '2026-01-01' },
-                ],
+              eq: () => ({
+                eq: async () => ({
+                  data: [
+                    { client_id: 'client-form-only', coach_id: 'coach-1', accepted_at: '2026-01-01' },
+                    { client_id: 'client-daily-only', coach_id: 'coach-1', accepted_at: '2026-01-01' },
+                    { client_id: 'client-never', coach_id: 'coach-1', accepted_at: '2026-01-01' },
+                  ],
+                }),
               }),
             }),
           }),

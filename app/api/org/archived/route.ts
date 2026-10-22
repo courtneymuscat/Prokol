@@ -26,6 +26,7 @@ export async function GET() {
     .from('coach_clients')
     .select('client_id, coach_id, accepted_at, archived_at')
     .in('coach_id', coachIds)
+    .eq('org_id', membership.org_id)
     .eq('status', 'archived')
     .order('archived_at', { ascending: false, nullsFirst: false })
 

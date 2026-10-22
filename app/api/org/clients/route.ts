@@ -33,11 +33,16 @@ export async function GET() {
   const coachIds = (orgMembers ?? []).map((m) => m.user_id)
   if (!coachIds.length) return Response.json([])
 
-  // Get all active client relationships across org coaches
+  // Get all active client relationships across org coaches — scoped to
+  // THIS org specifically (org_id), not just coach_id. A coach who owns
+  // more than one organisation (see gym org-switching, lib/admin.ts) is
+  // still the same coach_id in every one of them, so coach_id alone would
+  // leak every org's clients into every other org's list.
   const { data: clientRows } = await admin
     .from('coach_clients')
     .select('client_id, coach_id, accepted_at')
     .in('coach_id', coachIds)
+    .eq('org_id', membership.org_id)
     .eq('status', 'active')
 
   if (!clientRows?.length) return Response.json([])

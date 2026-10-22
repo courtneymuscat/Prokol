@@ -41,11 +41,22 @@ export async function getOrgBranding(orgId: string): Promise<OrgBrandingRecord |
  */
 export async function getOrgBrandingForUser(userId: string): Promise<OrgBrandingRecord | null> {
   const admin = createAdminClient()
-  const { data } = await admin
+  // profiles has two FKs into organisations now (org_id, and home_org_id —
+  // added for gym org-switching, see lib/admin.ts enterGymOrg), so the
+  // embed below must name which one explicitly (organisations!profiles_org_id_fkey)
+  // or PostgREST rejects the whole query as ambiguous (PGRST201) and this
+  // silently falls through to "no branding" for everyone — exactly the bug
+  // Court hit testing her first gym.
+  const { data, error } = await admin
     .from('profiles')
-    .select(`org_id, organisations(${ORG_BRANDING_COLUMNS}, is_white_label)`)
+    .select(`org_id, organisations!profiles_org_id_fkey(${ORG_BRANDING_COLUMNS}, is_white_label)`)
     .eq('id', userId)
     .single()
+
+  if (error) {
+    console.error('getOrgBrandingForUser query error:', error.message)
+    return null
+  }
 
   const org = data?.organisations as unknown as (OrgBrandingRecord & { is_white_label: boolean }) | null
   if (!org?.is_white_label) return null

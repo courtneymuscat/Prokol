@@ -63,6 +63,7 @@ export async function POST(
     .select('coach_id')
     .eq('client_id', clientId)
     .in('coach_id', orgCoachIds)
+    .eq('org_id', orgId)
     .eq('status', 'active')
     .single()
 
@@ -89,6 +90,7 @@ export async function POST(
       client_id: clientId,
       status: 'active',
       accepted_at: new Date().toISOString(),
+      org_id: orgId,
     },
     { onConflict: 'coach_id,client_id' },
   )

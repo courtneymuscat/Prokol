@@ -37,10 +37,14 @@ export async function GET() {
       .select('id, email, full_name, subscription_tier')
       .in('id', memberIds),
 
+    // org_id-scoped so a coach who owns more than one org (gym
+    // org-switching, lib/admin.ts) doesn't get every org's client count
+    // folded into this one's "X clients" badge.
     admin
       .from('coach_clients')
       .select('coach_id')
       .in('coach_id', memberIds)
+      .eq('org_id', membership.org_id)
       .eq('status', 'active'),
   ])
 
