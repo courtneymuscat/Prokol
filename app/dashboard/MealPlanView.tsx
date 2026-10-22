@@ -1,8 +1,11 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import { notifyMyCoach } from '@/lib/notifyMyCoach'
+
+const BarcodeScanner = dynamic(() => import('./BarcodeScanner'), { ssr: false })
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -72,6 +75,15 @@ type FoodSearchResult = {
   custom?: boolean
 }
 
+// How many grams of a replacement food (at its own calories-per-100g rate)
+// match the calories of the food being swapped out. This is the core of
+// the "match the calories, not just the weight" swap guidance — swapping
+// 100g of one food for 100g of another is rarely calorie-equivalent.
+export function matchGramsForCalories(targetCalories: number, caloriesPer100g: number): number | null {
+  if (!targetCalories || targetCalories <= 0 || !caloriesPer100g || caloriesPer100g <= 0) return null
+  return Math.max(1, Math.round((targetCalories / caloriesPer100g) * 100))
+}
+
 // ─── Macro Pill ───────────────────────────────────────────────────────────────
 
 function MacroPill({ label, value, colour }: { label: string; value: number; colour: string }) {
@@ -102,6 +114,8 @@ function SwapModal({ planId, mealIndex, foodIndex, original, onClose, onSwapped 
   const [searching, setSearching] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [scannerOpen, setScannerOpen] = useState(false)
+  const [barcodeStatus, setBarcodeStatus] = useState<'idle' | 'looking' | 'not_found'>('idle')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -139,6 +153,35 @@ function SwapModal({ planId, mealIndex, foodIndex, original, onClose, onSwapped 
       }
     : null
 
+  // Grams of the selected replacement that would hit the same calories as
+  // the food being swapped out — shown as a hint, and offered as a
+  // one-tap "Use this" so the client doesn't have to do the maths.
+  const matchedGrams = selected ? matchGramsForCalories(original.calories, selected.calories_per_100g) : null
+
+  async function handleBarcodeScan(code: string) {
+    setScannerOpen(false)
+    setBarcodeStatus('looking')
+    try {
+      const res = await fetch(`/api/foods/barcode?code=${encodeURIComponent(code)}`)
+      const food: FoodSearchResult | null = await res.json()
+      if (food) {
+        setQuery('')
+        setResults([])
+        setSelected(food)
+        // Default straight to the calorie-matched amount — the whole point
+        // of scanning a replacement is to hit the same calories, not to
+        // carry over the original food's weight.
+        const matched = matchGramsForCalories(original.calories, food.calories_per_100g)
+        setGrams(matched ?? original.grams)
+        setBarcodeStatus('idle')
+      } else {
+        setBarcodeStatus('not_found')
+      }
+    } catch {
+      setBarcodeStatus('not_found')
+    }
+  }
+
   async function handleConfirm() {
     if (!computedFood) return
     setSaving(true)
@@ -163,6 +206,15 @@ function SwapModal({ planId, mealIndex, foodIndex, original, onClose, onSwapped 
     } finally {
       setSaving(false)
     }
+  }
+
+  if (scannerOpen) {
+    return (
+      <BarcodeScanner
+        onScan={handleBarcodeScan}
+        onClose={() => setScannerOpen(false)}
+      />
+    )
   }
 
   return (
@@ -195,27 +247,46 @@ function SwapModal({ planId, mealIndex, foodIndex, original, onClose, onSwapped 
           {/* Search */}
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-1.5">Search for replacement</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="e.g. chicken breast, oats..."
-                className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 bg-white"
-              />
-              {searching && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                </div>
-              )}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="e.g. chicken breast, oats..."
+                  className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 bg-white"
+                />
+                {searching && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => { setBarcodeStatus('idle'); setScannerOpen(true) }}
+                title="Scan barcode"
+                className="flex-shrink-0 w-11 rounded-xl border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75} d="M4 7V5a1 1 0 0 1 1-1h2M4 17v2a1 1 0 0 0 1 1h2m10-14h2a1 1 0 0 1 1 1v2m-3 11h2a1 1 0 0 0 1-1v-2M7 8v8M10 8v8M13 8v8M17 8v8" />
+                </svg>
+              </button>
             </div>
+
+            {barcodeStatus === 'looking' && (
+              <p className="mt-2 text-xs text-gray-400">Looking up barcode…</p>
+            )}
+            {barcodeStatus === 'not_found' && (
+              <p className="mt-2 text-xs text-amber-600">No food found for that barcode — try searching by name instead.</p>
+            )}
 
             {results.length > 0 && (
               <ul className="mt-2 rounded-xl border border-gray-200 bg-white overflow-hidden divide-y divide-gray-100 max-h-48 overflow-y-auto shadow-sm">
                 {results.map((food) => (
                   <li key={food.id}>
                     <button
-                      onClick={() => { setSelected(food); setQuery(''); setResults([]) }}
+                      onClick={() => { setSelected(food); setQuery(''); setResults([]); setBarcodeStatus('idle') }}
                       className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors"
                     >
                       <p className="text-sm font-medium text-gray-800 truncate">{food.name}</p>
@@ -253,6 +324,26 @@ function SwapModal({ planId, mealIndex, foodIndex, original, onClose, onSwapped 
                   <MacroPill label="C" value={computedFood.carbs} colour="bg-orange-100 text-orange-700" />
                   <MacroPill label="F" value={computedFood.fat} colour="bg-yellow-100 text-yellow-700" />
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* Calorie-matching note — swapping foods isn't like-for-like by
+              weight, so help the client hit the same calories as the food
+              they're replacing rather than just copying the gram amount. */}
+          {selected && matchedGrams != null && (
+            <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center justify-between gap-3">
+              <p className="text-xs text-amber-800 leading-snug">
+                {original.food_name} was <strong>{original.calories} kcal</strong>. To match that with {selected.name}, use about <strong>{matchedGrams}g</strong>.
+              </p>
+              {matchedGrams !== grams && (
+                <button
+                  type="button"
+                  onClick={() => setGrams(matchedGrams)}
+                  className="flex-shrink-0 text-xs font-semibold text-amber-700 underline hover:text-amber-900 whitespace-nowrap"
+                >
+                  Use this
+                </button>
               )}
             </div>
           )}
