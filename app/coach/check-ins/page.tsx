@@ -1,6 +1,7 @@
 import { requireCoach } from '@/lib/coach'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getOrgForUser } from '@/lib/org'
 import { redirect } from 'next/navigation'
 import ScheduleSection from './ScheduleSection'
 
@@ -10,11 +11,18 @@ export default async function CoachCheckInsPage() {
 
   const supabase = await createClient()
 
-  const { data: clientRows } = await supabase
+  // A coach who owns more than one org (gym org-switching) is still the
+  // same coach_id in every one of them — without this, the review queue
+  // would show every org's clients regardless of which one is active.
+  const membership = await getOrgForUser(coachId)
+
+  let clientRowsQuery = supabase
     .from('coach_clients')
     .select('client_id')
     .eq('coach_id', coachId)
     .eq('status', 'active')
+  if (membership) clientRowsQuery = clientRowsQuery.eq('org_id', membership.org_id)
+  const { data: clientRows } = await clientRowsQuery
 
   const clientIds = (clientRows ?? []).map((r) => r.client_id)
 

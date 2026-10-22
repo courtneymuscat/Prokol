@@ -4,6 +4,7 @@ import { requireCoach } from '@/lib/coach'
 import { sendEmail } from '@/lib/email'
 import { INCLUDED_SEATS } from '@/lib/billing'
 import { getOrgFrontDoorUrl } from '@/lib/whitelabel'
+import { getOrgForUser } from '@/lib/org'
 import type { NextRequest } from 'next/server'
 
 export async function POST(req: NextRequest) {
@@ -31,18 +32,26 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Seat enforcement ───────────────────────────────────────────────────────
+  // A coach who owns more than one org (gym org-switching) is still the
+  // same coach_id in every one of them — without this, seat usage would
+  // count every org's clients against the same seat limit.
+  const membership = await getOrgForUser(coachId)
+
   // Fetch coach's subscription tier and current active+pending client count.
+  let clientCountQuery = admin
+    .from('coach_clients')
+    .select('id', { count: 'exact', head: true })
+    .eq('coach_id', coachId)
+    .in('status', ['active', 'pending_invite'])
+  if (membership) clientCountQuery = clientCountQuery.eq('org_id', membership.org_id)
+
   const [profileResult, clientCountResult] = await Promise.all([
     admin
       .from('profiles')
       .select('subscription_tier')
       .eq('id', coachId)
       .single(),
-    admin
-      .from('coach_clients')
-      .select('id', { count: 'exact', head: true })
-      .eq('coach_id', coachId)
-      .in('status', ['active', 'pending_invite']),
+    clientCountQuery,
   ])
 
   const tier = (profileResult.data as Record<string, unknown>)?.subscription_tier as string | null

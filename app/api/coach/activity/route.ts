@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
+import { getOrgForUser } from '@/lib/org'
 
 export async function GET() {
   const coachId = await requireCoach()
@@ -9,12 +10,19 @@ export async function GET() {
   // Use admin client — coaches can't read client tables (check_ins, workouts, autoflow_responses) via RLS
   const admin = createAdminClient()
 
+  // A coach who owns more than one org (gym org-switching) is still the
+  // same coach_id in every one of them — without this, the activity feed
+  // would show every org's clients regardless of which one is active.
+  const membership = await getOrgForUser(coachId)
+
   // Get all active client IDs
-  const { data: clientRows } = await admin
+  let clientRowsQuery = admin
     .from('coach_clients')
     .select('client_id')
     .eq('coach_id', coachId)
     .eq('status', 'active')
+  if (membership) clientRowsQuery = clientRowsQuery.eq('org_id', membership.org_id)
+  const { data: clientRows } = await clientRowsQuery
 
   const clientIds = (clientRows ?? []).map((r) => r.client_id)
   if (!clientIds.length) return Response.json({ activity: [], lapsed: [] })

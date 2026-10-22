@@ -111,14 +111,14 @@ function AudioPlayer({ url, isMe, knownDuration = 0 }: { url: string; isMe: bool
 export default function ChatView({
   conversationId,
   currentUserId,
-  otherEmail,
+  otherName,
   backHref,
   showBackOnDesktop = true,
   hasBottomNav = false,
 }: {
   conversationId: string
   currentUserId: string
-  otherEmail: string
+  otherName: string
   backHref: string
   showBackOnDesktop?: boolean
   hasBottomNav?: boolean
@@ -351,18 +351,20 @@ export default function ChatView({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="bg-white border-b px-4 py-3 flex items-center gap-3 flex-shrink-0">
+      {/* Header — sticky so the client's name stays visible while the
+          messages panel below it scrolls, rather than relying solely on
+          flex-shrink-0 + the ancestor height chain to keep it in place. */}
+      <div className="sticky top-0 z-10 bg-white border-b px-4 py-3 flex items-center gap-3 flex-shrink-0">
         <a href={backHref} className={`text-gray-400 hover:text-gray-600 ${showBackOnDesktop ? '' : 'md:hidden'}`}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </a>
         <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-          <span className="text-sm font-bold text-blue-600">{otherEmail[0].toUpperCase()}</span>
+          <span className="text-sm font-bold text-blue-600">{otherName[0].toUpperCase()}</span>
         </div>
         <div>
-          <p className="text-sm font-semibold text-gray-900">{otherEmail}</p>
+          <p className="text-sm font-semibold text-gray-900">{otherName}</p>
         </div>
       </div>
 

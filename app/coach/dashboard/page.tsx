@@ -101,21 +101,28 @@ export default async function CoachDashboard({
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL
       ?? (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000')
 
+    // A coach who owns more than one org (gym org-switching) is still the
+    // same coach_id in every one of them — without org_id scoping here,
+    // the Overview tab would show every org's clients/invites regardless
+    // of which one is currently active.
+    let clientRowsQuery = supabase
+      .from('coach_clients')
+      .select('client_id, accepted_at')
+      .eq('coach_id', coachId)
+      .eq('status', 'active')
+    if (membership) clientRowsQuery = clientRowsQuery.eq('org_id', membership.org_id)
+
+    let pendingInvitesQuery = supabase
+      .from('coach_invites')
+      .select('email, token, created_at')
+      .eq('coach_id', coachId)
+      .eq('status', 'pending')
+      .gt('expires_at', new Date().toISOString())
+    if (membership) pendingInvitesQuery = pendingInvitesQuery.eq('org_id', membership.org_id)
+
     const [{ data: clientRows }, { data: rawPendingInvites }] = await Promise.all([
-      supabase
-        .from('coach_clients')
-        .select('client_id, accepted_at')
-        .eq('coach_id', coachId)
-        .eq('status', 'active')
-        .order('accepted_at', { ascending: false }),
-      // Active pending invites that haven't expired yet
-      supabase
-        .from('coach_invites')
-        .select('email, token, created_at')
-        .eq('coach_id', coachId)
-        .eq('status', 'pending')
-        .gt('expires_at', new Date().toISOString())
-        .order('created_at', { ascending: false }),
+      clientRowsQuery.order('accepted_at', { ascending: false }),
+      pendingInvitesQuery.order('created_at', { ascending: false }),
     ])
 
     const clientIds = (clientRows ?? []).map((r) => r.client_id)

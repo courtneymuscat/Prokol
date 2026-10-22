@@ -16,23 +16,39 @@ export default async function CoachLayout({ children }: { children: React.ReactN
     const supabase = await createClient()
     const { data: { session } } = await supabase.auth.getSession()
     if (session) {
-      const [convosResult, profileResult, clientsResult, membership] = await Promise.all([
-        supabase
-          .from('conversations')
-          .select('id')
-          .eq('coach_id', session.user.id),
+      // A coach who owns more than one org (gym org-switching) is still the
+      // same coach_id/user_id in every one of them — the sidebar's badge
+      // counts (clients, unread messages, check-ins/forms) must only ever
+      // reflect the currently active org, not every org this account owns.
+      // conversations has no org_id column of its own, so conversation
+      // scoping goes via coach_clients' client_id instead (fetched below,
+      // across every status — a client's conversation shouldn't disappear
+      // from the badge count just because they were later archived).
+      const [membership, profileResult] = await Promise.all([
+        getOrgForUser(session.user.id),
         supabase
           .from('profiles')
           .select('subscription_tier, coach_grace_until, role, home_org_id')
           .eq('id', session.user.id)
           .single(),
-        supabase
-          .from('coach_clients')
-          .select('client_id')
-          .eq('coach_id', session.user.id)
-          .eq('status', 'active'),
-        getOrgForUser(session.user.id),
       ])
+
+      let allClientRowsQuery = supabase
+        .from('coach_clients')
+        .select('client_id, status')
+        .eq('coach_id', session.user.id)
+      if (membership) allClientRowsQuery = allClientRowsQuery.eq('org_id', membership.org_id)
+      const { data: allClientRows } = await allClientRowsQuery
+
+      const orgClientIds = (allClientRows ?? []).map((r) => r.client_id)
+      const activeClientIds = (allClientRows ?? []).filter((r) => r.status === 'active').map((r) => r.client_id)
+
+      let convosQuery = supabase
+        .from('conversations')
+        .select('id')
+        .eq('coach_id', session.user.id)
+      if (membership) convosQuery = convosQuery.in('client_id', orgClientIds.length ? orgClientIds : ['__none__'])
+      const convosResult = await convosQuery
 
       // Show the Business sidebar only to the org owner. There is no
       // assignable 'admin' org role — invited coaches (org_members.role =
@@ -61,7 +77,7 @@ export default async function CoachLayout({ children }: { children: React.ReactN
         actingAsGymName = membership.org_name
       }
 
-      const clientIds = (clientsResult.data ?? []).map((r) => r.client_id)
+      const clientIds = activeClientIds
       const convoIds = (convosResult.data ?? []).map((c) => c.id)
 
       const [messagesResult, checkInsResult] = await Promise.all([

@@ -115,7 +115,7 @@ export default function CoachMessagesLayout({ children }: { children: React.Reac
             {convos.map((c) => {
               const unread = unreadMap[c.id] ?? 0
               const latest = latestMap[c.id]
-              const email = profileMap[c.client_id] ?? 'Unknown'
+              const name = profileMap[c.client_id] ?? 'Unknown'
               const isSelected = c.id === selectedId
               const preview = latest
                 ? (latest.attachment_type === 'audio' ? '🎤 Voice note' : `${latest.sender_id === coachId ? 'You: ' : ''}${latest.body || '📎'}`)
@@ -128,11 +128,11 @@ export default function CoachMessagesLayout({ children }: { children: React.Reac
                   className={`w-full flex items-center gap-3 px-4 py-3.5 border-b border-gray-50 transition-colors text-left ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
                 >
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-blue-200' : 'bg-blue-100'}`}>
-                    <span className="text-sm font-bold text-blue-600">{email[0].toUpperCase()}</span>
+                    <span className="text-sm font-bold text-blue-600">{name[0].toUpperCase()}</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className={`text-sm truncate ${unread ? 'font-bold text-gray-900' : 'font-medium text-gray-800'}`}>{email}</p>
+                      <p className={`text-sm truncate ${unread ? 'font-bold text-gray-900' : 'font-medium text-gray-800'}`}>{name}</p>
                       <span className="text-xs text-gray-400 flex-shrink-0 ml-2">{timeAgo(c.last_message_at)}</span>
                     </div>
                     <div className="flex items-center justify-between mt-0.5">

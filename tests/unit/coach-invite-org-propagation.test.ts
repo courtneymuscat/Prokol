@@ -78,6 +78,14 @@ vi.mock('@/lib/supabase/admin', () => ({
           upsert: async () => ({ error: null }),
         }
       }
+      if (table === 'org_members') {
+        // getOrgForUser's lookup — this test isn't exercising seat-count
+        // org-scoping, so a solo coach with no membership keeps the
+        // existing (unscoped) behaviour it was already asserting on.
+        return {
+          select: () => ({ eq: () => ({ eq: () => ({ single: async () => ({ data: null, error: null }) }) }) }),
+        }
+      }
       throw new Error(`unexpected table (admin client): ${table}`)
     },
     auth: { admin: { createUser: async () => ({ data: { user: { id: 'ghost-1' } } }) } },

@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireCoach } from '@/lib/coach'
+import { getOrgForUser } from '@/lib/org'
 
 export async function GET() {
   const coachId = await requireCoach()
@@ -7,12 +8,18 @@ export async function GET() {
 
   const supabase = await createClient()
 
-  const { data: rows } = await supabase
+  // A coach who owns more than one org (gym org-switching) is still the
+  // same coach_id in every one of them — without this, this list would
+  // return every org's clients regardless of which one is active.
+  const membership = await getOrgForUser(coachId)
+
+  let rowsQuery = supabase
     .from('coach_clients')
     .select('client_id, accepted_at, status')
     .eq('coach_id', coachId)
     .eq('status', 'active')
-    .order('accepted_at', { ascending: false })
+  if (membership) rowsQuery = rowsQuery.eq('org_id', membership.org_id)
+  const { data: rows } = await rowsQuery.order('accepted_at', { ascending: false })
 
   if (!rows?.length) return Response.json([])
 
