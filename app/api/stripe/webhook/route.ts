@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { TIER_TO_METER_EVENT, resolveTierFromPrice } from '@/lib/billing'
 import { sendEmail } from '@/lib/email'
 import { syncWhiteLabelTierForOwner } from '@/lib/whitelabel'
+import { acceptOrgSignupLink } from '@/lib/coach'
 import type Stripe from 'stripe'
 
 // Stripe waits for our ack before retrying. If we exceed Vercel's default
@@ -123,6 +124,55 @@ export async function POST(req: NextRequest) {
     // ── Checkout completed ─────────────────────────────────────────────────────
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session
+
+      // One-time signup-link purchase (a coach selling a program directly,
+      // or a gym charging for a bundled add-on) — see lib/coach.ts's
+      // acceptOrgSignupLink and app/program-checkout/[code]/page.tsx.
+      // Resolved via its own metadata key so it can never collide with the
+      // subscription-tier logic below, and returns early rather than
+      // falling through to it.
+      if (session.mode === 'payment' && session.metadata?.signupLinkCode) {
+        const signupLinkCode = session.metadata.signupLinkCode
+        const clientId = session.metadata.userId
+
+        console.log('Webhook checkout.session.completed (signup link)', { signupLinkCode, clientId })
+
+        if (!clientId) {
+          console.error('Webhook: signup-link payment with no userId in metadata', { signupLinkCode })
+          return NextResponse.json({ received: true })
+        }
+
+        // Stripe delivers events at-least-once — a retried delivery must
+        // not enrol the same purchase twice.
+        const { data: existingPurchase } = await supabase
+          .from('org_signup_link_purchases')
+          .select('id')
+          .eq('stripe_session_id', session.id)
+          .maybeSingle()
+
+        if (!existingPurchase) {
+          const { data: link } = await supabase
+            .from('org_signup_links')
+            .select('id')
+            .eq('code', signupLinkCode)
+            .maybeSingle()
+
+          if (!link) {
+            console.error('Webhook: signup link not found for code', signupLinkCode)
+          } else {
+            await acceptOrgSignupLink(signupLinkCode, clientId)
+            await supabase.from('org_signup_link_purchases').insert({
+              link_id: link.id,
+              client_id: clientId,
+              stripe_session_id: session.id,
+              amount_cents: session.amount_total ?? 0,
+            })
+          }
+        }
+
+        return NextResponse.json({ received: true })
+      }
+
       const { userId, planKey, userType } = session.metadata ?? {}
 
       console.log('Webhook checkout.session.completed', { userId, planKey, userType })

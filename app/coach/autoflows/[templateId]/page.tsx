@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { OrgPublisherBanner, CopiedFromOrgSubtitle } from '@/app/components/OrgTemplateBanner'
 import type { OrgTemplateContext } from '@/lib/org'
 import DeleteTemplateDialog from '@/app/components/DeleteTemplateDialog'
+import ProgramLinkPanel from './ProgramLinkPanel'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -856,6 +857,7 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {!isNew && <ProgramLinkPanel autoflowId={templateId} />}
           <button
             onClick={duplicateTemplate}
             className="text-xs text-gray-400 hover:text-gray-700 transition-colors px-2 flex items-center gap-1"

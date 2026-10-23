@@ -187,19 +187,24 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
 }
 
 /**
- * Accept a gym's reusable signup link by code. Unlike acceptInvite's
+ * Accept a reusable signup link by code — either a gym's link (org_id set,
+ * free, every member of that gym enrolls through it) or an individual
+ * link Court sells directly (org_id null, coach_id set instead, usually
+ * payment-gated — see app/program-checkout/[code]/page.tsx and the
+ * webhook branch in app/api/stripe/webhook/route.ts). Unlike acceptInvite's
  * coach_invites (single-recipient, single-use — gated on invite.status
  * ever flipping pending -> accepted so the one-time effects only fire
- * once), an org_signup_links code is shared by an entire gym's membership
- * and reusable indefinitely: every distinct signup through it runs the
- * full enrollment, each with their own fresh client_id, so there's no
- * "already accepted" state to guard against here.
+ * once), an org_signup_links code is reusable indefinitely: every distinct
+ * signup through it runs the full enrollment, each with their own fresh
+ * client_id, so there's no "already accepted" state to guard against here.
  *
- * coach_id for every gym client is the org's owner (Court) rather than an
- * inviting coach's id — gyms have no dedicated staff in this model, and
- * this is what makes the existing coach client-detail page
- * (app/coach/clients/[clientId]/page.tsx, which authorizes purely on
- * coach_clients.coach_id = you) work for gym clients with no new UI.
+ * coach_id for a gym client is the org's owner (Court, since she owns
+ * every gym she creates) rather than an inviting coach's id — gyms have no
+ * dedicated staff in this model, and this is what makes the existing coach
+ * client-detail page (app/coach/clients/[clientId]/page.tsx, which
+ * authorizes purely on coach_clients.coach_id = you) work for gym clients
+ * with no new UI. An individual link's coach_id is used directly instead,
+ * since there's no org to resolve it through.
  *
  * Mirrors acceptInvite's proven autoflow-enrollment logic (same template
  * fetch -> client_autoflows insert -> calendar_events for day-offset
@@ -213,27 +218,42 @@ export async function acceptOrgSignupLink(code: string, clientId: string): Promi
 
   const { data: link } = await admin
     .from('org_signup_links')
-    .select('id, org_id, protocol_sections, is_active')
+    .select('id, org_id, coach_id, protocol_sections, is_active')
     .eq('code', code)
     .single()
 
   if (!link || !link.is_active) return
 
-  const { data: org } = await admin
-    .from('organisations')
-    .select('owner_id')
-    .eq('id', link.org_id)
-    .single()
+  // A gym link resolves the coach via the org's owner (unchanged, proven
+  // path — Court owns every gym she creates, so this still ultimately
+  // lands under her own coach_id). An individual link (no org involved,
+  // e.g. Court selling a program directly) has no org to resolve through,
+  // so it carries its own coach_id directly instead.
+  let coachId: string
+  if (link.org_id) {
+    const { data: org } = await admin
+      .from('organisations')
+      .select('owner_id')
+      .eq('id', link.org_id)
+      .single()
+    if (!org?.owner_id) return
+    coachId = org.owner_id as string
+  } else {
+    if (!link.coach_id) return
+    coachId = link.coach_id as string
+  }
 
-  if (!org?.owner_id) return
-  const coachId = org.owner_id as string
+  // org_id is only ever written when the link actually has one — an
+  // individual link must not overwrite a client's existing org_id (if any)
+  // with null.
+  const orgFields = link.org_id ? { org_id: link.org_id } : {}
 
   // Same update-then-insert pattern as acceptInvite — deterministic
   // regardless of whether a unique constraint on (coach_id, client_id)
   // exists in every environment.
   const { data: updatedRows } = await admin
     .from('coach_clients')
-    .update({ accepted_at: new Date().toISOString(), status: 'active', org_id: link.org_id })
+    .update({ accepted_at: new Date().toISOString(), status: 'active', ...orgFields })
     .eq('coach_id', coachId)
     .eq('client_id', clientId)
     .select('id')
@@ -244,29 +264,32 @@ export async function acceptOrgSignupLink(code: string, clientId: string): Promi
       client_id: clientId,
       accepted_at: new Date().toISOString(),
       status: 'active',
-      org_id: link.org_id,
+      ...orgFields,
     })
   }
 
-  // Deliberately NOT onboarding_completed: true — gyms have no coaching
-  // staff to manually set a new member's macros (unlike a regular
-  // coach_invites acceptance), so the member needs to actually go through
-  // the self-service TDEE onboarding flow (/onboarding) themselves to get
-  // real targets. app/api/onboarding/complete already resolves their tier
-  // to 'coached' on its own once it sees this active coach_clients row, so
-  // setting subscription_tier here is just so coached-only UI (bottom nav,
+  // Deliberately NOT onboarding_completed: true — neither a gym nor a
+  // self-serve individual purchase has coaching staff to manually set a
+  // new member's macros (unlike a regular coach_invites acceptance), so
+  // the member needs to actually go through the self-service TDEE
+  // onboarding flow (/onboarding) themselves to get real targets.
+  // app/api/onboarding/complete already resolves their tier to 'coached'
+  // on its own once it sees this active coach_clients row, so setting
+  // subscription_tier here is just so coached-only UI (bottom nav,
   // messaging) is correct immediately rather than only after onboarding.
   await admin.from('profiles').update({
-    org_id: link.org_id,
+    ...orgFields,
     subscription_tier: 'coached',
   }).eq('id', clientId)
 
   reportSeatUsage(coachId).catch((err) =>
     console.error('acceptOrgSignupLink: reportSeatUsage error:', err instanceof Error ? err.message : String(err))
   )
-  reportWhiteLabelClientSeatUsage(link.org_id).catch((err) =>
-    console.error('acceptOrgSignupLink: reportWhiteLabelClientSeatUsage error:', err instanceof Error ? err.message : String(err))
-  )
+  if (link.org_id) {
+    reportWhiteLabelClientSeatUsage(link.org_id).catch((err) =>
+      console.error('acceptOrgSignupLink: reportWhiteLabelClientSeatUsage error:', err instanceof Error ? err.message : String(err))
+    )
+  }
 
   // Autoflows — a link can carry more than one (e.g. nutrition + check-in),
   // all enrolling simultaneously, each with start_date = today.

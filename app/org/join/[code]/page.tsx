@@ -15,12 +15,68 @@ export default async function OrgJoinPage({
   // /invite/[token]/page.tsx).
   const { data: link } = await admin
     .from('org_signup_links')
-    .select('org_id, is_active')
+    .select('id, org_id, coach_id, price_cents, currency, is_active')
     .eq('code', code)
     .maybeSingle()
 
   if (!link || !link.is_active) {
-    return <InvalidLink message="This signup link isn't active. Ask your gym for a current link." />
+    return <InvalidLink message="This signup link isn't active. Ask for a current link." />
+  }
+
+  // Two link shapes share this page: a gym link (org_id set, free, org
+  // branding) and an individual link a coach sells directly (org_id null,
+  // coach_id set instead, usually priced) — see lib/coach.ts's
+  // acceptOrgSignupLink for why these were unified into one table.
+  if (!link.org_id) {
+    if (!link.coach_id) {
+      return <InvalidLink message="This signup link isn't active. Ask for a current link." />
+    }
+    const { data: coach } = await admin
+      .from('profiles')
+      .select('full_name, brand_name')
+      .eq('id', link.coach_id)
+      .maybeSingle()
+    const { data: linkAutoflow } = await admin
+      .from('org_signup_link_autoflows')
+      .select('autoflow_id')
+      .eq('link_id', link.id)
+      .limit(1)
+      .maybeSingle()
+    const { data: autoflow } = linkAutoflow
+      ? await admin.from('autoflow_templates').select('name, description').eq('id', linkAutoflow.autoflow_id).maybeSingle()
+      : { data: null }
+
+    const coachName = coach?.brand_name ?? coach?.full_name ?? 'your coach'
+    const priceLabel = link.price_cents ? `$${(link.price_cents / 100).toFixed(2)} ${link.currency.toUpperCase()}` : null
+
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border p-8 text-center space-y-6">
+          <div className="h-16 w-16 mx-auto rounded-xl flex items-center justify-center text-white text-xl font-bold bg-[#1D9E75]">
+            {coachName.charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">{autoflow?.name ?? 'Join the program'}</h1>
+            {autoflow?.description && <p className="text-sm text-gray-500 mt-1">{autoflow.description}</p>}
+            <p className="text-sm text-gray-500 mt-1">
+              {priceLabel ? `${priceLabel} — ` : ''}with {coachName}
+            </p>
+          </div>
+          <Link
+            href={`/signup?org_join=${code}`}
+            className="block w-full py-3 rounded-xl text-sm font-semibold text-white hover:opacity-90 transition-colors bg-[#1D9E75]"
+          >
+            {priceLabel ? `Sign up — ${priceLabel}` : 'Create your account'}
+          </Link>
+          <p className="text-sm text-gray-500">
+            Already have an account?{' '}
+            <Link href={`/login?org_join=${code}`} className="text-gray-900 font-medium hover:underline">
+              Log in
+            </Link>
+          </p>
+        </div>
+      </div>
+    )
   }
 
   const { data: org } = await admin

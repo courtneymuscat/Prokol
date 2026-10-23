@@ -29,8 +29,13 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const body = await req.json() as { autoflowIds?: string[] }
+  const body = await req.json() as { autoflowIds?: string[]; priceCents?: number; currency?: string }
   const autoflowIds = Array.isArray(body.autoflowIds) ? body.autoflowIds.filter(Boolean) : []
+  // Optional — a gym link stays free by default, same as before. Lets
+  // Court attach a price to a specific gym's link too if she ever wants to
+  // charge for a bundled add-on program, without needing a separate
+  // mechanism from the individual-link one.
+  const priceCents = typeof body.priceCents === 'number' && body.priceCents > 0 ? Math.round(body.priceCents) : null
 
   // Short, URL-safe, collision-checked code — not a guessable sequential id,
   // since this is a standing link anyone with it can use indefinitely.
@@ -40,7 +45,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   const { data: link, error } = await admin
     .from('org_signup_links')
-    .insert({ org_id: orgId, code, created_by: session.user.id })
+    .insert({ org_id: orgId, code, created_by: session.user.id, price_cents: priceCents, currency: body.currency || 'aud' })
     .select('id, code')
     .single()
 

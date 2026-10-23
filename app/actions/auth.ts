@@ -45,12 +45,29 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
 
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.prokol.io'
 
+  // A priced org_signup_links row (a coach selling a program directly, or a
+  // gym charging for a bundled add-on) needs the exact same "defer to
+  // checkout, grant access only after Stripe confirms payment" treatment a
+  // paid platform plan already gets below — looked up early so checkoutPath
+  // can cover both cases with one redirect mechanism.
+  let orgJoinIsPaid = false
+  if (orgJoin) {
+    const { data: orgJoinLink } = await createAdminClient()
+      .from('org_signup_links')
+      .select('price_cents')
+      .eq('code', orgJoin)
+      .maybeSingle()
+    orgJoinIsPaid = !!orgJoinLink?.price_cents
+  }
+
   // For paid plans, the confirmation email should take the user straight to checkout
   // so they complete payment before getting any access. Free/invite flows go to onboarding.
   const isPaidPlan = !!(planKey && !FREE_PLANS.includes(planKey))
   const intendedType = PLAN_TO_PROFILE[planKey]?.user_type ?? typeParam
   const checkoutPath = isPaidPlan
     ? `/checkout?plan=${planKey}&billing=${billing}&type=${intendedType}`
+    : orgJoinIsPaid
+    ? `/program-checkout/${orgJoin}`
     : null
 
   const emailRedirectTo = orgInvite
@@ -62,6 +79,7 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
     // orgJoin falls through to here deliberately — a gym signup has no
     // coach to set macros manually, so (like a brand-new individual
     // signup) they need the self-service TDEE onboarding flow themselves.
+    // A *priced* orgJoin already took the checkoutPath branch above instead.
     : `${origin}/auth/callback?next=/onboarding`
 
   // Use admin.generateLink instead of supabase.auth.signUp so that Supabase does NOT send
@@ -170,7 +188,12 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
       )
     }
     if (invite) await acceptInvite(invite, user.id)
-    if (orgJoin) await acceptOrgSignupLink(orgJoin, user.id)
+    // A priced orgJoin defers enrollment until the webhook confirms
+    // payment (see app/program-checkout/[code]/page.tsx and the
+    // checkout.session.completed branch in app/api/stripe/webhook/route.ts)
+    // — exactly like a paid plan's tier is only granted post-payment, never
+    // at signup-action time.
+    if (orgJoin && !orgJoinIsPaid) await acceptOrgSignupLink(orgJoin, user.id)
 
     // Send branded confirmation email via Resend (bypasses Supabase's default template)
     // Build the confirmation URL directly using hashed_token so the user's browser
@@ -187,9 +210,10 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
     }
   }
 
-  // For paid plans, show the "check your inbox" screen with a next param so that
-  // logging in manually after confirming also lands them on checkout.
-  if (isPaidPlan && checkoutPath) {
+  // For paid plans (or a priced orgJoin), show the "check your inbox" screen
+  // with a next param so that logging in manually after confirming also
+  // lands them on checkout.
+  if (checkoutPath) {
     redirect(`/login?msg=verify_email&next=${encodeURIComponent(checkoutPath)}`)
   }
 
@@ -236,6 +260,16 @@ export async function login(prevState: AuthState, formData: FormData): Promise<A
   }
 
   if (orgJoin && data.session?.user) {
+    // A priced link defers enrollment until the webhook confirms payment —
+    // same reasoning as the signup() path above.
+    const { data: orgJoinLink } = await createAdminClient()
+      .from('org_signup_links')
+      .select('price_cents')
+      .eq('code', orgJoin)
+      .maybeSingle()
+    if (orgJoinLink?.price_cents) {
+      redirect(`/program-checkout/${orgJoin}`)
+    }
     await acceptOrgSignupLink(orgJoin, data.session.user.id)
     redirect('/dashboard')
   }
