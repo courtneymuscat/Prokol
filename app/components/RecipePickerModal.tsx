@@ -32,7 +32,15 @@ type RecipeListItem = {
 }
 
 const DIET_TAG_LABEL: Record<string, string> = { omnivore: 'Omnivore', vegan: 'Vegan', dairy_free: 'Dairy-free' }
-const TIER_TAG_LABEL: Record<string, string> = { cal_conscious: 'Cal Conscious', balanced: 'Balanced', bigger: 'Bigger', gainer: 'Gainer' }
+
+// One colour per tier so they're distinguishable at a glance in a list —
+// cool-to-warm progression roughly tracking "lighter" to "biggest".
+const TIER_TAG_STYLE: Record<string, { label: string; className: string }> = {
+  cal_conscious: { label: 'Cal Conscious', className: 'bg-teal-50 text-teal-700' },
+  balanced:      { label: 'Balanced',      className: 'bg-indigo-50 text-indigo-700' },
+  bigger:        { label: 'Bigger',        className: 'bg-fuchsia-50 text-fuchsia-700' },
+  gainer:        { label: 'Gainer',        className: 'bg-rose-50 text-rose-700' },
+}
 
 // Coach-side picker: lists /api/coach/recipes, fetches the full ingredient
 // list for whichever one is picked, and hands it back to the caller — the
@@ -135,8 +143,8 @@ export default function RecipePickerModal({
                     {((r.diet_tags && r.diet_tags.length > 0) || r.tier_tag) && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {r.tier_tag && (
-                          <span className="text-[10px] font-medium text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded-full">
-                            {TIER_TAG_LABEL[r.tier_tag] ?? r.tier_tag}
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${TIER_TAG_STYLE[r.tier_tag]?.className ?? 'bg-purple-50 text-purple-700'}`}>
+                            {TIER_TAG_STYLE[r.tier_tag]?.label ?? r.tier_tag}
                           </span>
                         )}
                         {(r.diet_tags ?? []).map((t) => (
