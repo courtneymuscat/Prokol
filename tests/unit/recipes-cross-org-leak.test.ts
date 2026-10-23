@@ -1,11 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Regression test for the same bug class fixed everywhere else this
-// session: app/api/coach/recipes/route.ts must scope its list query by
-// org_id too, not just coach_id — a coach who owns more than one
-// organisation (gym org-switching, lib/admin.ts enterGymOrg) is still the
-// same coach_id in every one of them, so an unscoped query would show
-// every org's recipes regardless of which one is currently active.
+// Recipes are authored content the coach owns, not an operational client
+// relationship — unlike coach_clients/conversations (which must stay siloed
+// per gym, since those really are different businesses' customers), a
+// coach's recipe library should follow coach_id everywhere, the same way
+// meal_plans/autoflow_templates/programs templates already do (all three
+// list routes filter by coach_id only, no org_id). A coach who owns more
+// than one organisation (gym org-switching, lib/admin.ts enterGymOrg) is
+// still the same coach_id in every one of them, so a recipe authored while
+// acting as one gym must still show up while acting as another.
 
 type RecipeRow = {
   id: string
@@ -17,10 +20,9 @@ type RecipeRow = {
 }
 
 let recipeRows: RecipeRow[] = []
-let membership: { org_id: string; org_name: string; org_slug: string; role: string } | null = null
 
 vi.mock('@/lib/coach', () => ({ requireCoach: async () => 'admin-1' }))
-vi.mock('@/lib/org', () => ({ getOrgForUser: async () => membership }))
+vi.mock('@/lib/org', () => ({ getOrgForUser: async () => ({ org_id: 'arete-org', org_name: 'Arete', org_slug: 'arete', role: 'owner' }) }))
 
 function makeQuery(initial: RecipeRow[]) {
   let rows = initial
@@ -60,25 +62,19 @@ beforeEach(() => {
   ]
 })
 
-describe('GET /api/coach/recipes — does not leak recipes across orgs owned by the same coach', () => {
-  it('only returns recipes tagged to the currently active org', async () => {
-    membership = { org_id: 'arete-org', org_name: 'Arete', org_slug: 'arete', role: 'owner' }
-    const res = await GET(fakeRequest('https://x/api/coach/recipes'))
-    const body = await res.json()
-    expect(body.map((r: RecipeRow) => r.id)).toEqual(['recipe-arete'])
-  })
-
-  it('shows the other org\'s recipe when acting as that org instead', async () => {
-    membership = { org_id: 'court-org', org_name: 'COURT', org_slug: 'court', role: 'owner' }
-    const res = await GET(fakeRequest('https://x/api/coach/recipes'))
-    const body = await res.json()
-    expect(body.map((r: RecipeRow) => r.id)).toEqual(['recipe-court'])
-  })
-
-  it('returns everything for a solo coach with no org membership', async () => {
-    membership = null
+describe('GET /api/coach/recipes — carries a coach\'s recipes across every org they own', () => {
+  it('returns recipes authored under any org while acting as a different one', async () => {
+    // Membership mock always resolves to 'arete-org' — if the route still
+    // filtered by org_id, 'recipe-court' would be missing here.
     const res = await GET(fakeRequest('https://x/api/coach/recipes'))
     const body = await res.json()
     expect(body.map((r: RecipeRow) => r.id).sort()).toEqual(['recipe-arete', 'recipe-court'])
+  })
+
+  it('still scopes strictly by coach_id, so a different coach\'s recipes never appear', async () => {
+    recipeRows.push({ id: 'recipe-other-coach', name: 'Not mine', coach_id: 'someone-else', org_id: 'arete-org', category: null, archived_at: null })
+    const res = await GET(fakeRequest('https://x/api/coach/recipes'))
+    const body = await res.json()
+    expect(body.map((r: RecipeRow) => r.id)).not.toContain('recipe-other-coach')
   })
 })

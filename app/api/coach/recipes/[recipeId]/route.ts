@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireCoach } from '@/lib/coach'
-import { getCoachServeMap, computeServeCount } from '@/lib/recipeServes'
+import { getCoachServeMap, computeServeCount, aggregateServeTotals } from '@/lib/recipeServes'
 import type { NextRequest } from 'next/server'
 
 type IngredientInput = {
@@ -67,8 +67,9 @@ export async function GET(
     ...i,
     serve_count: computeServeCount(i, serveMap[i.food_name.toLowerCase()]),
   }))
+  const serveTotals = aggregateServeTotals(ingredients ?? [], serveMap)
 
-  return Response.json({ ...recipe, ingredients: ingredientsWithServes, modifications: modifications ?? [] })
+  return Response.json({ ...recipe, ingredients: ingredientsWithServes, modifications: modifications ?? [], serve_totals: serveTotals })
 }
 
 export async function PATCH(

@@ -39,16 +39,18 @@ export async function GET(req: NextRequest) {
   const category = searchParams.get('category')
   const includeArchived = searchParams.get('archived') === 'true'
 
-  // A coach who owns more than one org (gym org-switching) is still the
-  // same coach_id in every one of them — without org_id scoping, this list
-  // would show every org's recipes regardless of which one is active.
-  const membership = await getOrgForUser(coachId)
-
+  // Unlike coach_clients/conversations (real client relationships, which
+  // must stay siloed per gym), a recipe is authored content the coach owns
+  // — it should follow coach_id everywhere, the same way meal_plans/
+  // autoflow_templates/programs templates already do (see their own list
+  // routes: all filter by coach_id only, no org_id). Scoping this by the
+  // currently-active org would hide a coach's own recipes every time they
+  // switch which gym they're acting as, which is the opposite of what's
+  // wanted for a personal content library.
   let query = supabase
     .from('recipes')
     .select('id, name, category, image_url, total_calories, total_protein, total_carbs, total_fat, archived_at, created_at')
     .eq('coach_id', coachId)
-  if (membership) query = query.eq('org_id', membership.org_id)
   if (category) query = query.eq('category', category)
   if (!includeArchived) query = query.is('archived_at', null)
 

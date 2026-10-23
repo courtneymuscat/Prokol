@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import MealPlanFoodSearch, { type MealFood } from '@/app/components/MealPlanFoodSearch'
+import { computeServeCount, aggregateServeTotals, type ServeInfo } from '@/lib/recipeServeMath'
 
 type Ingredient = {
   food_id?: string | null
@@ -12,7 +13,6 @@ type Ingredient = {
   protein: number
   carbs: number
   fat: number
-  serve_count?: number | null
 }
 
 type Modification = { tag: string; note: string }
@@ -61,6 +61,13 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
   const [modifications, setModifications] = useState<Modification[]>([])
   const [newModTag, setNewModTag] = useState('general')
   const [newModNote, setNewModNote] = useState('')
+  const [serveMap, setServeMap] = useState<Record<string, ServeInfo>>({})
+
+  useEffect(() => {
+    fetch('/api/coach/recipes/serve-map')
+      .then((r) => r.json())
+      .then((map) => setServeMap(map && typeof map === 'object' ? map : {}))
+  }, [])
 
   useEffect(() => {
     if (isNew) return
@@ -85,6 +92,9 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
     }),
     { calories: 0, protein: 0, carbs: 0, fat: 0 },
   )
+  // Recomputed live from the coach's own food-serves cheat sheet as
+  // ingredients are added/removed — not a server round-trip per edit.
+  const serveTotals = aggregateServeTotals(ingredients, serveMap)
 
   function addIngredient(food: MealFood) {
     setIngredients((prev) => [...prev, toIngredient(food)])
@@ -176,22 +186,42 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
           </div>
         </div>
 
+        {(serveTotals.protein != null || serveTotals.carb != null || serveTotals.fat != null || serveTotals.fruit != null) && (
+          <div className="flex flex-wrap gap-1.5 -mt-2">
+            {serveTotals.protein != null && (
+              <span className="text-[11px] font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">≈{serveTotals.protein.toFixed(1)} protein serves</span>
+            )}
+            {serveTotals.carb != null && (
+              <span className="text-[11px] font-medium text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full">≈{serveTotals.carb.toFixed(1)} carb serves</span>
+            )}
+            {serveTotals.fat != null && (
+              <span className="text-[11px] font-medium text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded-full">≈{serveTotals.fat.toFixed(1)} fat serves</span>
+            )}
+            {serveTotals.fruit != null && (
+              <span className="text-[11px] font-medium text-pink-700 bg-pink-50 px-2 py-0.5 rounded-full">≈{serveTotals.fruit.toFixed(1)} fruit serves</span>
+            )}
+          </div>
+        )}
+
         {ingredients.length > 0 && (
           <ul className="divide-y divide-gray-50">
-            {ingredients.map((i, idx) => (
-              <li key={idx} className="flex items-center justify-between py-2.5 gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate">{i.food_name}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {i.grams}g · {Math.round(i.calories)} kcal · {Math.round(i.protein)}g P · {Math.round(i.carbs)}g C · {Math.round(i.fat)}g F
-                    {i.serve_count != null && <span className="ml-1 text-gray-300">· ~{i.serve_count.toFixed(1)} serves</span>}
-                  </p>
-                </div>
-                <button onClick={() => removeIngredient(idx)} className="text-gray-300 hover:text-red-500 text-xs flex-shrink-0">
-                  Remove
-                </button>
-              </li>
-            ))}
+            {ingredients.map((i, idx) => {
+              const serveCount = computeServeCount(i, serveMap[i.food_name.toLowerCase()])
+              return (
+                <li key={idx} className="flex items-center justify-between py-2.5 gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">{i.food_name}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {i.grams}g · {Math.round(i.calories)} kcal · {Math.round(i.protein)}g P · {Math.round(i.carbs)}g C · {Math.round(i.fat)}g F
+                      {serveCount != null && <span className="ml-1 text-gray-300">· ~{serveCount.toFixed(1)} serves</span>}
+                    </p>
+                  </div>
+                  <button onClick={() => removeIngredient(idx)} className="text-gray-300 hover:text-red-500 text-xs flex-shrink-0">
+                    Remove
+                  </button>
+                </li>
+              )
+            })}
           </ul>
         )}
 
