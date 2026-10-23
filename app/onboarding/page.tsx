@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 // ── Types ──────────────────────────────────────────────────────────────────
 type Goal = 'fat_loss' | 'muscle_gain' | 'performance' | 'general_health'
 type Sex = 'male' | 'female'
-type DietaryPreference = 'none' | 'vegetarian' | 'vegan' | 'gluten_free' | 'dairy_free'
+type DietaryPreference = 'none' | 'vegetarian' | 'vegan' | 'pescetarian' | 'gluten_free' | 'dairy_free'
 type ActivityType = 'running' | 'cycling' | 'strength' | 'hiit' | 'swimming' | 'walking' | 'rowing' | 'yoga'
 
 type Activity = {
@@ -40,6 +40,7 @@ const DIETARY_PREFS: { value: DietaryPreference; label: string }[] = [
   { value: 'none',        label: 'No preference' },
   { value: 'vegetarian',  label: 'Vegetarian' },
   { value: 'vegan',       label: 'Vegan' },
+  { value: 'pescetarian', label: 'Pescetarian' },
   { value: 'gluten_free', label: 'Gluten-free' },
   { value: 'dairy_free',  label: 'Dairy-free' },
 ]

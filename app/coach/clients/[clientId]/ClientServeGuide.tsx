@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import TDEESection from './TDEESection'
+import { macrosToServes } from '@/lib/autoAssignNutrition'
 
 // ─── ClientServeGuide ─────────────────────────────────────────────────────────
 
@@ -106,21 +107,6 @@ function ServeMathBreakdown({
       </div>
     </details>
   )
-}
-
-function macrosToServes(macros: { proteinG: number; carbG: number; fatG: number }) {
-  const roundHalf = (n: number) => Math.round(n * 2) / 2
-  const fruit_serves = 2
-  // Reserve carb budget for fruit (2 × 20g) and veg (~150 kcal ÷ 4 kcal/g ≈ 38g carbs)
-  const vegCarbG = Math.round(150 / 4)
-  const remainingCarbG = Math.max(0, macros.carbG - fruit_serves * 20 - vegCarbG)
-  return {
-    protein_serves: roundHalf(macros.proteinG / 30),
-    carb_serves: roundHalf(remainingCarbG / 20),
-    fat_serves: roundHalf(macros.fatG / 10),
-    fruit_serves,
-    veg_unlimited: true,
-  }
 }
 
 export default function ClientServeGuide({ clientId }: { clientId: string }) {
