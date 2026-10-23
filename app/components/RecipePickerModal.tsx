@@ -10,6 +10,7 @@ export type RecipeIngredient = {
   protein: number
   carbs: number
   fat: number
+  link?: string | null
 }
 
 export type RecipeDetail = {
@@ -26,7 +27,12 @@ type RecipeListItem = {
   total_protein: number
   total_carbs: number
   total_fat: number
+  diet_tags?: string[]
+  tier_tag?: string | null
 }
+
+const DIET_TAG_LABEL: Record<string, string> = { omnivore: 'Omnivore', vegan: 'Vegan', dairy_free: 'Dairy-free' }
+const TIER_TAG_LABEL: Record<string, string> = { cal_conscious: 'Cal Conscious', balanced: 'Balanced', bigger: 'Bigger', gainer: 'Gainer' }
 
 // Coach-side picker: lists /api/coach/recipes, fetches the full ingredient
 // list for whichever one is picked, and hands it back to the caller — the
@@ -74,6 +80,7 @@ export default function RecipePickerModal({
         protein: i.protein,
         carbs: i.carbs,
         fat: i.fat,
+        link: i.link,
       })),
     })
     onClose()
@@ -125,6 +132,20 @@ export default function RecipePickerModal({
                       {r.category && <span className="capitalize">{r.category} · </span>}
                       {Math.round(r.total_calories)} kcal · {Math.round(r.total_protein)}g P · {Math.round(r.total_carbs)}g C · {Math.round(r.total_fat)}g F
                     </p>
+                    {((r.diet_tags && r.diet_tags.length > 0) || r.tier_tag) && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {r.tier_tag && (
+                          <span className="text-[10px] font-medium text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded-full">
+                            {TIER_TAG_LABEL[r.tier_tag] ?? r.tier_tag}
+                          </span>
+                        )}
+                        {(r.diet_tags ?? []).map((t) => (
+                          <span key={t} className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                            {DIET_TAG_LABEL[t] ?? t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </button>
                 </li>
               ))}

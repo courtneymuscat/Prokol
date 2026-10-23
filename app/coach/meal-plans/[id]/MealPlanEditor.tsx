@@ -31,6 +31,11 @@ type MealFood = {
   // header instead of showing indistinguishable separate lines.
   recipe_id?: string
   recipe_name?: string
+  // Carried over from the recipe ingredient's own link (app/coach/recipes)
+  // — reuses the existing image_url "View product" link shown on the
+  // client dashboard (app/dashboard/MealPlanView.tsx), so a link added once
+  // on the recipe shows up automatically everywhere that recipe is used.
+  image_url?: string | null
 }
 
 type ServingUnit = 'g' | 'ml' | 'oz' | 'cup' | 'tbsp' | 'tsp' | 'piece'
@@ -416,6 +421,7 @@ function MealSlotCard({
         fat: i.fat,
         recipe_id: recipe.id,
         recipe_name: recipe.name,
+        image_url: i.link ?? undefined,
       }),
     )
     onChange({ ...slot, foods: [...slot.foods, ...newFoods] })

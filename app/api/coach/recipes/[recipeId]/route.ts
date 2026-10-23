@@ -11,6 +11,7 @@ type IngredientInput = {
   protein: number
   carbs: number
   fat: number
+  link?: string | null
 }
 
 type ModificationInput = {
@@ -42,7 +43,7 @@ export async function GET(
 
   const { data: recipe, error } = await supabase
     .from('recipes')
-    .select('id, name, category, instructions, image_url, total_calories, total_protein, total_carbs, total_fat, archived_at')
+    .select('id, name, category, instructions, image_url, total_calories, total_protein, total_carbs, total_fat, diet_tags, tier_tag, archived_at')
     .eq('id', recipeId)
     .eq('coach_id', coachId)
     .single()
@@ -52,7 +53,7 @@ export async function GET(
   const [{ data: ingredients }, { data: modifications }, serveMap] = await Promise.all([
     supabase
       .from('recipe_ingredients')
-      .select('id, food_id, food_name, grams, calories, protein, carbs, fat, sort_order')
+      .select('id, food_id, food_name, grams, calories, protein, carbs, fat, link, sort_order')
       .eq('recipe_id', recipeId)
       .order('sort_order', { ascending: true }),
     supabase
@@ -91,11 +92,13 @@ export async function PATCH(
   if (!existing) return Response.json({ error: 'Not found' }, { status: 404 })
 
   const body = await req.json()
-  const { name, category, instructions, image_url } = body as {
+  const { name, category, instructions, image_url, diet_tags, tier_tag } = body as {
     name?: string
     category?: string | null
     instructions?: string | null
     image_url?: string | null
+    diet_tags?: string[]
+    tier_tag?: string | null
   }
   const ingredients = (body.ingredients ?? []) as IngredientInput[]
   const modifications = (body.modifications ?? []) as ModificationInput[]
@@ -112,6 +115,8 @@ export async function PATCH(
       category: category || null,
       instructions: instructions || null,
       image_url: image_url || null,
+      diet_tags: diet_tags ?? [],
+      tier_tag: tier_tag || null,
       ...totals,
     })
     .eq('id', recipeId)
@@ -130,6 +135,7 @@ export async function PATCH(
       protein: i.protein,
       carbs: i.carbs,
       fat: i.fat,
+      link: i.link || null,
       sort_order: idx,
     })),
   )

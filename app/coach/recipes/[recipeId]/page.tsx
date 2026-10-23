@@ -13,11 +13,28 @@ type Ingredient = {
   protein: number
   carbs: number
   fat: number
+  link?: string | null
 }
 
 type Modification = { tag: string; note: string }
 
 const CATEGORY_OPTIONS = ['breakfast', 'lunch', 'dinner', 'snack', 'dessert']
+
+const DIET_TAG_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'omnivore', label: 'Omnivore' },
+  { value: 'vegan', label: 'Vegan' },
+  { value: 'dairy_free', label: 'Dairy-free' },
+]
+
+// Separate from the recipe name — lets the Cal Conscious/Balanced/Bigger/
+// Gainer framework be filtered/swapped on without relying on name text.
+const TIER_TAG_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: '', label: 'No tier' },
+  { value: 'cal_conscious', label: 'Cal Conscious' },
+  { value: 'balanced', label: 'Balanced' },
+  { value: 'bigger', label: 'Bigger' },
+  { value: 'gainer', label: 'Gainer' },
+]
 
 const TAG_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'protein_up', label: 'Need more protein' },
@@ -42,6 +59,7 @@ function toIngredient(food: MealFood): Ingredient {
     protein: food.protein,
     carbs: food.carbs,
     fat: food.fat,
+    link: null,
   }
 }
 
@@ -57,6 +75,8 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
   const [name, setName] = useState('')
   const [category, setCategory] = useState('')
   const [instructions, setInstructions] = useState('')
+  const [dietTags, setDietTags] = useState<string[]>([])
+  const [tierTag, setTierTag] = useState('')
   const [ingredients, setIngredients] = useState<Ingredient[]>([])
   const [modifications, setModifications] = useState<Modification[]>([])
   const [newModTag, setNewModTag] = useState('general')
@@ -77,6 +97,8 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
         setName(data.name ?? '')
         setCategory(data.category ?? '')
         setInstructions(data.instructions ?? '')
+        setDietTags(data.diet_tags ?? [])
+        setTierTag(data.tier_tag ?? '')
         setIngredients(data.ingredients ?? [])
         setModifications((data.modifications ?? []).map((m: Modification) => ({ tag: m.tag, note: m.note })))
         setLoading(false)
@@ -102,6 +124,12 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
   function removeIngredient(idx: number) {
     setIngredients((prev) => prev.filter((_, i) => i !== idx))
   }
+  function updateIngredientLink(idx: number, link: string) {
+    setIngredients((prev) => prev.map((ing, i) => (i === idx ? { ...ing, link: link || null } : ing)))
+  }
+  function toggleDietTag(value: string) {
+    setDietTags((prev) => (prev.includes(value) ? prev.filter((t) => t !== value) : [...prev, value]))
+  }
   function addModification() {
     if (!newModNote.trim()) return
     setModifications((prev) => [...prev, { tag: newModTag, note: newModNote.trim() }])
@@ -116,7 +144,7 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
     if (!ingredients.length) { setError('Add at least one ingredient'); return }
     setSaving(true)
     setError(null)
-    const body = { name, category: category || null, instructions, ingredients, modifications }
+    const body = { name, category: category || null, instructions, diet_tags: dietTags, tier_tag: tierTag || null, ingredients, modifications }
     const res = await fetch(isNew ? '/api/coach/recipes' : `/api/coach/recipes/${recipeId}`, {
       method: isNew ? 'POST' : 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -160,6 +188,39 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
             <option value="">No category</option>
             {CATEGORY_OPTIONS.map((c) => (
               <option key={c} value={c} className="capitalize">{c[0].toUpperCase() + c.slice(1)}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1.5">Diet tags</label>
+          <p className="text-xs text-gray-400 mb-1.5">Select every diet this recipe is safe for — a dish can be more than one.</p>
+          <div className="flex flex-wrap gap-2">
+            {DIET_TAG_OPTIONS.map((t) => {
+              const active = dietTags.includes(t.value)
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => toggleDietTag(t.value)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1.5">Calorie tier</label>
+          <select
+            value={tierTag}
+            onChange={(e) => setTierTag(e.target.value)}
+            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm bg-white"
+          >
+            {TIER_TAG_OPTIONS.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </select>
         </div>
@@ -208,15 +269,22 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
             {ingredients.map((i, idx) => {
               const serveCount = computeServeCount(i, serveMap[i.food_name.toLowerCase()])
               return (
-                <li key={idx} className="flex items-center justify-between py-2.5 gap-3">
-                  <div className="min-w-0">
+                <li key={idx} className="flex items-start justify-between py-2.5 gap-3">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-gray-800 truncate">{i.food_name}</p>
                     <p className="text-xs text-gray-400 mt-0.5">
                       {i.grams}g · {Math.round(i.calories)} kcal · {Math.round(i.protein)}g P · {Math.round(i.carbs)}g C · {Math.round(i.fat)}g F
                       {serveCount != null && <span className="ml-1 text-gray-300">· ~{serveCount.toFixed(1)} serves</span>}
                     </p>
+                    <input
+                      type="url"
+                      value={i.link ?? ''}
+                      onChange={(e) => updateIngredientLink(idx, e.target.value)}
+                      placeholder="Add a product link (optional)…"
+                      className="w-full mt-1.5 rounded-lg border border-gray-100 px-2.5 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+                    />
                   </div>
-                  <button onClick={() => removeIngredient(idx)} className="text-gray-300 hover:text-red-500 text-xs flex-shrink-0">
+                  <button onClick={() => removeIngredient(idx)} className="text-gray-300 hover:text-red-500 text-xs flex-shrink-0 mt-0.5">
                     Remove
                   </button>
                 </li>

@@ -12,7 +12,26 @@ type Recipe = {
   total_protein: number
   total_carbs: number
   total_fat: number
+  diet_tags: string[]
+  tier_tag: string | null
 }
+
+const DIET_TAG_LABEL: Record<string, string> = { omnivore: 'Omnivore', vegan: 'Vegan', dairy_free: 'Dairy-free' }
+const TIER_TAG_LABEL: Record<string, string> = { cal_conscious: 'Cal Conscious', balanced: 'Balanced', bigger: 'Bigger', gainer: 'Gainer' }
+
+const DIET_FILTERS = [
+  { value: '', label: 'All diets' },
+  { value: 'omnivore', label: 'Omnivore' },
+  { value: 'vegan', label: 'Vegan' },
+  { value: 'dairy_free', label: 'Dairy-free' },
+]
+const TIER_FILTERS = [
+  { value: '', label: 'All tiers' },
+  { value: 'cal_conscious', label: 'Cal Conscious' },
+  { value: 'balanced', label: 'Balanced' },
+  { value: 'bigger', label: 'Bigger' },
+  { value: 'gainer', label: 'Gainer' },
+]
 
 const CATEGORIES = [
   { value: '', label: 'All' },
@@ -28,6 +47,8 @@ export default function RecipesPage() {
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState('')
+  const [dietFilter, setDietFilter] = useState('')
+  const [tierFilter, setTierFilter] = useState('')
 
   const fetchRecipes = useCallback(async (cat: string) => {
     setLoading(true)
@@ -38,6 +59,12 @@ export default function RecipesPage() {
   }, [])
 
   useEffect(() => { fetchRecipes(category) }, [category, fetchRecipes])
+
+  const visibleRecipes = recipes.filter((r) => {
+    if (dietFilter && !r.diet_tags?.includes(dietFilter)) return false
+    if (tierFilter && r.tier_tag !== tierFilter) return false
+    return true
+  })
 
   async function archiveRecipe(id: string) {
     if (!confirm('Archive this recipe? It will be hidden from your library but any meal plan already using it is unaffected.')) return
@@ -74,15 +101,36 @@ export default function RecipesPage() {
         ))}
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        <select
+          value={dietFilter}
+          onChange={(e) => setDietFilter(e.target.value)}
+          className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-600"
+        >
+          {DIET_FILTERS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+        </select>
+        <select
+          value={tierFilter}
+          onChange={(e) => setTierFilter(e.target.value)}
+          className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-600"
+        >
+          {TIER_FILTERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
+      </div>
+
       {loading ? (
         <p className="text-sm text-gray-400">Loading…</p>
       ) : recipes.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
           <p className="text-sm text-gray-400">No recipes yet. Create your first one to start building your library.</p>
         </div>
+      ) : visibleRecipes.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
+          <p className="text-sm text-gray-400">No recipes match these filters.</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {recipes.map((r) => (
+          {visibleRecipes.map((r) => (
             <div
               key={r.id}
               onClick={() => router.push(`/coach/recipes/${r.id}`)}
@@ -107,6 +155,20 @@ export default function RecipesPage() {
                 <span className="text-xs text-orange-600">{Math.round(r.total_carbs)}g C</span>
                 <span className="text-xs text-yellow-600">{Math.round(r.total_fat)}g F</span>
               </div>
+              {((r.diet_tags && r.diet_tags.length > 0) || r.tier_tag) && (
+                <div className="flex flex-wrap gap-1.5">
+                  {r.tier_tag && (
+                    <span className="text-[11px] font-medium text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">
+                      {TIER_TAG_LABEL[r.tier_tag] ?? r.tier_tag}
+                    </span>
+                  )}
+                  {r.diet_tags?.map((t) => (
+                    <span key={t} className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                      {DIET_TAG_LABEL[t] ?? t}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

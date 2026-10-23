@@ -11,6 +11,7 @@ type IngredientInput = {
   protein: number
   carbs: number
   fat: number
+  link?: string | null
 }
 
 type ModificationInput = {
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
   // wanted for a personal content library.
   let query = supabase
     .from('recipes')
-    .select('id, name, category, image_url, total_calories, total_protein, total_carbs, total_fat, archived_at, created_at')
+    .select('id, name, category, image_url, total_calories, total_protein, total_carbs, total_fat, diet_tags, tier_tag, archived_at, created_at')
     .eq('coach_id', coachId)
   if (category) query = query.eq('category', category)
   if (!includeArchived) query = query.is('archived_at', null)
@@ -64,11 +65,13 @@ export async function POST(req: NextRequest) {
   if (!coachId) return Response.json({ error: 'Unauthorised' }, { status: 401 })
 
   const body = await req.json()
-  const { name, category, instructions, image_url } = body as {
+  const { name, category, instructions, image_url, diet_tags, tier_tag } = body as {
     name?: string
     category?: string | null
     instructions?: string | null
     image_url?: string | null
+    diet_tags?: string[]
+    tier_tag?: string | null
   }
   const ingredients = (body.ingredients ?? []) as IngredientInput[]
   const modifications = (body.modifications ?? []) as ModificationInput[]
@@ -89,6 +92,8 @@ export async function POST(req: NextRequest) {
       category: category || null,
       instructions: instructions || null,
       image_url: image_url || null,
+      diet_tags: diet_tags ?? [],
+      tier_tag: tier_tag || null,
       ...totals,
     })
     .select('id')
@@ -106,6 +111,7 @@ export async function POST(req: NextRequest) {
       protein: i.protein,
       carbs: i.carbs,
       fat: i.fat,
+      link: i.link || null,
       sort_order: idx,
     })),
   )

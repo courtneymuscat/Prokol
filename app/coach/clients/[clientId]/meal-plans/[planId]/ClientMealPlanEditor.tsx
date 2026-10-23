@@ -484,6 +484,7 @@ function MealSlotCard({
         fat: i.fat,
         recipe_id: recipe.id,
         recipe_name: recipe.name,
+        image_url: i.link ?? undefined,
       }),
     )
     onChange({ ...slot, foods: [...slot.foods, ...newFoods] })
