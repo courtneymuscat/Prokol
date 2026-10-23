@@ -123,6 +123,16 @@ const NAV: NavItem[] = [
     ),
   },
   {
+    href: '/coach/recipes',
+    label: 'Recipes',
+    needs: 'nutrition',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V6a4 4 0 118 0v5m-9 0h10l-1 10H9l-1-10z" />
+      </svg>
+    ),
+  },
+  {
     href: '/coach/cheat-sheet',
     label: 'Food Cheat Sheet',
     needs: 'nutrition',
@@ -393,7 +403,7 @@ export default function CoachSidebar({
             <div className="grid grid-cols-3 gap-px bg-gray-100">
               {visibleNav
                 .filter((item) =>
-                  ['/coach/forms', '/coach/autoflows', '/coach/resources', '/coach/exercises', '/coach/programs', '/coach/meal-plans', '/coach/cheat-sheet', '/coach/note-templates'].includes(item.href),
+                  ['/coach/forms', '/coach/autoflows', '/coach/resources', '/coach/exercises', '/coach/programs', '/coach/meal-plans', '/coach/recipes', '/coach/cheat-sheet', '/coach/note-templates'].includes(item.href),
                 )
                 .map((item) => {
                 const active = path === item.href || path.startsWith(item.href)
