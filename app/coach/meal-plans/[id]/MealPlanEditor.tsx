@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import MealPlanFoodSearch from '@/app/components/MealPlanFoodSearch'
 import CopyMealFromPlanPicker from '@/app/components/CopyMealFromPlanPicker'
+import RecipePickerModal, { type RecipeDetail } from '@/app/components/RecipePickerModal'
 import { OrgPublisherBanner, CopiedFromOrgSubtitle } from '@/app/components/OrgTemplateBanner'
 import type { OrgTemplateContext } from '@/lib/org'
 
@@ -24,6 +25,12 @@ type MealFood = {
   serving_qty?: number
   unit?: string
   _key?: string
+  // Set when this food came from the recipe library (app/coach/recipes) —
+  // every ingredient line exploded from the same recipe shares the same
+  // recipe_id, letting the client-facing view group them back under one
+  // header instead of showing indistinguishable separate lines.
+  recipe_id?: string
+  recipe_name?: string
 }
 
 type ServingUnit = 'g' | 'ml' | 'oz' | 'cup' | 'tbsp' | 'tsp' | 'piece'
@@ -280,6 +287,11 @@ function FoodRow({
             <span className="text-[11px] bg-blue-50 text-blue-400 font-semibold px-1.5 py-0.5 rounded-full">
               F {food.fat.toFixed(1)}g
             </span>
+            {food.recipe_name && (
+              <span className="text-[11px] bg-purple-50 text-purple-500 font-semibold px-1.5 py-0.5 rounded-full">
+                🍳 {food.recipe_name}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
@@ -363,6 +375,7 @@ function MealSlotCard({
   const [editingLabel, setEditingLabel] = useState(false)
   const targetsAlreadySet = hasAnyTarget(slot)
   const [showTargets, setShowTargets] = useState(targetsAlreadySet)
+  const [showRecipePicker, setShowRecipePicker] = useState(false)
 
   const slotMacros = slot.foods.reduce(
     (acc, f) => ({
@@ -386,6 +399,23 @@ function MealSlotCard({
 
   function addFood(food: MealFood) {
     onChange({ ...slot, foods: [...slot.foods, withKey(food)] })
+  }
+
+  function addRecipe(recipe: RecipeDetail) {
+    const newFoods = recipe.ingredients.map((i) =>
+      withKey({
+        food_id: i.food_id ?? undefined,
+        food_name: i.food_name,
+        grams: i.grams,
+        calories: i.calories,
+        protein: i.protein,
+        carbs: i.carbs,
+        fat: i.fat,
+        recipe_id: recipe.id,
+        recipe_name: recipe.name,
+      }),
+    )
+    onChange({ ...slot, foods: [...slot.foods, ...newFoods] })
   }
 
   function updateTarget(field: 'target_calories' | 'target_protein' | 'target_carbs' | 'target_fat', val: string) {
@@ -608,7 +638,19 @@ function MealSlotCard({
       </div>
 
       {/* Food search */}
+      <div className="flex items-center gap-2 mb-2">
+        <button
+          type="button"
+          onClick={() => setShowRecipePicker(true)}
+          className="text-xs font-medium text-blue-600 border border-blue-200 bg-blue-50 rounded-lg px-3 py-1.5 hover:bg-blue-100 transition-colors flex-shrink-0"
+        >
+          + Add recipe
+        </button>
+      </div>
       <MealPlanFoodSearch onAdd={addFood} />
+      {showRecipePicker && (
+        <RecipePickerModal onClose={() => setShowRecipePicker(false)} onPick={addRecipe} />
+      )}
     </div>
   )
 }

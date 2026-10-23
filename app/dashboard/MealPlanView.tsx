@@ -26,6 +26,12 @@ type MealFood = {
   swapped_from?: string
   image_url?: string | null
   coach_note?: string | null
+  // Set when this food came from the recipe library — every ingredient
+  // line exploded from the same recipe shares the same recipe_id, so
+  // consecutive foods with a matching id render grouped under one header
+  // instead of as indistinguishable separate lines.
+  recipe_id?: string
+  recipe_name?: string
 }
 
 // Format a food's serving as the coach intended it. If the coach picked a
@@ -41,6 +47,36 @@ function formatServing(food: { grams: number; serving_qty?: number; unit?: strin
   const qStr = Number.isInteger(q) ? String(q) : String(q)
   const unitLabel = u === 'piece' ? (q === 1 ? 'piece' : 'pieces') : u
   return `${qStr} ${unitLabel} (${g}g)`
+}
+
+// Consecutive foods sharing a recipe_id (always inserted as a contiguous
+// block when a recipe is added to a meal — see RecipePickerModal's
+// callers) render grouped under one header instead of as indistinguishable
+// separate lines.
+export type FoodGroup =
+  | { type: 'single'; food: MealFood; index: number }
+  | { type: 'recipe'; recipeId: string; recipeName: string; items: Array<{ food: MealFood; index: number }> }
+
+export function groupFoodsByRecipe(foods: MealFood[]): FoodGroup[] {
+  const groups: FoodGroup[] = []
+  let i = 0
+  while (i < foods.length) {
+    const food = foods[i]
+    if (food.recipe_id) {
+      const recipeId = food.recipe_id
+      const recipeName = food.recipe_name ?? 'Recipe'
+      const items: Array<{ food: MealFood; index: number }> = []
+      while (i < foods.length && foods[i].recipe_id === recipeId) {
+        items.push({ food: foods[i], index: i })
+        i++
+      }
+      groups.push({ type: 'recipe', recipeId, recipeName, items })
+    } else {
+      groups.push({ type: 'single', food, index: i })
+      i++
+    }
+  }
+  return groups
 }
 
 type MealSlot = {
@@ -649,6 +685,271 @@ function FoodRow({ food, onSwap, showMacros }: FoodRowProps) {
   )
 }
 
+// ─── Recipe Group Card ────────────────────────────────────────────────────────
+
+const MOD_TAG_LABEL: Record<string, string> = {
+  protein_up: 'Need more protein',
+  protein_down: 'Need less protein',
+  carbs_up: 'Need more carbs',
+  carbs_down: 'Need less carbs',
+  fat_up: 'Need more fat',
+  fat_down: 'Need less fat',
+  calories_up: 'Need more calories',
+  calories_down: 'Need less calories',
+  volume_up: 'Need more volume',
+  general: 'General',
+}
+
+function RecipeGroupCard({
+  group,
+  showMacros,
+  onSwapIngredient,
+  onSwapRecipe,
+  onViewNotes,
+}: {
+  group: Extract<FoodGroup, { type: 'recipe' }>
+  showMacros: boolean
+  onSwapIngredient: (foodIndex: number) => void
+  onSwapRecipe: () => void
+  onViewNotes: () => void
+}) {
+  const totals = group.items.reduce(
+    (acc, { food }) => ({
+      calories: acc.calories + food.calories,
+      protein: acc.protein + food.protein,
+      carbs: acc.carbs + food.carbs,
+      fat: acc.fat + food.fat,
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0 },
+  )
+
+  return (
+    <div className="rounded-xl border border-purple-100 bg-purple-50/30 my-2 overflow-hidden">
+      <div className="flex items-center justify-between gap-2 px-3 py-2 bg-purple-50 border-b border-purple-100">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-purple-900 truncate">🍳 {group.recipeName}</p>
+          {showMacros && (
+            <p className="text-xs text-purple-500 mt-0.5">
+              {Math.round(totals.calories)} kcal · {Math.round(totals.protein)}g P · {Math.round(totals.carbs)}g C · {Math.round(totals.fat)}g F
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={onViewNotes}
+            className="text-xs font-medium text-purple-600 bg-white border border-purple-200 rounded-lg px-2 py-1 hover:bg-purple-100 transition-colors"
+            title="View modification notes"
+          >
+            📝 Notes
+          </button>
+          <button
+            onClick={onSwapRecipe}
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-purple-100 text-purple-400 hover:text-purple-600 transition-colors text-base"
+            title="Swap this recipe for another"
+          >
+            🔄
+          </button>
+        </div>
+      </div>
+      <div className="px-3">
+        {group.items.map(({ food, index }) => (
+          <FoodRow key={index} food={food} onSwap={() => onSwapIngredient(index)} showMacros={showMacros} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Recipe Swap Modal (Mode A — swap for a different recipe) ────────────────
+
+type ClientRecipeListItem = {
+  id: string
+  name: string
+  category: string | null
+  total_calories: number
+  total_protein: number
+  total_carbs: number
+  total_fat: number
+}
+
+function RecipeSwapModal({
+  planId,
+  mealIndex,
+  recipeId,
+  recipeName,
+  originalCalories,
+  onClose,
+  onSwapped,
+}: {
+  planId: string
+  mealIndex: number
+  recipeId: string
+  recipeName: string
+  originalCalories: number
+  onClose: () => void
+  onSwapped: () => void
+}) {
+  const [recipes, setRecipes] = useState<ClientRecipeListItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [query, setQuery] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/client/recipes')
+      .then((r) => r.json())
+      .then((data) => {
+        setRecipes(Array.isArray(data) ? data.filter((r: ClientRecipeListItem) => r.id !== recipeId) : [])
+        setLoading(false)
+      })
+  }, [recipeId])
+
+  const filtered = recipes.filter((r) => r.name.toLowerCase().includes(query.trim().toLowerCase()))
+
+  async function handlePick(newRecipeId: string) {
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/client/meal-plans/${planId}/swap-recipe`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ meal_index: mealIndex, recipe_id: recipeId, new_recipe_id: newRecipeId }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error ?? 'Swap failed')
+      }
+      onSwapped()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Swap failed')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4 sm:pb-0"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[85vh]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="font-semibold text-gray-900">Swap Recipe</h3>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="p-5 pb-3 flex flex-col gap-3">
+          <div className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3">
+            <p className="text-xs text-gray-400 mb-1">Replacing</p>
+            <p className="font-medium text-gray-800">{recipeName}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{originalCalories} kcal</p>
+          </div>
+          <p className="text-xs text-gray-400">
+            Picking a replacement will scale it to match the {originalCalories} kcal you&apos;re replacing.
+          </p>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search recipes…"
+            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+          />
+          {error && <p className="text-sm text-red-500">{error}</p>}
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-5 pb-5">
+          {loading ? (
+            <p className="text-sm text-gray-400 text-center py-8">Loading…</p>
+          ) : filtered.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-8">No other recipes available.</p>
+          ) : (
+            <ul className="rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+              {filtered.map((r) => (
+                <li key={r.id}>
+                  <button
+                    onClick={() => handlePick(r.id)}
+                    disabled={saving}
+                    className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                  >
+                    <p className="text-sm font-medium text-gray-800">{r.name}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {Math.round(r.total_calories)} kcal · {Math.round(r.total_protein)}g P · {Math.round(r.total_carbs)}g C · {Math.round(r.total_fat)}g F
+                    </p>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Recipe Notes Modal (Mode B — guidance, read-only) ───────────────────────
+
+function RecipeNotesModal({
+  recipeId,
+  recipeName,
+  onClose,
+}: {
+  recipeId: string
+  recipeName: string
+  onClose: () => void
+}) {
+  const [modifications, setModifications] = useState<Array<{ tag: string; note: string }> | null>(null)
+
+  useEffect(() => {
+    fetch(`/api/client/recipes/${recipeId}`)
+      .then((r) => r.json())
+      .then((data) => setModifications(Array.isArray(data.modifications) ? data.modifications : []))
+  }, [recipeId])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4 sm:pb-0"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[85vh]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="font-semibold text-gray-900">{recipeName} — adjusting this meal</h3>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="overflow-y-auto flex-1 p-5">
+          {modifications == null ? (
+            <p className="text-sm text-gray-400 text-center py-6">Loading…</p>
+          ) : modifications.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">Your coach hasn&apos;t added any adjustment notes for this recipe yet.</p>
+          ) : (
+            <>
+              <p className="text-xs text-gray-400 mb-3">
+                Use the 🔄 swap button on an individual ingredient below to make these changes.
+              </p>
+              <ul className="space-y-3">
+                {modifications.map((m, idx) => (
+                  <li key={idx}>
+                    <span className="inline-block text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full mb-1">
+                      {MOD_TAG_LABEL[m.tag] ?? m.tag}
+                    </span>
+                    <p className="text-sm text-gray-700">{m.note}</p>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Plan View ────────────────────────────────────────────────────────────────
 
 interface PlanViewProps {
@@ -659,6 +960,8 @@ interface PlanViewProps {
 function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
   const [swapTarget, setSwapTarget] = useState<{ mealIndex: number; foodIndex: number } | null>(null)
   const [logTarget, setLogTarget] = useState<MealSlot | null>(null)
+  const [recipeSwapTarget, setRecipeSwapTarget] = useState<{ mealIndex: number; recipeId: string; recipeName: string; originalCalories: number } | null>(null)
+  const [recipeNotesTarget, setRecipeNotesTarget] = useState<{ recipeId: string; recipeName: string } | null>(null)
 
   const slotContribution = (slot: MealSlot) => {
     if (slot.foods.length > 0) {
@@ -785,14 +1088,28 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
               {slot.foods.length === 0 ? (
                 <p className="text-xs text-gray-300 italic py-3">No foods in this meal</p>
               ) : (
-                slot.foods.map((food, foodIndex) => (
-                  <FoodRow
-                    key={foodIndex}
-                    food={food}
-                    onSwap={() => setSwapTarget({ mealIndex, foodIndex })}
-                    showMacros={showMacros}
-                  />
-                ))
+                groupFoodsByRecipe(slot.foods).map((group) =>
+                  group.type === 'single' ? (
+                    <FoodRow
+                      key={group.index}
+                      food={group.food}
+                      onSwap={() => setSwapTarget({ mealIndex, foodIndex: group.index })}
+                      showMacros={showMacros}
+                    />
+                  ) : (
+                    <RecipeGroupCard
+                      key={`${group.recipeId}-${group.items[0].index}`}
+                      group={group}
+                      showMacros={showMacros}
+                      onSwapIngredient={(foodIndex) => setSwapTarget({ mealIndex, foodIndex })}
+                      onSwapRecipe={() => {
+                        const originalCalories = group.items.reduce((sum, it) => sum + it.food.calories, 0)
+                        setRecipeSwapTarget({ mealIndex, recipeId: group.recipeId, recipeName: group.recipeName, originalCalories })
+                      }}
+                      onViewNotes={() => setRecipeNotesTarget({ recipeId: group.recipeId, recipeName: group.recipeName })}
+                    />
+                  ),
+                )
               )}
             </div>
             {slot.notes && (
@@ -824,6 +1141,31 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
             setSwapTarget(null)
             onPlanRefresh()
           }}
+        />
+      )}
+
+      {/* Recipe Swap Modal — Mode A */}
+      {recipeSwapTarget && (
+        <RecipeSwapModal
+          planId={plan.id}
+          mealIndex={recipeSwapTarget.mealIndex}
+          recipeId={recipeSwapTarget.recipeId}
+          recipeName={recipeSwapTarget.recipeName}
+          originalCalories={recipeSwapTarget.originalCalories}
+          onClose={() => setRecipeSwapTarget(null)}
+          onSwapped={() => {
+            setRecipeSwapTarget(null)
+            onPlanRefresh()
+          }}
+        />
+      )}
+
+      {/* Recipe Notes Modal — Mode B */}
+      {recipeNotesTarget && (
+        <RecipeNotesModal
+          recipeId={recipeNotesTarget.recipeId}
+          recipeName={recipeNotesTarget.recipeName}
+          onClose={() => setRecipeNotesTarget(null)}
         />
       )}
     </div>
