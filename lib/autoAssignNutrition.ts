@@ -5,13 +5,14 @@
 
 export function mapDietaryPreferenceToMealPlanGoal(pref: string | null | undefined): string {
   if (pref === 'vegan') return 'vegan'
+  if (pref === 'dairy_free') return 'dairy_free'
+  // "vegetarian"/"pescetarian" are no longer offered in onboarding's
+  // dietary-preference picker (trimmed to omnivore/vegan/dairy_free per
+  // Court's call), but kept here as a defensive bridge in case an older
+  // profile still has one of these values stored.
   if (pref === 'vegetarian') return 'vegetarian'
-  // Deliberate spelling bridge — profiles.dietary_preference uses
-  // "pescetarian", meal_plans.goal uses "pescatarian" (see
-  // app/coach/meal-plans/[id]/MealPlanEditor.tsx's DIET_OPTIONS).
   if (pref === 'pescetarian') return 'pescatarian'
-  // none / gluten_free / dairy_free / null — no finer-grained meal-plan
-  // tag exists for these yet, so they fall back to the general pool.
+  // none / null — the general pool.
   return 'omnivore'
 }
 

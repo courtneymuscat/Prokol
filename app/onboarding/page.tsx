@@ -6,7 +6,12 @@ import { useRouter } from 'next/navigation'
 // ── Types ──────────────────────────────────────────────────────────────────
 type Goal = 'fat_loss' | 'muscle_gain' | 'performance' | 'general_health'
 type Sex = 'male' | 'female'
-type DietaryPreference = 'none' | 'vegetarian' | 'vegan' | 'pescetarian' | 'gluten_free' | 'dairy_free'
+// Kept to exactly 3 options per Court's call — every meal-plan template she
+// builds is tagged omnivore/vegan/dairy_free, so this stays in lockstep
+// with what the auto-assignment matcher (lib/autoAssignNutrition.ts) can
+// actually match against. 'none' is still the stored value for omnivore
+// (unchanged from before, no data migration needed) — just relabelled.
+type DietaryPreference = 'none' | 'vegan' | 'dairy_free'
 type ActivityType = 'running' | 'cycling' | 'strength' | 'hiit' | 'swimming' | 'walking' | 'rowing' | 'yoga'
 
 type Activity = {
@@ -37,11 +42,8 @@ const GOALS: { value: Goal; label: string; description: string; emoji: string }[
 ]
 
 const DIETARY_PREFS: { value: DietaryPreference; label: string }[] = [
-  { value: 'none',        label: 'No preference' },
-  { value: 'vegetarian',  label: 'Vegetarian' },
+  { value: 'none',        label: 'Omnivore (no preference)' },
   { value: 'vegan',       label: 'Vegan' },
-  { value: 'pescetarian', label: 'Pescetarian' },
-  { value: 'gluten_free', label: 'Gluten-free' },
   { value: 'dairy_free',  label: 'Dairy-free' },
 ]
 

@@ -2,19 +2,21 @@ import { describe, it, expect } from 'vitest'
 import { mapDietaryPreferenceToMealPlanGoal, pickBestMealPlan, macrosToServes } from '@/lib/autoAssignNutrition'
 
 describe('mapDietaryPreferenceToMealPlanGoal', () => {
-  it('maps vegan and vegetarian straight across', () => {
+  it('maps vegan and dairy_free straight across — the two non-omnivore options onboarding actually offers', () => {
     expect(mapDietaryPreferenceToMealPlanGoal('vegan')).toBe('vegan')
-    expect(mapDietaryPreferenceToMealPlanGoal('vegetarian')).toBe('vegetarian')
+    expect(mapDietaryPreferenceToMealPlanGoal('dairy_free')).toBe('dairy_free')
   })
 
-  it('bridges the pescetarian/pescatarian spelling difference', () => {
+  it('bridges the pescetarian/pescatarian spelling difference (defensive — no longer offered in onboarding)', () => {
     expect(mapDietaryPreferenceToMealPlanGoal('pescetarian')).toBe('pescatarian')
   })
 
-  it('falls back to omnivore for everything without a finer-grained meal-plan tag', () => {
+  it('still maps vegetarian defensively, even though it is no longer offered in onboarding', () => {
+    expect(mapDietaryPreferenceToMealPlanGoal('vegetarian')).toBe('vegetarian')
+  })
+
+  it('falls back to omnivore for "no preference" / unset', () => {
     expect(mapDietaryPreferenceToMealPlanGoal('none')).toBe('omnivore')
-    expect(mapDietaryPreferenceToMealPlanGoal('gluten_free')).toBe('omnivore')
-    expect(mapDietaryPreferenceToMealPlanGoal('dairy_free')).toBe('omnivore')
     expect(mapDietaryPreferenceToMealPlanGoal(null)).toBe('omnivore')
     expect(mapDietaryPreferenceToMealPlanGoal(undefined)).toBe('omnivore')
   })

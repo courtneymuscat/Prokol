@@ -54,6 +54,7 @@ const DIET_BADGE: Record<string, { label: string; className: string }> = {
   vegetarian:  { label: 'Vegetarian',  className: 'bg-green-50 text-green-600' },
   vegan:       { label: 'Vegan',       className: 'bg-emerald-50 text-emerald-700' },
   pescatarian: { label: 'Pescatarian', className: 'bg-cyan-50 text-cyan-600' },
+  dairy_free:  { label: 'Dairy-free',  className: 'bg-sky-50 text-sky-600' },
   other:       { label: 'Other',       className: 'bg-gray-100 text-gray-500' },
 }
 

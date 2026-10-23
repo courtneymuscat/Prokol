@@ -125,12 +125,15 @@ type MealPlan = {
   updated_at: string
 }
 
+// Trimmed to exactly the 3 diet types Court builds meal plans for — matches
+// profiles.dietary_preference's own options (app/onboarding/page.tsx) and
+// what lib/autoAssignNutrition.ts's matcher can actually match against. A
+// plan tagged with an older value (vegetarian/pescatarian/other) still
+// displays fine (see the fallback below) — just not offered for new plans.
 const DIET_OPTIONS: { value: string; label: string }[] = [
   { value: 'omnivore',    label: 'Omnivore' },
-  { value: 'vegetarian',  label: 'Vegetarian' },
   { value: 'vegan',       label: 'Vegan' },
-  { value: 'pescatarian', label: 'Pescatarian' },
-  { value: 'other',       label: 'Other' },
+  { value: 'dairy_free',  label: 'Dairy-free' },
 ]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
