@@ -27,7 +27,7 @@ export async function GET(
 
   const { data: recipe, error } = await admin
     .from('recipes')
-    .select('id, name, category, instructions, total_calories, total_protein, total_carbs, total_fat')
+    .select('id, name, category, instructions, total_calories, total_protein, total_carbs, total_fat, diet_tags, tier_tag')
     .eq('id', recipeId)
     .eq('coach_id', rel.coach_id)
     .single()
@@ -36,7 +36,7 @@ export async function GET(
   const [{ data: ingredients }, { data: modifications }] = await Promise.all([
     admin
       .from('recipe_ingredients')
-      .select('food_id, food_name, grams, calories, protein, carbs, fat, sort_order')
+      .select('food_id, food_name, grams, calories, protein, carbs, fat, link, sort_order')
       .eq('recipe_id', recipeId)
       .order('sort_order', { ascending: true }),
     admin

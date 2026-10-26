@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
-import { createClient } from '@/lib/supabase/client'
-import { notifyMyCoach } from '@/lib/notifyMyCoach'
+import LogMealModal, { formatServing } from '@/app/components/LogMealModal'
 
 const BarcodeScanner = dynamic(() => import('./BarcodeScanner'), { ssr: false })
 
@@ -32,21 +31,6 @@ type MealFood = {
   // instead of as indistinguishable separate lines.
   recipe_id?: string
   recipe_name?: string
-}
-
-// Format a food's serving as the coach intended it. If the coach picked a
-// non-gram unit, show "<qty> <unit> (<grams>g)". Otherwise just "<grams>g".
-function formatServing(food: { grams: number; serving_qty?: number; unit?: string }): string {
-  const u = food.unit
-  const g = food.grams
-  if (!u || u === 'g') return `${g}g`
-  if (u === 'ml') return `${g}ml`
-  const q = food.serving_qty
-  if (q == null) return `${g}g`
-  // Pretty quantity: drop trailing .0 but keep .5/.25.
-  const qStr = Number.isInteger(q) ? String(q) : String(q)
-  const unitLabel = u === 'piece' ? (q === 1 ? 'piece' : 'pieces') : u
-  return `${qStr} ${unitLabel} (${g}g)`
 }
 
 // Consecutive foods sharing a recipe_id (always inserted as a contiguous
@@ -410,145 +394,9 @@ function SwapModal({ planId, mealIndex, foodIndex, original, onClose, onSwapped 
   )
 }
 
-// ─── Log Meal Modal ───────────────────────────────────────────────────────────
-
-const MEAL_TYPE_OPTIONS = [
-  { key: 'breakfast', label: 'Breakfast' },
-  { key: 'lunch',     label: 'Lunch' },
-  { key: 'dinner',    label: 'Dinner' },
-  { key: 'snacks',    label: 'Snacks' },
-] as const
-type MealTypeKey = 'breakfast' | 'lunch' | 'dinner' | 'snacks'
-
-function guessMealType(label: string): MealTypeKey {
-  const l = label.toLowerCase()
-  if (l.includes('breakfast') || l.includes('morning')) return 'breakfast'
-  if (l.includes('lunch') || l.includes('midday')) return 'lunch'
-  if (l.includes('dinner') || l.includes('evening') || l.includes('night')) return 'dinner'
-  if (l.includes('snack') || l.includes('pre') || l.includes('post')) return 'snacks'
-  return 'breakfast'
-}
-
-function LogMealModal({ slot, onClose }: { slot: MealSlot; onClose: () => void }) {
-  const today = new Date().toISOString().slice(0, 10)
-  const [mealType, setMealType] = useState<MealTypeKey>(guessMealType(slot.label))
-  const [date, setDate] = useState(today)
-  const [logging, setLogging] = useState(false)
-  const [done, setDone] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const totalCal = slot.foods.reduce((s, f) => s + f.calories, 0)
-  const totalP   = slot.foods.reduce((s, f) => s + f.protein, 0)
-  const totalC   = slot.foods.reduce((s, f) => s + f.carbs, 0)
-  const totalF   = slot.foods.reduce((s, f) => s + f.fat, 0)
-
-  async function logMeal() {
-    setLogging(true)
-    setError(null)
-    const supabase = createClient()
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) { setError('Not logged in'); setLogging(false); return }
-
-    const rows = slot.foods.map(f => ({
-      user_id: session.user.id,
-      food_name: f.food_name,
-      calories: f.calories,
-      protein: f.protein,
-      carbs: f.carbs,
-      fat: f.fat,
-      meal_type: mealType,
-      log_date: date,
-      serving_description: `${f.grams}g (meal plan)`,
-    }))
-
-    const { error: insertErr } = await supabase.from('food_logs').insert(rows)
-    if (insertErr) { setError(insertErr.message); setLogging(false); return }
-
-    notifyMyCoach('food')
-    window.dispatchEvent(new CustomEvent('meal-logged'))
-    setDone(true)
-    setLogging(false)
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4 pb-4 sm:pb-0"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <div>
-            <h3 className="font-semibold text-gray-900 text-sm">Log to Food Log</h3>
-            <p className="text-xs text-gray-400 mt-0.5">{slot.label}</p>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="p-5 space-y-4">
-          {done ? (
-            <div className="text-center py-3 space-y-2">
-              <div className="w-11 h-11 bg-green-50 rounded-full flex items-center justify-center mx-auto">
-                <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <p className="text-sm font-semibold text-gray-900">Logged {slot.foods.length} item{slot.foods.length !== 1 ? 's' : ''}!</p>
-              <p className="text-xs text-gray-400">{Math.round(totalCal)} kcal added to {MEAL_TYPE_OPTIONS.find(o => o.key === mealType)?.label} on {new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-              <button onClick={onClose} className="w-full mt-2 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors">Done</button>
-            </div>
-          ) : (
-            <>
-              {/* Foods preview */}
-              <div className="bg-gray-50 rounded-xl px-3 py-2.5 space-y-1 max-h-36 overflow-y-auto">
-                {slot.foods.map((f, i) => (
-                  <div key={i} className="flex items-center justify-between text-xs">
-                    <span className="text-gray-700 truncate mr-2">{f.food_name}</span>
-                    <span className="text-gray-400 flex-shrink-0">{formatServing(f)} · {f.calories} kcal</span>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-2 text-xs font-medium text-center">
-                <span className="flex-1 bg-gray-100 text-gray-600 rounded-lg py-1">{Math.round(totalCal)} kcal</span>
-                <span className="flex-1 bg-rose-50 text-rose-600 rounded-lg py-1">P {totalP.toFixed(1)}g</span>
-                <span className="flex-1 bg-indigo-50 text-indigo-500 rounded-lg py-1">C {totalC.toFixed(1)}g</span>
-                <span className="flex-1 bg-violet-50 text-violet-500 rounded-lg py-1">F {totalF.toFixed(1)}g</span>
-              </div>
-
-              {/* Meal type */}
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Log as</label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {MEAL_TYPE_OPTIONS.map(o => (
-                    <button key={o.key} onClick={() => setMealType(o.key)}
-                      className={`py-1.5 rounded-lg text-xs font-semibold transition-colors ${mealType === o.key ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Date */}
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">Date</label>
-                <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-              </div>
-
-              {error && <p className="text-xs text-red-500">{error}</p>}
-
-              <button onClick={logMeal} disabled={logging}
-                className="w-full py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                {logging ? 'Logging…' : `Log ${slot.foods.length} item${slot.foods.length !== 1 ? 's' : ''} to Food Log`}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
+// Log Meal Modal — extracted to app/components/LogMealModal.tsx so the
+// client recipe library (logging a recipe that isn't on today's plan) can
+// reuse the exact same food_logs-writing flow.
 
 // ─── Food Row ─────────────────────────────────────────────────────────────────
 
@@ -738,9 +586,9 @@ function RecipeGroupCard({
           <button
             onClick={onViewNotes}
             className="text-xs font-medium text-purple-600 bg-white border border-purple-200 rounded-lg px-2 py-1 hover:bg-purple-100 transition-colors"
-            title="View modification notes"
+            title="View recipe instructions and adjustment notes"
           >
-            📝 Notes
+            📖 Recipe
           </button>
           <button
             onClick={onSwapRecipe}
@@ -901,11 +749,17 @@ function RecipeNotesModal({
   onClose: () => void
 }) {
   const [modifications, setModifications] = useState<Array<{ tag: string; note: string }> | null>(null)
+  const [instructions, setInstructions] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     fetch(`/api/client/recipes/${recipeId}`)
       .then((r) => r.json())
-      .then((data) => setModifications(Array.isArray(data.modifications) ? data.modifications : []))
+      .then((data) => {
+        setModifications(Array.isArray(data.modifications) ? data.modifications : [])
+        setInstructions(typeof data.instructions === 'string' ? data.instructions : null)
+        setLoaded(true)
+      })
   }, [recipeId])
 
   return (
@@ -915,33 +769,46 @@ function RecipeNotesModal({
     >
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[85vh]">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-900">{recipeName} — adjusting this meal</h3>
+          <h3 className="font-semibold text-gray-900">{recipeName}</h3>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-        <div className="overflow-y-auto flex-1 p-5">
-          {modifications == null ? (
+        <div className="overflow-y-auto flex-1 p-5 space-y-5">
+          {!loaded ? (
             <p className="text-sm text-gray-400 text-center py-6">Loading…</p>
-          ) : modifications.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-6">Your coach hasn&apos;t added any adjustment notes for this recipe yet.</p>
           ) : (
             <>
-              <p className="text-xs text-gray-400 mb-3">
-                Use the 🔄 swap button on an individual ingredient below to make these changes.
-              </p>
-              <ul className="space-y-3">
-                {modifications.map((m, idx) => (
-                  <li key={idx}>
-                    <span className="inline-block text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full mb-1">
-                      {MOD_TAG_LABEL[m.tag] ?? m.tag}
-                    </span>
-                    <p className="text-sm text-gray-700">{m.note}</p>
-                  </li>
-                ))}
-              </ul>
+              {instructions && (
+                <div>
+                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">How to make it</p>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{instructions}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Adjusting this meal</p>
+                {modifications == null || modifications.length === 0 ? (
+                  <p className="text-sm text-gray-400">Your coach hasn&apos;t added any adjustment notes for this recipe yet.</p>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-400 mb-3">
+                      Use the 🔄 swap button on an individual ingredient below to make these changes.
+                    </p>
+                    <ul className="space-y-3">
+                      {modifications.map((m, idx) => (
+                        <li key={idx}>
+                          <span className="inline-block text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full mb-1">
+                            {MOD_TAG_LABEL[m.tag] ?? m.tag}
+                          </span>
+                          <p className="text-sm text-gray-700">{m.note}</p>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </div>
             </>
           )}
         </div>

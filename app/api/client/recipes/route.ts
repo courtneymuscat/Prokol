@@ -24,7 +24,7 @@ export async function GET() {
 
   const { data } = await admin
     .from('recipes')
-    .select('id, name, category, image_url, total_calories, total_protein, total_carbs, total_fat')
+    .select('id, name, category, image_url, total_calories, total_protein, total_carbs, total_fat, diet_tags, tier_tag')
     .eq('coach_id', rel.coach_id)
     .is('archived_at', null)
     .order('name', { ascending: true })
