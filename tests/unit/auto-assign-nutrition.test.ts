@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mapDietaryPreferenceToMealPlanGoal, pickBestMealPlan, macrosToServes } from '@/lib/autoAssignNutrition'
+import { mapDietaryPreferenceToMealPlanGoal, pickBestMealPlan, macrosToServes, mealMacrosToServes } from '@/lib/autoAssignNutrition'
 
 describe('mapDietaryPreferenceToMealPlanGoal', () => {
   it('maps vegan and dairy_free straight across — the two non-omnivore options onboarding actually offers', () => {
@@ -60,5 +60,36 @@ describe('macrosToServes', () => {
   it('never produces a negative carb-serve count when carbs are very low', () => {
     const serves = macrosToServes({ proteinG: 100, carbG: 10, fatG: 50 })
     expect(serves.carb_serves).toBeGreaterThanOrEqual(0)
+  })
+
+  it('reserving a whole day\'s fruit+veg carb allowance wipes out a single meal\'s carbs — this is why mealMacrosToServes exists, do not use macrosToServes per-meal', () => {
+    // A real example: Beef Mince Bowl — Cal Conscious has 32.7g carbs,
+    // clearly worth ~1.5-2 carb serves — but macrosToServes' 78g
+    // fruit+veg reservation (2 fruit serves * 20g + ~38g veg) swallows it
+    // whole and reports zero.
+    const serves = macrosToServes({ proteinG: 36.6, carbG: 32.7, fatG: 12.2 })
+    expect(serves.carb_serves).toBe(0)
+  })
+})
+
+describe('mealMacrosToServes', () => {
+  it('derives serve counts straight from grams, with no fruit/veg reservation', () => {
+    const serves = mealMacrosToServes({ proteinG: 150, carbG: 200, fatG: 70 })
+    expect(serves.protein_serves).toBeCloseTo(5) // 150 / 30
+    expect(serves.carb_serves).toBeCloseTo(10) // 200 / 20
+    expect(serves.fat_serves).toBeCloseTo(7) // 70 / 10
+  })
+
+  it('correctly reports carb serves for a single meal that macrosToServes would zero out', () => {
+    // Same Beef Mince Bowl — Cal Conscious example as above — 32.7g carbs
+    // should read as real carb serves for a single meal, not zero.
+    const serves = mealMacrosToServes({ proteinG: 36.6, carbG: 32.7, fatG: 12.2 })
+    expect(serves.carb_serves).toBeCloseTo(1.5) // 32.7 / 20 = 1.635, rounds to nearest 0.5
+  })
+
+  it('has no fruit_serves or veg_unlimited fields — not meaningful for a single meal', () => {
+    const serves = mealMacrosToServes({ proteinG: 30, carbG: 40, fatG: 10 })
+    expect(serves).not.toHaveProperty('fruit_serves')
+    expect(serves).not.toHaveProperty('veg_unlimited')
   })
 })

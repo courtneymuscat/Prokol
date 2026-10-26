@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import LogMealModal, { formatServing } from '@/app/components/LogMealModal'
-import { macrosToServes } from '@/lib/autoAssignNutrition'
+import { macrosToServes, mealMacrosToServes } from '@/lib/autoAssignNutrition'
 
 const BarcodeScanner = dynamic(() => import('./BarcodeScanner'), { ssr: false })
 
@@ -956,7 +956,7 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
               </div>
             </div>
             {showMacros && hasAnyMacro && (() => {
-              const slotServes = macrosToServes({ proteinG: targetP, carbG: targetC, fatG: targetF })
+              const slotServes = mealMacrosToServes({ proteinG: targetP, carbG: targetC, fatG: targetF })
               return (
                 <div className="px-4 py-2 bg-gray-50/60 border-b border-gray-100 flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Target</span>

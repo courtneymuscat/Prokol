@@ -6,7 +6,7 @@ import CopyMealFromPlanPicker from '@/app/components/CopyMealFromPlanPicker'
 import RecipePickerModal, { type RecipeDetail } from '@/app/components/RecipePickerModal'
 import { OrgPublisherBanner, CopiedFromOrgSubtitle } from '@/app/components/OrgTemplateBanner'
 import type { OrgTemplateContext } from '@/lib/org'
-import { macrosToServes } from '@/lib/autoAssignNutrition'
+import { macrosToServes, mealMacrosToServes } from '@/lib/autoAssignNutrition'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -523,9 +523,9 @@ function MealSlotCard({
         </div>
       </div>
 
-      {/* Serves (same equation as the recipe builder / client serve targets) */}
+      {/* Serves — per-meal, so no fruit/veg carb reservation (that's a whole-day concept, see mealMacrosToServes) */}
       {slot.foods.length > 0 && (() => {
-        const slotServes = macrosToServes({ proteinG: slotMacros.p, carbG: slotMacros.c, fatG: slotMacros.f })
+        const slotServes = mealMacrosToServes({ proteinG: slotMacros.p, carbG: slotMacros.c, fatG: slotMacros.f })
         return (
           <div className="flex flex-wrap gap-1 mb-3 -mt-1.5">
             <span className="text-[10px] font-medium text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded-full">P {slotServes.protein_serves}</span>

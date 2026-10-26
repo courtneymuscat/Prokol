@@ -16,11 +16,20 @@ export function mapDietaryPreferenceToMealPlanGoal(pref: string | null | undefin
   return 'omnivore'
 }
 
+const roundHalf = (n: number) => Math.round(n * 2) / 2
+
 // Moved here from app/coach/clients/[clientId]/ClientServeGuide.tsx (which
 // now imports it) so it can also run server-side for auto-setup, without
 // pulling a 'use client' component into an API route.
+//
+// This is a WHOLE-DAY formula specifically — it reserves carb budget for
+// 2 fruit serves + ~veg before converting whatever's left into carb
+// serves. That reservation only makes sense once, against a full day's
+// target. Do not reuse this for a single meal/recipe — see
+// mealMacrosToServes below for that case; applying the daily reservation
+// per-meal was a real bug (every meal under ~78g carbs showed 0 carb
+// serves, because the reservation alone exceeds most single meals).
 export function macrosToServes(macros: { proteinG: number; carbG: number; fatG: number }) {
-  const roundHalf = (n: number) => Math.round(n * 2) / 2
   const fruit_serves = 2
   // Reserve carb budget for fruit (2 × 20g) and veg (~150 kcal ÷ 4 kcal/g ≈ 38g carbs)
   const vegCarbG = Math.round(150 / 4)
@@ -31,6 +40,17 @@ export function macrosToServes(macros: { proteinG: number; carbG: number; fatG: 
     fat_serves: roundHalf(macros.fatG / 10),
     fruit_serves,
     veg_unlimited: true,
+  }
+}
+
+// Same per-serve standard as macrosToServes (30g protein / 20g carbs /
+// 10g fat = 1 serve) but WITHOUT the whole-day fruit/veg carb
+// reservation — for a single meal or recipe, not a full day's target.
+export function mealMacrosToServes(macros: { proteinG: number; carbG: number; fatG: number }) {
+  return {
+    protein_serves: roundHalf(macros.proteinG / 30),
+    carb_serves: roundHalf(macros.carbG / 20),
+    fat_serves: roundHalf(macros.fatG / 10),
   }
 }
 
