@@ -6,6 +6,7 @@ import CopyMealFromPlanPicker from '@/app/components/CopyMealFromPlanPicker'
 import RecipePickerModal, { type RecipeDetail } from '@/app/components/RecipePickerModal'
 import { OrgPublisherBanner, CopiedFromOrgSubtitle } from '@/app/components/OrgTemplateBanner'
 import type { OrgTemplateContext } from '@/lib/org'
+import { macrosToServes } from '@/lib/autoAssignNutrition'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -522,6 +523,18 @@ function MealSlotCard({
         </div>
       </div>
 
+      {/* Serves (same equation as the recipe builder / client serve targets) */}
+      {slot.foods.length > 0 && (() => {
+        const slotServes = macrosToServes({ proteinG: slotMacros.p, carbG: slotMacros.c, fatG: slotMacros.f })
+        return (
+          <div className="flex flex-wrap gap-1 mb-3 -mt-1.5">
+            <span className="text-[10px] font-medium text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded-full">P {slotServes.protein_serves}</span>
+            <span className="text-[10px] font-medium text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded-full">C {slotServes.carb_serves}</span>
+            <span className="text-[10px] font-medium text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded-full">F {slotServes.fat_serves}</span>
+          </div>
+        )
+      })()}
+
       {/* Per-meal targets */}
       {!showTargets ? (
         <button
@@ -770,6 +783,12 @@ export default function MealPlanEditor({
   const pushToClientsRef = useRef(true)
 
   const totals = computeMacros(plan.content)
+  // Same serve-size equation used everywhere else in the app (the recipe
+  // builder's "≈X protein serves" badges, and the onboarding auto-setup
+  // that computes a client's serve targets) — 30g protein / 20g carbs /
+  // 10g fat per serve, with a standard fruit+veg carb allowance reserved
+  // off the top before the remaining carbs convert to carb serves.
+  const totalServes = macrosToServes({ proteinG: totals.protein, carbG: totals.carbs, fatG: totals.fat })
 
   const scheduleSave = useCallback((updated: MealPlan) => {
     if (readOnly) return
@@ -1076,6 +1095,13 @@ export default function MealPlanEditor({
               </span>
             </div>
           )}
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap mt-2">
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Serves</span>
+          <span className="text-[11px] font-medium text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full">P {totalServes.protein_serves}</span>
+          <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">C {totalServes.carb_serves}</span>
+          <span className="text-[11px] font-medium text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full">F {totalServes.fat_serves}</span>
+          <span className="text-[11px] font-medium text-pink-700 bg-pink-50 px-2 py-0.5 rounded-full">Fruit {totalServes.fruit_serves}</span>
         </div>
       </div>
 

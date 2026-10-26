@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import LogMealModal, { formatServing } from '@/app/components/LogMealModal'
+import { macrosToServes } from '@/lib/autoAssignNutrition'
 
 const BarcodeScanner = dynamic(() => import('./BarcodeScanner'), { ssr: false })
 
@@ -860,6 +861,10 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
   const totalProtein = dailyTotals.p
   const totalCarbs = dailyTotals.c
   const totalFat = dailyTotals.f
+  // Same serve-size equation used everywhere else in the app (the recipe
+  // builder's serve badges, and the onboarding auto-setup that computes a
+  // client's serve targets) — 30g protein / 20g carbs / 10g fat per serve.
+  const dailyServes = macrosToServes({ proteinG: totalProtein, carbG: totalCarbs, fatG: totalFat })
 
   const swapFood =
     swapTarget != null
@@ -890,6 +895,13 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
               <span className="w-2 h-2 rounded-full bg-violet-400" />
               <span className="text-xs text-gray-600 font-medium">{Math.round(totalFat)}g fat</span>
             </div>
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap w-full">
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Serves</span>
+            <span className="text-[11px] font-medium text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full">P {dailyServes.protein_serves}</span>
+            <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">C {dailyServes.carb_serves}</span>
+            <span className="text-[11px] font-medium text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full">F {dailyServes.fat_serves}</span>
+            <span className="text-[11px] font-medium text-pink-700 bg-pink-50 px-2 py-0.5 rounded-full">Fruit {dailyServes.fruit_serves}</span>
           </div>
         </div>
       )}
@@ -943,14 +955,21 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
                 )}
               </div>
             </div>
-            {showMacros && hasAnyMacro && (
-              <div className="px-4 py-2 bg-gray-50/60 border-b border-gray-100 flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Target</span>
-                <span className="text-[11px] text-rose-500 font-medium">P {Math.round(targetP)}g</span>
-                <span className="text-[11px] text-indigo-500 font-medium">C {Math.round(targetC)}g</span>
-                <span className="text-[11px] text-violet-500 font-medium">F {Math.round(targetF)}g</span>
-              </div>
-            )}
+            {showMacros && hasAnyMacro && (() => {
+              const slotServes = macrosToServes({ proteinG: targetP, carbG: targetC, fatG: targetF })
+              return (
+                <div className="px-4 py-2 bg-gray-50/60 border-b border-gray-100 flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Target</span>
+                  <span className="text-[11px] text-rose-500 font-medium">P {Math.round(targetP)}g</span>
+                  <span className="text-[11px] text-indigo-500 font-medium">C {Math.round(targetC)}g</span>
+                  <span className="text-[11px] text-violet-500 font-medium">F {Math.round(targetF)}g</span>
+                  <span className="text-gray-200">·</span>
+                  <span className="text-[11px] font-medium text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded-full">P {slotServes.protein_serves} serves</span>
+                  <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded-full">C {slotServes.carb_serves} serves</span>
+                  <span className="text-[11px] font-medium text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded-full">F {slotServes.fat_serves} serves</span>
+                </div>
+              )
+            })()}
             <div className="px-4 py-1">
               {slot.foods.length === 0 ? (
                 <p className="text-xs text-gray-300 italic py-3">No foods in this meal</p>
