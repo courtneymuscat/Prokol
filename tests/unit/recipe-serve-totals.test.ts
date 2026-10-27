@@ -27,10 +27,9 @@ describe('aggregateServeTotals', () => {
     expect(totals.protein).toBeCloseTo(1.5)
     expect(totals.carb).toBeCloseTo(2.5)
     expect(totals.fat).toBeNull()
-    expect(totals.fruit).toBeNull()
   })
 
-  it('keeps fruit as its own bucket, separate from carb, even though both derive from carb grams', () => {
+  it('folds fruit into the same carb bucket, since a fruit serve is just 20g carbs like any other carb source', () => {
     const totals = aggregateServeTotals(
       [
         { food_name: 'Rice', protein: 0, carbs: 20, fat: 0 },
@@ -38,8 +37,7 @@ describe('aggregateServeTotals', () => {
       ],
       serveMap,
     )
-    expect(totals.carb).toBeCloseTo(1)
-    expect(totals.fruit).toBeCloseTo(1)
+    expect(totals.carb).toBeCloseTo(2)
   })
 
   it('ignores ingredients with no cheat-sheet match and veg/free categories', () => {
@@ -50,10 +48,10 @@ describe('aggregateServeTotals', () => {
       ],
       serveMap,
     )
-    expect(totals).toEqual({ protein: null, carb: null, fat: null, fruit: null })
+    expect(totals).toEqual({ protein: null, carb: null, fat: null })
   })
 
   it('returns all nulls for an empty ingredient list', () => {
-    expect(aggregateServeTotals([], serveMap)).toEqual({ protein: null, carb: null, fat: null, fruit: null })
+    expect(aggregateServeTotals([], serveMap)).toEqual({ protein: null, carb: null, fat: null })
   })
 })

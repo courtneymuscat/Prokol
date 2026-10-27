@@ -861,8 +861,8 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
   const totalProtein = dailyTotals.p
   const totalCarbs = dailyTotals.c
   const totalFat = dailyTotals.f
-  // Deliberately mealMacrosToServes (no fruit/veg reservation), same as
-  // every individual meal below — so this total is just the sum of the
+  // Deliberately mealMacrosToServes (no veg reservation), same as every
+  // individual meal below — so this total is just the sum of the
   // per-meal numbers and the two always reconcile.
   const dailyServes = mealMacrosToServes({ proteinG: totalProtein, carbG: totalCarbs, fatG: totalFat })
 

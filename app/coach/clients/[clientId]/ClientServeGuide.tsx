@@ -14,13 +14,17 @@ type ServeFood = {
 }
 type ServeTargets = {
   protein_serves: number; carb_serves: number; fat_serves: number
-  fruit_serves: number; veg_unlimited: boolean; notes: string | null
+  veg_unlimited: boolean; notes: string | null
 } | null
 
+// 'fruit' foods are tagged 'carb' now — a fruit serve is just 20g carbs,
+// same unit as any other carb source, so it's folded into the Carbs
+// category rather than tracked as its own bucket. If a client should get
+// some of their carb serves specifically from fruit, that's a line in the
+// notes below, not a separate target.
 const CAT_CONFIG: Record<string, { label: string; serve: string; badge: string; color: string }> = {
   protein:   { label: 'Protein',      serve: '1 serve ≈ 30g protein',  badge: 'bg-pink-100 text-pink-700',    color: 'bg-pink-50' },
-  carb:      { label: 'Carbs',        serve: '1 serve ≈ 20g carbs',    badge: 'bg-teal-100 text-teal-700',color: 'bg-teal-50' },
-  fruit:     { label: 'Fruit',        serve: '1 serve ≈ 20g carbs',    badge: 'bg-orange-100 text-orange-700',color: 'bg-orange-50' },
+  carb:      { label: 'Carbs',        serve: '1 serve ≈ 20g carbs (includes fruit)', badge: 'bg-teal-100 text-teal-700',color: 'bg-teal-50' },
   fat:       { label: 'Fats',         serve: '1 serve ≈ 10g fat',      badge: 'bg-green-100 text-green-700',  color: 'bg-green-50' },
   condiment: { label: 'Condiments',   serve: '~1 fat or carb serve',   badge: 'bg-blue-100 text-blue-700',    color: 'bg-blue-50' },
   free:      { label: 'Free Foods',   serve: 'Unlimited',              badge: 'bg-gray-100 text-gray-600',    color: 'bg-gray-50' },
@@ -33,22 +37,20 @@ const SEC_COLORS: Record<string, string> = { fat: 'bg-green-100 text-green-700',
 // drift apart.
 const SERVE_BUDGET = {
   protein: { kcal: 135, primaryG: 30, primaryMacro: 'P' as const, extras: '+ ~3g fat typical in lean meat/eggs' },
-  carb:    { kcal:  90, primaryG: 20, primaryMacro: 'C' as const, extras: '+ ~3g protein typical in grains/legumes' },
+  carb:    { kcal:  90, primaryG: 20, primaryMacro: 'C' as const, extras: '+ ~3g protein typical in grains/legumes (includes fruit — same 20g carb unit)' },
   fat:     { kcal:  95, primaryG: 10, primaryMacro: 'F' as const, extras: '+ small protein/carbs in nuts/seeds' },
-  fruit:   { kcal:  80, primaryG: 20, primaryMacro: 'C' as const, extras: 'minimal other macros' },
 }
 const VEG_KCAL = 150
 
 function ServeMathBreakdown({
-  protein_serves, carb_serves, fat_serves, fruit_serves, veg_unlimited,
+  protein_serves, carb_serves, fat_serves, veg_unlimited,
 }: {
-  protein_serves: number; carb_serves: number; fat_serves: number; fruit_serves: number; veg_unlimited: boolean
+  protein_serves: number; carb_serves: number; fat_serves: number; veg_unlimited: boolean
 }) {
   const lines = [
     { label: 'Protein', serves: protein_serves, ...SERVE_BUDGET.protein },
     { label: 'Carbs',   serves: carb_serves,    ...SERVE_BUDGET.carb },
     { label: 'Fats',    serves: fat_serves,     ...SERVE_BUDGET.fat },
-    { label: 'Fruit',   serves: fruit_serves,   ...SERVE_BUDGET.fruit },
   ]
   const totalKcal = lines.reduce((s, l) => s + l.serves * l.kcal, 0) + (veg_unlimited ? VEG_KCAL : 0)
   return (
@@ -115,7 +117,7 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState<'simple' | 'detailed'>('simple')
   const [editingTargets, setEditingTargets] = useState(false)
-  const [draft, setDraft] = useState({ protein_serves: 0, carb_serves: 0, fat_serves: 0, fruit_serves: 0, veg_unlimited: true, notes: '' })
+  const [draft, setDraft] = useState({ protein_serves: 0, carb_serves: 0, fat_serves: 0, veg_unlimited: true, notes: '' })
   const [savingTargets, setSavingTargets] = useState(false)
   const [removingTargets, setRemovingTargets] = useState(false)
   const [autoAssign, setAutoAssign] = useState(false)
@@ -221,12 +223,11 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
                 <p className="text-xs text-teal-700">Serves auto-calculated from TDEE — adjust if needed, then save.</p>
               </div>
             )}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               {([
                 { key: 'protein_serves', label: 'Protein', color: 'text-pink-600' },
                 { key: 'carb_serves', label: 'Carbs', color: 'text-teal-600' },
                 { key: 'fat_serves', label: 'Fats', color: 'text-green-600' },
-                { key: 'fruit_serves', label: 'Fruit', color: 'text-orange-500' },
               ] as const).map(({ key, label, color }) => (
                 <div key={key}>
                   <label className={`text-xs font-medium block mb-1 ${color}`}>{label} serves</label>
@@ -236,6 +237,9 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
                 </div>
               ))}
             </div>
+            <p className="text-[11px] text-gray-400 -mt-2">
+              Carbs includes fruit — 1 fruit serve is just 20g carbs, same as any other carb source. If this client should get some carb serves specifically from fruit, say so in the notes below (e.g. &quot;aim for 2 of your carb serves to come from fruit&quot;).
+            </p>
             {/* Estimated daily calories + macros */}
             {(draft.protein_serves > 0 || draft.carb_serves > 0 || draft.fat_serves > 0) && (() => {
               const vegCal = draft.veg_unlimited ? VEG_KCAL : 0
@@ -243,11 +247,10 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
                 draft.protein_serves * SERVE_BUDGET.protein.kcal +
                 draft.carb_serves    * SERVE_BUDGET.carb.kcal +
                 draft.fat_serves     * SERVE_BUDGET.fat.kcal +
-                draft.fruit_serves   * SERVE_BUDGET.fruit.kcal +
                 vegCal
               )
               const estP = Math.round(draft.protein_serves * SERVE_BUDGET.protein.primaryG)
-              const estC = Math.round(draft.carb_serves * SERVE_BUDGET.carb.primaryG + draft.fruit_serves * SERVE_BUDGET.fruit.primaryG)
+              const estC = Math.round(draft.carb_serves * SERVE_BUDGET.carb.primaryG)
               const estF = Math.round(draft.fat_serves * SERVE_BUDGET.fat.primaryG)
               return (
                 <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 space-y-1.5">
@@ -266,7 +269,6 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
                     protein_serves={draft.protein_serves}
                     carb_serves={draft.carb_serves}
                     fat_serves={draft.fat_serves}
-                    fruit_serves={draft.fruit_serves}
                     veg_unlimited={draft.veg_unlimited}
                   />
                 </div>
@@ -275,7 +277,7 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
             <div>
               <label className="text-xs text-gray-500 block mb-1">Notes for client</label>
               <textarea rows={2} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={draft.notes} onChange={e => setDraft(d => ({ ...d, notes: e.target.value }))} placeholder="e.g. Choose 2 protein serves at dinner, 1 at lunch…" />
+                value={draft.notes} onChange={e => setDraft(d => ({ ...d, notes: e.target.value }))} placeholder="e.g. Choose 2 protein serves at dinner, 1 at lunch. Aim for 2 of your carb serves to come from fruit…" />
             </div>
             <div className="flex justify-end">
               <button onClick={saveTargets} disabled={savingTargets} className="text-sm font-medium bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors">
@@ -290,7 +292,6 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
                 { label: 'Protein', value: targets.protein_serves, color: 'bg-pink-50 text-pink-700 border-pink-100' },
                 { label: 'Carbs', value: targets.carb_serves, color: 'bg-teal-50 text-teal-700 border-teal-100' },
                 { label: 'Fats', value: targets.fat_serves, color: 'bg-green-50 text-green-700 border-green-100' },
-                { label: 'Fruit', value: targets.fruit_serves, color: 'bg-orange-50 text-orange-700 border-orange-100' },
                 { label: 'Veg', value: targets.veg_unlimited ? '∞' : '—', color: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
               ].map(s => (
                 <div key={s.label} className={`border rounded-xl px-4 py-2.5 text-center min-w-[80px] ${s.color}`}>
@@ -304,16 +305,14 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
                 targets.protein_serves * SERVE_BUDGET.protein.kcal +
                 targets.carb_serves    * SERVE_BUDGET.carb.kcal +
                 targets.fat_serves     * SERVE_BUDGET.fat.kcal +
-                targets.fruit_serves   * SERVE_BUDGET.fruit.kcal +
                 (targets.veg_unlimited ? VEG_KCAL : 0)
-              )} kcal/day estimated (real-food total incl. mixed macros + ~{VEG_KCAL} kcal veg) · Veg is unlimited and already included in this estimate.
+              )} kcal/day estimated (real-food total incl. mixed macros + ~{VEG_KCAL} kcal veg) · Veg is unlimited and already included in this estimate. Carbs includes fruit.
             </p>
             <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
               <ServeMathBreakdown
                 protein_serves={targets.protein_serves}
                 carb_serves={targets.carb_serves}
                 fat_serves={targets.fat_serves}
-                fruit_serves={targets.fruit_serves}
                 veg_unlimited={targets.veg_unlimited}
               />
             </div>

@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   if (!coachId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { client_id, protein_serves, carb_serves, fat_serves, fruit_serves, veg_unlimited, notes } = body
+  const { client_id, protein_serves, carb_serves, fat_serves, veg_unlimited, notes } = body
 
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -39,7 +39,10 @@ export async function POST(req: Request) {
       protein_serves: protein_serves ?? 0,
       carb_serves: carb_serves ?? 0,
       fat_serves: fat_serves ?? 0,
-      fruit_serves: fruit_serves ?? 0,
+      // fruit_serves is deprecated (fruit is just carbs now, 20g = 1 serve
+      // same as any other carb source) — always zeroed going forward so
+      // it can't silently drift from carb_serves again.
+      fruit_serves: 0,
       veg_unlimited: veg_unlimited ?? true,
       notes: notes ?? null,
       updated_at: new Date().toISOString(),

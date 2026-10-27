@@ -9,7 +9,7 @@ export async function GET() {
 
   const { data } = await supabase
     .from('client_serve_targets')
-    .select('protein_serves, carb_serves, fat_serves, fruit_serves, veg_unlimited, notes')
+    .select('protein_serves, carb_serves, fat_serves, veg_unlimited, notes')
     .eq('client_id', session.user.id)
     .single()
 

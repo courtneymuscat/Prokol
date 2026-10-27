@@ -111,7 +111,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     // Serve targets — Food Cheat Sheet visible to client
     admin
       .from('client_serve_targets')
-      .select('protein_serves, carb_serves, fat_serves, fruit_serves, veg_unlimited')
+      .select('protein_serves, carb_serves, fat_serves, veg_unlimited')
       .eq('client_id', clientId)
       .maybeSingle(),
   ])

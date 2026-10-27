@@ -21,15 +21,13 @@ type ServeTargets = {
   protein_serves: number | null
   carb_serves: number | null
   fat_serves: number | null
-  fruit_serves: number | null
   veg_unlimited: boolean | null
   notes: string | null
 } | null
 
 const CATEGORIES = [
   { id: 'protein',   label: 'Protein',     serve: '1 serve = ~30g protein' },
-  { id: 'carb',      label: 'Carbs',       serve: '1 serve = ~20g carbs' },
-  { id: 'fruit',     label: 'Fruit',       serve: '1 serve = ~20g carbs' },
+  { id: 'carb',      label: 'Carbs',       serve: '1 serve = ~20g carbs (incl. fruit)' },
   { id: 'fat',       label: 'Fats',        serve: '1 serve = ~10g fat' },
   { id: 'condiment', label: 'Condiments',  serve: '~1 fat or carb serve' },
   { id: 'veg',       label: 'Vegetables',  serve: 'Unlimited / free' },
@@ -113,7 +111,6 @@ export default function PrintClientCheatSheet({
     (targets.protein_serves ?? 0) > 0 ||
     (targets.carb_serves ?? 0) > 0 ||
     (targets.fat_serves ?? 0) > 0 ||
-    (targets.fruit_serves ?? 0) > 0 ||
     targets.veg_unlimited ||
     !!targets.notes
   )
@@ -190,7 +187,7 @@ export default function PrintClientCheatSheet({
           {loaded && hasTargets && targets && (
             <div className="targets-block mt-5 mb-5 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4">
               <p className="text-xs uppercase tracking-wider text-blue-700 font-semibold mb-3">Your daily serve targets</p>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-pink-600 font-semibold">Protein</p>
                   <p className="text-xl font-bold text-gray-900">{fmtServes(targets.protein_serves)}</p>
@@ -199,16 +196,11 @@ export default function PrintClientCheatSheet({
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-teal-600 font-semibold">Carbs</p>
                   <p className="text-xl font-bold text-gray-900">{fmtServes(targets.carb_serves)}</p>
-                  <p className="text-[10px] text-gray-500">serves / day</p>
+                  <p className="text-[10px] text-gray-500">serves / day (incl. fruit)</p>
                 </div>
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-green-600 font-semibold">Fats</p>
                   <p className="text-xl font-bold text-gray-900">{fmtServes(targets.fat_serves)}</p>
-                  <p className="text-[10px] text-gray-500">serves / day</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-wider text-orange-500 font-semibold">Fruit</p>
-                  <p className="text-xl font-bold text-gray-900">{fmtServes(targets.fruit_serves)}</p>
                   <p className="text-[10px] text-gray-500">serves / day</p>
                 </div>
                 <div>

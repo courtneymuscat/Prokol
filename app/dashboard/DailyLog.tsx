@@ -483,7 +483,8 @@ export default function DailyLog({
     if (!foodName) return null
     const tag = foodServeMap[foodName.toLowerCase()]
     if (tag) return tag.category
-    if (isFruitByName(foodName)) return 'fruit'
+    // Fruit is just carbs (20g = 1 serve, same as any other carb source).
+    if (isFruitByName(foodName)) return 'carb'
     return null
   }
 
@@ -710,7 +711,6 @@ export default function DailyLog({
         const rows = [
           { label: 'Protein', used: serveUsed.protein, target: serveTargets.protein_serves, bar: 'bg-rose-400',  text: 'text-rose-500'  },
           { label: 'Carbs',   used: serveUsed.carb,    target: serveTargets.carb_serves,    bar: 'bg-teal-400',  text: 'text-teal-600'  },
-          { label: 'Fruit',   used: serveUsed.fruit,   target: serveTargets.fruit_serves,   bar: 'bg-orange-400', text: 'text-orange-500' },
           { label: 'Fat',     used: serveUsed.fat,     target: serveTargets.fat_serves,     bar: 'bg-green-400', text: 'text-green-600' },
         ].filter(r => r.target > 0)
         if (rows.length === 0) return null
@@ -997,7 +997,6 @@ export default function DailyLog({
                           const CAT_HEX: Record<string, string> = {
                             protein: '#f43f5e', // rose-500  — matches text-rose-500 badge
                             carb:    '#0d9488', // teal-600  — matches text-teal-600 badge
-                            fruit:   '#f97316', // orange-500 — matches text-orange-500 badge
                             fat:     '#16a34a', // green-600 — matches text-green-600 badge
                           }
                           const SEC_HEX: Record<string, string> = {
@@ -1068,7 +1067,6 @@ export default function DailyLog({
                                   const badges: { label: string; color: string }[] = []
                                   if (s.protein > 0) badges.push({ label: `${fmtServe(s.protein)}P`, color: 'bg-rose-50 text-rose-500 border-rose-100' })
                                   if (s.carb > 0)    badges.push({ label: `${fmtServe(s.carb)}C`,    color: 'bg-teal-50 text-teal-600 border-teal-100' })
-                                  if (s.fruit > 0)   badges.push({ label: `${fmtServe(s.fruit)} fruit`, color: 'bg-orange-50 text-orange-500 border-orange-100' })
                                   if (s.fat > 0)     badges.push({ label: `${fmtServe(s.fat)}F`,    color: 'bg-green-50 text-green-600 border-green-100' })
                                   if (badges.length === 0) return null
                                   return (

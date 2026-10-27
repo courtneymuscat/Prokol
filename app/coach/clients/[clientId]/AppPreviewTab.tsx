@@ -24,7 +24,6 @@ type PreviewData = {
     protein_serves: number
     carb_serves: number
     fat_serves: number
-    fruit_serves: number
     veg_unlimited: boolean
   } | null
 }
@@ -567,7 +566,6 @@ export default function AppPreviewTab({
                     {serve_targets.protein_serves > 0 && <span className="text-[9px] bg-pink-50 text-pink-600 px-1.5 py-0.5 rounded-full">P ×{serve_targets.protein_serves}</span>}
                     {serve_targets.carb_serves > 0 && <span className="text-[9px] bg-teal-50 text-teal-600 px-1.5 py-0.5 rounded-full">C ×{serve_targets.carb_serves}</span>}
                     {serve_targets.fat_serves > 0 && <span className="text-[9px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full">F ×{serve_targets.fat_serves}</span>}
-                    {serve_targets.fruit_serves > 0 && <span className="text-[9px] bg-orange-50 text-orange-600 px-1.5 py-0.5 rounded-full">Fruit ×{serve_targets.fruit_serves}</span>}
                     {serve_targets.veg_unlimited && <span className="text-[9px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded-full">Veg ∞</span>}
                   </div>
                 </div>
@@ -820,7 +818,6 @@ export default function AppPreviewTab({
                     {serve_targets.protein_serves > 0 && <span className="text-[10px] bg-pink-100 text-pink-700 font-semibold px-2 py-0.5 rounded-full">Protein × {serve_targets.protein_serves}</span>}
                     {serve_targets.carb_serves > 0 && <span className="text-[10px] bg-teal-100 text-teal-700 font-semibold px-2 py-0.5 rounded-full">Carbs × {serve_targets.carb_serves}</span>}
                     {serve_targets.fat_serves > 0 && <span className="text-[10px] bg-blue-100 text-blue-700 font-semibold px-2 py-0.5 rounded-full">Fats × {serve_targets.fat_serves}</span>}
-                    {serve_targets.fruit_serves > 0 && <span className="text-[10px] bg-orange-100 text-orange-700 font-semibold px-2 py-0.5 rounded-full">Fruit × {serve_targets.fruit_serves}</span>}
                     {serve_targets.veg_unlimited && <span className="text-[10px] bg-green-100 text-green-700 font-semibold px-2 py-0.5 rounded-full">Veg unlimited</span>}
                   </div>
                 </div>

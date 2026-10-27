@@ -247,19 +247,16 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
           </div>
         </div>
 
-        {(serveTotals.protein != null || serveTotals.carb != null || serveTotals.fat != null || serveTotals.fruit != null) && (
+        {(serveTotals.protein != null || serveTotals.carb != null || serveTotals.fat != null) && (
           <div className="flex flex-wrap gap-1.5 -mt-2">
             {serveTotals.protein != null && (
               <span className="text-[11px] font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">≈{serveTotals.protein.toFixed(1)} protein serves</span>
             )}
             {serveTotals.carb != null && (
-              <span className="text-[11px] font-medium text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full">≈{serveTotals.carb.toFixed(1)} carb serves</span>
+              <span className="text-[11px] font-medium text-orange-700 bg-orange-50 px-2 py-0.5 rounded-full">≈{serveTotals.carb.toFixed(1)} carb serves (incl. fruit)</span>
             )}
             {serveTotals.fat != null && (
               <span className="text-[11px] font-medium text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded-full">≈{serveTotals.fat.toFixed(1)} fat serves</span>
-            )}
-            {serveTotals.fruit != null && (
-              <span className="text-[11px] font-medium text-pink-700 bg-pink-50 px-2 py-0.5 rounded-full">≈{serveTotals.fruit.toFixed(1)} fruit serves</span>
             )}
           </div>
         )}

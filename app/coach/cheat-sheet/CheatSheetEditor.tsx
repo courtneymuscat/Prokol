@@ -38,10 +38,11 @@ type SearchResult = {
   unit?: string
 }
 
+// Fruit used to be its own category here but is tagged 'carb' now — a
+// fruit serve is just 20g carbs, the same unit as any other carb source.
 const CATEGORIES = [
   { id: 'protein',   label: 'Protein',     serve: '1 serve = ~30g protein',  color: 'bg-pink-50 border-pink-200',     badge: 'bg-pink-100 text-pink-700',     dot: 'bg-pink-400' },
-  { id: 'carb',      label: 'Carbs',       serve: '1 serve = ~20g carbs',    color: 'bg-teal-50 border-teal-200', badge: 'bg-teal-100 text-teal-700', dot: 'bg-teal-400' },
-  { id: 'fruit',     label: 'Fruit',       serve: '1 serve = ~20g carbs',    color: 'bg-orange-50 border-orange-200', badge: 'bg-orange-100 text-orange-700', dot: 'bg-orange-400' },
+  { id: 'carb',      label: 'Carbs',       serve: '1 serve = ~20g carbs (incl. fruit)', color: 'bg-teal-50 border-teal-200', badge: 'bg-teal-100 text-teal-700', dot: 'bg-teal-400' },
   { id: 'fat',       label: 'Fats',        serve: '1 serve = ~10g fat',      color: 'bg-green-50 border-green-200',   badge: 'bg-green-100 text-green-700',   dot: 'bg-green-400' },
   { id: 'condiment', label: 'Condiments',  serve: '~1 fat or carb serve',    color: 'bg-blue-50 border-blue-200',     badge: 'bg-blue-100 text-blue-700',     dot: 'bg-blue-400' },
   { id: 'veg',       label: 'Vegetables',  serve: 'Unlimited / free',        color: 'bg-emerald-50 border-emerald-200', badge: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-400' },
@@ -377,7 +378,7 @@ export default function CheatSheetEditor() {
         <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
           <li>Search any food and tag it with a serve category — this builds your cheat sheet</li>
           <li>When clients log that food, the system automatically shows their serve count</li>
-          <li>Tag foods as <strong>Fruit</strong> so fruit carbs count separately from starchy carbs</li>
+          <li>Tag fruit as <strong>Carbs</strong> too — a fruit serve is just 20g carbs, same as any starchy carb</li>
           <li>Add "also uses" for dual-serve foods (e.g. salmon = protein + fat)</li>
         </ul>
         <div className="flex flex-wrap gap-2 pt-1">

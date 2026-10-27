@@ -523,7 +523,7 @@ function MealSlotCard({
         </div>
       </div>
 
-      {/* Serves — per-meal, so no fruit/veg carb reservation (that's a whole-day concept, see mealMacrosToServes) */}
+      {/* Serves — per-meal, so no veg carb reservation (that's a whole-day concept, see mealMacrosToServes) */}
       {slot.foods.length > 0 && (() => {
         const slotServes = mealMacrosToServes({ proteinG: slotMacros.p, carbG: slotMacros.c, fatG: slotMacros.f })
         return (
@@ -783,12 +783,12 @@ export default function MealPlanEditor({
   const pushToClientsRef = useRef(true)
 
   const totals = computeMacros(plan.content)
-  // Deliberately mealMacrosToServes (no fruit/veg reservation), same as
-  // every individual meal below — so this total is just the sum of the
-  // per-meal numbers and the two always reconcile. macrosToServes (which
-  // DOES reserve a flat fruit/veg carb allowance) is a whole-day-target
-  // formula for a different context (onboarding) — mixing it in here
-  // made the total disagree with its own meals for no visible reason.
+  // Deliberately mealMacrosToServes (no veg reservation), same as every
+  // individual meal below — so this total is just the sum of the per-meal
+  // numbers and the two always reconcile. macrosToServes (which DOES
+  // reserve a flat veg carb allowance) is a whole-day-target formula for
+  // a different context (onboarding) — mixing it in here made the total
+  // disagree with its own meals for no visible reason.
   const totalServes = mealMacrosToServes({ proteinG: totals.protein, carbG: totals.carbs, fatG: totals.fat })
 
   const scheduleSave = useCallback((updated: MealPlan) => {

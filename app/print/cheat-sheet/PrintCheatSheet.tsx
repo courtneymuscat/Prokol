@@ -19,8 +19,7 @@ type TaggedFood = {
 
 const CATEGORIES = [
   { id: 'protein',   label: 'Protein',     serve: '1 serve = ~30g protein' },
-  { id: 'carb',      label: 'Carbs',       serve: '1 serve = ~20g carbs' },
-  { id: 'fruit',     label: 'Fruit',       serve: '1 serve = ~20g carbs' },
+  { id: 'carb',      label: 'Carbs',       serve: '1 serve = ~20g carbs (incl. fruit)' },
   { id: 'fat',       label: 'Fats',        serve: '1 serve = ~10g fat' },
   { id: 'condiment', label: 'Condiments',  serve: '~1 fat or carb serve' },
   { id: 'veg',       label: 'Vegetables',  serve: 'Unlimited / free' },

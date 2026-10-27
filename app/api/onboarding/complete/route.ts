@@ -38,7 +38,6 @@ async function autoSetupForSignupLinkClient(
       protein_serves: serves.protein_serves,
       carb_serves: serves.carb_serves,
       fat_serves: serves.fat_serves,
-      fruit_serves: serves.fruit_serves,
       veg_unlimited: serves.veg_unlimited,
     })
   }

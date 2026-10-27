@@ -443,7 +443,7 @@ export default function LandingPage({
               'Client-visible notes and hidden coach-only notes kept separate',
               'Clone templates across different clients in one click',
               'Save a client\'s edited plan back as a new template',
-              'Built-in food cheat sheet — set visual serve targets per client (protein, carbs, fat, fruit)',
+              'Built-in food cheat sheet — set visual serve targets per client (protein, carbs, fat)',
               'Household measures included for every food (cups, tbsp, palms) — no scales needed',
               'Add a note and product URL to any meal item — clients know exactly what you are referring to',
               'Barcode scanner built in — scan or upload a photo of any product to get the most accurate nutritional data',

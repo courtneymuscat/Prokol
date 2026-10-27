@@ -23,22 +23,25 @@ const roundHalf = (n: number) => Math.round(n * 2) / 2
 // pulling a 'use client' component into an API route.
 //
 // This is a WHOLE-DAY formula specifically — it reserves carb budget for
-// 2 fruit serves + ~veg before converting whatever's left into carb
-// serves. That reservation only makes sense once, against a full day's
-// target. Do not reuse this for a single meal/recipe — see
-// mealMacrosToServes below for that case; applying the daily reservation
-// per-meal was a real bug (every meal under ~78g carbs showed 0 carb
-// serves, because the reservation alone exceeds most single meals).
+// ~veg before converting whatever's left into carb serves. That
+// reservation only makes sense once, against a full day's target. Do not
+// reuse this for a single meal/recipe — see mealMacrosToServes below for
+// that case; applying the daily reservation per-meal was a real bug
+// (every meal under ~38g carbs showed 0 carb serves).
+//
+// Fruit used to be reserved out as its own fixed 2-serve allowance before
+// this — removed since fruit is just carbs (20g = 1 serve, same as any
+// other carb source) and tracking it separately never changed the
+// macros, just added a number. Carb serves now include fruit-derived
+// carbs directly.
 export function macrosToServes(macros: { proteinG: number; carbG: number; fatG: number }) {
-  const fruit_serves = 2
-  // Reserve carb budget for fruit (2 × 20g) and veg (~150 kcal ÷ 4 kcal/g ≈ 38g carbs)
+  // Reserve carb budget for veg (~150 kcal ÷ 4 kcal/g ≈ 38g carbs)
   const vegCarbG = Math.round(150 / 4)
-  const remainingCarbG = Math.max(0, macros.carbG - fruit_serves * 20 - vegCarbG)
+  const remainingCarbG = Math.max(0, macros.carbG - vegCarbG)
   return {
     protein_serves: roundHalf(macros.proteinG / 30),
     carb_serves: roundHalf(remainingCarbG / 20),
     fat_serves: roundHalf(macros.fatG / 10),
-    fruit_serves,
     veg_unlimited: true,
   }
 }

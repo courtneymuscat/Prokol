@@ -2,12 +2,18 @@
 // 1 protein serve = 30g protein  (half serve threshold: 15g)
 // 1 carb serve    = 20g carbs    (half serve threshold: 10g)
 // 1 fat serve     = 10g fat      (half serve threshold: 5g)
-// 1 fruit serve   = 20g carbs    (same as carb — category determines bucket)
+//
+// Fruit used to be tracked as its own bucket, but it's measured in the
+// same unit as carbs (20g = 1 serve) and was already summing into the
+// same macro total — it added a 4th number without changing what's
+// actually being counted. Fruit foods are tagged 'carb' now; if a coach
+// wants a client to get some of their carb serves from fruit
+// specifically, that's a line in the free-text notes, not a separate
+// target.
 
 export type Serves = {
   protein: number
   carb: number
-  fruit: number
   fat: number
 }
 
@@ -15,7 +21,6 @@ export type ServeTargets = {
   protein_serves: number
   carb_serves: number
   fat_serves: number
-  fruit_serves: number
   veg_unlimited: boolean
   notes: string | null
 }
@@ -52,13 +57,17 @@ export function calcServes(
   perServe?: { protein?: number | null; carbs?: number | null; fat?: number | null } | null,
 ): Serves {
   // Explicitly not a cheat-sheet food — don't count any serves
-  if (category === null) return { protein: 0, carb: 0, fruit: 0, fat: 0 }
+  if (category === null) return { protein: 0, carb: 0, fat: 0 }
 
-  const isFruit = category === 'fruit'
+  // 'fruit' is a defensive alias for 'carb' — foods are tagged 'carb' going
+  // forward, but this keeps any not-yet-migrated tag working identically
+  // rather than silently dropping those serves.
+  const normalisedCategory = category === 'fruit' ? 'carb' : category
+  const normalisedSecondary = (secondary ?? []).map((s) => (s === 'fruit' ? 'carb' : s))
   const carbVal = toHalfServes(carbs_g, 20, 10)
 
-  if (category && !['veg', 'free', 'condiment'].includes(category)) {
-    const sec = new Set(secondary ?? [])
+  if (normalisedCategory && !['veg', 'free', 'condiment'].includes(normalisedCategory)) {
+    const sec = new Set(normalisedSecondary)
 
     // Use exact per-serve division when cheat sheet values are available
     const proteinServes = perServe?.protein
@@ -73,18 +82,17 @@ export function calcServes(
 
     return {
       protein:
-        category === 'protein' || sec.has('protein')
+        normalisedCategory === 'protein' || sec.has('protein')
           ? proteinServes
           : sec.has('protein_half')
           ? Math.min(proteinServes, 0.5)
           : 0,
       carb:
-        !isFruit && (category === 'carb' || sec.has('carb') || sec.has('carb_half'))
+        normalisedCategory === 'carb' || sec.has('carb') || sec.has('carb_half')
           ? carbServes
           : 0,
-      fruit: isFruit ? carbServes : 0,
       fat:
-        category === 'fat' || sec.has('fat') || sec.has('fat_half')
+        normalisedCategory === 'fat' || sec.has('fat') || sec.has('fat_half')
           ? fatServes
           : 0,
     }
@@ -93,8 +101,7 @@ export function calcServes(
   // Default: count all macros (untagged food from regular food logger)
   return {
     protein: toHalfServes(protein_g, 30, 15),
-    carb: isFruit ? 0 : carbVal,
-    fruit: isFruit ? carbVal : 0,
+    carb: carbVal,
     fat: toHalfServes(fat_g, 10, 5),
   }
 }
@@ -118,11 +125,10 @@ export function sumServes(
       return {
         protein: acc.protein + s.protein,
         carb: acc.carb + s.carb,
-        fruit: acc.fruit + s.fruit,
         fat: acc.fat + s.fat,
       }
     },
-    { protein: 0, carb: 0, fruit: 0, fat: 0 }
+    { protein: 0, carb: 0, fat: 0 }
   )
 }
 

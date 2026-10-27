@@ -20,7 +20,7 @@ type CheatFood = {
 
 type ServeTargets = {
   protein_serves: number; carb_serves: number; fat_serves: number
-  fruit_serves: number; veg_unlimited: boolean; notes: string | null
+  veg_unlimited: boolean; notes: string | null
 } | null
 
 const MEAL_KEYS = ['breakfast', 'lunch', 'dinner', 'snacks'] as const
@@ -41,7 +41,6 @@ function serveBadge(cat: string, sub: string | null) {
   if (cat === 'protein') return { label: '1P', color: 'bg-pink-100 text-pink-700' }
   if (cat === 'carb') return { label: '1C', color: 'bg-teal-100 text-teal-700' }
   if (cat === 'fat') return { label: '1F', color: 'bg-green-100 text-green-700' }
-  if (cat === 'fruit') return { label: '1 fruit', color: 'bg-orange-100 text-orange-700' }
   return null
 }
 
@@ -57,11 +56,13 @@ function secondaryBadge(sec: string) {
 
 type CategoryGroup = { id: string; label: string; color: string; dot: string }
 
+// Fruit is tagged 'carb' now — a fruit serve is just 20g carbs, same unit
+// as any other carb source, so fruit foods show under Carbs rather than
+// their own group.
 const CATEGORY_GROUPS: CategoryGroup[] = [
   { id: 'protein',    label: 'Protein',     color: 'bg-pink-50 text-pink-700',   dot: 'bg-pink-400' },
   { id: 'carb',       label: 'Carbs',       color: 'bg-teal-50 text-teal-700', dot: 'bg-teal-400' },
   { id: 'fat',        label: 'Fats',        color: 'bg-green-50 text-green-700', dot: 'bg-green-400' },
-  { id: 'fruit',      label: 'Fruit',       color: 'bg-orange-50 text-orange-700', dot: 'bg-orange-400' },
   { id: 'condiment',  label: 'Condiments',  color: 'bg-teal-50 text-teal-600', dot: 'bg-teal-300' },
   { id: 'free',       label: 'Free Foods',  color: 'bg-gray-50 text-gray-600',   dot: 'bg-gray-300' },
 ]
@@ -75,17 +76,12 @@ const PALM_GUIDE: Record<string, { icon: string; headline: string; body: string 
   carb: {
     icon: '✊',
     headline: 'No scales? Use your fist',
-    body: '1 carb serve ≈ 1 fist of cooked grains or starchy veg. For bread and cereals, use the listed serve size.',
+    body: '1 carb serve ≈ 1 fist of cooked grains or starchy veg. For bread and cereals, use the listed serve size. Fruit counts here too — 1 fist-sized piece of whole fruit, or ~1 cup of berries, ≈ 1 serve.',
   },
   fat: {
     icon: '👍',
     headline: 'No scales? Use your thumb',
     body: 'Oils & nut butters ≈ tip of your thumb (1 tbsp). Nuts & seeds ≈ 1 small cupped palm. Avocado ≈ ½ fruit.',
-  },
-  fruit: {
-    icon: '✊',
-    headline: 'No scales? Use your fist',
-    body: '1 fruit serve ≈ 1 fist-sized piece of whole fruit, or ~1 cup of berries.',
   },
 }
 
@@ -317,14 +313,13 @@ export default function ClientCheatSheet() {
                 { label: `${targets.protein_serves}P`, color: 'bg-pink-50 text-pink-700' },
                 { label: `${targets.carb_serves}C`, color: 'bg-teal-50 text-teal-700' },
                 { label: `${targets.fat_serves}F`, color: 'bg-green-50 text-green-700' },
-                { label: `${targets.fruit_serves} fruit`, color: 'bg-orange-50 text-orange-700' },
                 { label: 'veg ∞', color: 'bg-emerald-50 text-emerald-700' },
               ].map(t => (
                 <span key={t.label} className={`text-xs font-semibold px-3 py-1 rounded-full ${t.color}`}>{t.label}</span>
               ))}
             </div>
             <p className="text-[11px] text-gray-400 leading-relaxed">
-              Each serve already counts toward your daily calories, including ~150 kcal estimated for vegetables. Veg is unlimited — eating more is always encouraged.
+              Each serve already counts toward your daily calories, including ~150 kcal estimated for vegetables. Veg is unlimited — eating more is always encouraged. Carbs includes fruit.
             </p>
             {targets.notes && <p className="text-xs text-gray-500 border-t border-gray-50 pt-2">{targets.notes}</p>}
           </div>

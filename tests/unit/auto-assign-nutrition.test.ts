@@ -53,8 +53,12 @@ describe('macrosToServes', () => {
     const serves = macrosToServes({ proteinG: 150, carbG: 200, fatG: 70 })
     expect(serves.protein_serves).toBeCloseTo(5) // 150 / 30
     expect(serves.fat_serves).toBeCloseTo(7) // 70 / 10
-    expect(serves.fruit_serves).toBe(2)
     expect(serves.veg_unlimited).toBe(true)
+  })
+
+  it('has no fruit_serves field — fruit is just carbs now, folded into carb_serves', () => {
+    const serves = macrosToServes({ proteinG: 150, carbG: 200, fatG: 70 })
+    expect(serves).not.toHaveProperty('fruit_serves')
   })
 
   it('never produces a negative carb-serve count when carbs are very low', () => {
@@ -62,18 +66,17 @@ describe('macrosToServes', () => {
     expect(serves.carb_serves).toBeGreaterThanOrEqual(0)
   })
 
-  it('reserving a whole day\'s fruit+veg carb allowance wipes out a single meal\'s carbs — this is why mealMacrosToServes exists, do not use macrosToServes per-meal', () => {
+  it('reserving a whole day\'s veg carb allowance wipes out a single meal\'s carbs — this is why mealMacrosToServes exists, do not use macrosToServes per-meal', () => {
     // A real example: Beef Mince Bowl — Cal Conscious has 32.7g carbs,
-    // clearly worth ~1.5-2 carb serves — but macrosToServes' 78g
-    // fruit+veg reservation (2 fruit serves * 20g + ~38g veg) swallows it
-    // whole and reports zero.
+    // clearly worth ~1.5-2 carb serves — but macrosToServes' ~38g veg
+    // reservation swallows it whole and reports zero.
     const serves = macrosToServes({ proteinG: 36.6, carbG: 32.7, fatG: 12.2 })
     expect(serves.carb_serves).toBe(0)
   })
 })
 
 describe('mealMacrosToServes', () => {
-  it('derives serve counts straight from grams, with no fruit/veg reservation', () => {
+  it('derives serve counts straight from grams, with no veg reservation', () => {
     const serves = mealMacrosToServes({ proteinG: 150, carbG: 200, fatG: 70 })
     expect(serves.protein_serves).toBeCloseTo(5) // 150 / 30
     expect(serves.carb_serves).toBeCloseTo(10) // 200 / 20
