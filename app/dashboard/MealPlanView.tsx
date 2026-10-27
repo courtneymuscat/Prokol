@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import LogMealModal, { formatServing } from '@/app/components/LogMealModal'
-import { mealMacrosToServes } from '@/lib/autoAssignNutrition'
+import { mealMacrosToServes, macrosToServes } from '@/lib/autoAssignNutrition'
 import ServeCalcNote from '@/app/components/ServeCalcNote'
 
 const BarcodeScanner = dynamic(() => import('./BarcodeScanner'), { ssr: false })
@@ -882,25 +882,29 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
       f: (slot.target_fat ?? 0) > 0 ? slot.target_fat! : foodSum.f,
     }
   }
-  // Sum of each meal's OWN (already-rounded-to-the-nearest-0.5) serve
-  // count, not a fresh mealMacrosToServes on the raw daily total. Those
-  // two don't generally agree — rounding each meal separately then adding
-  // can differ from rounding the day's total once — and showing a total
-  // that doesn't match the sum of the meals under it looks like a bug
-  // even though it's just rounding. Summing what's already displayed
-  // guarantees the total always equals its own parts.
-  const dailyServes = plan.content.reduce(
+  // Protein and fat totals stay the sum of each meal's own (rounded)
+  // serve count — perfectly additive, since there's no veg-related
+  // adjustment needed for either.
+  const { proteinServesSum, fatServesSum } = plan.content.reduce(
     (acc, slot) => {
       const m = slotServeMacros(slot)
-      const serves = mealMacrosToServes({ proteinG: m.p, carbG: m.c, fatG: m.f })
-      return {
-        protein_serves: acc.protein_serves + serves.protein_serves,
-        carb_serves: acc.carb_serves + serves.carb_serves,
-        fat_serves: acc.fat_serves + serves.fat_serves,
-      }
+      const s = mealMacrosToServes({ proteinG: m.p, carbG: 0, fatG: m.f })
+      return { proteinServesSum: acc.proteinServesSum + s.protein_serves, fatServesSum: acc.fatServesSum + s.fat_serves }
     },
-    { protein_serves: 0, carb_serves: 0, fat_serves: 0 },
+    { proteinServesSum: 0, fatServesSum: 0 },
   )
+  // Carb total deliberately uses macrosToServes — the same formula as
+  // the Serve Guide, which holds back ~38g carbs (~150 kcal) for veg
+  // before converting the rest to carb serves. Without that, a client
+  // could fully use every carb serve shown AND treat veg as genuinely
+  // free on top of it, landing in a real surplus with no warning. Each
+  // meal's own carb serves above (mealMacrosToServes) deliberately do
+  // NOT reserve this — a whole-day reservation applied per meal zeroes
+  // out almost every meal's carb serves, which is a worse problem than
+  // the carb total not quite matching the literal sum of its meals. See
+  // ServeCalcNote for the explanation shown to the client.
+  const carbServes = macrosToServes({ proteinG: 0, carbG: totalCarbs, fatG: 0 }).carb_serves
+  const dailyServes = { protein_serves: proteinServesSum, carb_serves: carbServes, fat_serves: fatServesSum }
 
   const swapFood =
     swapTarget != null

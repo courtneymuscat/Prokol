@@ -6,14 +6,20 @@
 // the two can't drift out of sync with each other, or with the actual
 // formula in lib/autoAssignNutrition.ts.
 //
-// Styled to match the "How is this calculated?" breakdown on the Serve
-// Guide (app/coach/clients/[clientId]/ClientServeGuide.tsx) — same
-// per-serve-assumptions + worked-breakdown shape — but simpler, since a
-// meal plan's protein/carb/fat grams are already the real totals from
-// real ingredients. The Serve Guide has to reconcile a kcal gap because
-// it works backward from a flat per-serve kcal assumption (to estimate a
-// whole day from a TDEE target before any food is chosen); a meal plan
-// has no such gap to explain — what you see is what's actually in it.
+// Only the Carbs total uses the veg reservation (same formula as the
+// Serve Guide — holds back ~38g carbs/~150 kcal before converting the
+// rest to carb serves), not Protein or Fat. Without it, a client could
+// fully use every carb serve shown here AND treat veg as genuinely free
+// on top of it, landing in a real surplus with nothing warning them.
+// Each individual meal's carb serves (mealMacrosToServes) do NOT reserve
+// this — a whole-day reservation applied per meal zeroes out almost
+// every meal's carb serves, which is a worse problem than the carb total
+// not exactly matching the literal sum of its meals. Protein and Fat
+// totals have no such adjustment, so they always exactly match the sum
+// of what's shown per meal.
+
+const VEG_RESERVE_KCAL = 150
+const VEG_RESERVE_G = Math.round(VEG_RESERVE_KCAL / 4)
 
 type ServeCalcNoteProps = {
   proteinG: number
@@ -25,6 +31,7 @@ type ServeCalcNoteProps = {
 }
 
 export default function ServeCalcNote({ proteinG, carbG, fatG, proteinServes, carbServes, fatServes }: ServeCalcNoteProps) {
+  const carbAfterVeg = Math.max(0, carbG - VEG_RESERVE_G)
   return (
     <details className="group mt-1.5">
       <summary className="text-[10px] text-gray-400 underline cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
@@ -38,35 +45,38 @@ export default function ServeCalcNote({ proteinG, carbG, fatG, proteinServes, ca
             <li><span className="font-semibold">Protein:</span> 30g protein = 1 serve</li>
             <li><span className="font-semibold">Carbs:</span> 20g carbs = 1 serve (includes fruit — same unit)</li>
             <li><span className="font-semibold">Fats:</span> 10g fat = 1 serve</li>
+            <li><span className="font-semibold">Veg (∞):</span> ~{VEG_RESERVE_G}g carbs (~{VEG_RESERVE_KCAL} kcal) held back from Carbs below, same as the Serve Guide</li>
           </ul>
         </div>
         <div>
-          <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wide mb-1">This plan&apos;s breakdown</p>
+          <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wide mb-1">This plan&apos;s total</p>
           <table className="w-full text-[11px] text-amber-800">
             <tbody>
               <tr>
-                <td className="py-0.5 pr-2 font-medium">Protein</td>
-                <td className="py-0.5 pr-2 tabular-nums whitespace-nowrap">{proteinG.toFixed(1)}g ÷ 30g</td>
-                <td className="py-0.5 tabular-nums font-semibold">= {proteinServes} serves</td>
+                <td className="py-0.5 pr-2 font-medium align-top">Protein</td>
+                <td className="py-0.5 pr-2 tabular-nums whitespace-nowrap align-top">{proteinG.toFixed(1)}g ÷ 30g</td>
+                <td className="py-0.5 tabular-nums font-semibold align-top">= {proteinServes} serves</td>
               </tr>
               <tr>
-                <td className="py-0.5 pr-2 font-medium">Carbs</td>
-                <td className="py-0.5 pr-2 tabular-nums whitespace-nowrap">{carbG.toFixed(1)}g ÷ 20g</td>
-                <td className="py-0.5 tabular-nums font-semibold">= {carbServes} serves</td>
+                <td className="py-0.5 pr-2 font-medium align-top">Carbs</td>
+                <td className="py-0.5 pr-2 tabular-nums whitespace-nowrap align-top">
+                  {carbG.toFixed(1)}g − {VEG_RESERVE_G}g (veg) = {carbAfterVeg.toFixed(1)}g ÷ 20g
+                </td>
+                <td className="py-0.5 tabular-nums font-semibold align-top">= {carbServes} serves</td>
               </tr>
               <tr>
-                <td className="py-0.5 pr-2 font-medium">Fat</td>
-                <td className="py-0.5 pr-2 tabular-nums whitespace-nowrap">{fatG.toFixed(1)}g ÷ 10g</td>
-                <td className="py-0.5 tabular-nums font-semibold">= {fatServes} serves</td>
+                <td className="py-0.5 pr-2 font-medium align-top">Fat</td>
+                <td className="py-0.5 pr-2 tabular-nums whitespace-nowrap align-top">{fatG.toFixed(1)}g ÷ 10g</td>
+                <td className="py-0.5 tabular-nums font-semibold align-top">= {fatServes} serves</td>
               </tr>
             </tbody>
           </table>
         </div>
         <p className="text-[10px] text-amber-600 leading-snug">
-          These are the plan&apos;s real macros from its real ingredients — not a flat per-serve kcal estimate like the Serve Guide uses for TDEE-based targets (which has no actual foods chosen yet). No &quot;mixed macro&quot; reconciliation needed here — the Total above already is the real number.
+          The protein/carb/fat grams above are the plan&apos;s real totals from its real ingredients — not a flat per-serve kcal estimate like the Serve Guide uses before any food is chosen. But the Carbs serve count still reserves veg headroom the same way the Serve Guide does, so a client who fully uses every carb serve here still has real room for veg on top, instead of just being told it&apos;s &quot;free&quot; with nothing backing that up.
         </p>
         <p className="text-[10px] text-amber-600 leading-snug">
-          Fruit and veg aren&apos;t capped by these serves — eat those freely alongside them. The total above is the sum of each meal&apos;s own serves (not a separate calculation), so it always matches what&apos;s shown per meal.
+          Because of that, this Carbs total will usually read a little lower than simply adding up the carb serves shown on each meal above (those don&apos;t reserve anything — a whole-day reservation applied per meal would zero out almost every meal&apos;s carb serves). That gap is the built-in veg margin, not an error. Protein and Fat have no such adjustment, so those two always exactly match the sum of what&apos;s shown per meal.
         </p>
       </div>
     </details>

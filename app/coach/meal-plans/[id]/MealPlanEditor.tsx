@@ -6,7 +6,7 @@ import CopyMealFromPlanPicker from '@/app/components/CopyMealFromPlanPicker'
 import RecipePickerModal, { type RecipeDetail } from '@/app/components/RecipePickerModal'
 import { OrgPublisherBanner, CopiedFromOrgSubtitle } from '@/app/components/OrgTemplateBanner'
 import type { OrgTemplateContext } from '@/lib/org'
-import { mealMacrosToServes } from '@/lib/autoAssignNutrition'
+import { mealMacrosToServes, macrosToServes } from '@/lib/autoAssignNutrition'
 import ServeCalcNote from '@/app/components/ServeCalcNote'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -784,30 +784,31 @@ export default function MealPlanEditor({
   const pushToClientsRef = useRef(true)
 
   const totals = computeMacros(plan.content)
-  // Sum of each meal's OWN (already-rounded-to-the-nearest-0.5) serve
-  // count — not a fresh mealMacrosToServes on the raw plan-wide gram
-  // total. Those two don't generally agree (rounding each meal
-  // separately then adding can differ from rounding the whole plan's
-  // total once), and a total that doesn't match the sum of the per-meal
-  // badges below it looks like a bug even though it's just rounding.
-  // Only counts meals with foods in them, matching exactly which meals
-  // show a serves badge at all (see MealSlotCard below).
-  const totalServes = plan.content.reduce(
+  // Protein and fat totals stay the sum of each meal's own (rounded)
+  // serve count — perfectly additive, since there's no veg-related
+  // adjustment needed for either. Only counts meals with foods in them,
+  // matching exactly which meals show a serves badge (see MealSlotCard).
+  const { proteinServesSum, fatServesSum } = plan.content.reduce(
     (acc, slot) => {
       if (slot.foods.length === 0) return acc
-      const m = slot.foods.reduce(
-        (s, f) => ({ p: s.p + f.protein, c: s.c + f.carbs, f: s.f + f.fat }),
-        { p: 0, c: 0, f: 0 },
-      )
-      const serves = mealMacrosToServes({ proteinG: m.p, carbG: m.c, fatG: m.f })
-      return {
-        protein_serves: acc.protein_serves + serves.protein_serves,
-        carb_serves: acc.carb_serves + serves.carb_serves,
-        fat_serves: acc.fat_serves + serves.fat_serves,
-      }
+      const m = slot.foods.reduce((s, f) => ({ p: s.p + f.protein, f: s.f + f.fat }), { p: 0, f: 0 })
+      const s = mealMacrosToServes({ proteinG: m.p, carbG: 0, fatG: m.f })
+      return { proteinServesSum: acc.proteinServesSum + s.protein_serves, fatServesSum: acc.fatServesSum + s.fat_serves }
     },
-    { protein_serves: 0, carb_serves: 0, fat_serves: 0 },
+    { proteinServesSum: 0, fatServesSum: 0 },
   )
+  // Carb total deliberately uses macrosToServes — the same formula as
+  // the Serve Guide, which holds back ~38g carbs (~150 kcal) for veg
+  // before converting the rest to carb serves. Without that, a client
+  // could fully use every carb serve shown AND treat veg as genuinely
+  // free on top of it, landing in a real surplus with no warning. Each
+  // meal's own carb serves above (mealMacrosToServes) deliberately do
+  // NOT reserve this — a whole-day reservation applied per meal zeroes
+  // out almost every meal's carb serves, which is a worse problem than
+  // the carb total not quite matching the literal sum of its meals. See
+  // ServeCalcNote for the explanation shown to the coach/client.
+  const carbServes = macrosToServes({ proteinG: 0, carbG: totals.carbs, fatG: 0 }).carb_serves
+  const totalServes = { protein_serves: proteinServesSum, carb_serves: carbServes, fat_serves: fatServesSum }
 
   const scheduleSave = useCallback((updated: MealPlan) => {
     if (readOnly) return
