@@ -234,12 +234,22 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
                   <input type="number" min="0" max="20" step="0.5"
                     className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={draft[key]} onChange={e => setDraft(d => ({ ...d, [key]: parseFloat(e.target.value) || 0 }))} />
+                  {key === 'carb_serves' && draft.veg_unlimited && autoAssign && (
+                    <p className="text-[10px] text-teal-600 mt-1 leading-snug">
+                      ~{Math.round(VEG_KCAL / 4)}g (~{VEG_KCAL} kcal) of this was already set aside for veg by the TDEE auto-calc
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
             <p className="text-[11px] text-gray-400 -mt-2">
               Carbs includes fruit — 1 fruit serve is just 20g carbs, same as any other carb source. If this client should get some carb serves specifically from fruit, say so in the notes below (e.g. &quot;aim for 2 of your carb serves to come from fruit&quot;).
             </p>
+            {draft.veg_unlimited && (
+              <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2 -mt-1">
+                Veg is flexible, not calorie-free — leave room for it when setting Carbs. A typical day&apos;s veg adds ~{VEG_KCAL} kcal (~{Math.round(VEG_KCAL / 4)}g carbs) on top of meals. A client who fully uses all their carb serves AND eats a lot of veg on top will see a real surplus, not a free pass.
+              </p>
+            )}
             {/* Estimated daily calories + macros */}
             {(draft.protein_serves > 0 || draft.carb_serves > 0 || draft.fat_serves > 0) && (() => {
               const vegCal = draft.veg_unlimited ? VEG_KCAL : 0
@@ -306,8 +316,13 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
                 targets.carb_serves    * SERVE_BUDGET.carb.kcal +
                 targets.fat_serves     * SERVE_BUDGET.fat.kcal +
                 (targets.veg_unlimited ? VEG_KCAL : 0)
-              )} kcal/day estimated (real-food total incl. mixed macros + ~{VEG_KCAL} kcal veg) · Veg is unlimited and already included in this estimate. Carbs includes fruit.
+              )} kcal/day estimated (real-food total incl. mixed macros + ~{VEG_KCAL} kcal veg). Carbs includes fruit.
             </p>
+            {targets.veg_unlimited && (
+              <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2">
+                Veg is flexible, not calorie-free — a typical day&apos;s veg adds ~{VEG_KCAL} kcal (~{Math.round(VEG_KCAL / 4)}g carbs), already factored into the estimate above. Fully using all carb serves AND eating a lot of veg on top is a real surplus, not a free pass.
+              </p>
+            )}
             <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
               <ServeMathBreakdown
                 protein_serves={targets.protein_serves}

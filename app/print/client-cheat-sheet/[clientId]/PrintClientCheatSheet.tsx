@@ -209,6 +209,11 @@ export default function PrintClientCheatSheet({
                   <p className="text-[10px] text-gray-500">{targets.veg_unlimited ? 'unlimited' : 'see notes'}</p>
                 </div>
               </div>
+              {targets.veg_unlimited && (
+                <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2 mt-3">
+                  Veg is flexible, not calorie-free — a typical day&apos;s veg (~150 kcal) is already factored into your Carbs number above. Don&apos;t also max out every carb serve on top of a big veg day.
+                </p>
+              )}
               {targets.notes && (
                 <div className="mt-3 pt-3 border-t border-blue-100">
                   <p className="text-[10px] uppercase tracking-wider text-blue-700 font-semibold mb-1">Notes from your coach</p>

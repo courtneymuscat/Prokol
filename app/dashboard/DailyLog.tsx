@@ -733,7 +733,7 @@ export default function DailyLog({
               )
             })}
             <p className="text-xs text-emerald-600 font-medium pt-0.5">
-              🥦 Aim for at least 5 fistfuls of vegetables today (unlimited)
+              🥦 Aim for at least 5 fistfuls of vegetables today — flexible, not calorie-free. A typical day&apos;s veg is already factored into your Carbs target, so don&apos;t also max out every carb serve on top of a big veg day.
             </p>
             {serveTargets.notes && (
               <p className="text-xs text-gray-400 italic whitespace-pre-wrap">{serveTargets.notes}</p>
