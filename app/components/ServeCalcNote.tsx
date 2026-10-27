@@ -18,6 +18,7 @@ export default function ServeCalcNote() {
         <p>Carbs includes fruit — a fruit serve is just 20g carbs, the same as any other carb source.</p>
         <p>Fruit and veg aren&apos;t capped by these serves — eat those freely alongside them.</p>
         <p>The day&apos;s total is the sum of each meal&apos;s own serves (not a separate calculation on the day&apos;s combined grams), so it always matches what&apos;s shown per meal.</p>
+        <p>No flat veg calorie estimate here (unlike the Serve Guide) — every ingredient in a meal plan, veg included, already has its own real calories from the food database, so the Total above is the real number.</p>
       </div>
     </details>
   )
