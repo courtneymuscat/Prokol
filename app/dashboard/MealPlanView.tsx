@@ -861,10 +861,45 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
   const totalProtein = dailyTotals.p
   const totalCarbs = dailyTotals.c
   const totalFat = dailyTotals.f
-  // Deliberately mealMacrosToServes (no veg reservation), same as every
-  // individual meal below — so this total is just the sum of the
-  // per-meal numbers and the two always reconcile.
-  const dailyServes = mealMacrosToServes({ proteinG: totalProtein, carbG: totalCarbs, fatG: totalFat })
+
+  // The per-meal "Serves" row (below) shows PRESCRIBED macros — an
+  // explicit coach-set target for that meal if there is one, otherwise
+  // the food sum stands in. This is the same precedence as the per-meal
+  // "Target" row immediately above it, and deliberately NOT the same as
+  // slotContribution above (which is food-first, falling back to target
+  // only when a slot has zero foods) — that one's describing "what's
+  // actually in today's plan," this one's describing "what each meal
+  // should add up to."
+  const slotServeMacros = (slot: MealSlot) => {
+    const foodSum = slot.foods.reduce(
+      (acc, f) => ({ p: acc.p + f.protein, c: acc.c + f.carbs, f: acc.f + f.fat }),
+      { p: 0, c: 0, f: 0 }
+    )
+    return {
+      p: (slot.target_protein ?? 0) > 0 ? slot.target_protein! : foodSum.p,
+      c: (slot.target_carbs ?? 0) > 0 ? slot.target_carbs! : foodSum.c,
+      f: (slot.target_fat ?? 0) > 0 ? slot.target_fat! : foodSum.f,
+    }
+  }
+  // Sum of each meal's OWN (already-rounded-to-the-nearest-0.5) serve
+  // count, not a fresh mealMacrosToServes on the raw daily total. Those
+  // two don't generally agree — rounding each meal separately then adding
+  // can differ from rounding the day's total once — and showing a total
+  // that doesn't match the sum of the meals under it looks like a bug
+  // even though it's just rounding. Summing what's already displayed
+  // guarantees the total always equals its own parts.
+  const dailyServes = plan.content.reduce(
+    (acc, slot) => {
+      const m = slotServeMacros(slot)
+      const serves = mealMacrosToServes({ proteinG: m.p, carbG: m.c, fatG: m.f })
+      return {
+        protein_serves: acc.protein_serves + serves.protein_serves,
+        carb_serves: acc.carb_serves + serves.carb_serves,
+        fat_serves: acc.fat_serves + serves.fat_serves,
+      }
+    },
+    { protein_serves: 0, carb_serves: 0, fat_serves: 0 },
+  )
 
   const swapFood =
     swapTarget != null
@@ -930,10 +965,11 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
         const slotCalories = foodSum.cal
         const hasCalTarget = (slot.target_calories ?? 0) > 0
         // Per-meal target row: explicit targets take priority, otherwise the
-        // food sum stands in as the prescribed macros for that meal.
-        const targetP = (slot.target_protein ?? 0) > 0 ? slot.target_protein! : foodSum.p
-        const targetC = (slot.target_carbs ?? 0) > 0 ? slot.target_carbs! : foodSum.c
-        const targetF = (slot.target_fat ?? 0) > 0 ? slot.target_fat! : foodSum.f
+        // food sum stands in as the prescribed macros for that meal. Same
+        // precedence as slotServeMacros above (and literally reuses it) so
+        // the serves shown here and the serves summed into the daily total
+        // can never disagree.
+        const { p: targetP, c: targetC, f: targetF } = slotServeMacros(slot)
         const hasAnyMacro = targetP > 0 || targetC > 0 || targetF > 0
         return (
           <div key={slot.id} className="rounded-xl border border-gray-200 overflow-hidden bg-white">

@@ -783,13 +783,30 @@ export default function MealPlanEditor({
   const pushToClientsRef = useRef(true)
 
   const totals = computeMacros(plan.content)
-  // Deliberately mealMacrosToServes (no veg reservation), same as every
-  // individual meal below — so this total is just the sum of the per-meal
-  // numbers and the two always reconcile. macrosToServes (which DOES
-  // reserve a flat veg carb allowance) is a whole-day-target formula for
-  // a different context (onboarding) — mixing it in here made the total
-  // disagree with its own meals for no visible reason.
-  const totalServes = mealMacrosToServes({ proteinG: totals.protein, carbG: totals.carbs, fatG: totals.fat })
+  // Sum of each meal's OWN (already-rounded-to-the-nearest-0.5) serve
+  // count — not a fresh mealMacrosToServes on the raw plan-wide gram
+  // total. Those two don't generally agree (rounding each meal
+  // separately then adding can differ from rounding the whole plan's
+  // total once), and a total that doesn't match the sum of the per-meal
+  // badges below it looks like a bug even though it's just rounding.
+  // Only counts meals with foods in them, matching exactly which meals
+  // show a serves badge at all (see MealSlotCard below).
+  const totalServes = plan.content.reduce(
+    (acc, slot) => {
+      if (slot.foods.length === 0) return acc
+      const m = slot.foods.reduce(
+        (s, f) => ({ p: s.p + f.protein, c: s.c + f.carbs, f: s.f + f.fat }),
+        { p: 0, c: 0, f: 0 },
+      )
+      const serves = mealMacrosToServes({ proteinG: m.p, carbG: m.c, fatG: m.f })
+      return {
+        protein_serves: acc.protein_serves + serves.protein_serves,
+        carb_serves: acc.carb_serves + serves.carb_serves,
+        fat_serves: acc.fat_serves + serves.fat_serves,
+      }
+    },
+    { protein_serves: 0, carb_serves: 0, fat_serves: 0 },
+  )
 
   const scheduleSave = useCallback((updated: MealPlan) => {
     if (readOnly) return
