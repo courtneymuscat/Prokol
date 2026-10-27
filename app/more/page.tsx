@@ -88,7 +88,7 @@ export default async function MorePage() {
     },
     {
       href: '/cheat-sheet',
-      label: 'Food Guide',
+      label: 'Cheat Sheet',
       show: isCoached,
       icon: (
         <svg className="w-7 h-7 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

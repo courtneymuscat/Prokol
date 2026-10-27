@@ -941,6 +941,7 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
             <span className="text-[11px] font-medium text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full">P {dailyServes.protein_serves}</span>
             <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">C {dailyServes.carb_serves}</span>
             <span className="text-[11px] font-medium text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full">F {dailyServes.fat_serves}</span>
+            <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">Veg ∞ unlimited</span>
           </div>
           <div className="w-full">
             <ServeCalcNote
@@ -952,6 +953,9 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
               fatServes={dailyServes.fat_serves}
             />
           </div>
+          <a href="/cheat-sheet" className="text-[11px] text-blue-500 hover:text-blue-600 underline w-full">
+            See your full Cheat Sheet →
+          </a>
         </div>
       )}
 
@@ -1017,6 +1021,7 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
                   <span className="text-[11px] font-medium text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded-full">P {slotServes.protein_serves} serves</span>
                   <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded-full">C {slotServes.carb_serves} serves</span>
                   <span className="text-[11px] font-medium text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded-full">F {slotServes.fat_serves} serves</span>
+                  <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full">Veg ∞ unlimited</span>
                 </div>
               )
             })()}

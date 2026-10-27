@@ -532,6 +532,7 @@ function MealSlotCard({
             <span className="text-[10px] font-medium text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded-full">P {slotServes.protein_serves}</span>
             <span className="text-[10px] font-medium text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded-full">C {slotServes.carb_serves}</span>
             <span className="text-[10px] font-medium text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded-full">F {slotServes.fat_serves}</span>
+            <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full">Veg ∞ unlimited</span>
           </div>
         )
       })()}
@@ -1121,6 +1122,7 @@ export default function MealPlanEditor({
           <span className="text-[11px] font-medium text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full">P {totalServes.protein_serves}</span>
           <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">C {totalServes.carb_serves}</span>
           <span className="text-[11px] font-medium text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full">F {totalServes.fat_serves}</span>
+          <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">Veg ∞ unlimited</span>
         </div>
         <ServeCalcNote
           proteinG={totals.protein}
