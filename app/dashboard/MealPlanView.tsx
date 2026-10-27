@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import LogMealModal, { formatServing } from '@/app/components/LogMealModal'
 import { mealMacrosToServes } from '@/lib/autoAssignNutrition'
+import ServeCalcNote from '@/app/components/ServeCalcNote'
 
 const BarcodeScanner = dynamic(() => import('./BarcodeScanner'), { ssr: false })
 
@@ -937,9 +938,9 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
             <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">C {dailyServes.carb_serves}</span>
             <span className="text-[11px] font-medium text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full">F {dailyServes.fat_serves}</span>
           </div>
-          <p className="text-[10px] text-gray-400 w-full">
-            1 serve = 30g protein, 20g carbs, or 10g fat. Fruit and veg aren&apos;t counted here — eat those freely alongside these serves.
-          </p>
+          <div className="w-full">
+            <ServeCalcNote />
+          </div>
         </div>
       )}
 

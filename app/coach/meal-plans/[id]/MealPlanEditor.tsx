@@ -7,6 +7,7 @@ import RecipePickerModal, { type RecipeDetail } from '@/app/components/RecipePic
 import { OrgPublisherBanner, CopiedFromOrgSubtitle } from '@/app/components/OrgTemplateBanner'
 import type { OrgTemplateContext } from '@/lib/org'
 import { mealMacrosToServes } from '@/lib/autoAssignNutrition'
+import ServeCalcNote from '@/app/components/ServeCalcNote'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1120,9 +1121,7 @@ export default function MealPlanEditor({
           <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">C {totalServes.carb_serves}</span>
           <span className="text-[11px] font-medium text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full">F {totalServes.fat_serves}</span>
         </div>
-        <p className="text-[10px] text-gray-400 mt-1.5">
-          1 serve = 30g protein, 20g carbs, or 10g fat. Fruit and veg aren&apos;t counted here — eat those freely alongside these serves.
-        </p>
+        <ServeCalcNote />
       </div>
 
       {/* Main content */}
