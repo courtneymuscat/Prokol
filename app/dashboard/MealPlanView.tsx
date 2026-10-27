@@ -939,7 +939,14 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
             <span className="text-[11px] font-medium text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full">F {dailyServes.fat_serves}</span>
           </div>
           <div className="w-full">
-            <ServeCalcNote />
+            <ServeCalcNote
+              proteinG={totalProtein}
+              carbG={totalCarbs}
+              fatG={totalFat}
+              proteinServes={dailyServes.protein_serves}
+              carbServes={dailyServes.carb_serves}
+              fatServes={dailyServes.fat_serves}
+            />
           </div>
         </div>
       )}

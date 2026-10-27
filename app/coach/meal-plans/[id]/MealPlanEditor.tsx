@@ -1121,7 +1121,14 @@ export default function MealPlanEditor({
           <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">C {totalServes.carb_serves}</span>
           <span className="text-[11px] font-medium text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full">F {totalServes.fat_serves}</span>
         </div>
-        <ServeCalcNote />
+        <ServeCalcNote
+          proteinG={totals.protein}
+          carbG={totals.carbs}
+          fatG={totals.fat}
+          proteinServes={totalServes.protein_serves}
+          carbServes={totalServes.carb_serves}
+          fatServes={totalServes.fat_serves}
+        />
       </div>
 
       {/* Main content */}
