@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import LogMealModal, { formatServing } from '@/app/components/LogMealModal'
-import { macrosToServes, mealMacrosToServes } from '@/lib/autoAssignNutrition'
+import { mealMacrosToServes } from '@/lib/autoAssignNutrition'
 
 const BarcodeScanner = dynamic(() => import('./BarcodeScanner'), { ssr: false })
 
@@ -861,10 +861,10 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
   const totalProtein = dailyTotals.p
   const totalCarbs = dailyTotals.c
   const totalFat = dailyTotals.f
-  // Same serve-size equation used everywhere else in the app (the recipe
-  // builder's serve badges, and the onboarding auto-setup that computes a
-  // client's serve targets) — 30g protein / 20g carbs / 10g fat per serve.
-  const dailyServes = macrosToServes({ proteinG: totalProtein, carbG: totalCarbs, fatG: totalFat })
+  // Deliberately mealMacrosToServes (no fruit/veg reservation), same as
+  // every individual meal below — so this total is just the sum of the
+  // per-meal numbers and the two always reconcile.
+  const dailyServes = mealMacrosToServes({ proteinG: totalProtein, carbG: totalCarbs, fatG: totalFat })
 
   const swapFood =
     swapTarget != null
@@ -901,8 +901,10 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
             <span className="text-[11px] font-medium text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full">P {dailyServes.protein_serves}</span>
             <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">C {dailyServes.carb_serves}</span>
             <span className="text-[11px] font-medium text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full">F {dailyServes.fat_serves}</span>
-            <span className="text-[11px] font-medium text-pink-700 bg-pink-50 px-2 py-0.5 rounded-full">Fruit {dailyServes.fruit_serves}</span>
           </div>
+          <p className="text-[10px] text-gray-400 w-full">
+            1 serve = 30g protein, 20g carbs, or 10g fat. Fruit and veg aren&apos;t counted here — eat those freely alongside these serves.
+          </p>
         </div>
       )}
 

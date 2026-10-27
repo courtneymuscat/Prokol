@@ -6,7 +6,7 @@ import CopyMealFromPlanPicker from '@/app/components/CopyMealFromPlanPicker'
 import RecipePickerModal, { type RecipeDetail } from '@/app/components/RecipePickerModal'
 import { OrgPublisherBanner, CopiedFromOrgSubtitle } from '@/app/components/OrgTemplateBanner'
 import type { OrgTemplateContext } from '@/lib/org'
-import { macrosToServes, mealMacrosToServes } from '@/lib/autoAssignNutrition'
+import { mealMacrosToServes } from '@/lib/autoAssignNutrition'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -783,12 +783,13 @@ export default function MealPlanEditor({
   const pushToClientsRef = useRef(true)
 
   const totals = computeMacros(plan.content)
-  // Same serve-size equation used everywhere else in the app (the recipe
-  // builder's "≈X protein serves" badges, and the onboarding auto-setup
-  // that computes a client's serve targets) — 30g protein / 20g carbs /
-  // 10g fat per serve, with a standard fruit+veg carb allowance reserved
-  // off the top before the remaining carbs convert to carb serves.
-  const totalServes = macrosToServes({ proteinG: totals.protein, carbG: totals.carbs, fatG: totals.fat })
+  // Deliberately mealMacrosToServes (no fruit/veg reservation), same as
+  // every individual meal below — so this total is just the sum of the
+  // per-meal numbers and the two always reconcile. macrosToServes (which
+  // DOES reserve a flat fruit/veg carb allowance) is a whole-day-target
+  // formula for a different context (onboarding) — mixing it in here
+  // made the total disagree with its own meals for no visible reason.
+  const totalServes = mealMacrosToServes({ proteinG: totals.protein, carbG: totals.carbs, fatG: totals.fat })
 
   const scheduleSave = useCallback((updated: MealPlan) => {
     if (readOnly) return
@@ -1101,8 +1102,10 @@ export default function MealPlanEditor({
           <span className="text-[11px] font-medium text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full">P {totalServes.protein_serves}</span>
           <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">C {totalServes.carb_serves}</span>
           <span className="text-[11px] font-medium text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full">F {totalServes.fat_serves}</span>
-          <span className="text-[11px] font-medium text-pink-700 bg-pink-50 px-2 py-0.5 rounded-full">Fruit {totalServes.fruit_serves}</span>
         </div>
+        <p className="text-[10px] text-gray-400 mt-1.5">
+          1 serve = 30g protein, 20g carbs, or 10g fat. Fruit and veg aren&apos;t counted here — eat those freely alongside these serves.
+        </p>
       </div>
 
       {/* Main content */}
