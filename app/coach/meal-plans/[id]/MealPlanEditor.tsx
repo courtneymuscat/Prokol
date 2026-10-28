@@ -6,7 +6,7 @@ import CopyMealFromPlanPicker from '@/app/components/CopyMealFromPlanPicker'
 import RecipePickerModal, { type RecipeDetail } from '@/app/components/RecipePickerModal'
 import { OrgPublisherBanner, CopiedFromOrgSubtitle } from '@/app/components/OrgTemplateBanner'
 import type { OrgTemplateContext } from '@/lib/org'
-import { mealMacrosToServes, macrosToServes } from '@/lib/autoAssignNutrition'
+import { mealMacrosToServes, macrosToServes, VEG_RESERVE_CARB_SERVES } from '@/lib/autoAssignNutrition'
 import ServeCalcNote from '@/app/components/ServeCalcNote'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -1123,6 +1123,9 @@ export default function MealPlanEditor({
           <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">C {totalServes.carb_serves}</span>
           <span className="text-[11px] font-medium text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full">F {totalServes.fat_serves}</span>
           <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">Veg ∞ unlimited</span>
+          <span className="text-[10px] text-gray-400">
+            (≈{VEG_RESERVE_CARB_SERVES} more carb serves held back for veg — that&apos;s why Carbs reads lower than the meals below add up to)
+          </span>
         </div>
         <ServeCalcNote
           proteinG={totals.protein}

@@ -18,6 +18,15 @@ export function mapDietaryPreferenceToMealPlanGoal(pref: string | null | undefin
 
 const roundHalf = (n: number) => Math.round(n * 2) / 2
 
+// How many carb serves the whole-day veg reservation below is worth, in
+// the same units as macrosToServes' carb_serves — a fixed amount, since
+// both the reservation (150 kcal) and the serve size (20g) are constants.
+// Surfaced directly in the UI (app/dashboard/MealPlanView.tsx) next to the
+// daily Carbs total, so the gap between that total and the sum of what's
+// shown per meal is visible at a glance instead of only inside the
+// "How are these serves calculated?" explainer.
+export const VEG_RESERVE_CARB_SERVES = roundHalf(Math.round(150 / 4) / 20)
+
 // Moved here from app/coach/clients/[clientId]/ClientServeGuide.tsx (which
 // now imports it) so it can also run server-side for auto-setup, without
 // pulling a 'use client' component into an API route.

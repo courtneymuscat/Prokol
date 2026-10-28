@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import LogMealModal, { formatServing } from '@/app/components/LogMealModal'
-import { mealMacrosToServes, macrosToServes } from '@/lib/autoAssignNutrition'
+import { mealMacrosToServes, macrosToServes, VEG_RESERVE_CARB_SERVES } from '@/lib/autoAssignNutrition'
 import ServeCalcNote from '@/app/components/ServeCalcNote'
 
 const BarcodeScanner = dynamic(() => import('./BarcodeScanner'), { ssr: false })
@@ -942,6 +942,9 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
             <span className="text-[11px] font-medium text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full">C {dailyServes.carb_serves}</span>
             <span className="text-[11px] font-medium text-violet-700 bg-violet-50 px-2 py-0.5 rounded-full">F {dailyServes.fat_serves}</span>
             <span className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">Veg ∞ unlimited</span>
+            <span className="text-[10px] text-gray-400">
+              (≈{VEG_RESERVE_CARB_SERVES} more carb serves held back for veg — that&apos;s why Carbs reads lower than the meals below add up to)
+            </span>
           </div>
           <div className="w-full">
             <ServeCalcNote
