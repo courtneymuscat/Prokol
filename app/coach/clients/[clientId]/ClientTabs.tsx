@@ -2944,6 +2944,13 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
   })
   const validTabs: TabId[] = ['overview', 'checkins', 'nutrition', 'training', 'program', 'calendar', 'mealplan', 'habits', 'notes', 'files', 'flows', 'preview', 'resources', 'cheatsheet', 'supplements', 'protocol', 'cycle', 'plan', 'metrics']
   const [tab, setTab] = useState<TabId>(validTabs.includes(initialTab as TabId) ? initialTab as TabId : 'overview')
+  // Tabs the coach has opened at least once, kept mounted (hidden via CSS
+  // rather than unmounted) after that — so switching back to one doesn't
+  // re-fetch its data from scratch every time.
+  const [visitedTabs, setVisitedTabs] = useState<Set<TabId>>(() => new Set([tab]))
+  useEffect(() => {
+    setVisitedTabs((prev) => (prev.has(tab) ? prev : new Set(prev).add(tab)))
+  }, [tab])
   const [autoflowRefreshKey, setAutoflowRefreshKey] = useState(0)
   const [data, setData] = useState<ClientData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -3091,7 +3098,7 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
       )}
 
       {/* App Preview */}
-      {tab === 'preview' && (
+      <div style={{ display: tab === 'preview' ? undefined : 'none' }}>{visitedTabs.has('preview') && (
         <Suspense fallback={<p className="text-sm text-gray-400 py-6 text-center">Loading…</p>}>
           <AppPreviewTab
             clientId={clientId}
@@ -3113,58 +3120,58 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
             savingTargetsSource={savingTargetsSource}
           />
         </Suspense>
-      )}
+      )}</div>
 
       {/* Autoflows */}
-      {tab === 'flows' && (
+      <div style={{ display: tab === 'flows' ? undefined : 'none' }}>{visitedTabs.has('flows') && (
         <Suspense fallback={<p className="text-sm text-gray-400 py-6 text-center">Loading…</p>}>
           <div className="bg-white rounded-2xl border border-gray-200">
             <FlowsTab clientId={clientId} />
           </div>
         </Suspense>
-      )}
+      )}</div>
 
       {/* Calendar */}
-      {tab === 'calendar' && (
+      <div style={{ display: tab === 'calendar' ? undefined : 'none' }}>{visitedTabs.has('calendar') && (
         <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading calendar…</p>}>
           <CalendarTab clientId={clientId} />
         </Suspense>
-      )}
+      )}</div>
 
       {/* Training Program */}
-      {tab === 'program' && (
+      <div style={{ display: tab === 'program' ? undefined : 'none' }}>{visitedTabs.has('program') && (
         <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading programs…</p>}>
           <ProgramTab clientId={clientId} />
         </Suspense>
-      )}
+      )}</div>
 
       {/* Resources */}
-      {tab === 'resources' && (
+      <div style={{ display: tab === 'resources' ? undefined : 'none' }}>{visitedTabs.has('resources') && (
         <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading resources…</p>}>
           <ClientResourcesTab clientId={clientId} />
         </Suspense>
-      )}
+      )}</div>
 
       {/* Meal Plan */}
-      {tab === 'mealplan' && (
+      <div style={{ display: tab === 'mealplan' ? undefined : 'none' }}>{visitedTabs.has('mealplan') && (
         <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading meal plans…</p>}>
           <MealPlanTab clientId={clientId} />
         </Suspense>
-      )}
+      )}</div>
 
       {/* Food Logs */}
-      {tab === 'nutrition' && (
+      <div style={{ display: tab === 'nutrition' ? undefined : 'none' }}>{visitedTabs.has('nutrition') && (
         <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading food logs…</p>}>
           <FoodLogsTab clientId={clientId} />
         </Suspense>
-      )}
+      )}</div>
 
       {/* Habits */}
-      {tab === 'habits' && (
+      <div style={{ display: tab === 'habits' ? undefined : 'none' }}>{visitedTabs.has('habits') && (
         <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading habits…</p>}>
           <HabitsTab clientId={clientId} />
         </Suspense>
-      )}
+      )}</div>
 
       {/* Custom metrics */}
       {tab === 'metrics' && data && (
@@ -3172,53 +3179,53 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
       )}
 
       {/* Notes */}
-      {tab === 'notes' && (
+      <div style={{ display: tab === 'notes' ? undefined : 'none' }}>{visitedTabs.has('notes') && (
         <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading notes…</p>}>
           <NotesTab clientId={clientId} />
         </Suspense>
-      )}
+      )}</div>
 
       {/* Serve Guide / Cheat Sheet */}
-      {tab === 'cheatsheet' && (
+      <div style={{ display: tab === 'cheatsheet' ? undefined : 'none' }}>{visitedTabs.has('cheatsheet') && (
         <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading serve guide…</p>}>
           <ClientServeGuide clientId={clientId} />
         </Suspense>
-      )}
+      )}</div>
 
       {/* Supplements */}
-      {tab === 'supplements' && (
+      <div style={{ display: tab === 'supplements' ? undefined : 'none' }}>{visitedTabs.has('supplements') && (
         <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading supplements…</p>}>
           <SupplementsTab clientId={clientId} />
         </Suspense>
-      )}
+      )}</div>
 
       {/* Plan Builder */}
-      {tab === 'plan' && (
+      <div style={{ display: tab === 'plan' ? undefined : 'none' }}>{visitedTabs.has('plan') && (
         <Suspense fallback={<div className="py-12 text-center text-sm text-gray-400">Loading…</div>}>
           <PlanBuilderTab clientId={clientId} />
         </Suspense>
-      )}
+      )}</div>
 
       {/* Protocol */}
-      {tab === 'protocol' && (
+      <div style={{ display: tab === 'protocol' ? undefined : 'none' }}>{visitedTabs.has('protocol') && (
         <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading protocol…</p>}>
           <ProtocolTab clientId={clientId} />
         </Suspense>
-      )}
+      )}</div>
 
       {/* Files */}
-      {tab === 'files' && (
+      <div style={{ display: tab === 'files' ? undefined : 'none' }}>{visitedTabs.has('files') && (
         <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading files…</p>}>
           <FilesTab clientId={clientId} />
         </Suspense>
-      )}
+      )}</div>
 
       {/* Cycle */}
-      {tab === 'cycle' && (
+      <div style={{ display: tab === 'cycle' ? undefined : 'none' }}>{visitedTabs.has('cycle') && (
         <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading cycle…</p>}>
           <CycleTab clientId={clientId} />
         </Suspense>
-      )}
+      )}</div>
 
       {/* Check-ins */}
       {tab === 'checkins' && (
