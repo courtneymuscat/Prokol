@@ -30,31 +30,29 @@ export default function WorkoutDashboard({ canUploadVideo = false }: { canUpload
     setLoading(true)
     const supabase = createClient()
 
+    // One nested-select request instead of two sequential round trips
+    // (workouts, then workout_exercises for those IDs). order_index is
+    // sorted client-side since PostgREST's embedded-resource ordering
+    // isn't otherwise used in this codebase.
     const { data: wData } = await supabase
       .from('workouts')
-      .select('id, name, started_at, ended_at')
+      .select('id, name, started_at, ended_at, workout_exercises(order_index, exercises(id, name, category, equipment))')
       .order('started_at', { ascending: false })
       .limit(20)
 
     if (!wData) { setLoading(false); return }
 
-    const ids = wData.map((w) => w.id)
-
-    const { data: weData } = await supabase
-      .from('workout_exercises')
-      .select('workout_id, order_index, exercises(id, name, category, equipment)')
-      .in('workout_id', ids)
-      .order('order_index')
-
     const summaries: WorkoutSummary[] = wData.map((w) => {
-      const exRows = (weData ?? [])
-        .filter((we) => we.workout_id === w.id)
-        .map((we) => (we.exercises as unknown) as Exercise | null)
+      const weRows = ((w.workout_exercises ?? []) as unknown as Array<{ order_index: number; exercises: Exercise | null }>)
+      const exRows = weRows
+        .slice()
+        .sort((a, b) => a.order_index - b.order_index)
+        .map((we) => we.exercises)
         .filter(Boolean) as Exercise[]
       const duration = w.ended_at
         ? Math.round((new Date(w.ended_at).getTime() - new Date(w.started_at).getTime()) / 60000)
         : null
-      return { ...w, exercises: exRows, duration_min: duration }
+      return { id: w.id, name: w.name, started_at: w.started_at, ended_at: w.ended_at, exercises: exRows, duration_min: duration }
     })
 
     setWorkouts(summaries)
