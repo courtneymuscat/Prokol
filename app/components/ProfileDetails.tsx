@@ -4,16 +4,29 @@ import { useState, useEffect } from 'react'
 
 type Sex = 'male' | 'female' | ''
 
-export default function ProfileDetails() {
-  const [fullName, setFullName] = useState('')
-  const [dob, setDob] = useState('')
-  const [phone, setPhone] = useState('')
-  const [sex, setSex] = useState<Sex>('')
-  const [cycleReminders, setCycleReminders] = useState(true)
+type InitialData = {
+  full_name: string | null
+  date_of_birth: string | null
+  phone: string | null
+  sex: string | null
+  cycle_reminders: boolean
+}
+
+// initialData, when provided by a server component that already has the
+// profile row, seeds state directly and skips the GET entirely — the
+// Settings page passes it so this doesn't duplicate the page's own fetch.
+// Falls back to the original self-fetch when omitted.
+export default function ProfileDetails({ initialData }: { initialData?: InitialData }) {
+  const [fullName, setFullName] = useState(initialData?.full_name ?? '')
+  const [dob, setDob] = useState(initialData?.date_of_birth ?? '')
+  const [phone, setPhone] = useState(initialData?.phone ?? '')
+  const [sex, setSex] = useState<Sex>((initialData?.sex as Sex) ?? '')
+  const [cycleReminders, setCycleReminders] = useState(initialData?.cycle_reminders ?? true)
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
-  const [loaded, setLoaded] = useState(false)
+  const [loaded, setLoaded] = useState(!!initialData)
 
   useEffect(() => {
+    if (initialData) return
     fetch('/api/settings')
       .then((r) => r.json())
       .then((d) => {
@@ -24,6 +37,7 @@ export default function ProfileDetails() {
         setCycleReminders(d.cycle_reminders !== false)
         setLoaded(true)
       })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initialData is a one-time seed, intentionally not re-triggering the fetch if it changes identity
   }, [])
 
   async function handleSave() {

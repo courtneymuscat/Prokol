@@ -6,6 +6,7 @@ import { logout } from '@/app/actions/auth'
 import CycleTracker from '@/app/dashboard/CycleTracker'
 import CyclePhaseBar from '@/app/dashboard/CyclePhaseBar'
 import CycleReminderToggle from '@/app/dashboard/CycleReminderToggle'
+import { todayString, addDays, calcPhase, calcAvgCycle } from '@/lib/cyclePhase'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,14 +15,32 @@ export default async function CyclePage() {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) redirect('/login')
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('sex, cycle_reminders')
-    .eq('id', session.user.id)
-    .single()
+  const todayStr = todayString()
+  const [{ data: profile }, { data: cycleLogRows }] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('sex, cycle_reminders')
+      .eq('id', session.user.id)
+      .single(),
+    // Same 180-day window CyclePhaseBar used to fetch itself — computed
+    // here instead so it doesn't run a third, overlapping cycle_logs query
+    // client-side (CycleTracker below fetches its own, wider 180-day
+    // history separately for the calendar view, with more columns).
+    supabase
+      .from('cycle_logs')
+      .select('log_date, period')
+      .eq('user_id', session.user.id)
+      .gte('log_date', addDays(todayStr, -180))
+      .order('log_date', { ascending: true }),
+  ])
 
   // Male users don't use cycle tracking
   if (profile?.sex === 'male') redirect('/dashboard')
+
+  const cycleLogs: Record<string, boolean> = {}
+  for (const row of cycleLogRows ?? []) cycleLogs[row.log_date] = row.period
+  const initialAvgCycle = calcAvgCycle(cycleLogs, todayStr)
+  const initialPhase = calcPhase(cycleLogs, todayStr, initialAvgCycle)
 
   const sub = await getSubscription()
   const canCycleAdv = sub.canAccess(FEATURES.CYCLE_TRACKER)
@@ -75,7 +94,7 @@ export default async function CyclePage() {
         </div>
 
         <CycleTracker advancedAccess={canCycleAdv} />
-        <CyclePhaseBar />
+        <CyclePhaseBar initialPhase={initialPhase} initialAvgCycle={initialAvgCycle} />
         <CycleReminderToggle initialEnabled={profile?.cycle_reminders !== false} />
 
         {!canCycleIntelligence && (

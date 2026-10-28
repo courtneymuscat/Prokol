@@ -6,6 +6,10 @@ type Props = {
   apiUrl: string        // endpoint to PATCH { timezone }
   getApiUrl?: string    // if different from apiUrl for GET
   fieldName?: string    // default 'timezone'
+  // When the caller already has the value (e.g. a server component that
+  // already fetched the profile row), pass it here to skip the GET
+  // entirely instead of re-fetching the same data client-side.
+  initialValue?: string | null
 }
 
 // Comprehensive IANA timezone list with readable labels
@@ -165,14 +169,15 @@ const TIMEZONES = [
   { value: 'Pacific/Apia',               label: 'Samoa — Apia (UTC+13)' },
 ]
 
-export default function TimezoneSelector({ apiUrl, getApiUrl, fieldName = 'timezone' }: Props) {
-  const [timezone, setTimezone] = useState('')
+export default function TimezoneSelector({ apiUrl, getApiUrl, fieldName = 'timezone', initialValue }: Props) {
+  const [timezone, setTimezone] = useState(initialValue ?? '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [localTime, setLocalTime] = useState('')
 
   useEffect(() => {
+    if (initialValue !== undefined) return
     const url = getApiUrl ?? apiUrl
     fetch(url)
       .then((r) => r.ok ? r.json() : {})
@@ -181,6 +186,7 @@ export default function TimezoneSelector({ apiUrl, getApiUrl, fieldName = 'timez
         if (typeof val === 'string') setTimezone(val)
       })
       .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initialValue is a one-time seed, intentionally not re-triggering the fetch if it changes identity
   }, [apiUrl, getApiUrl, fieldName])
 
   useEffect(() => {

@@ -15,7 +15,7 @@ export default async function SettingsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('first_name, email, subscription_tier, target_calories, target_protein, target_carbs, target_fat, tdee, goal, weight_kg')
+    .select('first_name, email, subscription_tier, target_calories, target_protein, target_carbs, target_fat, tdee, goal, weight_kg, timezone, full_name, date_of_birth, phone, sex, cycle_reminders')
     .eq('id', session.user.id)
     .single()
 
@@ -218,7 +218,15 @@ export default async function SettingsPage() {
             <p className="text-sm font-semibold text-gray-900">Profile details</p>
             <p className="text-xs text-gray-400 mt-0.5">Your name and contact info — visible to your coach.</p>
           </div>
-          <ProfileDetails />
+          <ProfileDetails
+            initialData={{
+              full_name: profile?.full_name ?? null,
+              date_of_birth: profile?.date_of_birth ?? null,
+              phone: profile?.phone ?? null,
+              sex: profile?.sex ?? null,
+              cycle_reminders: profile?.cycle_reminders ?? true,
+            }}
+          />
         </div>
 
         {/* Timezone */}
@@ -227,7 +235,7 @@ export default async function SettingsPage() {
             <p className="text-sm font-semibold text-gray-900">Timezone</p>
             <p className="text-xs text-gray-400 mt-0.5">Used to display your logs and check-ins in the correct local time.</p>
           </div>
-          <TimezoneSelector apiUrl="/api/settings" />
+          <TimezoneSelector apiUrl="/api/settings" initialValue={profile?.timezone ?? null} />
         </div>
 
         {/* Danger zone */}
