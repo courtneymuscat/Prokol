@@ -22,11 +22,14 @@ export default async function SettingsPage() {
   // Detect coached status via coach_clients (more reliable than subscription_tier)
   const { data: coachRel } = await supabase
     .from('coach_clients')
-    .select('coach_id')
+    .select('coach_id, show_daily_targets')
     .eq('client_id', session.user.id)
     .eq('status', 'active')
     .maybeSingle()
   const isCoached = !!coachRel
+  // Same gate as the dashboard: a coached client only sees targets if their
+  // coach has "Show daily targets" turned on.
+  const showDailyTargets = !isCoached || ((coachRel?.show_daily_targets as boolean | null) ?? false)
 
   // Fetch coach branding if coached
   let coachLogoUrl: string | null = null
@@ -47,7 +50,8 @@ export default async function SettingsPage() {
   const navLogo = coachLogoUrl
   const navName = coachBrandName ?? 'Prokol'
 
-  const hasMacros = profile?.target_calories
+  const hasMacros = !!profile?.target_calories
+  const canShowTargets = hasMacros && showDailyTargets
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -86,7 +90,7 @@ export default async function SettingsPage() {
         </div>
 
         {/* Macro targets */}
-        {hasMacros && (
+        {canShowTargets && (
           <div className="bg-white rounded-2xl border p-5 space-y-4">
             <p className="text-sm font-semibold text-gray-900">Your daily targets</p>
             <div className="grid grid-cols-4 gap-2 text-center">
@@ -120,6 +124,12 @@ export default async function SettingsPage() {
                 Recalculate targets
               </a>
             )}
+          </div>
+        )}
+
+        {hasMacros && !canShowTargets && (
+          <div className="bg-white rounded-2xl border border-dashed p-5 text-center">
+            <p className="text-xs text-gray-400 italic">Your coach hasn&apos;t shared daily targets with you.</p>
           </div>
         )}
 
