@@ -340,40 +340,45 @@ export default function AppPreviewTab({
       .finally(() => setLoading(false))
   }, [clientId])
 
-  // Eagerly fetch the active plan so the Home screen can show the weekly card
+  // Eagerly fetch the active plan once, shared by both the Home screen's
+  // weekly card and the More screen's plan preview below — these used to
+  // each independently fetch the plans list + the same full plan, two
+  // identical round trips for the same data.
+  const [visiblePlanFull, setVisiblePlanFull] = useState<PreviewPlan | null | false>(null) // null=loading, false=none
+
   useEffect(() => {
     fetch(`/api/coach/clients/${clientId}/plans`)
       .then(r => r.ok ? r.json() : [])
       .then(async (plans: { id: string; is_visible_to_client: boolean }[]) => {
         const visible = plans.find(p => p.is_visible_to_client)
-        if (!visible) return
+        if (!visible) { setVisiblePlanFull(false); return }
         const full = await fetch(`/api/coach/clients/${clientId}/plans/${visible.id}`).then(r => r.json())
-        if (full?.id) setHomeWeekInfo(computeHomeWeekInfo(full as PreviewPlan))
+        setVisiblePlanFull(full?.id ? (full as PreviewPlan) : false)
       })
-      .catch(() => {/* silent */})
+      .catch(() => setVisiblePlanFull(false))
   }, [clientId])
 
-  // Lazy-load More screen data when coach navigates there
+  useEffect(() => {
+    if (visiblePlanFull) setHomeWeekInfo(computeHomeWeekInfo(visiblePlanFull))
+  }, [visiblePlanFull])
+
+  // Lazy-load More screen resources when coach navigates there (the plan
+  // half of this screen is sourced from visiblePlanFull above instead of
+  // a second fetch).
   useEffect(() => {
     if (screen !== 'more' || previewResources !== null) return
-    setMoreLoading(true)
-    Promise.all([
-      fetch(`/api/coach/clients/${clientId}/resources`).then(r => r.json()),
-      fetch(`/api/coach/clients/${clientId}/plans`).then(r => r.json()),
-    ]).then(async ([res, plans]) => {
-      setPreviewResources(Array.isArray(res) ? res : [])
-      const visibleSummary = Array.isArray(plans) ? plans.find((p: { is_visible_to_client: boolean }) => p.is_visible_to_client) : null
-      if (visibleSummary?.id) {
-        const full = await fetch(`/api/coach/clients/${clientId}/plans/${visibleSummary.id}`).then(r => r.json())
-        setPreviewPlan(full?.id ? full : false)
-      } else {
-        setPreviewPlan(false)
-      }
-    }).catch(() => {
-      setPreviewResources([])
-      setPreviewPlan(false)
-    }).finally(() => setMoreLoading(false))
+    fetch(`/api/coach/clients/${clientId}/resources`)
+      .then(r => r.json())
+      .then((res) => setPreviewResources(Array.isArray(res) ? res : []))
+      .catch(() => setPreviewResources([]))
   }, [screen, previewResources, clientId])
+
+  useEffect(() => {
+    if (screen !== 'more') return
+    setMoreLoading(previewResources === null || visiblePlanFull === null)
+    if (previewResources === null || visiblePlanFull === null) return
+    setPreviewPlan(visiblePlanFull)
+  }, [screen, previewResources, visiblePlanFull])
 
   if (loading) return <div className="flex items-center justify-center py-16"><p className="text-sm text-gray-400">Loading preview…</p></div>
   if (error || !data) return <div className="flex items-center justify-center py-16"><p className="text-sm text-red-500">{error ?? 'No data'}</p></div>
