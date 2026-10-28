@@ -42,10 +42,10 @@ const DIET_FILTERS = [
 ]
 const TIER_FILTERS = [
   { value: '', label: 'All tiers' },
-  { value: 'cal_conscious', label: 'Cal Conscious' },
-  { value: 'balanced', label: 'Balanced' },
-  { value: 'bigger', label: 'Bigger' },
-  { value: 'gainer', label: 'Gainer' },
+  { value: 'cal_conscious', label: 'Cal Conscious (~400 cals)' },
+  { value: 'balanced', label: 'Balanced (~550 cals)' },
+  { value: 'bigger', label: 'Bigger (~700 cals)' },
+  { value: 'gainer', label: 'Gainer (~850 cals)' },
 ]
 
 export default function ClientRecipesPage() {
