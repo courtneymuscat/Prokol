@@ -61,9 +61,15 @@ export async function notifyCoachOfClientLog(
       .in('coach_id', coachIds)
       .eq('client_id', clientId)
 
-    const enabledCoaches = (prefs ?? [])
-      .filter((p) => (p as Record<string, unknown>)[event] === true)
-      .map((p) => (p as { coach_id: string }).coach_id)
+    // A coach with no preference row gets all-enabled defaults (matches the UI).
+    // Only skip coaches who EXPLICITLY set the pref to false.
+    const prefMap = new Map(
+      (prefs ?? []).map((p) => [(p as { coach_id: string }).coach_id, (p as Record<string, unknown>)[event]]),
+    )
+    const enabledCoaches = coachIds.filter((id) => {
+      const val = prefMap.get(id)
+      return val === undefined || val === true // no row = default on
+    })
 
     if (enabledCoaches.length === 0) return
 

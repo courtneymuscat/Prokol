@@ -245,6 +245,9 @@ export default function CoachExercisesPage() {
   const [savingHowToId, setSavingHowToId] = useState<string | null>(null)
   // editable drafts while reviewing
   const [howToDrafts, setHowToDrafts] = useState<Record<string, string>>({})
+  // auto-save-all progress (bypasses review)
+  const [autoSaveAllRunning, setAutoSaveAllRunning] = useState(false)
+  const [autoSaveAllProgress, setAutoSaveAllProgress] = useState({ saved: 0, remaining: 0 })
 
   const fetchExercises = useCallback(async () => {
     setLoading(true)
@@ -348,31 +351,31 @@ export default function CoachExercisesPage() {
   }
 
   async function startAutoHowTo() {
-    const res = await fetch('/api/exercises/library?limit=100&offset=0')
-    const raw = await res.json()
-    const all: Exercise[] = raw.exercises ?? raw
-    const noHowTo = all.filter(e => !e.how_to)
-    if (!noHowTo.length) { alert('All exercises already have how-to guides!'); return }
+    // Fetch exercises that actually lack how-to guides (using the API filter)
+    const countRes = await fetch('/api/exercises/library?has_how_to=false&limit=1')
+    const countData = await countRes.json()
+    const total = countData.total ?? 0
+    if (!total) { alert('All exercises already have how-to guides!'); return }
 
     setHowToAutoState('searching')
     setHowToResults([])
-    setHowToProgress({ done: 0, total: noHowTo.length })
+    setHowToProgress({ done: 0, total: Math.min(total, 10) })
 
-    const BATCH = 10
-    const generated: AutoHowToResult[] = []
-    for (let i = 0; i < noHowTo.length; i += BATCH) {
-      const batch = noHowTo.slice(i, i + BATCH)
-      const r = await fetch('/api/exercises/auto-how-to', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ exercise_ids: batch.map(e => e.id) }),
-      })
-      const { results } = await r.json()
-      generated.push(...(results ?? []))
-      setHowToProgress({ done: Math.min(i + BATCH, noHowTo.length), total: noHowTo.length })
-    }
+    // Generate one batch of 10 for review
+    const listRes = await fetch('/api/exercises/library?has_how_to=false&limit=10')
+    const listData = await listRes.json()
+    const noHowTo: Exercise[] = listData.exercises ?? []
+    if (!noHowTo.length) { setHowToAutoState('idle'); return }
 
-    const withContent = generated.filter(r => r.how_to)
+    const r = await fetch('/api/exercises/auto-how-to', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exercise_ids: noHowTo.map(e => e.id) }),
+    })
+    const { results } = await r.json()
+    setHowToProgress({ done: 10, total: Math.min(total, 10) })
+
+    const withContent = (results as AutoHowToResult[] ?? []).filter(r => r.how_to)
     if (!withContent.length) {
       setHowToAutoState('idle')
       alert('AI generation returned no results. Check that OPENAI_API_KEY is set and try again.')
@@ -383,6 +386,69 @@ export default function CoachExercisesPage() {
     setHowToResults(withContent)
     setHowToDrafts(drafts)
     setHowToAutoState('reviewing')
+  }
+
+  async function generateAndSaveAll() {
+    setAutoSaveAllRunning(true)
+    setAutoSaveAllProgress({ saved: 0, remaining: 0 })
+    let totalSaved = 0
+
+    while (true) {
+      // Fetch the next batch of exercises without guides via the library API —
+      // this is the same query the "No guide" filter uses and is known to work.
+      let batchRes: Response
+      try {
+        batchRes = await fetch('/api/exercises/library?has_how_to=false&limit=10')
+      } catch {
+        alert('Network error — check your connection and try again.')
+        break
+      }
+      const batchData = await batchRes.json()
+      const batch: Exercise[] = batchData.exercises ?? []
+      if (batch.length === 0) {
+        if (totalSaved === 0) alert('Library returned no exercises without guides. Try refreshing the page.')
+        break
+      }
+
+      const remaining = Math.max(0, (batchData.total ?? 0) - batch.length)
+
+      // Generate and immediately save guides for this batch
+      let r: Response
+      try {
+        r = await fetch('/api/exercises/auto-how-to', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ exercise_ids: batch.map(e => e.id), auto_save: true }),
+        })
+      } catch {
+        alert('Network error — check your connection and try again.')
+        break
+      }
+
+      const d = await r.json().catch(() => ({ error: 'Unexpected server response' })) as { saved_count?: number; error?: string }
+
+      if (!r.ok) {
+        alert(`Generation stopped: ${d.error ?? `HTTP ${r.status}`}`)
+        break
+      }
+
+      const batchSaved = d.saved_count ?? 0
+      totalSaved += batchSaved
+      setAutoSaveAllProgress({ saved: totalSaved, remaining })
+
+      if (batchSaved === 0) {
+        alert('AI returned no guides for this batch — check that OPENAI_API_KEY is set on Vercel.')
+        break
+      }
+      if (remaining <= 0) break
+    }
+
+    setAutoSaveAllRunning(false)
+    fetchExercises()
+    alert(totalSaved > 0
+      ? `Done! ${totalSaved} how-to guides generated and saved.`
+      : 'Nothing was saved — all exercises may already have guides, or the AI had no results. Try refreshing.'
+    )
   }
 
   async function approveHowTo(result: AutoHowToResult) {
@@ -409,28 +475,33 @@ export default function CoachExercisesPage() {
   }
 
   async function approveAllHowTo() {
-    let saved = 0, failed = 0
-    for (const result of howToResults) {
-      const text = howToDrafts[result.id] ?? result.how_to ?? ''
-      setSavingHowToId(result.id)
-      // global: true — saving to shared exercises table
-      const res = await fetch('/api/exercises/auto-how-to', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ exercise_id: result.id, how_to: text, global: true }),
-      })
-      if (res.ok) {
-        saved++
-        setExercises(prev => prev.map(e => e.id === result.id ? { ...e, how_to: text } : e))
-      } else {
-        failed++
-      }
-    }
+    const toSave = howToResults.map(result => ({
+      exercise_id: result.id,
+      how_to: howToDrafts[result.id] ?? result.how_to ?? '',
+    })).filter(item => item.how_to.trim())
+
+    const res = await fetch('/api/exercises/auto-how-to', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exercises: toSave, global: true }),
+    })
+    const data = await res.json() as { saved?: number; errors?: string[] }
+    const saved = data.saved ?? 0
+    const errors = data.errors ?? []
+
+    // Update local state for saved exercises
+    toSave.forEach(item => {
+      setExercises(prev => prev.map(e => e.id === item.exercise_id ? { ...e, how_to: item.how_to } : e))
+    })
+
     setSavingHowToId(null)
     setHowToResults([])
     setHowToFilter('all')
     setHowToAutoState(saved > 0 ? 'done' : 'idle')
-    if (failed > 0) alert(`${saved} guides saved. ${failed} failed — check console for details.`)
+    if (errors.length > 0) {
+      console.error('[approveAllHowTo] errors:', errors)
+      alert(`${saved} guides saved. ${errors.length} failed:\n${errors.slice(0, 3).join('\n')}`)
+    }
   }
 
   return (
@@ -441,22 +512,45 @@ export default function CoachExercisesPage() {
           <p className="text-xs text-gray-400 mt-0.5">Add YouTube demo videos and how-to guides so clients know exactly how to perform each movement.</p>
         </div>
         <div className="flex items-center gap-2">
-          {howToAutoState === 'idle' && autoState === 'idle' && (
-            <button
-              onClick={startAutoHowTo}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors bg-violet-600 hover:bg-violet-700"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
-              Auto-generate how-to
-            </button>
+          {autoSaveAllRunning && (
+            <span className="text-xs text-violet-700 font-medium px-3 py-2 bg-violet-50 rounded-xl animate-pulse">
+              Generating… {autoSaveAllProgress.saved} saved so far
+            </span>
+          )}
+          {!autoSaveAllRunning && howToAutoState === 'idle' && autoState === 'idle' && (
+            <>
+              {/* Primary: generate a batch, review/edit each one, then approve
+                  — writes to the shared exercise library, so this stays the
+                  default path. */}
+              <button
+                onClick={startAutoHowTo}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors bg-violet-600 hover:bg-violet-700"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+                Review & approve how-tos
+              </button>
+              {/* Secondary: skips review entirely. Intentionally smaller and
+                  explicitly labeled — this writes straight to the shared
+                  library with nobody checking the output first. */}
+              <button
+                onClick={() => { if (confirm('Generate and save how-to guides for every exercise with none, without reviewing them first? This writes straight to the shared exercise library.')) generateAndSaveAll() }}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-violet-700 border border-violet-200 hover:bg-violet-50 transition-colors"
+                title="Generates and saves immediately, with no review step"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Generate & save all (skip review)
+              </button>
+            </>
           )}
           {autoState === 'idle' && howToAutoState === 'idle' && (
             <button
               onClick={startAutoFill}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-colors"
-              style={{ backgroundColor: '#1D9E75' }}
+              style={{ backgroundColor: 'var(--nc-primary)' }}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
@@ -643,7 +737,7 @@ export default function CoachExercisesPage() {
                   onClick={approveAll}
                   disabled={!!savingId}
                   className="text-xs font-semibold text-white px-4 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
-                  style={{ backgroundColor: '#1D9E75' }}
+                  style={{ backgroundColor: 'var(--nc-primary)' }}
                 >
                   {savingId ? 'Saving…' : `Approve all (${autoResults.length})`}
                 </button>
@@ -681,7 +775,7 @@ export default function CoachExercisesPage() {
                         onClick={() => approveVideo(result)}
                         disabled={savingId === result.id}
                         className="text-xs font-semibold text-white px-4 py-1.5 rounded-lg disabled:opacity-50 transition-colors"
-                        style={{ backgroundColor: '#1D9E75' }}
+                        style={{ backgroundColor: 'var(--nc-primary)' }}
                       >
                         {savingId === result.id ? 'Saving…' : '✓ Approve'}
                       </button>

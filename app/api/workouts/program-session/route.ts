@@ -30,16 +30,18 @@ export async function POST(req: NextRequest) {
 
   const coach_id = prog?.coach_id ?? null
 
-  // Check if a result already exists for this program day (ignoring event_date — handles moved workouts)
-  const { data: existing } = await admin
+  // Check if a result already exists for this program day (ignoring event_date — handles moved workouts).
+  // Use limit(1) rather than maybeSingle() so duplicate records don't cause a silent null + new INSERT.
+  const { data: existingRows } = await admin
     .from('calendar_events')
-    .select('id')
+    .select('id, content')
     .eq('client_id', user.id)
     .eq('type', 'program_workout_result')
     .contains('content', { program_id, week_index, day_index })
-    .maybeSingle()
+    .limit(1)
+  const existing = existingRows?.[0] ?? null
 
-  const content = {
+  const newContent = {
     program_id,
     program_name,
     week_index,
@@ -51,6 +53,15 @@ export async function POST(req: NextRequest) {
   }
 
   if (existing) {
+    // Merge with existing content so coach feedback/notes are not wiped on re-log.
+    const prevContent = (existing.content ?? {}) as Record<string, unknown>
+    const content = {
+      ...prevContent,
+      ...newContent,
+      // Preserve coach-added fields that the client doesn't send
+      feedback_left_at: prevContent.feedback_left_at ?? null,
+      feedback_seen: prevContent.feedback_seen ?? null,
+    }
     // Update existing result — no notification, the coach was already pinged
     // when the workout was first logged.
     const { data, error } = await admin
@@ -72,7 +83,7 @@ export async function POST(req: NextRequest) {
       event_date,
       client_id: user.id,
       coach_id,
-      content,
+      content: newContent,
     })
     .select()
     .single()
