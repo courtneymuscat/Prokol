@@ -39,11 +39,23 @@ export async function GET(
   // form_submissions all along.
   const titleByFormId: Record<string, string> = {}
 
-  const { data: checkinSchedules } = await admin
-    .from('checkin_schedules')
-    .select('form_id, title')
-    .eq('client_id', clientId)
-    .eq('coach_id', coachId)
+  // checkin_schedules and client_autoflows are independent reads — fetch
+  // together instead of one after the other. client_autoflows is fetched
+  // once here (full shape: id, name, template_id) and reused below for the
+  // autoflow check-ins section too, instead of being queried a second time
+  // with just template_id.
+  const [{ data: checkinSchedules }, { data: clientFlows }] = await Promise.all([
+    admin
+      .from('checkin_schedules')
+      .select('form_id, title')
+      .eq('client_id', clientId)
+      .eq('coach_id', coachId),
+    admin
+      .from('client_autoflows')
+      .select('id, name, template_id')
+      .eq('client_id', clientId)
+      .eq('coach_id', coachId),
+  ])
 
   for (const s of checkinSchedules ?? []) {
     if (s.form_id) titleByFormId[s.form_id] = s.title
@@ -52,12 +64,7 @@ export async function GET(
   // Forms attached to autoflow template steps. Works for both the assigning
   // coach's own templates and org templates (the join is by template_id
   // regardless of owner; we get the form rows via admin).
-  const { data: assignedFlows } = await admin
-    .from('client_autoflows')
-    .select('template_id')
-    .eq('client_id', clientId)
-    .eq('coach_id', coachId)
-  const assignedTemplateIds = [...new Set((assignedFlows ?? []).map((f) => f.template_id).filter(Boolean) as string[])]
+  const assignedTemplateIds = [...new Set((clientFlows ?? []).map((f) => f.template_id).filter(Boolean) as string[])]
   if (assignedTemplateIds.length) {
     const { data: stepRows } = await admin
       .from('autoflow_template_steps')
@@ -101,18 +108,14 @@ export async function GET(
     }))
   }
 
-  // Fetch all autoflow responses for this client
+  // Build the autoflow check-ins section from the client_autoflows rows
+  // already fetched above (same rows, no second query).
   type AutoflowCheckIn = {
     id: string; flow_id: string; flow_name: string; step_number: number
     submitted_at: string; answers: Record<string, string>
     questions: { id: string; label: string; type: string }[]
   }
   let autoflowCheckIns: AutoflowCheckIn[] = []
-  const { data: clientFlows } = await admin
-    .from('client_autoflows')
-    .select('id, name, template_id')
-    .eq('client_id', clientId)
-    .eq('coach_id', coachId)
 
   if (clientFlows?.length) {
     const allFlowIds = clientFlows.map((f) => f.id)
