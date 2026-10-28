@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { syncAutoflowStepHabits } from '@/lib/autoflowStepHabits'
 
 export async function GET() {
   const supabase = await createClient()
@@ -27,7 +28,7 @@ export async function GET() {
       const [{ data: steps }, { data: responses }, { data: dismissals }] = await Promise.all([
         admin
           .from('autoflow_template_steps')
-          .select('step_number, title, day_offset, trigger_type, trigger_step_number, tasks, resource_ids, form_id')
+          .select('step_number, title, day_offset, trigger_type, trigger_step_number, tasks, resource_ids, form_id, protocol_section, habit')
           .eq('template_id', flow.template_id)
           .order('step_number'),
         admin
@@ -60,6 +61,21 @@ export async function GET() {
         const dueDate = new Date(startDate.getTime() + step.day_offset * 86400000)
         dueDate.setHours(0, 0, 0, 0)
         return dueDate <= today
+      })
+
+      // Keep this flow's trackable habits in sync with which steps are
+      // due right now — creates a real habit for any newly-due step that
+      // has one attached, and deactivates any habit whose step just
+      // became not-due (completed, dismissed, or not yet reached).
+      await syncAutoflowStepHabits(admin, {
+        clientAutoflowId: flow.id,
+        clientId: user.id,
+        coachId: flow.coach_id as string,
+        dueStepNumbers: new Set(dueSteps.map((s) => s.step_number)),
+        stepsWithHabit: (steps ?? []).map((s) => ({
+          step_number: s.step_number,
+          habit: (s as Record<string, unknown>).habit as { name: string; icon: string; unit: string; target: number } | null,
+        })),
       })
 
       if (dueSteps.length === 0) return []
@@ -171,6 +187,8 @@ export async function GET() {
           tasks,
           resources: resourceIds.map((id) => resourceMap[id]).filter(Boolean),
           linked_form: formId ? (formMap[formId] ?? null) : null,
+          protocol_section: (stepRecord.protocol_section as { title: string; content: string } | null) ?? null,
+          habit: (stepRecord.habit as { name: string; icon: string; unit: string; target: number } | null) ?? null,
           unlocks_next_step,
         }
       })

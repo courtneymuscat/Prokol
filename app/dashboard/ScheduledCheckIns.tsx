@@ -29,6 +29,8 @@ type DueAutoflowStep = {
   tasks: Array<{ id: string; label: string; completed: boolean }>
   resources: Array<{ id: string; name: string; type: string; url: string | null }>
   linked_form: { id: string; title: string } | null
+  protocol_section: { title: string; content: string } | null
+  habit: { name: string; icon: string; unit: string; target: number } | null
 }
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -247,6 +249,16 @@ export default function ScheduledCheckIns({ onEmpty }: Props) {
                 <p className="text-xs mt-0.5" style={{ color: 'var(--nc-primary)' }}>
                   {step.flow_name} · Due today
                 </p>
+                {(step.protocol_section || step.habit) && (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    {step.protocol_section && (
+                      <span className="text-[10px] font-medium text-gray-500 bg-white/70 px-1.5 py-0.5 rounded-full">📋 Protocol</span>
+                    )}
+                    {step.habit && (
+                      <span className="text-[10px] font-medium text-gray-500 bg-white/70 px-1.5 py-0.5 rounded-full">{step.habit.icon} Habit</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             <span className="text-xs font-semibold text-white px-3 py-1.5 rounded-lg flex-shrink-0 mr-7" style={{ backgroundColor: 'var(--nc-primary)' }}>Fill in →</span>

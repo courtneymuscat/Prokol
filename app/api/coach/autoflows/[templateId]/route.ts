@@ -45,7 +45,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const stepsClient = isOrgTemplate ? createAdminClient() : supabase
   const { data: steps } = await stepsClient
     .from('autoflow_template_steps')
-    .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, form_save_to_file, tasks, automated_message')
+    .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, form_save_to_file, tasks, automated_message, protocol_section, habit')
     .eq('template_id', templateId)
     .order('step_number')
 
@@ -96,7 +96,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     .eq('id', templateId)
 
   if (Array.isArray(steps)) {
-    const stepRows = steps.map((s: { step_number: number; title: string; description?: string; questions: unknown[]; day_offset: number; trigger_type?: string; trigger_step_number?: number | null; resource_ids?: unknown[]; form_id?: string | null; form_save_to_file?: boolean; tasks?: unknown[]; automated_message?: string }) => ({
+    const stepRows = steps.map((s: { step_number: number; title: string; description?: string; questions: unknown[]; day_offset: number; trigger_type?: string; trigger_step_number?: number | null; resource_ids?: unknown[]; form_id?: string | null; form_save_to_file?: boolean; tasks?: unknown[]; automated_message?: string; protocol_section?: { title: string; content: string } | null; habit?: { name: string; icon: string; unit: string; target: number } | null }) => ({
       template_id: templateId,
       step_number: s.step_number,
       title: s.title ?? '',
@@ -110,6 +110,8 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
       form_save_to_file: s.form_save_to_file ?? false,
       tasks: s.tasks ?? [],
       automated_message: s.automated_message ?? null,
+      protocol_section: s.protocol_section ?? null,
+      habit: s.habit ?? null,
     }))
     await supabase
       .from('autoflow_template_steps')
@@ -143,6 +145,15 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
         .eq('template_id', templateId)
       const flowIds = (siblingFlows ?? []).map((f) => f.id as string)
       if (flowIds.length > 0) {
+        // Deactivate (not delete — keeps habit_logs history) any real
+        // habit that was auto-created for one of these now-removed
+        // steps, before dropping the mapping rows that track them.
+        const { data: removedInstances } = await admin
+          .from('autoflow_step_habit_instances')
+          .select('habit_id')
+          .in('client_autoflow_id', flowIds)
+          .in('step_number', removedStepNumbers)
+        const removedHabitIds = (removedInstances ?? []).map((i) => i.habit_id as string)
         await Promise.all([
           admin
             .from('client_autoflow_step_overrides')
@@ -154,6 +165,14 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
             .delete()
             .in('client_autoflow_id', flowIds)
             .in('step_number', removedStepNumbers),
+          admin
+            .from('autoflow_step_habit_instances')
+            .delete()
+            .in('client_autoflow_id', flowIds)
+            .in('step_number', removedStepNumbers),
+          removedHabitIds.length > 0
+            ? admin.from('habits').update({ active: false }).in('id', removedHabitIds)
+            : Promise.resolve(),
         ])
         // Drop the calendar events pointing at any of the removed steps
         // for any client on this template.

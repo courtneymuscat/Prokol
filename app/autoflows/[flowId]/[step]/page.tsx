@@ -42,6 +42,8 @@ type StepData = {
   resources: Resource[]
   tasks: Task[]
   linked_form: { id: string; title: string } | null
+  protocol_section: { title: string; content: string } | null
+  habit: { name: string; icon: string; unit: string; target: number } | null
   existing_submission: { id: string; answers: Record<string, string>; submitted_at: string } | null
   next_step_available: boolean
 }
@@ -419,6 +421,35 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
           </p>
         )}
 
+        {/* Protocol note — informational, shown only while this step is due */}
+        {data.protocol_section && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+              {data.protocol_section.title || 'Protocol'}
+            </p>
+            <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{data.protocol_section.content}</p>
+          </div>
+        )}
+
+        {/* Habit — a real, trackable habit added for the duration of this step */}
+        {data.habit && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3">
+            <span className="text-xl flex-shrink-0">{data.habit.icon}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-0.5">This week&apos;s habit</p>
+              <p className="text-sm font-semibold text-emerald-900">
+                {data.habit.name} — {data.habit.target} {data.habit.unit}
+              </p>
+              <p className="text-xs text-emerald-800 mt-1 leading-relaxed">
+                Added to your Habits tab for as long as this step is active — track it there day to day.
+              </p>
+              <a href="/dashboard" className="inline-block mt-2 text-xs font-semibold text-emerald-800 underline hover:text-emerald-900">
+                Go to Habits →
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* Resources — direct client to the resources section */}
         {data.resources && data.resources.length > 0 && (
           <div className="space-y-2">
@@ -563,7 +594,7 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
           })
         })()}
 
-        {allQuestions.length === 0 && !data.tasks?.length && !data.resources?.length && !data.linked_form && (
+        {allQuestions.length === 0 && !data.tasks?.length && !data.resources?.length && !data.linked_form && !data.protocol_section && !data.habit && (
           <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
             <p className="text-sm text-gray-400">No content for this step yet.</p>
           </div>

@@ -27,7 +27,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const [{ data: templateStep }, { data: override }, { data: existing }] = await Promise.all([
     admin
       .from('autoflow_template_steps')
-      .select('title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, tasks')
+      .select('title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, tasks, protocol_section, habit')
       .eq('template_id', flow.template_id)
       .eq('step_number', stepNum)
       .single(),
@@ -199,6 +199,8 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     resources,
     tasks: templateStep?.tasks ?? [],
     linked_form: linkedForm,
+    protocol_section: templateStep?.protocol_section ?? null,
+    habit: templateStep?.habit ?? null,
     existing_submission: existing ?? null,
     next_step_available,
   })
@@ -228,6 +230,25 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     )
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
+
+  // If this step had a trackable habit attached, deactivate it right
+  // away — the step is now complete, so its habit shouldn't keep
+  // showing as active. The due-steps poll would catch this too, but
+  // doing it here means it disappears from the Habits tracker
+  // immediately rather than on the next poll. Uses the admin client —
+  // the client's own session can't write to `habits` under RLS.
+  {
+    const adminForHabit = createAdminClient()
+    const { data: instance } = await adminForHabit
+      .from('autoflow_step_habit_instances')
+      .select('habit_id')
+      .eq('client_autoflow_id', flowId)
+      .eq('step_number', stepNum)
+      .maybeSingle()
+    if (instance?.habit_id) {
+      await adminForHabit.from('habits').update({ active: false }).eq('id', instance.habit_id)
+    }
+  }
 
   // Notify coach when this is a check-in prompt flow
   const isCheckinFlow = (flow as unknown as Record<string, unknown>).show_as_checkin_prompt as boolean ?? false

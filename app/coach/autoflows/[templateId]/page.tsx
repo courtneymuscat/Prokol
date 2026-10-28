@@ -29,6 +29,9 @@ type Task = {
   link_save_to_file?: boolean
 }
 
+type ProtocolSection = { title: string; content: string }
+type StepHabit = { name: string; icon: string; unit: string; target: number }
+
 type Step = {
   step_number: number
   title: string
@@ -42,6 +45,13 @@ type Step = {
   form_save_to_file: boolean
   tasks: Task[]
   automated_message: string
+  // Shown on the client's dashboard only while this step is due — hidden
+  // again the moment it's completed or the next step takes over.
+  protocol_section: ProtocolSection | null
+  // Becomes a real, trackable habit on the client's Habits tab the
+  // moment this step is due, and is deactivated (not deleted — keeps log
+  // history) the moment the step is completed or superseded.
+  habit: StepHabit | null
 }
 
 type Template = {
@@ -539,6 +549,8 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
             form_save_to_file: s.form_save_to_file ?? false,
             tasks: s.tasks ?? [],
             automated_message: s.automated_message ?? '',
+            protocol_section: s.protocol_section ?? null,
+            habit: s.habit ?? null,
           })),
         })
       })
@@ -987,6 +999,8 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                 form_save_to_file: false,
                 tasks: [],
                 automated_message: '',
+                protocol_section: null,
+                habit: null,
               }
               setTemplate({
                 ...template,
@@ -1199,6 +1213,104 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                       </label>
                     )}
                   </>
+                )}
+              </div>
+
+              {/* Protocol note for this step */}
+              <div className="border border-gray-200 rounded-2xl p-4 space-y-3 bg-white">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Protocol note</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Shown on the client&apos;s dashboard only while this step is due — disappears once it&apos;s completed or the next step takes over.
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer select-none flex-shrink-0">
+                    <div
+                      onClick={() => updateStep(activeStep, { protocol_section: currentStep.protocol_section ? null : { title: '', content: '' } })}
+                      className={`relative w-9 h-5 rounded-full transition-colors ${currentStep.protocol_section ? 'bg-blue-600' : 'bg-gray-200'}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${currentStep.protocol_section ? 'translate-x-4' : ''}`} />
+                    </div>
+                  </label>
+                </div>
+                {currentStep.protocol_section && (
+                  <div className="space-y-2">
+                    <input
+                      value={currentStep.protocol_section.title}
+                      onChange={e => updateStep(activeStep, { protocol_section: { ...currentStep.protocol_section!, title: e.target.value } })}
+                      placeholder="e.g. Sleep, Stress Management, Lifestyle…"
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                    />
+                    <textarea
+                      value={currentStep.protocol_section.content}
+                      onChange={e => updateStep(activeStep, { protocol_section: { ...currentStep.protocol_section!, content: e.target.value } })}
+                      placeholder="Notes, guidelines, or instructions for this step…"
+                      rows={3}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Trackable habit for this step */}
+              <div className="border border-gray-200 rounded-2xl p-4 space-y-3 bg-white">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Habit</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Added as a real, trackable habit on the client&apos;s Habits tab the moment this step is due — deactivated automatically once it&apos;s completed or the next step takes over.
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer select-none flex-shrink-0">
+                    <div
+                      onClick={() => updateStep(activeStep, { habit: currentStep.habit ? null : { name: '', icon: '✓', unit: 'times', target: 1 } })}
+                      className={`relative w-9 h-5 rounded-full transition-colors ${currentStep.habit ? 'bg-blue-600' : 'bg-gray-200'}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${currentStep.habit ? 'translate-x-4' : ''}`} />
+                    </div>
+                  </label>
+                </div>
+                {currentStep.habit && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-[11px] text-gray-500 mb-1">Icon</label>
+                      <input
+                        value={currentStep.habit.icon}
+                        onChange={e => updateStep(activeStep, { habit: { ...currentStep.habit!, icon: e.target.value } })}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-center focus:outline-none"
+                        maxLength={4}
+                      />
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-[11px] text-gray-500 mb-1">Name</label>
+                      <input
+                        value={currentStep.habit.name}
+                        onChange={e => updateStep(activeStep, { habit: { ...currentStep.habit!, name: e.target.value } })}
+                        placeholder="e.g. Cold Shower"
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-gray-500 mb-1">Target</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={currentStep.habit.target}
+                        onChange={e => updateStep(activeStep, { habit: { ...currentStep.habit!, target: parseInt(e.target.value) || 1 } })}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-gray-500 mb-1">Unit</label>
+                      <input
+                        value={currentStep.habit.unit}
+                        onChange={e => updateStep(activeStep, { habit: { ...currentStep.habit!, unit: e.target.value } })}
+                        placeholder="times"
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
 
