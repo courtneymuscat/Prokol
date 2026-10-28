@@ -1,0 +1,3100 @@
+{
+  "_notes": [
+    "Reviewable seed content for the '12-Week Nutrition Foundations' autoflow.",
+    "Fields ending in a RESOURCE_PDF_* or VIDEO_URL_* placeholder need a real URL before clients use this —",
+    "edit the `url` field on the matching resource below (or later in Resources once imported), the `key` can stay as-is.",
+    "Edit any copy directly in this file, then re-run scripts/seed_foundations.mjs to re-import."
+  ],
+  "template": {
+    "name": "12-Week Nutrition Foundations",
+    "description": "Court's 12-week nutrition education program. Education-first, drip-fed one step at a time — clients learn the why and get practical things to do, relying less on tracking as the weeks go on.",
+    "type": "onboarding",
+    "total_steps": 38
+  },
+  "resources": [
+    {
+      "key": "VIDEO_URL_W0_D1",
+      "name": "Week 0 / Day 1 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W0_D1"
+    },
+    {
+      "key": "VIDEO_URL_W0_D2",
+      "name": "Week 0 / Day 2 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W0_D2"
+    },
+    {
+      "key": "VIDEO_URL_W0_D3",
+      "name": "Week 0 / Day 3 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W0_D3"
+    },
+    {
+      "key": "VIDEO_URL_W0_D4",
+      "name": "Week 0 / Day 4 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W0_D4"
+    },
+    {
+      "key": "VIDEO_URL_W0_D5",
+      "name": "Week 0 / Day 5 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W0_D5"
+    },
+    {
+      "key": "VIDEO_URL_W0_D6",
+      "name": "Week 0 / Day 6 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W0_D6"
+    },
+    {
+      "key": "VIDEO_URL_W0_D7",
+      "name": "Week 0 / Day 7 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W0_D7"
+    },
+    {
+      "key": "VIDEO_URL_W01",
+      "name": "Week 1 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W01"
+    },
+    {
+      "key": "VIDEO_URL_W02",
+      "name": "Week 2 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W02"
+    },
+    {
+      "key": "VIDEO_URL_W03",
+      "name": "Week 3 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W03"
+    },
+    {
+      "key": "VIDEO_URL_W04",
+      "name": "Week 4 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W04"
+    },
+    {
+      "key": "VIDEO_URL_W05",
+      "name": "Week 5 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W05"
+    },
+    {
+      "key": "VIDEO_URL_W06",
+      "name": "Week 6 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W06"
+    },
+    {
+      "key": "VIDEO_URL_W07",
+      "name": "Week 7 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W07"
+    },
+    {
+      "key": "VIDEO_URL_W08",
+      "name": "Week 8 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W08"
+    },
+    {
+      "key": "VIDEO_URL_W09",
+      "name": "Week 9 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W09"
+    },
+    {
+      "key": "VIDEO_URL_W10",
+      "name": "Week 10 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W10"
+    },
+    {
+      "key": "VIDEO_URL_W11",
+      "name": "Week 11 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W11"
+    },
+    {
+      "key": "VIDEO_URL_W12",
+      "name": "Week 12 — lesson video",
+      "type": "video",
+      "url": "VIDEO_URL_W12"
+    },
+    {
+      "key": "RESOURCE_PDF_WELCOME_GUIDE",
+      "name": "Welcome Guide",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_WELCOME_GUIDE"
+    },
+    {
+      "key": "RESOURCE_PDF_WHICH_LEVEL_SUITS_ME",
+      "name": "Which Level Suits Me",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_WHICH_LEVEL_SUITS_ME"
+    },
+    {
+      "key": "RESOURCE_PDF_SMART_GOAL_WORKSHEET",
+      "name": "SMART Goal Worksheet",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_SMART_GOAL_WORKSHEET"
+    },
+    {
+      "key": "RESOURCE_PDF_HABIT_STACK_TRACKER",
+      "name": "Habit Stack Tracker",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_HABIT_STACK_TRACKER"
+    },
+    {
+      "key": "RESOURCE_PDF_SERVE_CHEAT_SHEET",
+      "name": "Serve Cheat Sheet",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_SERVE_CHEAT_SHEET"
+    },
+    {
+      "key": "RESOURCE_PDF_PRE_POST_SNACK_LIST",
+      "name": "Pre/Post Snack List",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_PRE_POST_SNACK_LIST"
+    },
+    {
+      "key": "RESOURCE_PDF_PLATE_AND_HAND_PORTION_GUIDE",
+      "name": "Plate and Hand-Portion Guide",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_PLATE_AND_HAND_PORTION_GUIDE"
+    },
+    {
+      "key": "RESOURCE_PDF_PROTEIN_SPECTRUM",
+      "name": "Protein Spectrum",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_PROTEIN_SPECTRUM"
+    },
+    {
+      "key": "RESOURCE_PDF_MEAL_BUILDER",
+      "name": "Meal Builder",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_MEAL_BUILDER"
+    },
+    {
+      "key": "RESOURCE_PDF_MEAL_DIAL",
+      "name": "Meal Dial",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_MEAL_DIAL"
+    },
+    {
+      "key": "RESOURCE_PDF_5_AND_2_MADE_EASY",
+      "name": "5 and 2 Made Easy",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_5_AND_2_MADE_EASY"
+    },
+    {
+      "key": "RESOURCE_PDF_PLANT_POINTS_TRACKER",
+      "name": "Plant Points Tracker",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_PLANT_POINTS_TRACKER"
+    },
+    {
+      "key": "RESOURCE_PDF_MEAL_PREP_HACKS",
+      "name": "Meal Prep Hacks",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_MEAL_PREP_HACKS"
+    },
+    {
+      "key": "RESOURCE_PDF_SUPERMARKET_SWAP_LIST",
+      "name": "Supermarket Swap List",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_SUPERMARKET_SWAP_LIST"
+    },
+    {
+      "key": "RESOURCE_PDF_SAUCES_AND_CONDIMENTS",
+      "name": "Sauces and Condiments",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_SAUCES_AND_CONDIMENTS"
+    },
+    {
+      "key": "RESOURCE_PDF_WEEKLY_PLANNER_AND_SHOPPING_LIST",
+      "name": "Weekly Planner and Shopping List",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_WEEKLY_PLANNER_AND_SHOPPING_LIST"
+    },
+    {
+      "key": "RESOURCE_PDF_EATING_OUT_CHEAT_SHEET",
+      "name": "Eating Out Cheat Sheet",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_EATING_OUT_CHEAT_SHEET"
+    },
+    {
+      "key": "RESOURCE_PDF_DRINKS_GUIDE",
+      "name": "Drinks Guide",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_DRINKS_GUIDE"
+    },
+    {
+      "key": "RESOURCE_PDF_PROGRESS_TRACKER",
+      "name": "Progress Tracker",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_PROGRESS_TRACKER"
+    },
+    {
+      "key": "RESOURCE_PDF_WHY_THE_SCALE_MOVES",
+      "name": "Why the Scale Moves",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_WHY_THE_SCALE_MOVES"
+    },
+    {
+      "key": "RESOURCE_PDF_HYDRATION_GUIDE",
+      "name": "Hydration Guide",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_HYDRATION_GUIDE"
+    },
+    {
+      "key": "RESOURCE_PDF_VOLUME_SWAPS",
+      "name": "Volume Swaps",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_VOLUME_SWAPS"
+    },
+    {
+      "key": "RESOURCE_PDF_CRAVINGS_TOOLKIT",
+      "name": "Cravings Toolkit",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_CRAVINGS_TOOLKIT"
+    },
+    {
+      "key": "RESOURCE_PDF_HUNGER_SCALE",
+      "name": "Hunger Scale",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_HUNGER_SCALE"
+    },
+    {
+      "key": "RESOURCE_PDF_SUPPLEMENT_BASICS",
+      "name": "Supplement Basics",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_SUPPLEMENT_BASICS"
+    },
+    {
+      "key": "RESOURCE_PDF_WIND_DOWN_ROUTINE",
+      "name": "Wind-Down Routine",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_WIND_DOWN_ROUTINE"
+    },
+    {
+      "key": "RESOURCE_PDF_HABIT_REVIEW",
+      "name": "Habit Review",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_HABIT_REVIEW"
+    },
+    {
+      "key": "RESOURCE_PDF_MY_FOUNDATIONS_PLAN",
+      "name": "My Foundations Plan",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_MY_FOUNDATIONS_PLAN"
+    },
+    {
+      "key": "RESOURCE_PDF_YOUR_CYCLE_101",
+      "name": "Your Cycle 101",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_YOUR_CYCLE_101"
+    },
+    {
+      "key": "RESOURCE_PDF_EATING_TRAINING_WITH_YOUR_CYCLE",
+      "name": "Eating and Training With Your Cycle",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_EATING_TRAINING_WITH_YOUR_CYCLE"
+    },
+    {
+      "key": "RESOURCE_PDF_ENERGY_AVAILABILITY_AND_YOUR_PERIOD",
+      "name": "Energy Availability and Your Period",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_ENERGY_AVAILABILITY_AND_YOUR_PERIOD"
+    },
+    {
+      "key": "RESOURCE_PDF_IRON_AND_THE_ACTIVE_WOMAN",
+      "name": "Iron and the Active Woman",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_IRON_AND_THE_ACTIVE_WOMAN"
+    },
+    {
+      "key": "RESOURCE_PDF_PERIMENOPAUSE_AND_MENOPAUSE_BASICS",
+      "name": "Perimenopause and Menopause Basics",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_PERIMENOPAUSE_AND_MENOPAUSE_BASICS"
+    },
+    {
+      "key": "RESOURCE_PDF_BLOODWORK_BASICS",
+      "name": "Bloodwork Basics: What to Ask Your GP",
+      "type": "pdf",
+      "url": "RESOURCE_PDF_BLOODWORK_BASICS"
+    }
+  ],
+  "steps": [
+    {
+      "title": "Before you start: content use agreement",
+      "description": "Foundations includes lesson videos and PDF guides that are licensed to you for your own personal use while you're a client — they're not for sharing, reposting, or reselling. Please read and agree below so we can get started.",
+      "day_offset": 0,
+      "questions": [
+        {
+          "id": "content_use_agreement",
+          "type": "signature",
+          "label": "I understand the lessons and guides in Foundations are for my personal use only, and I agree not to share, repost, or resell them.",
+          "required": true
+        }
+      ],
+      "automated_message": "Welcome to Foundations! 🎉 Before we dive in, pop your name down on the content agreement below — it just confirms the lessons and guides are for you. Once that's done, Day 1 is ready to go.",
+      "step_number": 1,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null,
+      "resource_keys": [],
+      "tasks": [],
+      "habit": null,
+      "protocol_section": null
+    },
+    {
+      "title": "Day 1 — Your kit and your path",
+      "description": "Welcome to Week 0! Today is about getting set up: read the Welcome Guide, choose the path that suits you, and set a goal for the next 12 weeks.\n\nPlan & Swap follows a meal plan and makes swaps — the default if you're new to this. Track Serves counts hand-portion serves. Protein + Calories tracks protein grams and calories. You can change paths any week, so don't overthink it.",
+      "day_offset": 0,
+      "resource_keys": [
+        "RESOURCE_PDF_WELCOME_GUIDE",
+        "RESOURCE_PDF_WHICH_LEVEL_SUITS_ME",
+        "RESOURCE_PDF_SMART_GOAL_WORKSHEET",
+        "RESOURCE_PDF_HABIT_STACK_TRACKER",
+        "VIDEO_URL_W0_D1"
+      ],
+      "questions": [
+        {
+          "id": "path_choice",
+          "type": "radio",
+          "label": "Which path will you start with?",
+          "required": true,
+          "options": [
+            "Plan & Swap",
+            "Track Serves",
+            "Protein + Calories"
+          ]
+        },
+        {
+          "id": "week0_goal",
+          "type": "text",
+          "label": "What's your main goal for the next 12 weeks?",
+          "required": true
+        }
+      ],
+      "habit": {
+        "ps": {
+          "name": "Follow your starter meal plan",
+          "icon": "📋",
+          "unit": "day",
+          "target": 1
+        },
+        "ts": {
+          "name": "Log your serves",
+          "icon": "📝",
+          "unit": "day",
+          "target": 1
+        },
+        "pc": {
+          "name": "Log protein & calories",
+          "icon": "🧮",
+          "unit": "day",
+          "target": 1
+        }
+      },
+      "protocol_section": {
+        "title": "Lifestyle — your minimum day",
+        "content": "On a hard day, keep it simple: protein at each meal, water, and veg. That's enough to stay on track."
+      },
+      "automated_message": "Week 0 is open! This is your first 7 days — kit, path and goal today. Watch the lesson, read the Welcome Guide, and choose the path that feels right for where you're at. You can switch anytime, so just pick a starting point.",
+      "step_number": 2,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null,
+      "tasks": []
+    },
+    {
+      "title": "Day 2 — Protein",
+      "description": "One protein serve — about a palm size — at every meal today. That's the single biggest lever for staying full and recovering well, and we'll build on it all program.",
+      "day_offset": 1,
+      "resource_keys": [
+        "RESOURCE_PDF_SERVE_CHEAT_SHEET",
+        "VIDEO_URL_W0_D2"
+      ],
+      "tasks": [
+        {
+          "id": "task-001",
+          "label": "Have a protein serve (palm) at every meal today"
+        }
+      ],
+      "habit": {
+        "ps": {
+          "name": "Follow your starter meal plan",
+          "icon": "📋",
+          "unit": "day",
+          "target": 1
+        },
+        "ts": {
+          "name": "Log your serves",
+          "icon": "📝",
+          "unit": "day",
+          "target": 1
+        },
+        "pc": {
+          "name": "Log protein & calories",
+          "icon": "🧮",
+          "unit": "day",
+          "target": 1
+        }
+      },
+      "protocol_section": {
+        "title": "Lifestyle — your minimum day",
+        "content": "On a hard day, keep it simple: protein at each meal, water, and veg. That's enough to stay on track."
+      },
+      "automated_message": "Day 2: protein. Aim for a palm-sized serve at every meal today — check the Serve Cheat Sheet if you're not sure what that looks like. Most people are short at breakfast, so start there.",
+      "step_number": 3,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null,
+      "questions": []
+    },
+    {
+      "title": "Day 3 — Carbs",
+      "description": "A carb serve — a cupped hand — before you train today. Carbs fuel the session and help you recover faster afterwards.",
+      "day_offset": 2,
+      "resource_keys": [
+        "RESOURCE_PDF_PRE_POST_SNACK_LIST",
+        "VIDEO_URL_W0_D3"
+      ],
+      "tasks": [
+        {
+          "id": "task-002",
+          "label": "Have a carb serve (cupped hand) before training"
+        }
+      ],
+      "habit": {
+        "ps": {
+          "name": "Follow your starter meal plan",
+          "icon": "📋",
+          "unit": "day",
+          "target": 1
+        },
+        "ts": {
+          "name": "Log your serves",
+          "icon": "📝",
+          "unit": "day",
+          "target": 1
+        },
+        "pc": {
+          "name": "Log protein & calories",
+          "icon": "🧮",
+          "unit": "day",
+          "target": 1
+        }
+      },
+      "protocol_section": {
+        "title": "Lifestyle — your minimum day",
+        "content": "On a hard day, keep it simple: protein at each meal, water, and veg. That's enough to stay on track."
+      },
+      "automated_message": "Day 3: carbs. If you're training today, have a cupped-hand carb serve beforehand — the Pre/Post Snack List has easy options. No session today? Just notice where carbs already sit in your meals.",
+      "step_number": 4,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null,
+      "questions": []
+    },
+    {
+      "title": "Day 4 — Fats",
+      "description": "A fat serve — a thumb — at two meals today. Fats matter for hormones and keeping meals satisfying.",
+      "day_offset": 3,
+      "resource_keys": [
+        "RESOURCE_PDF_SERVE_CHEAT_SHEET",
+        "VIDEO_URL_W0_D4"
+      ],
+      "tasks": [
+        {
+          "id": "task-003",
+          "label": "Have a fat serve (thumb) at two meals today"
+        }
+      ],
+      "habit": {
+        "ps": {
+          "name": "Follow your starter meal plan",
+          "icon": "📋",
+          "unit": "day",
+          "target": 1
+        },
+        "ts": {
+          "name": "Log your serves",
+          "icon": "📝",
+          "unit": "day",
+          "target": 1
+        },
+        "pc": {
+          "name": "Log protein & calories",
+          "icon": "🧮",
+          "unit": "day",
+          "target": 1
+        }
+      },
+      "protocol_section": {
+        "title": "Lifestyle — your minimum day",
+        "content": "On a hard day, keep it simple: protein at each meal, water, and veg. That's enough to stay on track."
+      },
+      "automated_message": "Day 4: fats. Add a thumb-sized fat serve at two meals today — nothing fancy, just notice where it naturally fits (oils, nuts, avocado, that kind of thing).",
+      "step_number": 5,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null,
+      "questions": []
+    },
+    {
+      "title": "Day 5 — Energy balance",
+      "description": "Follow your serves today and notice your hunger before each meal. No judgement either way — just information for later in the program.",
+      "day_offset": 4,
+      "resource_keys": [
+        "RESOURCE_PDF_SERVE_CHEAT_SHEET",
+        "VIDEO_URL_W0_D5"
+      ],
+      "tasks": [
+        {
+          "id": "task-004",
+          "label": "Rate your hunger before each meal, before you eat"
+        }
+      ],
+      "habit": {
+        "ps": {
+          "name": "Follow your starter meal plan",
+          "icon": "📋",
+          "unit": "day",
+          "target": 1
+        },
+        "ts": {
+          "name": "Log your serves",
+          "icon": "📝",
+          "unit": "day",
+          "target": 1
+        },
+        "pc": {
+          "name": "Log protein & calories",
+          "icon": "🧮",
+          "unit": "day",
+          "target": 1
+        }
+      },
+      "protocol_section": {
+        "title": "Lifestyle — your minimum day",
+        "content": "On a hard day, keep it simple: protein at each meal, water, and veg. That's enough to stay on track."
+      },
+      "automated_message": "Day 5: energy balance. Keep following your serves, and this time notice your hunger before you eat — not to change anything yet, just to start paying attention.",
+      "step_number": 6,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null,
+      "questions": []
+    },
+    {
+      "title": "Day 6 — Build your plate",
+      "description": "Build one meal today using the plate method: half veg, a quarter protein, a quarter carbs, plus a little fat. It's the simplest way to get your serves right without measuring anything.",
+      "day_offset": 5,
+      "resource_keys": [
+        "RESOURCE_PDF_PLATE_AND_HAND_PORTION_GUIDE",
+        "VIDEO_URL_W0_D6"
+      ],
+      "tasks": [
+        {
+          "id": "task-005",
+          "label": "Build one meal using the plate method"
+        }
+      ],
+      "habit": {
+        "ps": {
+          "name": "Follow your starter meal plan",
+          "icon": "📋",
+          "unit": "day",
+          "target": 1
+        },
+        "ts": {
+          "name": "Log your serves",
+          "icon": "📝",
+          "unit": "day",
+          "target": 1
+        },
+        "pc": {
+          "name": "Log protein & calories",
+          "icon": "🧮",
+          "unit": "day",
+          "target": 1
+        }
+      },
+      "protocol_section": {
+        "title": "Lifestyle — your minimum day",
+        "content": "On a hard day, keep it simple: protein at each meal, water, and veg. That's enough to stay on track."
+      },
+      "automated_message": "Day 6: build your plate. Half veg, a quarter protein, a quarter carbs, a little fat — build one meal like that today using the Plate Guide. It's a great one to screenshot.",
+      "step_number": 7,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null,
+      "questions": []
+    },
+    {
+      "title": "Day 7 — Baseline check-in",
+      "description": "Last day of Week 0 — time for your baseline check-in. This gives us a starting point to compare back to later in the program, so answer as honestly as you can.",
+      "day_offset": 6,
+      "resource_keys": [
+        "VIDEO_URL_W0_D7"
+      ],
+      "habit": {
+        "ps": {
+          "name": "Follow your starter meal plan",
+          "icon": "📋",
+          "unit": "day",
+          "target": 1
+        },
+        "ts": {
+          "name": "Log your serves",
+          "icon": "📝",
+          "unit": "day",
+          "target": 1
+        },
+        "pc": {
+          "name": "Log protein & calories",
+          "icon": "🧮",
+          "unit": "day",
+          "target": 1
+        }
+      },
+      "protocol_section": {
+        "title": "Lifestyle — your minimum day",
+        "content": "On a hard day, keep it simple: protein at each meal, water, and veg. That's enough to stay on track."
+      },
+      "questions": [
+        {
+          "id": "weight_avg_kg",
+          "type": "number",
+          "label": "Your average weight this week, in kg (optional)",
+          "required": false
+        },
+        {
+          "id": "waist_cm",
+          "type": "number",
+          "label": "Waist measurement, in cm (optional — every 2 weeks)",
+          "required": false
+        },
+        {
+          "id": "hips_cm",
+          "type": "number",
+          "label": "Hips measurement, in cm (optional — every 2 weeks)",
+          "required": false
+        },
+        {
+          "id": "energy_1_10",
+          "type": "scale",
+          "label": "Energy this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_quality_1_10",
+          "type": "scale",
+          "label": "Sleep quality this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_hours_avg",
+          "type": "number",
+          "label": "Average hours of sleep a night",
+          "required": false
+        },
+        {
+          "id": "hunger_1_10",
+          "type": "scale",
+          "label": "Hunger this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "stress_1_10",
+          "type": "scale",
+          "label": "Stress this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "digestion_1_10",
+          "type": "scale",
+          "label": "Digestion this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "training_performance_1_10",
+          "type": "scale",
+          "label": "Training performance this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "recovery_1_10",
+          "type": "scale",
+          "label": "Recovery this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "protein_serves_days",
+          "type": "number",
+          "label": "Days you hit your protein serves (0–7)",
+          "required": true
+        },
+        {
+          "id": "on_track_days",
+          "type": "number",
+          "label": "Days on track with your plan (0–7)",
+          "required": true
+        },
+        {
+          "id": "training_sessions",
+          "type": "number",
+          "label": "Training sessions this week (0–7)",
+          "required": false
+        },
+        {
+          "id": "steps_avg",
+          "type": "number",
+          "label": "Average daily steps",
+          "required": false
+        },
+        {
+          "id": "headspace_food",
+          "type": "number",
+          "label": "How much head space does food take up for you right now?",
+          "required": true,
+          "description": "0 = none, 10 = constant. We'll come back to this one a few times through the program so you can see it shift."
+        },
+        {
+          "id": "reflection_win",
+          "type": "textarea",
+          "label": "Your win this week",
+          "required": true
+        },
+        {
+          "id": "reflection_struggle",
+          "type": "textarea",
+          "label": "Your biggest struggle this week",
+          "required": true
+        },
+        {
+          "id": "reflection_question",
+          "type": "textarea",
+          "label": "One question for Court",
+          "required": false
+        },
+        {
+          "id": "week0_path_reflection",
+          "type": "textarea",
+          "label": "Looking back, why did you choose that path?",
+          "required": true
+        },
+        {
+          "id": "week0_plan_ease_1_10",
+          "type": "scale",
+          "label": "How easy was the starter meal plan to follow? (1–10)",
+          "required": false
+        },
+        {
+          "id": "week0_minimum_day",
+          "type": "textarea",
+          "label": "What might get in the way next week, and what's your minimum day for it?",
+          "required": true
+        }
+      ],
+      "automated_message": "Day 7: your baseline check-in. This is the one we'll compare back to later, so take your time with it. Once it's done, Week 1 opens tomorrow — protein is the focus, and it's a big one.",
+      "step_number": 8,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null,
+      "tasks": []
+    },
+    {
+      "title": "Week 1 — Protein at Every Meal",
+      "description": "**Why:** Protein spread across meals keeps you full and recovering all day.\n\n**Key teaching:**\n- 1.6 to 2.2 g of protein per kg of body weight a day.\n- Split it into 3 to 4 meals of 25 to 40 g.\n- 1 serve ≈ 30 g ≈ 1 palm.\n- Fix breakfast first.",
+      "day_offset": 7,
+      "resource_keys": [
+        "VIDEO_URL_W01",
+        "RESOURCE_PDF_PROTEIN_SPECTRUM",
+        "RESOURCE_PDF_MEAL_BUILDER"
+      ],
+      "tasks": [
+        {
+          "id": "task-006",
+          "label": "Work out your protein number"
+        }
+      ],
+      "habit": {
+        "ps": {
+          "name": "Make 1 protein swap a day",
+          "icon": "🔄",
+          "unit": "day",
+          "target": 1
+        },
+        "ts": {
+          "name": "Protein serve at every main meal",
+          "icon": "🍗",
+          "unit": "day",
+          "target": 5
+        },
+        "pc": {
+          "name": "Hit protein target",
+          "icon": "🎯",
+          "unit": "day",
+          "target": 5
+        }
+      },
+      "protocol_section": {
+        "title": "Nutrition timing — protein at breakfast",
+        "content": "Start the day with a protein serve at breakfast."
+      },
+      "questions": [
+        {
+          "id": "weight_avg_kg",
+          "type": "number",
+          "label": "Your average weight this week, in kg (optional)",
+          "required": false
+        },
+        {
+          "id": "energy_1_10",
+          "type": "scale",
+          "label": "Energy this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_quality_1_10",
+          "type": "scale",
+          "label": "Sleep quality this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_hours_avg",
+          "type": "number",
+          "label": "Average hours of sleep a night",
+          "required": false
+        },
+        {
+          "id": "hunger_1_10",
+          "type": "scale",
+          "label": "Hunger this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "stress_1_10",
+          "type": "scale",
+          "label": "Stress this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "digestion_1_10",
+          "type": "scale",
+          "label": "Digestion this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "training_performance_1_10",
+          "type": "scale",
+          "label": "Training performance this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "recovery_1_10",
+          "type": "scale",
+          "label": "Recovery this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "protein_serves_days",
+          "type": "number",
+          "label": "Days you hit your protein serves (0–7)",
+          "required": true
+        },
+        {
+          "id": "on_track_days",
+          "type": "number",
+          "label": "Days on track with your plan (0–7)",
+          "required": true
+        },
+        {
+          "id": "training_sessions",
+          "type": "number",
+          "label": "Training sessions this week (0–7)",
+          "required": false
+        },
+        {
+          "id": "steps_avg",
+          "type": "number",
+          "label": "Average daily steps",
+          "required": false
+        },
+        {
+          "id": "reflection_win",
+          "type": "textarea",
+          "label": "Your win this week",
+          "required": true
+        },
+        {
+          "id": "reflection_struggle",
+          "type": "textarea",
+          "label": "Your biggest struggle this week",
+          "required": true
+        },
+        {
+          "id": "reflection_question",
+          "type": "textarea",
+          "label": "One question for Court",
+          "required": false
+        },
+        {
+          "id": "w1_hardest_meal",
+          "type": "text",
+          "label": "Which meal was hardest to get protein into?",
+          "required": false
+        },
+        {
+          "id": "w1_best_swap",
+          "type": "text",
+          "label": "Which swap or go-to meal worked best?",
+          "required": false
+        },
+        {
+          "id": "w1_training_days",
+          "type": "textarea",
+          "label": "Which days and times do you train next week?",
+          "required": false
+        }
+      ],
+      "automated_message": "Week 1 is open! This week is all about protein, the one nutrient that helps every goal. Watch the lesson, work out your number, and start with breakfast. Most people are short there.",
+      "step_number": 9,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null
+    },
+    {
+      "title": "Week 1 Level Up",
+      "description": "Optional deep dive — read whenever suits, it won't hold up your progress. This week: muscle protein synthesis; leucine; plant protein combos; protein before bed.",
+      "day_offset": 7,
+      "trigger_type": "on_step_complete",
+      "trigger_step_number": 9,
+      "step_number": 10,
+      "resource_keys": [],
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null,
+      "automated_message": null
+    },
+    {
+      "title": "Bonus: Your Cycle 101",
+      "description": "Part of the Women's Health Library — optional, and education only, not medical advice.",
+      "day_offset": 7,
+      "resource_keys": [
+        "RESOURCE_PDF_YOUR_CYCLE_101"
+      ],
+      "automated_message": "A bonus guide just unlocked: Your Cycle 101. It's optional, education only — a quick read on how your cycle can affect training and nutrition.",
+      "step_number": 11,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null,
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null
+    },
+    {
+      "title": "Week 2 — Fuel Your Training",
+      "description": "**Why:** Fuelled sessions feel better, and you're less likely to overeat later.",
+      "day_offset": 14,
+      "resource_keys": [
+        "VIDEO_URL_W02",
+        "RESOURCE_PDF_PRE_POST_SNACK_LIST",
+        "RESOURCE_PDF_MEAL_DIAL"
+      ],
+      "tasks": [],
+      "habit": {
+        "ps": {
+          "name": "Use the pre/post snack list",
+          "icon": "🥪",
+          "unit": "session",
+          "target": 1
+        },
+        "ts": {
+          "name": "Carb serves around training",
+          "icon": "🍚",
+          "unit": "session",
+          "target": 2
+        },
+        "pc": {
+          "name": "Shift carbs around training",
+          "icon": "⚖️",
+          "unit": "day",
+          "target": 1
+        }
+      },
+      "protocol_section": {
+        "title": "Nutrition timing — same pre/post snack",
+        "content": "Use the same pre- and post-training snack every session so it becomes automatic."
+      },
+      "questions": [
+        {
+          "id": "weight_avg_kg",
+          "type": "number",
+          "label": "Your average weight this week, in kg (optional)",
+          "required": false
+        },
+        {
+          "id": "energy_1_10",
+          "type": "scale",
+          "label": "Energy this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_quality_1_10",
+          "type": "scale",
+          "label": "Sleep quality this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_hours_avg",
+          "type": "number",
+          "label": "Average hours of sleep a night",
+          "required": false
+        },
+        {
+          "id": "hunger_1_10",
+          "type": "scale",
+          "label": "Hunger this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "stress_1_10",
+          "type": "scale",
+          "label": "Stress this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "digestion_1_10",
+          "type": "scale",
+          "label": "Digestion this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "training_performance_1_10",
+          "type": "scale",
+          "label": "Training performance this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "recovery_1_10",
+          "type": "scale",
+          "label": "Recovery this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "protein_serves_days",
+          "type": "number",
+          "label": "Days you hit your protein serves (0–7)",
+          "required": true
+        },
+        {
+          "id": "on_track_days",
+          "type": "number",
+          "label": "Days on track with your plan (0–7)",
+          "required": true
+        },
+        {
+          "id": "training_sessions",
+          "type": "number",
+          "label": "Training sessions this week (0–7)",
+          "required": false
+        },
+        {
+          "id": "steps_avg",
+          "type": "number",
+          "label": "Average daily steps",
+          "required": false
+        },
+        {
+          "id": "reflection_win",
+          "type": "textarea",
+          "label": "Your win this week",
+          "required": true
+        },
+        {
+          "id": "reflection_struggle",
+          "type": "textarea",
+          "label": "Your biggest struggle this week",
+          "required": true
+        },
+        {
+          "id": "reflection_question",
+          "type": "textarea",
+          "label": "One question for Court",
+          "required": false
+        },
+        {
+          "id": "w2_session_feel_1_10",
+          "type": "scale",
+          "label": "How did sessions feel when you ate beforehand? (1–10)",
+          "required": false
+        },
+        {
+          "id": "w2_snack_used",
+          "type": "text",
+          "label": "Which pre and post snack did you use?",
+          "required": false
+        },
+        {
+          "id": "w2_veg_fruit_serves",
+          "type": "number",
+          "label": "How many serves of veg and fruit do you have on a normal day?",
+          "required": false
+        }
+      ],
+      "automated_message": "Week 2 is open! Let's fuel your training properly — a carb serve before and after your sessions makes a real difference to how you feel and recover. Pick your go-to snack from the list and use it every session this week.",
+      "step_number": 12,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null
+    },
+    {
+      "title": "Week 2 Level Up",
+      "description": "Optional deep dive — read whenever suits, it won't hold up your progress. This week: glycogen; caffeine; fuelling long efforts; back-to-back training days.",
+      "day_offset": 14,
+      "trigger_type": "on_step_complete",
+      "trigger_step_number": 12,
+      "step_number": 13,
+      "resource_keys": [],
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null,
+      "automated_message": null
+    },
+    {
+      "title": "Week 3 — Fibre, Colour and Gut Health",
+      "description": "**Why:** More plants means better fullness, digestion and energy, with nothing taken away.",
+      "day_offset": 21,
+      "resource_keys": [
+        "VIDEO_URL_W03",
+        "RESOURCE_PDF_5_AND_2_MADE_EASY",
+        "RESOURCE_PDF_PLANT_POINTS_TRACKER"
+      ],
+      "tasks": [
+        {
+          "id": "task-007",
+          "label": "Count your plant points this week"
+        }
+      ],
+      "habit": {
+        "ps": {
+          "name": "Add a veg serve to 2 meals",
+          "icon": "🥦",
+          "unit": "day",
+          "target": 1
+        },
+        "ts": {
+          "name": "Hit 5 and 2",
+          "icon": "🍓",
+          "unit": "day",
+          "target": 4
+        },
+        "pc": {
+          "name": "Hit 5 and 2 in your calories",
+          "icon": "🍓",
+          "unit": "day",
+          "target": 4
+        }
+      },
+      "protocol_section": {
+        "title": "Lifestyle — keep veg and fruit visible",
+        "content": "Keep cut veg and fruit where you can see them, so they're the easy option."
+      },
+      "questions": [
+        {
+          "id": "weight_avg_kg",
+          "type": "number",
+          "label": "Your average weight this week, in kg (optional)",
+          "required": false
+        },
+        {
+          "id": "energy_1_10",
+          "type": "scale",
+          "label": "Energy this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_quality_1_10",
+          "type": "scale",
+          "label": "Sleep quality this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_hours_avg",
+          "type": "number",
+          "label": "Average hours of sleep a night",
+          "required": false
+        },
+        {
+          "id": "hunger_1_10",
+          "type": "scale",
+          "label": "Hunger this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "stress_1_10",
+          "type": "scale",
+          "label": "Stress this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "digestion_1_10",
+          "type": "scale",
+          "label": "Digestion this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "training_performance_1_10",
+          "type": "scale",
+          "label": "Training performance this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "recovery_1_10",
+          "type": "scale",
+          "label": "Recovery this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "protein_serves_days",
+          "type": "number",
+          "label": "Days you hit your protein serves (0–7)",
+          "required": true
+        },
+        {
+          "id": "on_track_days",
+          "type": "number",
+          "label": "Days on track with your plan (0–7)",
+          "required": true
+        },
+        {
+          "id": "training_sessions",
+          "type": "number",
+          "label": "Training sessions this week (0–7)",
+          "required": false
+        },
+        {
+          "id": "steps_avg",
+          "type": "number",
+          "label": "Average daily steps",
+          "required": false
+        },
+        {
+          "id": "reflection_win",
+          "type": "textarea",
+          "label": "Your win this week",
+          "required": true
+        },
+        {
+          "id": "reflection_struggle",
+          "type": "textarea",
+          "label": "Your biggest struggle this week",
+          "required": true
+        },
+        {
+          "id": "reflection_question",
+          "type": "textarea",
+          "label": "One question for Court",
+          "required": false
+        },
+        {
+          "id": "w3_5and2_days",
+          "type": "number",
+          "label": "How many days did you hit 5 and 2?",
+          "required": false
+        },
+        {
+          "id": "w3_plant_points",
+          "type": "number",
+          "label": "Your plant points total",
+          "required": false
+        },
+        {
+          "id": "w3_digestion_change",
+          "type": "textarea",
+          "label": "Any change in digestion or fullness?",
+          "required": false
+        },
+        {
+          "id": "w3_prep_day",
+          "type": "text",
+          "label": "Which day could you shop and prep next week?",
+          "required": false
+        }
+      ],
+      "automated_message": "Week 3 is open! This week's about plants — more colour, more fibre, better digestion. Nothing's being taken away, just added. Aim for 5 veg and 2 fruit most days and see how you feel.",
+      "step_number": 14,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null
+    },
+    {
+      "title": "Week 3 Level Up",
+      "description": "Optional deep dive — read whenever suits, it won't hold up your progress. This week: iron, calcium and vitamin D; magnesium; gut bacteria (prebiotics and probiotics).",
+      "day_offset": 21,
+      "trigger_type": "on_step_complete",
+      "trigger_step_number": 14,
+      "step_number": 15,
+      "resource_keys": [],
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null,
+      "automated_message": null
+    },
+    {
+      "title": "Bonus: Eating and Training With Your Cycle",
+      "description": "Part of the Women's Health Library — optional, and education only, not medical advice.",
+      "day_offset": 21,
+      "resource_keys": [
+        "RESOURCE_PDF_EATING_TRAINING_WITH_YOUR_CYCLE"
+      ],
+      "automated_message": "Bonus guide unlocked: Eating and Training With Your Cycle. Optional, education only — worth a read if you train regularly.",
+      "step_number": 16,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null,
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null
+    },
+    {
+      "title": "Week 4 — Plan, Prep and Build Your Meals",
+      "description": "**Why:** When meals are planned, eating well takes no willpower.",
+      "day_offset": 28,
+      "resource_keys": [
+        "VIDEO_URL_W04",
+        "RESOURCE_PDF_MEAL_PREP_HACKS",
+        "RESOURCE_PDF_MEAL_BUILDER",
+        "RESOURCE_PDF_SUPERMARKET_SWAP_LIST",
+        "RESOURCE_PDF_SAUCES_AND_CONDIMENTS",
+        "RESOURCE_PDF_WEEKLY_PLANNER_AND_SHOPPING_LIST"
+      ],
+      "tasks": [
+        {
+          "id": "task-008",
+          "label": "Do one prep session this week"
+        }
+      ],
+      "habit": {
+        "ps": {
+          "name": "Build your own meals",
+          "icon": "👩‍🍳",
+          "unit": "meal",
+          "target": 3
+        },
+        "ts": {
+          "name": "Prep session + plan ahead",
+          "icon": "🗓️",
+          "unit": "day",
+          "target": 2
+        },
+        "pc": {
+          "name": "Learn your fat minimum",
+          "icon": "🥑",
+          "unit": "day",
+          "target": 1
+        }
+      },
+      "protocol_section": {
+        "title": "Lifestyle — one prep session",
+        "content": "Set aside one session this week to prep meals or ingredients ahead."
+      },
+      "questions": [
+        {
+          "id": "weight_avg_kg",
+          "type": "number",
+          "label": "Your average weight this week, in kg (optional)",
+          "required": false
+        },
+        {
+          "id": "energy_1_10",
+          "type": "scale",
+          "label": "Energy this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_quality_1_10",
+          "type": "scale",
+          "label": "Sleep quality this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_hours_avg",
+          "type": "number",
+          "label": "Average hours of sleep a night",
+          "required": false
+        },
+        {
+          "id": "hunger_1_10",
+          "type": "scale",
+          "label": "Hunger this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "stress_1_10",
+          "type": "scale",
+          "label": "Stress this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "digestion_1_10",
+          "type": "scale",
+          "label": "Digestion this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "training_performance_1_10",
+          "type": "scale",
+          "label": "Training performance this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "recovery_1_10",
+          "type": "scale",
+          "label": "Recovery this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "protein_serves_days",
+          "type": "number",
+          "label": "Days you hit your protein serves (0–7)",
+          "required": true
+        },
+        {
+          "id": "on_track_days",
+          "type": "number",
+          "label": "Days on track with your plan (0–7)",
+          "required": true
+        },
+        {
+          "id": "training_sessions",
+          "type": "number",
+          "label": "Training sessions this week (0–7)",
+          "required": false
+        },
+        {
+          "id": "steps_avg",
+          "type": "number",
+          "label": "Average daily steps",
+          "required": false
+        },
+        {
+          "id": "reflection_win",
+          "type": "textarea",
+          "label": "Your win this week",
+          "required": true
+        },
+        {
+          "id": "reflection_struggle",
+          "type": "textarea",
+          "label": "Your biggest struggle this week",
+          "required": true
+        },
+        {
+          "id": "reflection_question",
+          "type": "textarea",
+          "label": "One question for Court",
+          "required": false
+        },
+        {
+          "id": "w4_did_you_prep",
+          "type": "textarea",
+          "label": "Did you prep? What did you make, and did it save time?",
+          "required": false
+        },
+        {
+          "id": "w4_repeat_meals",
+          "type": "textarea",
+          "label": "Which 3 meals will you keep on repeat?",
+          "required": false
+        },
+        {
+          "id": "w4_upcoming_events",
+          "type": "textarea",
+          "label": "Any meals out, events or drinks coming up next week?",
+          "required": false
+        }
+      ],
+      "automated_message": "Week 4 is open! Let's make eating well easier, not harder — build a few go-to meals and get one prep session in this week. Future-you will thank present-you.",
+      "step_number": 17,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null
+    },
+    {
+      "title": "Week 4 Level Up",
+      "description": "Optional deep dive — read whenever suits, it won't hold up your progress. This week: big training weeks; freezer meals; measuring oils; fats and hormones.",
+      "day_offset": 28,
+      "trigger_type": "on_step_complete",
+      "trigger_step_number": 17,
+      "step_number": 18,
+      "resource_keys": [],
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null,
+      "automated_message": null
+    },
+    {
+      "title": "Week 5 — Real Life (Eating Out, Drinks and Weekends)",
+      "description": "**Why:** No food is off-limits. Knowing how to fit it in removes the guilt.",
+      "day_offset": 35,
+      "resource_keys": [
+        "VIDEO_URL_W05",
+        "RESOURCE_PDF_EATING_OUT_CHEAT_SHEET",
+        "RESOURCE_PDF_DRINKS_GUIDE",
+        "RESOURCE_PDF_MEAL_DIAL"
+      ],
+      "tasks": [],
+      "habit": {
+        "ps": {
+          "name": "Plan one meal out or event",
+          "icon": "🍽️",
+          "unit": "week",
+          "target": 1
+        },
+        "ts": {
+          "name": "Estimate serves for one meal out",
+          "icon": "🧮",
+          "unit": "week",
+          "target": 1
+        },
+        "pc": {
+          "name": "Plan one event into your week",
+          "icon": "📅",
+          "unit": "week",
+          "target": 1
+        }
+      },
+      "protocol_section": {
+        "title": "Lifestyle — plan your weekend on Friday",
+        "content": "Take five minutes on Friday to plan how the weekend will go."
+      },
+      "questions": [
+        {
+          "id": "weight_avg_kg",
+          "type": "number",
+          "label": "Your average weight this week, in kg (optional)",
+          "required": false
+        },
+        {
+          "id": "energy_1_10",
+          "type": "scale",
+          "label": "Energy this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_quality_1_10",
+          "type": "scale",
+          "label": "Sleep quality this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_hours_avg",
+          "type": "number",
+          "label": "Average hours of sleep a night",
+          "required": false
+        },
+        {
+          "id": "hunger_1_10",
+          "type": "scale",
+          "label": "Hunger this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "stress_1_10",
+          "type": "scale",
+          "label": "Stress this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "digestion_1_10",
+          "type": "scale",
+          "label": "Digestion this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "training_performance_1_10",
+          "type": "scale",
+          "label": "Training performance this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "recovery_1_10",
+          "type": "scale",
+          "label": "Recovery this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "protein_serves_days",
+          "type": "number",
+          "label": "Days you hit your protein serves (0–7)",
+          "required": true
+        },
+        {
+          "id": "on_track_days",
+          "type": "number",
+          "label": "Days on track with your plan (0–7)",
+          "required": true
+        },
+        {
+          "id": "training_sessions",
+          "type": "number",
+          "label": "Training sessions this week (0–7)",
+          "required": false
+        },
+        {
+          "id": "steps_avg",
+          "type": "number",
+          "label": "Average daily steps",
+          "required": false
+        },
+        {
+          "id": "reflection_win",
+          "type": "textarea",
+          "label": "Your win this week",
+          "required": true
+        },
+        {
+          "id": "reflection_struggle",
+          "type": "textarea",
+          "label": "Your biggest struggle this week",
+          "required": true
+        },
+        {
+          "id": "reflection_question",
+          "type": "textarea",
+          "label": "One question for Court",
+          "required": false
+        },
+        {
+          "id": "w5_event_went",
+          "type": "textarea",
+          "label": "How did your planned meal out or event go?",
+          "required": false
+        },
+        {
+          "id": "w5_weekend_vs_weekday",
+          "type": "textarea",
+          "label": "How did your weekend compare with your weekdays?",
+          "required": false
+        },
+        {
+          "id": "w5_photos_measurements",
+          "type": "note",
+          "label": "Take photos and measurements before your next check-in (optional) — handy for Week 6's review.",
+          "required": false
+        }
+      ],
+      "automated_message": "Week 5 is open! This week's about real life — eating out, drinks, weekends, the lot. No food is off-limits here. Plan one meal out or event using the cheat sheet and see how it goes.",
+      "step_number": 19,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null
+    },
+    {
+      "title": "Week 5 Level Up",
+      "description": "Optional deep dive — read whenever suits, it won't hold up your progress. This week: big events; alcohol and recovery; takeaway; travel.",
+      "day_offset": 35,
+      "trigger_type": "on_step_complete",
+      "trigger_step_number": 19,
+      "step_number": 20,
+      "resource_keys": [],
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null,
+      "automated_message": null
+    },
+    {
+      "title": "Bonus: Energy Availability and Your Period",
+      "description": "Part of the Women's Health Library — optional, and education only, not medical advice.",
+      "day_offset": 35,
+      "resource_keys": [
+        "RESOURCE_PDF_ENERGY_AVAILABILITY_AND_YOUR_PERIOD"
+      ],
+      "automated_message": "Bonus guide unlocked: Energy Availability and Your Period. Optional, education only — on how under-fuelling can affect your cycle.",
+      "step_number": 21,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null,
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null
+    },
+    {
+      "title": "Week 6 — Midpoint Review",
+      "description": "**Why:** Knowing what moves the scale takes the stress out of weighing in.",
+      "day_offset": 42,
+      "resource_keys": [
+        "VIDEO_URL_W06",
+        "RESOURCE_PDF_PROGRESS_TRACKER",
+        "RESOURCE_PDF_WHY_THE_SCALE_MOVES",
+        "RESOURCE_PDF_WELCOME_GUIDE",
+        "RESOURCE_PDF_WHICH_LEVEL_SUITS_ME",
+        "RESOURCE_PDF_SMART_GOAL_WORKSHEET",
+        "RESOURCE_PDF_HABIT_STACK_TRACKER",
+        "RESOURCE_PDF_SERVE_CHEAT_SHEET",
+        "RESOURCE_PDF_PRE_POST_SNACK_LIST",
+        "RESOURCE_PDF_PLATE_AND_HAND_PORTION_GUIDE",
+        "RESOURCE_PDF_PROTEIN_SPECTRUM",
+        "RESOURCE_PDF_MEAL_BUILDER",
+        "RESOURCE_PDF_MEAL_DIAL",
+        "RESOURCE_PDF_5_AND_2_MADE_EASY",
+        "RESOURCE_PDF_PLANT_POINTS_TRACKER",
+        "RESOURCE_PDF_MEAL_PREP_HACKS",
+        "RESOURCE_PDF_SUPERMARKET_SWAP_LIST",
+        "RESOURCE_PDF_SAUCES_AND_CONDIMENTS",
+        "RESOURCE_PDF_WEEKLY_PLANNER_AND_SHOPPING_LIST",
+        "RESOURCE_PDF_EATING_OUT_CHEAT_SHEET",
+        "RESOURCE_PDF_DRINKS_GUIDE",
+        "RESOURCE_PDF_PROGRESS_TRACKER",
+        "RESOURCE_PDF_WHY_THE_SCALE_MOVES"
+      ],
+      "tasks": [
+        {
+          "id": "task-009",
+          "label": "Retake your photos and measurements"
+        }
+      ],
+      "habit": {
+        "ps": {
+          "name": "1 day off-plan using the plate",
+          "icon": "🍽️",
+          "unit": "week",
+          "target": 1
+        },
+        "ts": {
+          "name": "1 day using hand portions only",
+          "icon": "✋",
+          "unit": "week",
+          "target": 1
+        },
+        "pc": {
+          "name": "1 tracking-free day",
+          "icon": "🧘",
+          "unit": "week",
+          "target": 1
+        }
+      },
+      "protocol_section": {
+        "title": "Mindset — stay on your path, or move to the next one",
+        "content": "There's no wrong answer here — whichever path keeps you consistent is the right one."
+      },
+      "questions": [
+        {
+          "id": "weight_avg_kg",
+          "type": "number",
+          "label": "Your average weight this week, in kg (optional)",
+          "required": false
+        },
+        {
+          "id": "waist_cm",
+          "type": "number",
+          "label": "Waist measurement, in cm (optional — every 2 weeks)",
+          "required": false
+        },
+        {
+          "id": "hips_cm",
+          "type": "number",
+          "label": "Hips measurement, in cm (optional — every 2 weeks)",
+          "required": false
+        },
+        {
+          "id": "energy_1_10",
+          "type": "scale",
+          "label": "Energy this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_quality_1_10",
+          "type": "scale",
+          "label": "Sleep quality this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_hours_avg",
+          "type": "number",
+          "label": "Average hours of sleep a night",
+          "required": false
+        },
+        {
+          "id": "hunger_1_10",
+          "type": "scale",
+          "label": "Hunger this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "stress_1_10",
+          "type": "scale",
+          "label": "Stress this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "digestion_1_10",
+          "type": "scale",
+          "label": "Digestion this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "training_performance_1_10",
+          "type": "scale",
+          "label": "Training performance this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "recovery_1_10",
+          "type": "scale",
+          "label": "Recovery this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "protein_serves_days",
+          "type": "number",
+          "label": "Days you hit your protein serves (0–7)",
+          "required": true
+        },
+        {
+          "id": "on_track_days",
+          "type": "number",
+          "label": "Days on track with your plan (0–7)",
+          "required": true
+        },
+        {
+          "id": "training_sessions",
+          "type": "number",
+          "label": "Training sessions this week (0–7)",
+          "required": false
+        },
+        {
+          "id": "steps_avg",
+          "type": "number",
+          "label": "Average daily steps",
+          "required": false
+        },
+        {
+          "id": "headspace_food",
+          "type": "number",
+          "label": "How much head space does food take up for you right now?",
+          "required": true,
+          "description": "0 = none, 10 = constant. We'll come back to this one a few times through the program so you can see it shift."
+        },
+        {
+          "id": "reflection_win",
+          "type": "textarea",
+          "label": "Your win this week",
+          "required": true
+        },
+        {
+          "id": "reflection_struggle",
+          "type": "textarea",
+          "label": "Your biggest struggle this week",
+          "required": true
+        },
+        {
+          "id": "reflection_question",
+          "type": "textarea",
+          "label": "One question for Court",
+          "required": false
+        },
+        {
+          "id": "w6_vs_week0",
+          "type": "textarea",
+          "label": "Compared with Week 0, what's changed in energy, sleep, hunger and training?",
+          "required": false
+        },
+        {
+          "id": "w6_consistency_0_10",
+          "type": "scale",
+          "label": "Your consistency score for Weeks 1–5 (0–10)",
+          "required": false
+        },
+        {
+          "id": "path_choice",
+          "type": "radio",
+          "label": "Stay on your path, or move to the next one for Weeks 7–12?",
+          "required": true,
+          "options": [
+            "Plan & Swap",
+            "Track Serves",
+            "Protein + Calories"
+          ]
+        },
+        {
+          "id": "w6_goal_7_to_12",
+          "type": "textarea",
+          "label": "What's your main goal for Weeks 7–12?",
+          "required": true
+        }
+      ],
+      "automated_message": "Halfway there! Week 6 is your Midpoint Review — a proper look back at how far you've come since Week 0. Retake your photos and measurements, and have a think about whether your path still fits or it's time to switch.",
+      "step_number": 22,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null
+    },
+    {
+      "title": "Week 6 Level Up",
+      "description": "Optional deep dive — read whenever suits, it won't hold up your progress. This week: water weight; weekly averages; when to adjust targets; your cycle and the scale.",
+      "day_offset": 42,
+      "trigger_type": "on_step_complete",
+      "trigger_step_number": 22,
+      "step_number": 23,
+      "resource_keys": [],
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null,
+      "automated_message": null
+    },
+    {
+      "title": "Week 7 — Performance Nutrition",
+      "description": "**Why:** Matching food to training helps you perform, recover and stay well.",
+      "day_offset": 49,
+      "resource_keys": [
+        "VIDEO_URL_W07",
+        "RESOURCE_PDF_PRE_POST_SNACK_LIST",
+        "RESOURCE_PDF_HYDRATION_GUIDE",
+        "RESOURCE_PDF_MEAL_DIAL"
+      ],
+      "tasks": [],
+      "habit": {
+        "ps": {
+          "name": "Add a carb serve on your hardest day",
+          "icon": "🍚",
+          "unit": "week",
+          "target": 1
+        },
+        "ts": {
+          "name": "Match carb serves to training",
+          "icon": "📊",
+          "unit": "day",
+          "target": 1
+        },
+        "pc": {
+          "name": "More carbs on hard days",
+          "icon": "⚖️",
+          "unit": "day",
+          "target": 1
+        }
+      },
+      "protocol_section": {
+        "title": "Recovery",
+        "content": "Prioritise recovery basics after your hardest sessions — food, fluids, and rest."
+      },
+      "questions": [
+        {
+          "id": "weight_avg_kg",
+          "type": "number",
+          "label": "Your average weight this week, in kg (optional)",
+          "required": false
+        },
+        {
+          "id": "energy_1_10",
+          "type": "scale",
+          "label": "Energy this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_quality_1_10",
+          "type": "scale",
+          "label": "Sleep quality this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_hours_avg",
+          "type": "number",
+          "label": "Average hours of sleep a night",
+          "required": false
+        },
+        {
+          "id": "hunger_1_10",
+          "type": "scale",
+          "label": "Hunger this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "stress_1_10",
+          "type": "scale",
+          "label": "Stress this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "digestion_1_10",
+          "type": "scale",
+          "label": "Digestion this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "training_performance_1_10",
+          "type": "scale",
+          "label": "Training performance this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "recovery_1_10",
+          "type": "scale",
+          "label": "Recovery this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "protein_serves_days",
+          "type": "number",
+          "label": "Days you hit your protein serves (0–7)",
+          "required": true
+        },
+        {
+          "id": "on_track_days",
+          "type": "number",
+          "label": "Days on track with your plan (0–7)",
+          "required": true
+        },
+        {
+          "id": "training_sessions",
+          "type": "number",
+          "label": "Training sessions this week (0–7)",
+          "required": false
+        },
+        {
+          "id": "steps_avg",
+          "type": "number",
+          "label": "Average daily steps",
+          "required": false
+        },
+        {
+          "id": "reflection_win",
+          "type": "textarea",
+          "label": "Your win this week",
+          "required": true
+        },
+        {
+          "id": "reflection_struggle",
+          "type": "textarea",
+          "label": "Your biggest struggle this week",
+          "required": true
+        },
+        {
+          "id": "reflection_question",
+          "type": "textarea",
+          "label": "One question for Court",
+          "required": false
+        },
+        {
+          "id": "w7_hardest_session",
+          "type": "textarea",
+          "label": "What was your hardest session, and how did you fuel it?",
+          "required": false
+        },
+        {
+          "id": "w7_recovery_1_10",
+          "type": "scale",
+          "label": "Recovery after hard sessions (1–10)",
+          "required": false
+        },
+        {
+          "id": "w7_flat_sessions",
+          "type": "textarea",
+          "label": "Any flat sessions or slow recovery?",
+          "required": false
+        },
+        {
+          "id": "w7_hunger_timing",
+          "type": "textarea",
+          "label": "When in the day are you hungriest, and when do cravings hit?",
+          "required": false
+        }
+      ],
+      "automated_message": "Week 7 is open! Let's match your food to your training — more fuel on your hardest days, and that's it. Have a look at your hardest session this week and plan around it.",
+      "step_number": 24,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null
+    },
+    {
+      "title": "Week 7 Level Up",
+      "description": "Optional deep dive — read whenever suits, it won't hold up your progress. This week: sessions over 90 minutes; competition day; two sessions a day; carb periodisation.",
+      "day_offset": 49,
+      "trigger_type": "on_step_complete",
+      "trigger_step_number": 24,
+      "step_number": 25,
+      "resource_keys": [],
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null,
+      "automated_message": null
+    },
+    {
+      "title": "Bonus: Iron and the Active Woman",
+      "description": "Part of the Women's Health Library — optional, and education only, not medical advice.",
+      "day_offset": 49,
+      "resource_keys": [
+        "RESOURCE_PDF_IRON_AND_THE_ACTIVE_WOMAN"
+      ],
+      "automated_message": "Bonus guide unlocked: Iron and the Active Woman. Optional, education only — worth a read if you train hard.",
+      "step_number": 26,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null,
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null
+    },
+    {
+      "title": "Week 8 — Hunger, Cravings and Appetite",
+      "description": "**Why:** When you understand hunger, you can respond to it instead of fighting it.",
+      "day_offset": 56,
+      "resource_keys": [
+        "VIDEO_URL_W08",
+        "RESOURCE_PDF_VOLUME_SWAPS",
+        "RESOURCE_PDF_CRAVINGS_TOOLKIT",
+        "RESOURCE_PDF_HUNGER_SCALE"
+      ],
+      "tasks": [],
+      "habit": {
+        "ps": {
+          "name": "Try 2 volume swaps",
+          "icon": "🥗",
+          "unit": "week",
+          "target": 2
+        },
+        "ts": {
+          "name": "Rate hunger before meals",
+          "icon": "📈",
+          "unit": "day",
+          "target": 5
+        },
+        "pc": {
+          "name": "Rate hunger instead of logging",
+          "icon": "📈",
+          "unit": "meal",
+          "target": 1
+        }
+      },
+      "protocol_section": {
+        "title": "Sleep & stress management",
+        "content": "Aim for 7+ hours of sleep, and build in one stress-management practice you can keep up this week."
+      },
+      "questions": [
+        {
+          "id": "weight_avg_kg",
+          "type": "number",
+          "label": "Your average weight this week, in kg (optional)",
+          "required": false
+        },
+        {
+          "id": "energy_1_10",
+          "type": "scale",
+          "label": "Energy this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_quality_1_10",
+          "type": "scale",
+          "label": "Sleep quality this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_hours_avg",
+          "type": "number",
+          "label": "Average hours of sleep a night",
+          "required": false
+        },
+        {
+          "id": "hunger_1_10",
+          "type": "scale",
+          "label": "Hunger this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "stress_1_10",
+          "type": "scale",
+          "label": "Stress this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "digestion_1_10",
+          "type": "scale",
+          "label": "Digestion this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "training_performance_1_10",
+          "type": "scale",
+          "label": "Training performance this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "recovery_1_10",
+          "type": "scale",
+          "label": "Recovery this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "protein_serves_days",
+          "type": "number",
+          "label": "Days you hit your protein serves (0–7)",
+          "required": true
+        },
+        {
+          "id": "on_track_days",
+          "type": "number",
+          "label": "Days on track with your plan (0–7)",
+          "required": true
+        },
+        {
+          "id": "training_sessions",
+          "type": "number",
+          "label": "Training sessions this week (0–7)",
+          "required": false
+        },
+        {
+          "id": "steps_avg",
+          "type": "number",
+          "label": "Average daily steps",
+          "required": false
+        },
+        {
+          "id": "reflection_win",
+          "type": "textarea",
+          "label": "Your win this week",
+          "required": true
+        },
+        {
+          "id": "reflection_struggle",
+          "type": "textarea",
+          "label": "Your biggest struggle this week",
+          "required": true
+        },
+        {
+          "id": "reflection_question",
+          "type": "textarea",
+          "label": "One question for Court",
+          "required": false
+        },
+        {
+          "id": "w8_hunger_type",
+          "type": "radio",
+          "label": "Mostly physical or emotional hunger this week?",
+          "required": false,
+          "options": [
+            "Mostly physical",
+            "Mostly emotional",
+            "A mix of both"
+          ]
+        },
+        {
+          "id": "w8_best_tool",
+          "type": "text",
+          "label": "Which volume swap or craving tool helped most?",
+          "required": false
+        },
+        {
+          "id": "w8_next_phase",
+          "type": "radio",
+          "label": "Next phase: fat loss, maintenance or building?",
+          "required": false,
+          "options": [
+            "Fat loss",
+            "Maintenance",
+            "Building"
+          ]
+        }
+      ],
+      "automated_message": "Week 8 is open! Time to get curious about hunger instead of fighting it. Rate your hunger before meals this week — no changes needed yet, just information.",
+      "step_number": 27,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null
+    },
+    {
+      "title": "Week 8 Level Up",
+      "description": "Optional deep dive — read whenever suits, it won't hold up your progress. This week: hunger hormones; appetite in a deficit; the hunger scale; sleep and stress.",
+      "day_offset": 56,
+      "trigger_type": "on_step_complete",
+      "trigger_step_number": 27,
+      "step_number": 28,
+      "resource_keys": [],
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null,
+      "automated_message": null
+    },
+    {
+      "title": "Week 9 — Body Composition Phases",
+      "description": "**Why:** Knowing your phase makes the numbers make sense.",
+      "day_offset": 63,
+      "resource_keys": [
+        "VIDEO_URL_W09",
+        "RESOURCE_PDF_MEAL_DIAL",
+        "RESOURCE_PDF_VOLUME_SWAPS",
+        "RESOURCE_PDF_MEAL_BUILDER"
+      ],
+      "tasks": [],
+      "habit": {
+        "ps": {
+          "name": "Adjust one meal for your next phase",
+          "icon": "🍽️",
+          "unit": "week",
+          "target": 1
+        },
+        "ts": {
+          "name": "Move a serve for your next phase",
+          "icon": "⚖️",
+          "unit": "week",
+          "target": 1
+        },
+        "pc": {
+          "name": "Set your calorie range",
+          "icon": "🎯",
+          "unit": "week",
+          "target": 1
+        }
+      },
+      "protocol_section": {
+        "title": "Movement — strength training",
+        "content": "Keep strength training in your week — it's the biggest lever for body composition, whichever phase you're in."
+      },
+      "questions": [
+        {
+          "id": "weight_avg_kg",
+          "type": "number",
+          "label": "Your average weight this week, in kg (optional)",
+          "required": false
+        },
+        {
+          "id": "energy_1_10",
+          "type": "scale",
+          "label": "Energy this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_quality_1_10",
+          "type": "scale",
+          "label": "Sleep quality this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_hours_avg",
+          "type": "number",
+          "label": "Average hours of sleep a night",
+          "required": false
+        },
+        {
+          "id": "hunger_1_10",
+          "type": "scale",
+          "label": "Hunger this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "stress_1_10",
+          "type": "scale",
+          "label": "Stress this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "digestion_1_10",
+          "type": "scale",
+          "label": "Digestion this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "training_performance_1_10",
+          "type": "scale",
+          "label": "Training performance this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "recovery_1_10",
+          "type": "scale",
+          "label": "Recovery this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "protein_serves_days",
+          "type": "number",
+          "label": "Days you hit your protein serves (0–7)",
+          "required": true
+        },
+        {
+          "id": "on_track_days",
+          "type": "number",
+          "label": "Days on track with your plan (0–7)",
+          "required": true
+        },
+        {
+          "id": "training_sessions",
+          "type": "number",
+          "label": "Training sessions this week (0–7)",
+          "required": false
+        },
+        {
+          "id": "steps_avg",
+          "type": "number",
+          "label": "Average daily steps",
+          "required": false
+        },
+        {
+          "id": "reflection_win",
+          "type": "textarea",
+          "label": "Your win this week",
+          "required": true
+        },
+        {
+          "id": "reflection_struggle",
+          "type": "textarea",
+          "label": "Your biggest struggle this week",
+          "required": true
+        },
+        {
+          "id": "reflection_question",
+          "type": "textarea",
+          "label": "One question for Court",
+          "required": false
+        },
+        {
+          "id": "w9_trend_3wk",
+          "type": "radio",
+          "label": "Weekly average over the last 3 weeks: up, steady or down?",
+          "required": false,
+          "options": [
+            "Up",
+            "Steady",
+            "Down"
+          ]
+        },
+        {
+          "id": "w9_phase_why",
+          "type": "textarea",
+          "label": "Which phase did you choose, and why?",
+          "required": false
+        },
+        {
+          "id": "w9_supplements",
+          "type": "textarea",
+          "label": "Which supplements do you take or are curious about?",
+          "required": false
+        },
+        {
+          "id": "w9_sleep_hours",
+          "type": "number",
+          "label": "Average sleep hours",
+          "required": false
+        }
+      ],
+      "automated_message": "Week 9 is open! Let's talk phases — fat loss, maintenance or building. Choosing one on purpose makes the number on the scale make a lot more sense.",
+      "step_number": 29,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null
+    },
+    {
+      "title": "Week 9 Level Up",
+      "description": "Optional deep dive — read whenever suits, it won't hold up your progress. This week: diet breaks; rate of change; building muscle; recomposition.",
+      "day_offset": 63,
+      "trigger_type": "on_step_complete",
+      "trigger_step_number": 29,
+      "step_number": 30,
+      "resource_keys": [],
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null,
+      "automated_message": null
+    },
+    {
+      "title": "Bonus: Perimenopause and Menopause Basics",
+      "description": "Part of the Women's Health Library — optional, and education only, not medical advice.",
+      "day_offset": 63,
+      "resource_keys": [
+        "RESOURCE_PDF_PERIMENOPAUSE_AND_MENOPAUSE_BASICS"
+      ],
+      "automated_message": "Bonus guide unlocked: Perimenopause and Menopause Basics. Optional, education only — a solid primer if this is relevant to you.",
+      "step_number": 31,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null,
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null
+    },
+    {
+      "title": "Week 10 — Supplements, Sleep and Recovery",
+      "description": "**Why:** Food first covers most needs. Supplements only fill gaps.",
+      "day_offset": 70,
+      "resource_keys": [
+        "VIDEO_URL_W10",
+        "RESOURCE_PDF_SUPPLEMENT_BASICS",
+        "RESOURCE_PDF_WIND_DOWN_ROUTINE"
+      ],
+      "tasks": [],
+      "habit": {
+        "ps": {
+          "name": "2 days without the plan",
+          "icon": "🗓️",
+          "unit": "week",
+          "target": 2
+        },
+        "ts": {
+          "name": "2 tracking-free days (hand portions)",
+          "icon": "✋",
+          "unit": "week",
+          "target": 2
+        },
+        "pc": {
+          "name": "2 tracking-free days at maintenance",
+          "icon": "🧘",
+          "unit": "week",
+          "target": 2
+        }
+      },
+      "protocol_section": {
+        "title": "Sleep",
+        "content": "Pick one sleep habit and keep it up for 5 nights this week."
+      },
+      "questions": [
+        {
+          "id": "weight_avg_kg",
+          "type": "number",
+          "label": "Your average weight this week, in kg (optional)",
+          "required": false
+        },
+        {
+          "id": "energy_1_10",
+          "type": "scale",
+          "label": "Energy this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_quality_1_10",
+          "type": "scale",
+          "label": "Sleep quality this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_hours_avg",
+          "type": "number",
+          "label": "Average hours of sleep a night",
+          "required": false
+        },
+        {
+          "id": "hunger_1_10",
+          "type": "scale",
+          "label": "Hunger this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "stress_1_10",
+          "type": "scale",
+          "label": "Stress this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "digestion_1_10",
+          "type": "scale",
+          "label": "Digestion this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "training_performance_1_10",
+          "type": "scale",
+          "label": "Training performance this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "recovery_1_10",
+          "type": "scale",
+          "label": "Recovery this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "protein_serves_days",
+          "type": "number",
+          "label": "Days you hit your protein serves (0–7)",
+          "required": true
+        },
+        {
+          "id": "on_track_days",
+          "type": "number",
+          "label": "Days on track with your plan (0–7)",
+          "required": true
+        },
+        {
+          "id": "training_sessions",
+          "type": "number",
+          "label": "Training sessions this week (0–7)",
+          "required": false
+        },
+        {
+          "id": "steps_avg",
+          "type": "number",
+          "label": "Average daily steps",
+          "required": false
+        },
+        {
+          "id": "reflection_win",
+          "type": "textarea",
+          "label": "Your win this week",
+          "required": true
+        },
+        {
+          "id": "reflection_struggle",
+          "type": "textarea",
+          "label": "Your biggest struggle this week",
+          "required": true
+        },
+        {
+          "id": "reflection_question",
+          "type": "textarea",
+          "label": "One question for Court",
+          "required": false
+        },
+        {
+          "id": "w10_sleep_habit",
+          "type": "text",
+          "label": "Which sleep habit did you keep, and for how many nights?",
+          "required": false
+        },
+        {
+          "id": "w10_days_off_plan",
+          "type": "textarea",
+          "label": "How did your days without the plan or tracking go?",
+          "required": false
+        },
+        {
+          "id": "w10_hardest_week",
+          "type": "textarea",
+          "label": "Your hardest week so far, and what got you back on track?",
+          "required": false
+        }
+      ],
+      "automated_message": "Week 10 is open! Food covers most of it — supplements only fill the gaps. This week, pick one sleep habit to protect, and try a couple of tracking-free days. See how it feels.",
+      "step_number": 32,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null
+    },
+    {
+      "title": "Week 10 Level Up",
+      "description": "Optional deep dive — read whenever suits, it won't hold up your progress. This week: creatine; caffeine and sleep; reading a supplement label; stress.",
+      "day_offset": 70,
+      "trigger_type": "on_step_complete",
+      "trigger_step_number": 32,
+      "step_number": 33,
+      "resource_keys": [],
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null,
+      "automated_message": null
+    },
+    {
+      "title": "Week 11 — Mindset and Easing Off Tracking",
+      "description": "**Why:** You've learnt what tracking was teaching you. Now you can trust it.\n\n**Key teaching:**\n- Eat around 3 to 4 on the hunger scale and stop around 6 to 7.\n- Use hand portions and the plate instead of measuring.\n- Feel off track? Track for 1 to 2 days, then stop again.",
+      "day_offset": 77,
+      "resource_keys": [
+        "VIDEO_URL_W11",
+        "RESOURCE_PDF_CRAVINGS_TOOLKIT",
+        "RESOURCE_PDF_MEAL_DIAL"
+      ],
+      "tasks": [
+        {
+          "id": "task-010",
+          "label": "Write your 3 non-negotiables"
+        }
+      ],
+      "habit": {
+        "ps": {
+          "name": "3 days off the plan",
+          "icon": "🗓️",
+          "unit": "week",
+          "target": 3
+        },
+        "ts": {
+          "name": "3 tracking-free days",
+          "icon": "✋",
+          "unit": "week",
+          "target": 3
+        },
+        "pc": {
+          "name": "3 tracking-free days",
+          "icon": "🧘",
+          "unit": "week",
+          "target": 3
+        }
+      },
+      "protocol_section": {
+        "title": "Mindset",
+        "content": "Hold onto your 3 non-negotiables as the floor, not the ceiling — everything else can flex."
+      },
+      "questions": [
+        {
+          "id": "weight_avg_kg",
+          "type": "number",
+          "label": "Your average weight this week, in kg (optional)",
+          "required": false
+        },
+        {
+          "id": "energy_1_10",
+          "type": "scale",
+          "label": "Energy this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_quality_1_10",
+          "type": "scale",
+          "label": "Sleep quality this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_hours_avg",
+          "type": "number",
+          "label": "Average hours of sleep a night",
+          "required": false
+        },
+        {
+          "id": "hunger_1_10",
+          "type": "scale",
+          "label": "Hunger this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "stress_1_10",
+          "type": "scale",
+          "label": "Stress this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "digestion_1_10",
+          "type": "scale",
+          "label": "Digestion this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "training_performance_1_10",
+          "type": "scale",
+          "label": "Training performance this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "recovery_1_10",
+          "type": "scale",
+          "label": "Recovery this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "protein_serves_days",
+          "type": "number",
+          "label": "Days you hit your protein serves (0–7)",
+          "required": true
+        },
+        {
+          "id": "on_track_days",
+          "type": "number",
+          "label": "Days on track with your plan (0–7)",
+          "required": true
+        },
+        {
+          "id": "training_sessions",
+          "type": "number",
+          "label": "Training sessions this week (0–7)",
+          "required": false
+        },
+        {
+          "id": "steps_avg",
+          "type": "number",
+          "label": "Average daily steps",
+          "required": false
+        },
+        {
+          "id": "reflection_win",
+          "type": "textarea",
+          "label": "Your win this week",
+          "required": true
+        },
+        {
+          "id": "reflection_struggle",
+          "type": "textarea",
+          "label": "Your biggest struggle this week",
+          "required": true
+        },
+        {
+          "id": "reflection_question",
+          "type": "textarea",
+          "label": "One question for Court",
+          "required": false
+        },
+        {
+          "id": "w11_non_negotiables",
+          "type": "textarea",
+          "label": "What are your three non-negotiables?",
+          "required": true
+        },
+        {
+          "id": "w11_back_on_track_speed",
+          "type": "textarea",
+          "label": "After an off day, how quickly did you get back on track?",
+          "required": false
+        },
+        {
+          "id": "w11_help_after",
+          "type": "textarea",
+          "label": "What would you like help with after the program?",
+          "required": false
+        }
+      ],
+      "automated_message": "Week 11 is open, and this one's the heart of the program. You've learnt what tracking was teaching you — now it's time to trust it. Write your 3 non-negotiables and start easing off the detail.",
+      "step_number": 34,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null
+    },
+    {
+      "title": "Week 11 Level Up",
+      "description": "Optional deep dive — read whenever suits, it won't hold up your progress. This week: spot checks; identity-based habits; flexible food rules; your reset plan.",
+      "day_offset": 77,
+      "trigger_type": "on_step_complete",
+      "trigger_step_number": 34,
+      "step_number": 35,
+      "resource_keys": [],
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null,
+      "automated_message": null
+    },
+    {
+      "title": "Bonus: Bloodwork Basics: What to Ask Your GP",
+      "description": "Part of the Women's Health Library — optional, and education only, not medical advice.",
+      "day_offset": 77,
+      "resource_keys": [
+        "RESOURCE_PDF_BLOODWORK_BASICS"
+      ],
+      "automated_message": "Bonus guide unlocked: Bloodwork Basics. Optional, education only — a few good questions to take to your GP if you're due for bloods.",
+      "step_number": 36,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null,
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null
+    },
+    {
+      "title": "Week 12 — Your Plan From Here",
+      "description": "**Why:** You now know enough to eat well without a plan telling you how.",
+      "day_offset": 84,
+      "resource_keys": [
+        "VIDEO_URL_W12",
+        "RESOURCE_PDF_HABIT_REVIEW",
+        "RESOURCE_PDF_MY_FOUNDATIONS_PLAN",
+        "RESOURCE_PDF_WELCOME_GUIDE",
+        "RESOURCE_PDF_WHICH_LEVEL_SUITS_ME",
+        "RESOURCE_PDF_SMART_GOAL_WORKSHEET",
+        "RESOURCE_PDF_HABIT_STACK_TRACKER",
+        "RESOURCE_PDF_SERVE_CHEAT_SHEET",
+        "RESOURCE_PDF_PRE_POST_SNACK_LIST",
+        "RESOURCE_PDF_PLATE_AND_HAND_PORTION_GUIDE",
+        "RESOURCE_PDF_PROTEIN_SPECTRUM",
+        "RESOURCE_PDF_MEAL_BUILDER",
+        "RESOURCE_PDF_MEAL_DIAL",
+        "RESOURCE_PDF_5_AND_2_MADE_EASY",
+        "RESOURCE_PDF_PLANT_POINTS_TRACKER",
+        "RESOURCE_PDF_MEAL_PREP_HACKS",
+        "RESOURCE_PDF_SUPERMARKET_SWAP_LIST",
+        "RESOURCE_PDF_SAUCES_AND_CONDIMENTS",
+        "RESOURCE_PDF_WEEKLY_PLANNER_AND_SHOPPING_LIST",
+        "RESOURCE_PDF_EATING_OUT_CHEAT_SHEET",
+        "RESOURCE_PDF_DRINKS_GUIDE",
+        "RESOURCE_PDF_PROGRESS_TRACKER",
+        "RESOURCE_PDF_WHY_THE_SCALE_MOVES",
+        "RESOURCE_PDF_HYDRATION_GUIDE",
+        "RESOURCE_PDF_VOLUME_SWAPS",
+        "RESOURCE_PDF_CRAVINGS_TOOLKIT",
+        "RESOURCE_PDF_HUNGER_SCALE",
+        "RESOURCE_PDF_SUPPLEMENT_BASICS",
+        "RESOURCE_PDF_WIND_DOWN_ROUTINE",
+        "RESOURCE_PDF_HABIT_REVIEW",
+        "RESOURCE_PDF_MY_FOUNDATIONS_PLAN",
+        "RESOURCE_PDF_YOUR_CYCLE_101",
+        "RESOURCE_PDF_EATING_TRAINING_WITH_YOUR_CYCLE",
+        "RESOURCE_PDF_ENERGY_AVAILABILITY_AND_YOUR_PERIOD",
+        "RESOURCE_PDF_IRON_AND_THE_ACTIVE_WOMAN",
+        "RESOURCE_PDF_PERIMENOPAUSE_AND_MENOPAUSE_BASICS",
+        "RESOURCE_PDF_BLOODWORK_BASICS"
+      ],
+      "tasks": [
+        {
+          "id": "task-011",
+          "label": "Write your go-to meals / next targets for each part of the day"
+        }
+      ],
+      "habit": {
+        "ps": {
+          "name": "Write your go-to meals",
+          "icon": "📖",
+          "unit": "program",
+          "target": 1
+        },
+        "ts": {
+          "name": "Set your next serves",
+          "icon": "⚖️",
+          "unit": "program",
+          "target": 1
+        },
+        "pc": {
+          "name": "Set your next targets",
+          "icon": "🎯",
+          "unit": "program",
+          "target": 1
+        }
+      },
+      "protocol_section": {
+        "title": "Lifestyle — keep your three non-negotiables",
+        "content": "Whatever comes next, hold onto the three non-negotiables from Week 11."
+      },
+      "questions": [
+        {
+          "id": "weight_avg_kg",
+          "type": "number",
+          "label": "Your average weight this week, in kg (optional)",
+          "required": false
+        },
+        {
+          "id": "energy_1_10",
+          "type": "scale",
+          "label": "Energy this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_quality_1_10",
+          "type": "scale",
+          "label": "Sleep quality this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "sleep_hours_avg",
+          "type": "number",
+          "label": "Average hours of sleep a night",
+          "required": false
+        },
+        {
+          "id": "hunger_1_10",
+          "type": "scale",
+          "label": "Hunger this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "stress_1_10",
+          "type": "scale",
+          "label": "Stress this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "digestion_1_10",
+          "type": "scale",
+          "label": "Digestion this week (1–10)",
+          "required": true
+        },
+        {
+          "id": "training_performance_1_10",
+          "type": "scale",
+          "label": "Training performance this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "recovery_1_10",
+          "type": "scale",
+          "label": "Recovery this week (1–10)",
+          "required": false
+        },
+        {
+          "id": "protein_serves_days",
+          "type": "number",
+          "label": "Days you hit your protein serves (0–7)",
+          "required": true
+        },
+        {
+          "id": "on_track_days",
+          "type": "number",
+          "label": "Days on track with your plan (0–7)",
+          "required": true
+        },
+        {
+          "id": "training_sessions",
+          "type": "number",
+          "label": "Training sessions this week (0–7)",
+          "required": false
+        },
+        {
+          "id": "steps_avg",
+          "type": "number",
+          "label": "Average daily steps",
+          "required": false
+        },
+        {
+          "id": "headspace_food",
+          "type": "number",
+          "label": "How much head space does food take up for you right now?",
+          "required": true,
+          "description": "0 = none, 10 = constant. We'll come back to this one a few times through the program so you can see it shift."
+        },
+        {
+          "id": "reflection_win",
+          "type": "textarea",
+          "label": "Your win this week",
+          "required": true
+        },
+        {
+          "id": "reflection_struggle",
+          "type": "textarea",
+          "label": "Your biggest struggle this week",
+          "required": true
+        },
+        {
+          "id": "reflection_question",
+          "type": "textarea",
+          "label": "One question for Court",
+          "required": false
+        },
+        {
+          "id": "w12_biggest_change",
+          "type": "textarea",
+          "label": "Compared with Weeks 0 and 6, what's your biggest change?",
+          "required": true
+        },
+        {
+          "id": "w12_confidence_1_10",
+          "type": "scale",
+          "label": "Confidence to keep going on your own (1–10)",
+          "required": true
+        },
+        {
+          "id": "w12_next_goal",
+          "type": "textarea",
+          "label": "Your next 12-week goal",
+          "required": false
+        },
+        {
+          "id": "w12_interested_1to1",
+          "type": "yesno",
+          "label": "Would you like info on 1:1 coaching?",
+          "required": false
+        }
+      ],
+      "automated_message": "Week 12 — the final week! You've learnt the why behind all of this, and you don't need a plan telling you how anymore. Write your go-to meals and your next targets, then celebrate — you did the whole 12 weeks.",
+      "step_number": 37,
+      "trigger_type": "day_offset",
+      "trigger_step_number": null
+    },
+    {
+      "title": "Week 12 Level Up",
+      "description": "Optional deep dive — read whenever suits, it won't hold up your progress. This week: your next goal; moving to a new phase; building your own week; when to get support.",
+      "day_offset": 84,
+      "trigger_type": "on_step_complete",
+      "trigger_step_number": 37,
+      "step_number": 38,
+      "resource_keys": [],
+      "tasks": [],
+      "questions": [],
+      "habit": null,
+      "protocol_section": null,
+      "automated_message": null
+    }
+  ]
+}
