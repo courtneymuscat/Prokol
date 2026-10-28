@@ -15,17 +15,10 @@ type CalHistorySession = {
   sets: { set_number: number; weight_lbs: number | null; reps: number | null; duration_seconds: number | null; calories: number | null }[]
 }
 
-function ExerciseHistoryPanel({ exerciseId }: { exerciseId: string }) {
+// history is pre-fetched by the parent WorkoutModal (one batched request
+// for every exercise in the workout) rather than fetched here per-exercise.
+function ExerciseHistoryPanel({ history, loaded }: { history: CalHistorySession[]; loaded: boolean }) {
   const [expanded, setExpanded] = useState(false)
-  const [history, setHistory] = useState<CalHistorySession[]>([])
-  const [loaded, setLoaded] = useState(false)
-
-  useEffect(() => {
-    fetch(`/api/exercises/history?exerciseId=${exerciseId}`)
-      .then((r) => r.json())
-      .then((d) => { setHistory(Array.isArray(d) ? d : []); setLoaded(true) })
-      .catch(() => setLoaded(true))
-  }, [exerciseId])
 
   if (!loaded) return null
   if (history.length === 0) return (
@@ -712,6 +705,23 @@ function WorkoutModal({ workout, onClose, onSaved, onMoved }: {
 
   const items = workout.day.items ?? []
 
+  // Exercise history for every loggable exercise in this workout, fetched
+  // once in a single batched request instead of one request per exercise
+  // (ExerciseHistoryPanel used to fetch its own history independently).
+  const [exerciseHistory, setExerciseHistory] = useState<Record<string, CalHistorySession[]>>({})
+  const [exerciseHistoryLoaded, setExerciseHistoryLoaded] = useState(false)
+  useEffect(() => {
+    if (!logging) return
+    const exerciseIds = items.filter((it) => it.type !== 'section').map((it) => it.id)
+    if (exerciseIds.length === 0) { setExerciseHistoryLoaded(true); return }
+    fetch(`/api/exercises/history?exerciseIds=${exerciseIds.join(',')}`)
+      .then((r) => r.json())
+      .then((d) => setExerciseHistory(d && typeof d === 'object' ? d : {}))
+      .catch(() => setExerciseHistory({}))
+      .finally(() => setExerciseHistoryLoaded(true))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- items is derived fresh from workout.day each render; keying on workout.day.id avoids re-fetching on every keystroke elsewhere in the modal
+  }, [logging, workout.day.id])
+
   // Superset group meta — adjacent exercises sharing a superset_id render
   // inside a single purple-bordered block with A1/A2/A3 labels.
   type SupersetMeta = { supersetId: string | null; positionInGroup: number; groupSize: number; isFirstInGroup: boolean; isLastInGroup: boolean }
@@ -1114,7 +1124,7 @@ function WorkoutModal({ workout, onClose, onSaved, onMoved }: {
                 )}
 
                 {/* Exercise history — shown while logging so client can reference previous performance */}
-                {logging && <ExerciseHistoryPanel exerciseId={item.id} />}
+                {logging && <ExerciseHistoryPanel history={exerciseHistory[item.id] ?? []} loaded={exerciseHistoryLoaded} />}
 
                 {/* Video + notes — logging mode */}
                 {logging && (

@@ -14,16 +14,29 @@ type HistoryEntry = {
   }[]
 }
 
+// Accepts either ?exerciseId=X (single, returns HistoryEntry[] — unchanged
+// shape for existing callers like ActiveWorkout.tsx) or ?exerciseIds=a,b,c
+// (batch, returns { [exerciseId]: HistoryEntry[] }). The batch form exists
+// so a whole workout's exercise list can be looked up in one request
+// instead of one request per exercise (TrainingCalendar.tsx's history
+// panel, shown for every exercise while logging a workout).
 export async function GET(req: NextRequest) {
-  const exerciseId = req.nextUrl.searchParams.get('exerciseId')
-  if (!exerciseId) return Response.json([])
+  const singleId = req.nextUrl.searchParams.get('exerciseId')
+  const batchParam = req.nextUrl.searchParams.get('exerciseIds')
+  const isBatch = batchParam != null
+  const exerciseIds = isBatch
+    ? [...new Set(batchParam.split(',').map((s) => s.trim()).filter(Boolean))]
+    : (singleId ? [singleId] : [])
+
+  const empty = () => Response.json(isBatch ? {} : [])
+  if (exerciseIds.length === 0) return empty()
 
   const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return Response.json([])
+  if (!session) return empty()
 
   const userId = session.user.id
-  const history: HistoryEntry[] = []
+  const historyByExercise: Record<string, HistoryEntry[]> = Object.fromEntries(exerciseIds.map((id) => [id, []]))
 
   // ── Source 1: freestyle workouts (workout_exercises + exercise_sets) ─────────
   const { data: userWorkouts } = await supabase
@@ -39,8 +52,8 @@ export async function GET(req: NextRequest) {
 
     const { data: weRows } = await supabase
       .from('workout_exercises')
-      .select('id, workout_id')
-      .eq('exercise_id', exerciseId)
+      .select('id, workout_id, exercise_id')
+      .in('exercise_id', exerciseIds)
       .in('workout_id', workoutIds)
 
     if (weRows?.length) {
@@ -75,7 +88,7 @@ export async function GET(req: NextRequest) {
             set_number, weight_lbs, reps, duration_seconds, calories,
           }))
         if (weSets.length > 0) {
-          history.push({
+          historyByExercise[we.exercise_id]?.push({
             workoutName: workout?.name ?? 'Workout',
             date: workout?.started_at ?? '',
             notes: notesMap[we.id] ?? null,
@@ -98,6 +111,7 @@ export async function GET(req: NextRequest) {
     .limit(30)
 
   if (programResults?.length) {
+    const exerciseIdSet = new Set(exerciseIds)
     for (const event of programResults) {
       const content = event.content as Record<string, unknown> | null
       if (!content) continue
@@ -109,35 +123,40 @@ export async function GET(req: NextRequest) {
         clientNote?: string
       }>
 
-      const match = exercises.find((e) => e.id === exerciseId)
-      if (!match) continue
+      for (const match of exercises) {
+        if (!exerciseIdSet.has(match.id)) continue
 
-      const rawSets = match.sets ?? []
-      if (rawSets.length === 0) continue
+        const rawSets = match.sets ?? []
+        if (rawSets.length === 0) continue
 
-      const mappedSets = rawSets.map((s, i) => ({
-        set_number: i + 1,
-        weight_lbs: s.weight ? (parseFloat(s.weight) || null) : null,
-        reps: s.reps ? (parseInt(s.reps, 10) || null) : null,
-        duration_seconds: s.duration ? (parseInt(s.duration, 10) || null) : null,
-        calories: s.calories ? (parseFloat(s.calories) || null) : null,
-      }))
+        const mappedSets = rawSets.map((s, i) => ({
+          set_number: i + 1,
+          weight_lbs: s.weight ? (parseFloat(s.weight) || null) : null,
+          reps: s.reps ? (parseInt(s.reps, 10) || null) : null,
+          duration_seconds: s.duration ? (parseInt(s.duration, 10) || null) : null,
+          calories: s.calories ? (parseFloat(s.calories) || null) : null,
+        }))
 
-      const dayName = (content.day_name as string | null) ?? null
-      const programName = (content.program_name as string | null) ?? null
-      const workoutName = [dayName, programName].filter(Boolean).join(' — ') || 'Program workout'
+        const dayName = (content.day_name as string | null) ?? null
+        const programName = (content.program_name as string | null) ?? null
+        const workoutName = [dayName, programName].filter(Boolean).join(' — ') || 'Program workout'
 
-      history.push({
-        workoutName,
-        date: (content.completed_at as string | null) ?? event.event_date,
-        notes: match.clientNote ?? null,
-        sets: mappedSets,
-      })
+        historyByExercise[match.id]?.push({
+          workoutName,
+          date: (content.completed_at as string | null) ?? event.event_date,
+          notes: match.clientNote ?? null,
+          sets: mappedSets,
+        })
+      }
     }
   }
 
-  // Sort combined history most-recent first, cap at 5
-  history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  // Sort each exercise's combined history most-recent first, cap at 5 — same as before.
+  for (const id of exerciseIds) {
+    historyByExercise[id].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    historyByExercise[id] = historyByExercise[id].slice(0, 5)
+  }
 
-  return Response.json(history.slice(0, 5))
+  if (isBatch) return Response.json(historyByExercise)
+  return Response.json(historyByExercise[singleId!] ?? [])
 }
