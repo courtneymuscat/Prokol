@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPushToUser } from '@/lib/push'
 import { effectiveQuestions } from '@/lib/autoflow-fork'
+import { resolveForPath, taskAppliesToPath, pathFromChoiceLabel, PATH_CHOICE_QUESTION_ID, type PathKey } from '@/lib/autoflowPaths'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ flowId: string; step: string }> }
@@ -18,11 +19,12 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
   const { data: flow } = await admin
     .from('client_autoflows')
-    .select('id, name, template_id, start_date, coach_id, autoflow_templates(core_questions, total_steps, type)')
+    .select('id, name, template_id, start_date, coach_id, selected_path, autoflow_templates(core_questions, total_steps, type)')
     .eq('id', flowId)
     .eq('client_id', user.id)
     .single()
   if (!flow) return Response.json({ error: 'Not found' }, { status: 404 })
+  const clientPath = (flow.selected_path as PathKey | null) ?? null
 
   const [{ data: templateStep }, { data: override }, { data: existing }] = await Promise.all([
     admin
@@ -189,6 +191,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   return Response.json({
     flow_id: flowId,
     flow_name: flow.name,
+    selected_path: clientPath,
     step_number: stepNum,
     total_steps: totalSteps,
     type: tpl?.type ?? 'weekly_checkin',
@@ -197,10 +200,11 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     core_questions: tpl?.core_questions ?? [],
     questions: effectiveQuestions(override?.questions, templateStep?.questions),
     resources,
-    tasks: templateStep?.tasks ?? [],
+    tasks: (Array.isArray(templateStep?.tasks) ? templateStep.tasks : [])
+      .filter((t: { paths?: PathKey[] | null }) => taskAppliesToPath({ paths: t.paths ?? null }, clientPath)),
     linked_form: linkedForm,
-    protocol_section: templateStep?.protocol_section ?? null,
-    habit: templateStep?.habit ?? null,
+    protocol_section: resolveForPath(templateStep?.protocol_section as { title: string; content: string } | null, clientPath),
+    habit: resolveForPath(templateStep?.habit as { name: string; icon: string; unit: string; target: number } | null, clientPath),
     existing_submission: existing ?? null,
     next_step_available,
   })
@@ -231,6 +235,21 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
 
+  // flow's ownership is already confirmed above (fetched filtered to
+  // this user), so using the admin client for the writes below is safe.
+  const adminForHabit = createAdminClient()
+
+  // If this step's answers include the reserved "choose your path"
+  // question, set it on the flow — no separate picker screen needed.
+  // Lets a client change path later too (just answer it again). Uses the
+  // admin client — a client has no UPDATE permission on client_autoflows
+  // under RLS (only the coach does).
+  const pathAnswer = (answers as Record<string, string> | undefined)?.[PATH_CHOICE_QUESTION_ID]
+  const chosenPath = pathFromChoiceLabel(pathAnswer)
+  if (chosenPath) {
+    await adminForHabit.from('client_autoflows').update({ selected_path: chosenPath }).eq('id', flowId)
+  }
+
   // If this step had a trackable habit attached, deactivate it right
   // away — the step is now complete, so its habit shouldn't keep
   // showing as active. The due-steps poll would catch this too, but
@@ -238,7 +257,6 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   // immediately rather than on the next poll. Uses the admin client —
   // the client's own session can't write to `habits` under RLS.
   {
-    const adminForHabit = createAdminClient()
     const { data: instance } = await adminForHabit
       .from('autoflow_step_habit_instances')
       .select('habit_id')

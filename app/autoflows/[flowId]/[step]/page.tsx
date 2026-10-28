@@ -32,6 +32,7 @@ type Task = {
 type StepData = {
   flow_id: string
   flow_name: string
+  selected_path: 'ps' | 'ts' | 'pc' | null
   step_number: number
   total_steps: number
   type: string
@@ -211,6 +212,19 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isDirty, setIsDirty] = useState(false)
+  const [pathSaving, setPathSaving] = useState(false)
+
+  async function changePath(path: 'ps' | 'ts' | 'pc') {
+    if (!data || path === data.selected_path) return
+    setPathSaving(true)
+    const res = await fetch(`/api/client/autoflows/${flowId}/path`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    })
+    if (res.ok) setData(d => d ? { ...d, selected_path: path } : d)
+    setPathSaving(false)
+  }
 
   // Warn on tab close / refresh when there are unsaved changes
   useEffect(() => {
@@ -394,9 +408,26 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
         >
           ← Dashboard
         </button>
-        <div className="mt-2">
-          <p className="text-xs text-gray-500">{data.flow_name}</p>
-          <h1 className="text-lg font-bold text-gray-900">{data.title || `Step ${data.step_number}`}</h1>
+        <div className="mt-2 flex items-start justify-between gap-2">
+          <div>
+            <p className="text-xs text-gray-500">{data.flow_name}</p>
+            <h1 className="text-lg font-bold text-gray-900">{data.title || `Step ${data.step_number}`}</h1>
+          </div>
+          {data.selected_path && (
+            <div className="flex-shrink-0">
+              <select
+                value={data.selected_path}
+                onChange={e => changePath(e.target.value as 'ps' | 'ts' | 'pc')}
+                disabled={pathSaving}
+                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-600 disabled:opacity-50"
+                title="Change your path anytime"
+              >
+                <option value="ps">Plan & Swap</option>
+                <option value="ts">Track Serves</option>
+                <option value="pc">Protein + Calories</option>
+              </select>
+            </div>
+          )}
         </div>
         {/* Progress dots */}
         <div className="flex items-center gap-1.5 mt-3">

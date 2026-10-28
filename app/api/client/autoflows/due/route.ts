@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { syncAutoflowStepHabits } from '@/lib/autoflowStepHabits'
+import { resolveForPath, taskAppliesToPath, type PathKey } from '@/lib/autoflowPaths'
 
 export async function GET() {
   const supabase = await createClient()
@@ -12,7 +13,7 @@ export async function GET() {
   // Fetch ALL active flows (not just show_as_checkin_prompt)
   const { data: flows } = await admin
     .from('client_autoflows')
-    .select('id, name, start_date, template_id, show_as_checkin_prompt, coach_id')
+    .select('id, name, start_date, template_id, show_as_checkin_prompt, coach_id, selected_path')
     .eq('client_id', user.id)
     .eq('status', 'active')
 
@@ -65,8 +66,11 @@ export async function GET() {
 
       // Keep this flow's trackable habits in sync with which steps are
       // due right now — creates a real habit for any newly-due step that
-      // has one attached, and deactivates any habit whose step just
-      // became not-due (completed, dismissed, or not yet reached).
+      // has one attached, updates it if the resolved definition changed
+      // (e.g. the client switched path), and deactivates any habit whose
+      // step just became not-due (completed, dismissed, or not yet
+      // reached).
+      const clientPathForSync = ((flow as Record<string, unknown>).selected_path as PathKey | null) ?? null
       await syncAutoflowStepHabits(admin, {
         clientAutoflowId: flow.id,
         clientId: user.id,
@@ -74,7 +78,10 @@ export async function GET() {
         dueStepNumbers: new Set(dueSteps.map((s) => s.step_number)),
         stepsWithHabit: (steps ?? []).map((s) => ({
           step_number: s.step_number,
-          habit: (s as Record<string, unknown>).habit as { name: string; icon: string; unit: string; target: number } | null,
+          habit: resolveForPath(
+            (s as Record<string, unknown>).habit as { name: string; icon: string; unit: string; target: number } | null,
+            clientPathForSync,
+          ),
         })),
       })
 
@@ -145,6 +152,7 @@ export async function GET() {
       // Build a set of step_numbers that are triggered by on_step_complete from a due step
       const dueStepNumbers = new Set(dueSteps.map((s) => s.step_number))
       const allSteps = steps ?? []
+      const clientPath = clientPathForSync
 
       return dueSteps.map((step) => {
         const stepRecord = step as Record<string, unknown>
@@ -152,16 +160,19 @@ export async function GET() {
         const formId = stepRecord.form_id as string | null
         const rawTasks = Array.isArray(stepRecord.tasks) ? stepRecord.tasks as Array<Record<string, unknown>> : []
 
-        // Enrich tasks with completion status
+        // Enrich tasks with completion status, dropping any that don't
+        // apply to this client's chosen path.
         const existingAnswers = responseMap[step.step_number] ?? {}
-        const tasks = rawTasks.map((t) => ({
-          id: t.id as string,
-          label: t.label as string,
-          link_type: (t.link_type as string | null) ?? null,
-          link_url: (t.link_url as string | null) ?? null,
-          link_label: (t.link_label as string | null) ?? null,
-          completed: existingAnswers[`task_${t.id}`] === 'done',
-        }))
+        const tasks = rawTasks
+          .filter((t) => taskAppliesToPath({ paths: (t.paths as PathKey[] | null) ?? null }, clientPath))
+          .map((t) => ({
+            id: t.id as string,
+            label: t.label as string,
+            link_type: (t.link_type as string | null) ?? null,
+            link_url: (t.link_url as string | null) ?? null,
+            link_label: (t.link_label as string | null) ?? null,
+            completed: existingAnswers[`task_${t.id}`] === 'done',
+          }))
 
         // Check if completing this step unlocks another on_step_complete step
         const unlocks_next_step = allSteps.some((s) => {
@@ -187,8 +198,8 @@ export async function GET() {
           tasks,
           resources: resourceIds.map((id) => resourceMap[id]).filter(Boolean),
           linked_form: formId ? (formMap[formId] ?? null) : null,
-          protocol_section: (stepRecord.protocol_section as { title: string; content: string } | null) ?? null,
-          habit: (stepRecord.habit as { name: string; icon: string; unit: string; target: number } | null) ?? null,
+          protocol_section: resolveForPath(stepRecord.protocol_section as { title: string; content: string } | null, clientPath),
+          habit: resolveForPath(stepRecord.habit as { name: string; icon: string; unit: string; target: number } | null, clientPath),
           unlocks_next_step,
         }
       })
