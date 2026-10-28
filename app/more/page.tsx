@@ -47,6 +47,16 @@ export default async function MorePage() {
 
   const items: GridItem[] = [
     {
+      href: '/log-food',
+      label: 'Log Food',
+      show: true,
+      icon: (
+        <svg className="w-7 h-7 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d="M11 3a6 6 0 00-6 6v12M11 3a6 6 0 016 6v12M11 3v18M17 3v8h4a4 4 0 00-4-8z" />
+        </svg>
+      ),
+    },
+    {
       href: '/resources',
       label: 'Resources',
       show: isCoached && hasResources,

@@ -17,11 +17,9 @@ import { headers } from 'next/headers'
 import { getBrandingFromHeaders, DEFAULT_BRANDING } from '@/lib/branding'
 import { syncProfileFromStripe } from '@/lib/billing'
 
-import DailyLog from './DailyLog'
 import DailyCheckIn from './DailyCheckIn'
 import WeightLog from './WeightLog'
 import WeightChart from './WeightChart'
-import MealSection from './MealSection'
 import FormsSection from './FormsSection'
 import CoachBanner from './CoachBanner'
 import UpgradePrompt from '@/components/UpgradePrompt'
@@ -154,6 +152,17 @@ export default async function DashboardPage() {
   const initialWeightLogs = weightLogsRes.data ?? []
   const initialFoodLogs = foodLogsRes.data ?? []
   const initialMealNotes = mealNotesRes.data ?? []
+  // For the "Log food" shortcut card's at-a-glance totals below — the full
+  // food log itself now lives on /log-food, not inline on this page.
+  const todayFoodTotals = initialFoodLogs.reduce(
+    (acc, f) => ({
+      calories: acc.calories + (f.calories ?? 0),
+      protein: acc.protein + (f.protein ?? 0),
+      carbs: acc.carbs + (f.carbs ?? 0),
+      fat: acc.fat + (f.fat ?? 0),
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0 },
+  )
   const hasMealPlan = (mealPlanCountRes.count ?? 0) > 0
   const hasHabits = (habitsCountRes.count ?? 0) > 0
   const pendingFeedbacks: { eventId: string; dayName: string }[] = (feedbackEventsRes.data ?? [])
@@ -238,15 +247,10 @@ export default async function DashboardPage() {
   }
   const canAccess = (f: Feature) => featureSet.has(f)
   const canWeightChart = canAccess(FEATURES.WEIGHT_TRACKING)
-  const canMealBuilder = canAccess(FEATURES.MEAL_BUILDER)
   const canFullCheckin = canAccess(FEATURES.DAILY_CHECKIN)
-  const canMealScanner = canAccess(FEATURES.MEAL_SCANNER)
   const canAdvancedAnalytics = canAccess(FEATURES.ADVANCED_ANALYTICS)
 
   let showDailyTargets = true
-  let foodLogAccess = 'full'
-  let showMealBuilder = true
-  let showSavedMeals = true
 
   let pendingFormId: string | null = null
   let coachBrandColour: string | null = null
@@ -257,9 +261,6 @@ export default async function DashboardPage() {
   if (isCoached && coachRel) {
     const rel = coachRel as Record<string, unknown>
     showDailyTargets = (coachRel.show_daily_targets as boolean | null) ?? false
-    foodLogAccess = (coachRel.food_log_access as string) ?? 'full'
-    showMealBuilder = (rel.show_meal_builder as boolean) ?? true
-    showSavedMeals = (rel.show_saved_meals as boolean) ?? true
     const coachFormId = (rel.form_id as string | null) ?? null
 
     // ── Coached-branch parallel batch ──────────────────────────────────────────
@@ -601,44 +602,35 @@ export default async function DashboardPage() {
           </section>
         )}
 
-        {/* Daily Food Log */}
+        {/* Log food — shortcut to the dedicated Log Food page (Food Log,
+            Meal Builder, Saved Meals), which no longer live inline here.
+            Keeps the tour-food-log anchor so the onboarding tour still
+            highlights it. */}
         <div id="tour-food-log">
-        <DailyLog
-          canScanMeal={canMealScanner && foodLogAccess !== 'no_scan' && foodLogAccess !== 'note_only' && foodLogAccess !== 'off'}
-          foodLogAccess={isCoached ? foodLogAccess as 'full' | 'no_scan' | 'note_only' | 'off' : 'full'}
-          targetCalories={(!isCoached || showDailyTargets) ? (profile?.target_calories ?? null) : null}
-          targetProtein={(!isCoached || showDailyTargets) ? (profile?.target_protein ?? null) : null}
-          targetCarbs={(!isCoached || showDailyTargets) ? (profile?.target_carbs ?? null) : null}
-          targetFat={(!isCoached || showDailyTargets) ? (profile?.target_fat ?? null) : null}
-          initialDate={todayLocal}
-          initialFoodLogs={initialFoodLogs}
-          initialMealNotes={initialMealNotes}
-        />
-        </div>
-
-        {/* Elite teaser — AI meal scanner */}
-        {!canMealScanner && (
-          <div className="flex items-center gap-4 bg-teal-50 border border-teal-100 rounded-2xl px-5 py-4">
-            <span className="text-2xl">📸</span>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-teal-900">Log meals instantly with AI</p>
-              <p className="text-xs text-teal-600 mt-0.5">Take a photo of your meal and let AI detect and log the foods automatically.</p>
+          <a
+            href="/log-food"
+            className="flex items-center gap-4 bg-white rounded-2xl border border-gray-200 px-5 py-4 hover:border-gray-300 transition-colors"
+          >
+            <span className="text-2xl flex-shrink-0">🍽️</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900">Log food</p>
+              {todayFoodTotals.calories > 0 ? (
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {Math.round(todayFoodTotals.calories)} kcal logged today
+                  {(!isCoached || showDailyTargets) && profile?.target_calories
+                    ? ` of ${profile.target_calories}`
+                    : ''}
+                  {' '}· P{Math.round(todayFoodTotals.protein)} C{Math.round(todayFoodTotals.carbs)} F{Math.round(todayFoodTotals.fat)}
+                </p>
+              ) : (
+                <p className="text-xs text-gray-400 mt-0.5">Nothing logged yet today — search foods, scan a barcode, or use AI</p>
+              )}
             </div>
-            <a href="/pricing" className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg text-teal-900 hover:opacity-90 transition-colors" style={{ backgroundColor: '#e9d5ff' }}>
-              Try Elite →
-            </a>
-          </div>
-        )}
-
-        {/* Meal Builder + Saved Meals */}
-        {(!isCoached || showMealBuilder || showSavedMeals) && (
-          <section>
-            {canMealBuilder
-              ? <MealSection showMealBuilder={!isCoached || showMealBuilder} showSavedMeals={!isCoached || showSavedMeals} />
-              : <UpgradePrompt plan="Optimiser" feature="Meal builder & saved meals" />
-            }
-          </section>
-        )}
+            <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </a>
+        </div>
 
 
         {/* Advanced Analytics — teaser for non-Elite */}
