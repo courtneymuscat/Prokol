@@ -6,6 +6,7 @@ import { OrgPublisherBanner, CopiedFromOrgSubtitle } from '@/app/components/OrgT
 import type { OrgTemplateContext } from '@/lib/org'
 import DeleteTemplateDialog from '@/app/components/DeleteTemplateDialog'
 import ProgramLinkPanel from './ProgramLinkPanel'
+import { type PathKey, PATH_KEYS, PATH_LABELS, isPerPathObject } from '@/lib/autoflowPaths'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -31,6 +32,9 @@ type Task = {
 
 type ProtocolSection = { title: string; content: string }
 type StepHabit = { name: string; icon: string; unit: string; target: number }
+// Either value can instead be authored once per client path (Plan & Swap /
+// Track Serves / Protein + Calories) — an unset path falls back to `ps`.
+type PerPath<T> = Partial<Record<PathKey, T>>
 
 type Step = {
   step_number: number
@@ -47,11 +51,11 @@ type Step = {
   automated_message: string
   // Shown on the client's dashboard only while this step is due — hidden
   // again the moment it's completed or the next step takes over.
-  protocol_section: ProtocolSection | null
+  protocol_section: ProtocolSection | PerPath<ProtocolSection> | null
   // Becomes a real, trackable habit on the client's Habits tab the
   // moment this step is due, and is deactivated (not deleted — keeps log
   // history) the moment the step is completed or superseded.
-  habit: StepHabit | null
+  habit: StepHabit | PerPath<StepHabit> | null
 }
 
 type Template = {
@@ -348,6 +352,44 @@ const LINK_TYPE_META = {
   form:     { label: '📋 Form',     color: 'bg-amber-50 text-amber-700 border-amber-200' },
   url:      { label: '🔗 Link',     color: 'bg-gray-50 text-gray-600 border-gray-200' },
 } as const
+
+// Toggles a Protocol note or Habit between one value for every client and
+// a value authored separately per path (Plan & Swap / Track Serves /
+// Protein + Calories) — an unset path's variant falls back to `ps` on the
+// client side, so an author can fill in just `ps` and leave the rest blank.
+function PathModeSection<T>({ value, onChange, empty, renderFields }: {
+  value: T | PerPath<T>
+  onChange: (next: T | PerPath<T>) => void
+  empty: () => T
+  renderFields: (v: T, set: (next: T) => void) => React.ReactNode
+}) {
+  if (isPerPathObject<T>(value)) {
+    const ps = value.ps ?? empty()
+    return (
+      <div className="space-y-3">
+        <button type="button" onClick={() => onChange(ps)} className="text-[11px] text-blue-600 hover:underline">
+          ← Use the same content for everyone
+        </button>
+        {PATH_KEYS.map(key => (
+          <div key={key} className="border border-gray-100 rounded-xl p-2.5 bg-gray-50/60 space-y-2">
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+              {PATH_LABELS[key]}{key !== 'ps' && !value[key] ? ' — using Plan & Swap' : ''}
+            </p>
+            {renderFields(value[key] ?? ps, next => onChange({ ...value, [key]: next }))}
+          </div>
+        ))}
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-2">
+      {renderFields(value, onChange)}
+      <button type="button" onClick={() => onChange({ ps: value })} className="text-[11px] text-gray-400 hover:text-blue-600 hover:underline">
+        Different per path (Plan &amp; Swap / Track Serves / Protein + Calories)?
+      </button>
+    </div>
+  )
+}
 
 function TaskCard({ task, onChange, onDelete, resources, forms }: {
   task: Task
@@ -1235,21 +1277,28 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                   </label>
                 </div>
                 {currentStep.protocol_section && (
-                  <div className="space-y-2">
-                    <input
-                      value={currentStep.protocol_section.title}
-                      onChange={e => updateStep(activeStep, { protocol_section: { ...currentStep.protocol_section!, title: e.target.value } })}
-                      placeholder="e.g. Sleep, Stress Management, Lifestyle…"
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
-                    />
-                    <textarea
-                      value={currentStep.protocol_section.content}
-                      onChange={e => updateStep(activeStep, { protocol_section: { ...currentStep.protocol_section!, content: e.target.value } })}
-                      placeholder="Notes, guidelines, or instructions for this step…"
-                      rows={3}
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                  <PathModeSection<ProtocolSection>
+                    value={currentStep.protocol_section}
+                    onChange={next => updateStep(activeStep, { protocol_section: next })}
+                    empty={() => ({ title: '', content: '' })}
+                    renderFields={(v, set) => (
+                      <>
+                        <input
+                          value={v.title}
+                          onChange={e => set({ ...v, title: e.target.value })}
+                          placeholder="e.g. Sleep, Stress Management, Lifestyle…"
+                          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                        />
+                        <textarea
+                          value={v.content}
+                          onChange={e => set({ ...v, content: e.target.value })}
+                          placeholder="Notes, guidelines, or instructions for this step…"
+                          rows={3}
+                          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </>
+                    )}
+                  />
                 )}
               </div>
 
@@ -1272,45 +1321,52 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                   </label>
                 </div>
                 {currentStep.habit && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    <div className="col-span-2 sm:col-span-1">
-                      <label className="block text-[11px] text-gray-500 mb-1">Icon</label>
-                      <input
-                        value={currentStep.habit.icon}
-                        onChange={e => updateStep(activeStep, { habit: { ...currentStep.habit!, icon: e.target.value } })}
-                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-center focus:outline-none"
-                        maxLength={4}
-                      />
-                    </div>
-                    <div className="col-span-2 sm:col-span-1">
-                      <label className="block text-[11px] text-gray-500 mb-1">Name</label>
-                      <input
-                        value={currentStep.habit.name}
-                        onChange={e => updateStep(activeStep, { habit: { ...currentStep.habit!, name: e.target.value } })}
-                        placeholder="e.g. Cold Shower"
-                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-gray-500 mb-1">Target</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={currentStep.habit.target}
-                        onChange={e => updateStep(activeStep, { habit: { ...currentStep.habit!, target: parseInt(e.target.value) || 1 } })}
-                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-gray-500 mb-1">Unit</label>
-                      <input
-                        value={currentStep.habit.unit}
-                        onChange={e => updateStep(activeStep, { habit: { ...currentStep.habit!, unit: e.target.value } })}
-                        placeholder="times"
-                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
-                      />
-                    </div>
-                  </div>
+                  <PathModeSection<StepHabit>
+                    value={currentStep.habit}
+                    onChange={next => updateStep(activeStep, { habit: next })}
+                    empty={() => ({ name: '', icon: '✓', unit: 'times', target: 1 })}
+                    renderFields={(v, set) => (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        <div className="col-span-2 sm:col-span-1">
+                          <label className="block text-[11px] text-gray-500 mb-1">Icon</label>
+                          <input
+                            value={v.icon}
+                            onChange={e => set({ ...v, icon: e.target.value })}
+                            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-center focus:outline-none"
+                            maxLength={4}
+                          />
+                        </div>
+                        <div className="col-span-2 sm:col-span-1">
+                          <label className="block text-[11px] text-gray-500 mb-1">Name</label>
+                          <input
+                            value={v.name}
+                            onChange={e => set({ ...v, name: e.target.value })}
+                            placeholder="e.g. Cold Shower"
+                            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] text-gray-500 mb-1">Target</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={v.target}
+                            onChange={e => set({ ...v, target: parseInt(e.target.value) || 1 })}
+                            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] text-gray-500 mb-1">Unit</label>
+                          <input
+                            value={v.unit}
+                            onChange={e => set({ ...v, unit: e.target.value })}
+                            placeholder="times"
+                            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  />
                 )}
               </div>
 

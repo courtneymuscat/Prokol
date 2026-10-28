@@ -15,7 +15,7 @@ export const PATH_LABELS: Record<PathKey, string> = {
 
 type PerPath<T> = T | Partial<Record<PathKey, T>>
 
-function isPerPathObject<T>(value: unknown): value is Partial<Record<PathKey, T>> {
+export function isPerPathObject<T>(value: unknown): value is Partial<Record<PathKey, T>> {
   if (value == null || typeof value !== 'object' || Array.isArray(value)) return false
   const keys = Object.keys(value as Record<string, unknown>)
   return keys.length > 0 && keys.every((k) => PATH_KEYS.includes(k as PathKey))

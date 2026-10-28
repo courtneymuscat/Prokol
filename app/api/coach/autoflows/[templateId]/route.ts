@@ -96,7 +96,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     .eq('id', templateId)
 
   if (Array.isArray(steps)) {
-    const stepRows = steps.map((s: { step_number: number; title: string; description?: string; questions: unknown[]; day_offset: number; trigger_type?: string; trigger_step_number?: number | null; resource_ids?: unknown[]; form_id?: string | null; form_save_to_file?: boolean; tasks?: unknown[]; automated_message?: string; protocol_section?: { title: string; content: string } | null; habit?: { name: string; icon: string; unit: string; target: number } | null }) => ({
+    const stepRows = steps.map((s: { step_number: number; title: string; description?: string; questions: unknown[]; day_offset: number; trigger_type?: string; trigger_step_number?: number | null; resource_ids?: unknown[]; form_id?: string | null; form_save_to_file?: boolean; tasks?: unknown[]; automated_message?: string; protocol_section?: unknown; habit?: unknown }) => ({
       template_id: templateId,
       step_number: s.step_number,
       title: s.title ?? '',
