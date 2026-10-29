@@ -617,10 +617,17 @@ export default async function DashboardPage() {
               {todayFoodTotals.calories > 0 ? (
                 <p className="text-xs text-gray-400 mt-0.5">
                   {Math.round(todayFoodTotals.calories)} kcal logged today
-                  {(!isCoached || showDailyTargets) && profile?.target_calories
-                    ? ` of ${profile.target_calories}`
-                    : ''}
-                  {' '}· P{Math.round(todayFoodTotals.protein)} C{Math.round(todayFoodTotals.carbs)} F{Math.round(todayFoodTotals.fat)}
+                  {/* Macro breakdown (P/C/F) and the "of {target}" figure only
+                      show when the coach has targets visible for this client —
+                      otherwise this card stays at calories-only, since a P/C/F
+                      readout reads like a target even though it's just what
+                      was logged. */}
+                  {(!isCoached || showDailyTargets) && (
+                    <>
+                      {profile?.target_calories ? ` of ${profile.target_calories}` : ''}
+                      {' '}· P{Math.round(todayFoodTotals.protein)} C{Math.round(todayFoodTotals.carbs)} F{Math.round(todayFoodTotals.fat)}
+                    </>
+                  )}
                 </p>
               ) : (
                 <p className="text-xs text-gray-400 mt-0.5">Nothing logged yet today — search foods, scan a barcode, or use AI</p>
