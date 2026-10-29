@@ -74,6 +74,7 @@ export default async function DashboardPage() {
     mealPlanCountRes,
     habitsCountRes,
     feedbackEventsRes,
+    serveTargetsRes,
   ] = await Promise.all([
     supabase
       .from('profiles')
@@ -144,10 +145,20 @@ export default async function DashboardPage() {
       .eq('type', 'program_workout_result')
       .order('event_date', { ascending: false })
       .limit(30),
+    // Serve targets (set by the coach) — shown here same as in the food log
+    // and /cheat-sheet, i.e. whenever they exist, independent of the
+    // show_daily_targets toggle (that one's specifically about the
+    // calorie/macro numbers, not serve counts).
+    supabase
+      .from('client_serve_targets')
+      .select('protein_serves, carb_serves, fat_serves, veg_unlimited, notes')
+      .eq('client_id', user.id)
+      .maybeSingle(),
   ])
 
   const profile = profileRes.data
   const coachRel = coachRelRes.data
+  const serveTargets = serveTargetsRes.data
   const pendingInvite = pendingInviteRes.data
   const initialWeightLogs = weightLogsRes.data ?? []
   const initialFoodLogs = foodLogsRes.data ?? []
@@ -580,6 +591,35 @@ export default async function DashboardPage() {
             </div>
             <a href="/onboarding" className="flex-shrink-0 text-sm font-semibold px-4 py-2 rounded-xl text-gray-900 ml-4" style={{ backgroundColor: 'var(--nc-primary)' }}>
               Set targets →
+            </a>
+          </div>
+        )}
+
+        {/* Daily Serve Targets — same card as /cheat-sheet and the food log,
+            shown whenever the coach has set them, independent of the
+            calorie/macro targets toggle above. */}
+        {serveTargets && (
+          <div className="bg-white rounded-2xl border border-gray-100 px-4 py-3 space-y-2">
+            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest">Daily Serve Targets</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: `${serveTargets.protein_serves}P`, color: 'bg-pink-50 text-pink-700' },
+                { label: `${serveTargets.carb_serves}C`, color: 'bg-teal-50 text-teal-700' },
+                { label: `${serveTargets.fat_serves}F`, color: 'bg-green-50 text-green-700' },
+                { label: 'veg ∞', color: 'bg-emerald-50 text-emerald-700' },
+              ].map((t) => (
+                <span key={t.label} className={`text-xs font-semibold px-3 py-1 rounded-full ${t.color}`}>{t.label}</span>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-400 leading-relaxed">
+              Carbs includes fruit — a fruit serve is just 20g carbs, same as any other carb source.
+            </p>
+            <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2 leading-relaxed">
+              Veg is flexible, not calorie-free — a typical day&apos;s veg (~150 kcal) is already factored into your Carbs number above. If you&apos;re eating a lot of veg, that&apos;s already covered — just don&apos;t also max out every carb serve on top of it, or you&apos;ll be eating more than your target.
+            </p>
+            {serveTargets.notes && <p className="text-xs text-gray-500 border-t border-gray-50 pt-2">{serveTargets.notes}</p>}
+            <a href="/cheat-sheet" className="block text-[11px] text-blue-500 hover:text-blue-600 underline pt-0.5">
+              See your full Cheat Sheet →
             </a>
           </div>
         )}
