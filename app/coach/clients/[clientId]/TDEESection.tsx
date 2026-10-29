@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { TDEECalcExplainer, MealPlanDrivenNote } from '@/app/components/TDEEExplainerNote'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -255,9 +256,8 @@ export default function TDEESection({
           {(savedProtein || savedCarbs || savedFat) && (
             <p className="text-xs text-gray-500">{savedProtein}g P · {savedCarbs}g C · {savedFat}g F</p>
           )}
-          {hasActiveMealPlan && (
-            <p className="text-xs text-blue-500 font-medium">Targets driven by active meal plan</p>
-          )}
+          {hasActiveMealPlan && <MealPlanDrivenNote />}
+          <TDEECalcExplainer />
         </div>
       ) : !expanded ? (
         <p className="text-sm text-gray-400">No TDEE calculated yet. Click Calculate to get started.</p>

@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { noteBodyToHtml } from '@/lib/noteUtils'
+import { TDEECalcExplainer, MealPlanDrivenNote } from '@/app/components/TDEEExplainerNote'
 const CheckInFeedback = lazy(() => import('./CheckInFeedback'))
 const FlowsTab = lazy(() => import('./FlowsTab'))
 const AppPreviewTab = lazy(() => import('./AppPreviewTab'))
@@ -433,9 +434,8 @@ function _TDEESectionPlaceholder({ clientId }: { clientId: string }) {
             {(savedProtein || savedCarbs || savedFat) && (
               <p className="text-xs text-gray-500">{savedProtein}g P · {savedCarbs}g C · {savedFat}g F</p>
             )}
-            {hasActiveMealPlan && (
-              <p className="text-xs text-blue-500 font-medium">Targets driven by active meal plan</p>
-            )}
+            {hasActiveMealPlan && <MealPlanDrivenNote />}
+            <TDEECalcExplainer />
           </div>
         ) : (
           <p className="text-sm text-gray-400">No TDEE calculated yet. Click Calculate to get started.</p>
