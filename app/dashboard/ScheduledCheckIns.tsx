@@ -121,6 +121,7 @@ export default function ScheduledCheckIns({ onEmpty }: Props) {
   async function dismissStep(flowId: string, stepNumber: number) {
     const key = `${flowId}-${stepNumber}`
     if (dismissing.has(key)) return
+    if (!confirm('Dismiss this check-in? It won\'t come back on its own.')) return
     setDismissing((prev) => new Set(prev).add(key))
     // Optimistic remove
     setDueFlowSteps((prev) => prev.filter((s) => !(s.flow_id === flowId && s.step_number === stepNumber)))
@@ -267,8 +268,8 @@ export default function ScheduledCheckIns({ onEmpty }: Props) {
             type="button"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissStep(step.flow_id, step.step_number) }}
             disabled={dismissing.has(`${step.flow_id}-${step.step_number}`)}
-            aria-label="Dismiss for 1 week"
-            title="Dismiss for 1 week"
+            aria-label="Dismiss"
+            title="Dismiss"
             className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-white/60 transition-colors disabled:opacity-40"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
