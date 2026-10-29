@@ -537,6 +537,12 @@ export default async function DashboardPage() {
 
         {/* Goals — set by coach */}
         {isCoached && <GoalsPanel />}
+        {isCoached && hasHabits && (
+          <section>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Daily Habits</p>
+            <HabitsPanel />
+          </section>
+        )}
         {isCoached && <ProtocolPanel />}
         {isCoached && <SupplementsPanel />}
 
@@ -595,12 +601,6 @@ export default async function DashboardPage() {
           </section>
         )}
 
-        {isCoached && hasHabits && (
-          <section>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Daily Habits</p>
-            <HabitsPanel />
-          </section>
-        )}
 
         {/* Log food — shortcut to the dedicated Log Food page (Food Log,
             Meal Builder, Saved Meals), which no longer live inline here.
