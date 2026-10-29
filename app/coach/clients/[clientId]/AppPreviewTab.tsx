@@ -632,6 +632,31 @@ export default function AppPreviewTab({
               </Section>
             )}
 
+            {/* Habits — sits directly below Goals, matching the client dashboard order */}
+            {habits.length > 0 && (
+              <Section label="Daily Habits">
+                <div className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-50">
+                  {habits.slice(0, 5).map((h) => (
+                    <div key={h.id} className="flex items-center gap-2.5 px-3 py-2.5">
+                      <span className="text-lg leading-none">{h.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-800 truncate">{h.name}</p>
+                        <p className="text-[10px] text-gray-400">
+                          {h.unit === 'times' && h.target === 1 ? 'Once daily' : `${h.target} ${h.unit}`}
+                        </p>
+                      </div>
+                      <div className="w-6 h-6 rounded-full border-2 border-gray-200 flex-shrink-0" />
+                    </div>
+                  ))}
+                  {habits.length > 5 && (
+                    <p className="text-[10px] text-gray-400 text-center py-2">
+                      + {habits.length - 5} more (client sees all)
+                    </p>
+                  )}
+                </div>
+              </Section>
+            )}
+
             {/* Weekly plan card — matches WeeklyPlanCard on client dashboard */}
             {homeWeekInfo && (() => {
               const phaseColour = PHASE_COLOURS[homeWeekInfo.phaseType] ?? PHASE_COLOURS.custom
@@ -749,31 +774,6 @@ export default function AppPreviewTab({
               </Section>
             )}
 
-            {/* Habits */}
-            {habits.length > 0 && (
-              <Section label="Daily Habits">
-                <div className="bg-white rounded-2xl border border-gray-200 divide-y divide-gray-50">
-                  {habits.slice(0, 5).map((h) => (
-                    <div key={h.id} className="flex items-center gap-2.5 px-3 py-2.5">
-                      <span className="text-lg leading-none">{h.icon}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-800 truncate">{h.name}</p>
-                        <p className="text-[10px] text-gray-400">
-                          {h.unit === 'times' && h.target === 1 ? 'Once daily' : `${h.target} ${h.unit}`}
-                        </p>
-                      </div>
-                      <div className="w-6 h-6 rounded-full border-2 border-gray-200 flex-shrink-0" />
-                    </div>
-                  ))}
-                  {habits.length > 5 && (
-                    <p className="text-[10px] text-gray-400 text-center py-2">
-                      + {habits.length - 5} more (client sees all)
-                    </p>
-                  )}
-                </div>
-              </Section>
-            )}
-
             {/* Check-ins */}
             {hasCheckins && (
               <Section label="Check-ins">
@@ -829,16 +829,20 @@ export default function AppPreviewTab({
               </Section>
             )}
 
-            {/* Food log */}
+            {/* Log food — shortcut card, matching the client dashboard (food
+                logging itself now lives on its own /log-food page, linked
+                from here and from More). */}
             {foodLogAccess !== 'off' && (
-              <Section label="Today's food log">
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                  {['Breakfast', 'Lunch', 'Dinner', 'Snacks'].map((meal, i) => (
-                    <div key={meal} className={`flex items-center justify-between px-3 py-2.5 ${i < 3 ? 'border-b border-gray-50' : ''}`}>
-                      <p className="text-xs font-medium text-gray-700">{meal}</p>
-                      <span className="text-[10px] font-semibold text-gray-300">+ Add</span>
-                    </div>
-                  ))}
+              <Section label="">
+                <div className="flex items-center gap-3 bg-white rounded-2xl border border-gray-200 px-4 py-3.5">
+                  <span className="text-xl flex-shrink-0">🍽️</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-gray-900">Log food</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Search foods, scan a barcode, or use AI</p>
+                  </div>
+                  <svg className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </div>
               </Section>
             )}
@@ -849,6 +853,7 @@ export default function AppPreviewTab({
             // Build grid items
             const hasResources = (previewResources ?? []).length > 0
             const moreGridItems = [
+              { id: 'log_food', label: 'Log Food', icon: 'M11 3a6 6 0 00-6 6v12M11 3a6 6 0 016 6v12M11 3v18M17 3v8h4a4 4 0 00-4-8z' },
               ...(hasResources ? [{ id: 'resources', label: 'Resources', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' }] : []),
               ...(serve_targets ? [{ id: 'food_guide', label: 'Cheat Sheet', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01' }] : []),
               { id: 'progress', label: 'Progress Photos', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
