@@ -93,7 +93,7 @@ export async function ensureClientOnlyTemplate(
   // client_autoflow_id + step_number) keep pointing at the right step.
   const { data: steps } = await admin
     .from('autoflow_template_steps')
-    .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, form_save_to_file, tasks, automated_message, protocol_section, habit')
+    .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, form_save_to_file, tasks, automated_message, protocol_section, habit, program_link')
     .eq('template_id', flow.template_id)
     .order('step_number')
   if (steps && steps.length > 0) {
@@ -123,6 +123,7 @@ export async function ensureClientOnlyTemplate(
       automated_message: s.automated_message ?? null,
       protocol_section: s.protocol_section ?? null,
       habit: s.habit ?? null,
+      program_link: s.program_link ?? null,
     }))
     await admin.from('autoflow_template_steps').insert(stepRows)
   }

@@ -56,6 +56,10 @@ type Step = {
   // moment this step is due, and is deactivated (not deleted — keeps log
   // history) the moment the step is completed or superseded.
   habit: StepHabit | PerPath<StepHabit> | null
+  // Auto-assigns the real training program to the client the moment this
+  // step is due (once per client, never re-fires or ends it) — see
+  // lib/autoflowStepPrograms.ts.
+  program_link: { program_id: string } | null
 }
 
 type Template = {
@@ -82,6 +86,12 @@ type CoachForm = {
   id: string
   title: string
   type: string
+}
+
+type CoachProgram = {
+  id: string
+  name: string
+  week_count: number
 }
 
 const TYPE_LABELS: Record<Exclude<QuestionType, 'note' | 'section'>, string> = {
@@ -569,6 +579,7 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
   const [loading, setLoading] = useState(!isNew)
   const [resources, setResources] = useState<CoachResource[]>([])
   const [forms, setForms] = useState<CoachForm[]>([])
+  const [programs, setPrograms] = useState<CoachProgram[]>([])
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
 
   // New template state
@@ -593,18 +604,21 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
             automated_message: s.automated_message ?? '',
             protocol_section: s.protocol_section ?? null,
             habit: s.habit ?? null,
+            program_link: s.program_link ?? null,
           })),
         })
       })
         .finally(() => setLoading(false))
     }
-    // Load resources + forms for step linking
+    // Load resources + forms + programs for step linking
     Promise.all([
       fetch('/api/coach/resources').then(r => r.json()),
       fetch('/api/forms').then(r => r.json()),
-    ]).then(([res, frm]) => {
+      fetch('/api/coach/programs').then(r => r.json()),
+    ]).then(([res, frm, progRes]) => {
       setResources(Array.isArray(res) ? res : [])
       setForms(Array.isArray(frm) ? frm : [])
+      setPrograms(Array.isArray(progRes) ? progRes : [])
     })
   }, [templateId, isNew])
 
@@ -697,6 +711,12 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
       // pointing at itself, that's nonsensical for the copy — reset to
       // day_offset trigger so the coach picks a sensible source.
       trigger_step_number: source.trigger_step_number === stepNum ? null : source.trigger_step_number,
+      // Don't carry over program_link — duplicating a step that
+      // auto-starts a program shouldn't silently create a second
+      // automatic assignment of the same program the moment the copy
+      // also goes due. The coach re-links it deliberately if that's
+      // actually what they want.
+      program_link: null,
     }
     setTemplate({
       ...template,
@@ -761,6 +781,27 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
     // Follow the active step if the user moved it
     if (activeStep === aNum) setActiveStep(bNum)
     else if (activeStep === bNum) setActiveStep(aNum)
+  }
+
+  // Illustrative "Program: X — Week N of M" preview for the step list —
+  // template-level only (no real client yet), computed from day_offset
+  // deltas against the nearest earlier step that starts a program. Once a
+  // real client is on this template, the actual week comes from their own
+  // client_programs.start_date instead (see the per-client Flows tab).
+  function activeProgramBadge(step: Step): string | null {
+    if (!template) return null
+    const starts = template.steps
+      .filter(s => s.program_link?.program_id && s.day_offset <= step.day_offset)
+      .sort((a, b) => b.day_offset - a.day_offset)
+    for (const start of starts) {
+      const program = programs.find(p => p.id === start.program_link!.program_id)
+      if (!program) continue
+      const weekIdx = Math.floor((step.day_offset - start.day_offset) / 7)
+      if (weekIdx < program.week_count) {
+        return `${program.name} — Week ${weekIdx + 1} of ${program.week_count}`
+      }
+    }
+    return null
   }
 
   // ── New template creation form ────────────────────────────────────────────────
@@ -975,6 +1016,9 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                     ? `· after step ${s.trigger_step_number ?? '?'}`
                     : `· day ${s.day_offset}`}
                 </span>
+                {activeProgramBadge(s) && (
+                  <span className="block text-[10px] text-blue-500 mt-0.5 truncate">{activeProgramBadge(s)}</span>
+                )}
               </button>
               {!readOnly && (
                 <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1043,6 +1087,7 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                 automated_message: '',
                 protocol_section: null,
                 habit: null,
+                program_link: null,
               }
               setTemplate({
                 ...template,
@@ -1367,6 +1412,43 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                       </div>
                     )}
                   />
+                )}
+              </div>
+
+              {/* Start a program here */}
+              <div className="border border-gray-200 rounded-2xl p-4 space-y-3 bg-white">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Start a program here</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Assigns the real program to the client the moment this step is due — not just a label, an
+                      actual assignment, same as doing it by hand. Runs alongside anything else already active.
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer select-none flex-shrink-0">
+                    <div
+                      onClick={() => updateStep(activeStep, { program_link: currentStep.program_link ? null : { program_id: '' } })}
+                      className={`relative w-9 h-5 rounded-full transition-colors ${currentStep.program_link ? 'bg-blue-600' : 'bg-gray-200'}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${currentStep.program_link ? 'translate-x-4' : ''}`} />
+                    </div>
+                  </label>
+                </div>
+                {currentStep.program_link && (
+                  programs.length === 0 ? (
+                    <p className="text-xs text-gray-400">No programs in your library yet. <a href="/coach/programs" target="_blank" className="text-blue-500 underline">Create one →</a></p>
+                  ) : (
+                    <select
+                      value={currentStep.program_link.program_id}
+                      onChange={e => updateStep(activeStep, { program_link: { program_id: e.target.value } })}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none bg-white"
+                    >
+                      <option value="">Choose a program…</option>
+                      {programs.map(p => (
+                        <option key={p.id} value={p.id}>{p.name} ({p.week_count} week{p.week_count === 1 ? '' : 's'})</option>
+                      ))}
+                    </select>
+                  )
                 )}
               </div>
 
