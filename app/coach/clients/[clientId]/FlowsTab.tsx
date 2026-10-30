@@ -65,6 +65,10 @@ type FlowStep = {
   resources: StepResource[]
   linked_form: { id: string; title: string } | null
   snoozed_until: string | null
+  // "Program Name — Week N of M" if this step has actually auto-started a
+  // real program for this client (see lib/autoflowStepPrograms.ts); null
+  // if the step has no program_link, or it hasn't gone due yet.
+  active_program: string | null
 }
 
 type FlowDetail = {
@@ -911,6 +915,9 @@ export default function FlowsTab({ clientId }: { clientId: string }) {
 
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-gray-900 truncate">{s.title || `Step ${s.step_number}`}</p>
+                  {s.active_program && (
+                    <p className="text-[10px] text-blue-600 font-medium mt-0.5 truncate">📋 {s.active_program}</p>
+                  )}
                   {/* Content summary badges */}
                   {(s.tasks?.length > 0 || s.resources?.length > 0 || s.linked_form || s.questions?.length > 0) && (
                     <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">

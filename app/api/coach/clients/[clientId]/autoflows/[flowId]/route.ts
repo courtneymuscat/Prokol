@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
 import { effectiveQuestions } from '@/lib/autoflow-fork'
 import { isMasterSourcedForViewer } from '@/lib/org'
+import { computeProgramWeek } from '@/lib/programWeek'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ clientId: string; flowId: string }> }
@@ -60,7 +61,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     // already applies for the same reason.
     admin
       .from('autoflow_template_steps')
-      .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, tasks, resource_ids, form_id')
+      .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, tasks, resource_ids, form_id, program_link')
       .eq('template_id', flow.template_id)
       .order('step_number'),
     supabase
@@ -102,13 +103,23 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     .map(s => (s as Record<string, unknown>).form_id as string | null)
     .filter(Boolean) as string[]
 
-  const [resourcesResult, formsResult] = await Promise.all([
+  const [resourcesResult, formsResult, programInstancesResult] = await Promise.all([
     allResourceIds.length > 0
       ? supabase.from('coach_resources').select('id, name, type, url').in('id', allResourceIds)
       : Promise.resolve({ data: [] }),
     allFormIds.length > 0
       ? supabase.from('forms').select('id, title').in('id', allFormIds)
       : Promise.resolve({ data: [] }),
+    // Real auto-started programs for this specific client's flow — see
+    // lib/autoflowStepPrograms.ts. Admin client: autoflow_step_program_
+    // instances RLS is scoped to the flow's own coach_id/client_id, but
+    // the join target (client_programs) isn't guaranteed visible the same
+    // way, so this mirrors the admin-client approach already used above
+    // for autoflow_template_steps.
+    admin
+      .from('autoflow_step_program_instances')
+      .select('step_number, client_programs(name, start_date, content)')
+      .eq('client_autoflow_id', flowId),
   ])
 
   const resourceMap: Record<string, { id: string; name: string; type: string; url: string | null }> = Object.fromEntries(
@@ -117,6 +128,23 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const formMap: Record<string, { id: string; title: string }> = Object.fromEntries(
     (formsResult.data ?? []).map((f: { id: string; title: string }) => [f.id, f])
   )
+
+  // step_number -> "Program Name — Week N of M" for programs this flow has
+  // actually auto-started (real client_programs rows, not the template-
+  // level illustrative preview the editor shows).
+  const todayStr = new Date().toISOString().split('T')[0]
+  const activeProgramMap: Record<number, string | null> = {}
+  for (const row of programInstancesResult.data ?? []) {
+    const cp = (row as unknown as Record<string, unknown>).client_programs as
+      { name: string; start_date: string; content: unknown[] } | null
+    if (!cp) continue
+    const week = computeProgramWeek(cp.start_date, todayStr)
+    const weekCount = Array.isArray(cp.content) ? cp.content.length : 0
+    activeProgramMap[(row as Record<string, unknown>).step_number as number] =
+      week && week.weekIdx < weekCount
+        ? `${cp.name} — Week ${week.weekIdx + 1} of ${weekCount}`
+        : `${cp.name} — complete`
+  }
 
   const enrichedSteps = (steps ?? []).map(s => {
     const ov = overrideMap[s.step_number]
@@ -144,6 +172,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
         linked_form: null,
         snoozed_until: dismissalMap[s.step_number] ?? null,
         locked: true,
+        active_program: activeProgramMap[s.step_number] ?? null,
       }
     }
 
@@ -160,6 +189,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       linked_form: formId ? (formMap[formId] ?? null) : null,
       snoozed_until: dismissalMap[s.step_number] ?? null,
       locked: false,
+      active_program: activeProgramMap[s.step_number] ?? null,
     }
   })
 
