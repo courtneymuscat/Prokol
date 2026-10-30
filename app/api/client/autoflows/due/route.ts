@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { syncAutoflowStepHabits } from '@/lib/autoflowStepHabits'
+import { syncAutoflowStepPrograms } from '@/lib/autoflowStepPrograms'
 import { resolveForPath, taskAppliesToPath, type PathKey } from '@/lib/autoflowPaths'
 
 export async function GET() {
@@ -29,7 +30,7 @@ export async function GET() {
       const [{ data: steps }, { data: responses }, { data: dismissals }] = await Promise.all([
         admin
           .from('autoflow_template_steps')
-          .select('step_number, title, day_offset, trigger_type, trigger_step_number, tasks, resource_ids, form_id, protocol_section, habit')
+          .select('step_number, title, day_offset, trigger_type, trigger_step_number, tasks, resource_ids, form_id, protocol_section, habit, program_link')
           .eq('template_id', flow.template_id)
           .order('step_number'),
         admin
@@ -82,6 +83,19 @@ export async function GET() {
             (s as Record<string, unknown>).habit as { name: string; icon: string; unit: string; target: number } | null,
             clientPathForSync,
           ),
+        })),
+      })
+
+      // Auto-starts a real training program the first time a step with a
+      // program_link becomes due — see lib/autoflowStepPrograms.ts.
+      await syncAutoflowStepPrograms(admin, {
+        clientAutoflowId: flow.id,
+        clientId: user.id,
+        coachId: flow.coach_id as string,
+        dueStepNumbers: new Set(dueSteps.map((s) => s.step_number)),
+        stepsWithProgramLink: (steps ?? []).map((s) => ({
+          step_number: s.step_number,
+          program_link: (s as Record<string, unknown>).program_link as { program_id: string } | null,
         })),
       })
 

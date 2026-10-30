@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { sendPushToUser } from '@/lib/push'
 import { effectiveQuestions } from '@/lib/autoflow-fork'
 import { resolveForPath, taskAppliesToPath, pathFromChoiceLabel, PATH_CHOICE_QUESTION_ID, type PathKey } from '@/lib/autoflowPaths'
+import { syncAutoflowStepPrograms } from '@/lib/autoflowStepPrograms'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ flowId: string; step: string }> }
@@ -297,10 +298,25 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const adminClient = createAdminClient()
     const { data: nextSteps } = await adminClient
       .from('autoflow_template_steps')
-      .select('step_number, automated_message')
+      .select('step_number, automated_message, program_link')
       .eq('template_id', templateId)
       .eq('trigger_type', 'on_step_complete')
       .eq('trigger_step_number', stepNum)
+
+    // Auto-start any program linked to a step that just unlocked, rather
+    // than waiting for the next due-steps poll — same immediacy as the
+    // habit deactivation above.
+    const unlockedStepNumbers = new Set((nextSteps ?? []).map((s) => s.step_number))
+    await syncAutoflowStepPrograms(adminClient, {
+      clientAutoflowId: flowId,
+      clientId: user.id,
+      coachId,
+      dueStepNumbers: unlockedStepNumbers,
+      stepsWithProgramLink: (nextSteps ?? []).map((s) => ({
+        step_number: s.step_number,
+        program_link: (s as unknown as Record<string, unknown>).program_link as { program_id: string } | null,
+      })),
+    })
 
     const stepsWithMessages = (nextSteps ?? []).filter(
       (s) => (s as unknown as Record<string, unknown>).automated_message
