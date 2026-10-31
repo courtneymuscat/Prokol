@@ -603,7 +603,7 @@ export default async function DashboardPage() {
                 { label: `${serveTargets.fat_serves}F`, color: 'bg-green-50 text-green-700' },
                 { label: 'veg ∞', color: 'bg-emerald-50 text-emerald-700' },
               ].map((t) => (
-                <span key={t.label} className={`text-xs font-semibold px-3 py-1 rounded-full ${t.color}`}>{t.label}</span>
+                <span key={t.label} className={`text-base font-bold px-4 py-2 rounded-full ${t.color}`}>{t.label}</span>
               ))}
             </div>
             <p className="text-[11px] text-gray-400 leading-relaxed">
