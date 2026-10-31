@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import dynamic from 'next/dynamic'
+import { getPieceWeight } from '@/lib/pieceWeights'
 
 // Calls our server proxy which forwards to search.openfoodfacts.org (Meilisearch).
 // Direct browser calls fail: search.openfoodfacts.org blocks CORS, cgi/search.pl returns 503.
@@ -153,25 +154,6 @@ type BarcodeState =
 
 type ServingUnit = 'g' | 'ml' | 'oz' | 'cup' | 'tbsp' | 'tsp' | 'piece'
 type VolumeUnit = 'cup' | 'tbsp' | 'tsp'
-
-const PIECE_WEIGHTS: Array<[RegExp, number]> = [
-  [/\begg\b/i, 50],
-  [/\bapple\b/i, 182],
-  [/\bbanana\b/i, 118],
-  [/\borange\b/i, 131],
-  [/\btomato\b/i, 123],
-  [/\bstrawberr/i, 12],
-  [/\bpotato\b/i, 150],
-  [/\bcarrot\b/i, 61],
-  [/\bslice\b|\btoast\b/i, 28],
-]
-
-function getPieceWeight(name: string): number | null {
-  for (const [re, g] of PIECE_WEIGHTS) {
-    if (re.test(name)) return g
-  }
-  return null
-}
 
 // Gram-per-unit lookup for common whole foods. Most-specific patterns first.
 const FOOD_UNIT_GRAMS: Array<[RegExp, Partial<Record<VolumeUnit, number>>]> = [

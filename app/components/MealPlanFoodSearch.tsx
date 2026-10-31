@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
+import { getPieceWeight as pieceWeightFor } from '@/lib/pieceWeights'
 
 const BarcodeScanner = dynamic(() => import('@/app/dashboard/BarcodeScanner'), { ssr: false })
 
@@ -33,18 +34,8 @@ const VOLUME_GRAMS: Array<[RegExp, Partial<Record<'cup' | 'tbsp' | 'tsp', number
   [/\bsalt\b/i,                                                            { tbsp: 18, tsp: 6 }],
 ]
 
-const PIECE_WEIGHTS: Array<[RegExp, number]> = [
-  [/\begg\b/i, 50], [/\bapple\b/i, 182], [/\bbanana\b/i, 118], [/\borange\b/i, 131],
-  [/\btomato\b/i, 123], [/\bstrawberr/i, 12], [/\bpotato\b/i, 150],
-  [/\bcarrot\b/i, 61], [/\bslice\b|\btoast\b/i, 28],
-]
-
 function gramsPerVolumeUnit(name: string, unit: 'cup' | 'tbsp' | 'tsp'): number | null {
   for (const [re, map] of VOLUME_GRAMS) { if (re.test(name)) return map[unit] ?? null }
-  return null
-}
-function pieceWeightFor(name: string): number | null {
-  for (const [re, g] of PIECE_WEIGHTS) { if (re.test(name)) return g }
   return null
 }
 function effG(name: string, qty: number, unit: ServingUnit, customPieceG: string): number {
