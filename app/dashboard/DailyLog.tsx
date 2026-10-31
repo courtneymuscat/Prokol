@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { notifyMyCoach } from '@/lib/notifyMyCoach'
 import FoodSearch, { type FoodResult } from './FoodSearch'
 import EditFoodLogForm from './EditFoodLogForm'
 import MealScanModal from './MealScanModal'
+import InlineRecipeOrMealPicker from './InlineRecipeOrMealPicker'
 import { calcServes, sumServes, isFruitByName, fmt as fmtServe, type ServeTargets } from '@/lib/serves'
 
 const MEALS = [
@@ -112,6 +112,7 @@ export default function DailyLog({
   )
   const [loading, setLoading] = useState(!hasInitialData)
   const [addingTo, setAddingTo] = useState<MealKey | null>(null)
+  const [addMode, setAddMode] = useState<'search' | 'recipe' | 'meal'>('search')
   const [pendingEntry, setPendingEntry] = useState<{ food: FoodResult; grams: number; servingDescription?: string } | null>(null)
   const [saving, setSaving] = useState(false)
   const [logError, setLogError] = useState<string | null>(null)
@@ -848,18 +849,9 @@ export default function DailyLog({
                             </svg>
                           </button>
                         )}
-                        <Link
-                          href="/recipes"
-                          className="p-1.5 text-gray-400 hover:text-gray-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-                          title="Browse recipes & saved meals"
-                        >
-                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                          </svg>
-                        </Link>
                         <button
                           type="button"
-                          onClick={() => { setAddingTo(meal.key); setPendingEntry(null) }}
+                          onClick={() => { setAddingTo(meal.key); setPendingEntry(null); setAddMode('search') }}
                           className="flex items-center gap-1 text-xs font-semibold text-gray-400 hover:text-gray-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors"
                         >
                           <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1214,21 +1206,51 @@ export default function DailyLog({
                 {/* Add food panel */}
                 {!noteOnly && isAdding && (
                   <div className="border-t border-gray-100 p-4 space-y-3 bg-gray-50/40">
-                    <FoodSearch key={searchKey} onSelect={(food, grams, servingDescription) => setPendingEntry({ food, grams, servingDescription })} />
-                    {logError && (
-                      <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{logError}</p>
+                    <div className="flex gap-1">
+                      {([
+                        { key: 'search' as const, label: 'Search' },
+                        { key: 'recipe' as const, label: 'Recipe' },
+                        { key: 'meal' as const, label: 'Saved Meal' },
+                      ]).map((m) => (
+                        <button
+                          key={m.key}
+                          type="button"
+                          onClick={() => setAddMode(m.key)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+                            addMode === m.key ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {addMode === 'search' ? (
+                      <>
+                        <FoodSearch key={searchKey} onSelect={(food, grams, servingDescription) => setPendingEntry({ food, grams, servingDescription })} />
+                        {logError && (
+                          <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{logError}</p>
+                        )}
+                        {justAdded && (
+                          <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2 font-medium">Added! Search for another food or cancel.</p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleLog}
+                          disabled={!pendingEntry || saving}
+                          className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-semibold rounded-xl transition-colors"
+                        >
+                          {saving ? 'Adding...' : `Add to ${meal.label}`}
+                        </button>
+                      </>
+                    ) : (
+                      <InlineRecipeOrMealPicker
+                        source={addMode === 'recipe' ? 'library' : 'saved'}
+                        mealKey={meal.key}
+                        date={date}
+                        onLogged={fetchLogs}
+                      />
                     )}
-                    {justAdded && (
-                      <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2 font-medium">Added! Search for another food or cancel.</p>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleLog}
-                      disabled={!pendingEntry || saving}
-                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-semibold rounded-xl transition-colors"
-                    >
-                      {saving ? 'Adding...' : `Add to ${meal.label}`}
-                    </button>
                   </div>
                 )}
               </div>
