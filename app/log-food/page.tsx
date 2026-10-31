@@ -29,7 +29,7 @@ export default async function LogFoodPage() {
       .single(),
     supabase
       .from('coach_clients')
-      .select('show_daily_targets, food_log_access, show_meal_builder, show_saved_meals')
+      .select('show_daily_targets, food_log_access, show_meal_builder')
       .eq('client_id', user.id)
       .eq('status', 'active')
       .maybeSingle(),
@@ -50,11 +50,9 @@ export default async function LogFoodPage() {
   const showDailyTargets = (coachRel?.show_daily_targets as boolean | null) ?? false
   const foodLogAccess = (coachRel?.food_log_access as 'full' | 'no_scan' | 'note_only' | 'off' | null) ?? 'full'
   const showMealBuilder = (coachRel?.show_meal_builder as boolean | null) ?? true
-  const showSavedMeals = (coachRel?.show_saved_meals as boolean | null) ?? true
 
   const canMealScanner = sub.canAccess(FEATURES.MEAL_SCANNER)
   const canMealBuilder = sub.canAccess(FEATURES.MEAL_BUILDER)
-  const canUseSavedMeals = canMealBuilder && (!isCoached || showSavedMeals)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -70,7 +68,6 @@ export default async function LogFoodPage() {
       <main className="max-w-2xl mx-auto p-6 space-y-6">
         <DailyLog
           canScanMeal={canMealScanner && foodLogAccess !== 'no_scan' && foodLogAccess !== 'note_only' && foodLogAccess !== 'off'}
-          canUseSavedMeals={canUseSavedMeals}
           foodLogAccess={isCoached ? foodLogAccess : 'full'}
           targetCalories={(!isCoached || showDailyTargets) ? (profile?.target_calories ?? null) : null}
           targetProtein={(!isCoached || showDailyTargets) ? (profile?.target_protein ?? null) : null}

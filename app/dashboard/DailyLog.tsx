@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { notifyMyCoach } from '@/lib/notifyMyCoach'
 import FoodSearch, { type FoodResult } from './FoodSearch'
 import EditFoodLogForm from './EditFoodLogForm'
 import MealScanModal from './MealScanModal'
-import AddRecipeModal from './AddRecipeModal'
 import { calcServes, sumServes, isFruitByName, fmt as fmtServe, type ServeTargets } from '@/lib/serves'
 
 const MEALS = [
@@ -86,7 +86,6 @@ function mapMealNotes(rows: InitialMealNote[]): Record<string, { note: string | 
 
 export default function DailyLog({
   canScanMeal = false,
-  canUseSavedMeals = true,
   foodLogAccess = 'full',
   targetCalories = null,
   targetProtein = null,
@@ -97,7 +96,6 @@ export default function DailyLog({
   initialMealNotes,
 }: {
   canScanMeal?: boolean
-  canUseSavedMeals?: boolean
   foodLogAccess?: 'full' | 'no_scan' | 'note_only' | 'off'
   targetCalories?: number | null
   targetProtein?: number | null
@@ -122,7 +120,6 @@ export default function DailyLog({
   const [editingId, setEditingId] = useState<string | null>(null)
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null)
   const [scanningMeal, setScanningMeal] = useState<MealKey | null>(null)
-  const [addingRecipeTo, setAddingRecipeTo] = useState<MealKey | null>(null)
   const [noteOpenId, setNoteOpenId] = useState<string | null>(null)
   const [noteDraft, setNoteDraft] = useState('')
   const [uploadingPhotoId, setUploadingPhotoId] = useState<string | null>(null)
@@ -851,16 +848,15 @@ export default function DailyLog({
                             </svg>
                           </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => setAddingRecipeTo(meal.key)}
+                        <Link
+                          href="/recipes"
                           className="p-1.5 text-gray-400 hover:text-gray-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-                          title="Add a recipe or saved meal"
+                          title="Browse recipes & saved meals"
                         >
                           <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                           </svg>
-                        </button>
+                        </Link>
                         <button
                           type="button"
                           onClick={() => { setAddingTo(meal.key); setPendingEntry(null) }}
@@ -1247,17 +1243,6 @@ export default function DailyLog({
           date={date}
           onLogged={fetchLogs}
           onClose={() => setScanningMeal(null)}
-        />
-      )}
-
-      {addingRecipeTo && (
-        <AddRecipeModal
-          mealKey={addingRecipeTo}
-          mealLabel={MEALS.find((m) => m.key === addingRecipeTo)?.label ?? ''}
-          date={date}
-          canUseSavedMeals={canUseSavedMeals}
-          onLogged={fetchLogs}
-          onClose={() => setAddingRecipeTo(null)}
         />
       )}
     </div>
