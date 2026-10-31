@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import SavedMeals from '@/app/dashboard/SavedMeals'
 import MyRecipes from './MyRecipes'
 import { CATEGORIES, DIET_TAG_LABEL, TIER_TAG_STYLE, DIET_FILTERS, TIER_FILTERS } from '@/lib/recipeTags'
@@ -19,9 +19,15 @@ type Recipe = {
   tier_tag: string | null
 }
 
+function isTab(value: string | null): value is 'recipes' | 'mine' | 'saved' {
+  return value === 'recipes' || value === 'mine' || value === 'saved'
+}
+
 export default function RecipesPageClient({ canUseSavedMeals }: { canUseSavedMeals: boolean }) {
   const router = useRouter()
-  const [tab, setTab] = useState<'recipes' | 'mine' | 'saved'>('recipes')
+  const searchParams = useSearchParams()
+  const initialTab = searchParams.get('tab')
+  const [tab, setTab] = useState<'recipes' | 'mine' | 'saved'>(isTab(initialTab) ? initialTab : 'recipes')
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState('')

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { notifyMyCoach } from '@/lib/notifyMyCoach'
 import { CATEGORIES, DIET_TAG_LABEL, TIER_TAG_STYLE, DIET_FILTERS, TIER_FILTERS } from '@/lib/recipeTags'
@@ -135,6 +136,13 @@ export default function InlineRecipeOrMealPicker({ source, mealKey, date, onLogg
         placeholder={source === 'library' ? 'Search recipes…' : 'Search saved meals…'}
         className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
       />
+
+      <Link
+        href={source === 'library' ? '/recipes/mine/new' : '/recipes?tab=saved'}
+        className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+      >
+        Don&apos;t see it? Build a {source === 'library' ? 'Recipe' : 'Meal'} →
+      </Link>
 
       {source === 'library' && (
         <>
