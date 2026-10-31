@@ -29,7 +29,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const body = await req.json() as { autoflowIds?: string[]; priceCents?: number; currency?: string }
+  const body = await req.json() as { autoflowIds?: string[]; priceCents?: number; currency?: string; name?: string }
   const autoflowIds = Array.isArray(body.autoflowIds) ? body.autoflowIds.filter(Boolean) : []
   // Optional — a gym link stays free by default, same as before. Lets
   // Court attach a price to a specific gym's link too if she ever wants to
@@ -45,7 +45,14 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   const { data: link, error } = await admin
     .from('org_signup_links')
-    .insert({ org_id: orgId, code, created_by: session.user.id, price_cents: priceCents, currency: body.currency || 'aud' })
+    .insert({
+      org_id: orgId,
+      code,
+      created_by: session.user.id,
+      price_cents: priceCents,
+      currency: body.currency || 'aud',
+      name: body.name?.trim() || null,
+    })
     .select('id, code')
     .single()
 
@@ -80,7 +87,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
   const { data: links } = await admin
     .from('org_signup_links')
-    .select('id, code, is_active, created_at')
+    .select('id, code, name, is_active, created_at')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false })
 

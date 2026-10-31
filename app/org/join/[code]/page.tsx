@@ -15,7 +15,7 @@ export default async function OrgJoinPage({
   // /invite/[token]/page.tsx).
   const { data: link } = await admin
     .from('org_signup_links')
-    .select('id, org_id, coach_id, price_cents, currency, is_active')
+    .select('id, org_id, coach_id, name, description, price_cents, currency, is_active')
     .eq('code', code)
     .maybeSingle()
 
@@ -36,15 +36,21 @@ export default async function OrgJoinPage({
       .select('full_name, brand_name')
       .eq('id', link.coach_id)
       .maybeSingle()
-    const { data: linkAutoflow } = await admin
+    const { data: linkAutoflows } = await admin
       .from('org_signup_link_autoflows')
-      .select('autoflow_id')
+      .select('autoflow_id, autoflow_templates(name, description)')
       .eq('link_id', link.id)
-      .limit(1)
-      .maybeSingle()
-    const { data: autoflow } = linkAutoflow
-      ? await admin.from('autoflow_templates').select('name, description').eq('id', linkAutoflow.autoflow_id).maybeSingle()
-      : { data: null }
+
+    type AutoflowRow = { autoflow_id: string; autoflow_templates: { name: string; description: string | null } | null }
+    const autoflows = ((linkAutoflows ?? []) as unknown as AutoflowRow[])
+      .map((row) => row.autoflow_templates)
+      .filter((a): a is { name: string; description: string | null } => !!a)
+
+    // Bundles get their own name/description once a link can carry more
+    // than one autoflow; old single-autoflow links fall back to that
+    // autoflow's own name/description (set before this column existed).
+    const title = link.name || autoflows[0]?.name || 'Join the program'
+    const subtitle = link.description || (autoflows.length === 1 ? autoflows[0]?.description : null)
 
     const coachName = coach?.brand_name ?? coach?.full_name ?? 'your coach'
     const priceLabel = link.price_cents ? `$${(link.price_cents / 100).toFixed(2)} ${link.currency.toUpperCase()}` : null
@@ -56,8 +62,11 @@ export default async function OrgJoinPage({
             {coachName.charAt(0).toUpperCase()}
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">{autoflow?.name ?? 'Join the program'}</h1>
-            {autoflow?.description && <p className="text-sm text-gray-500 mt-1">{autoflow.description}</p>}
+            <h1 className="text-xl font-bold text-gray-900">{title}</h1>
+            {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
+            {autoflows.length > 1 && (
+              <p className="text-sm text-gray-500 mt-1">Includes: {autoflows.map((a) => a.name).join(', ')}</p>
+            )}
             <p className="text-sm text-gray-500 mt-1">
               {priceLabel ? `${priceLabel} — ` : ''}with {coachName}
             </p>

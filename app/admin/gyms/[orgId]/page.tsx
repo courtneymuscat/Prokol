@@ -30,7 +30,7 @@ export default async function GymDetailPage({
 
   const { data: links } = await admin
     .from('org_signup_links')
-    .select('id, code, is_active, created_at')
+    .select('id, code, name, is_active, created_at')
     .eq('org_id', orgId)
     .order('created_at', { ascending: false })
 
@@ -67,15 +67,23 @@ export default async function GymDetailPage({
             <h1 className="text-2xl font-bold text-zinc-100">{org.app_name ?? org.name}</h1>
           </div>
         </div>
-        <form action={actionEnterGymOrg.bind(null, org.id)}>
-          <button
-            type="submit"
-            className="text-sm font-semibold px-4 py-2 rounded-xl text-zinc-900 hover:opacity-90 transition-opacity whitespace-nowrap"
-            style={{ backgroundColor: 'var(--nc-primary)' }}
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/admin/orgs/${org.id}`}
+            className="text-sm font-medium px-4 py-2 rounded-xl text-zinc-300 border border-zinc-700 hover:bg-zinc-800 transition-colors whitespace-nowrap"
           >
-            Enter gym dashboard →
-          </button>
-        </form>
+            Organisation settings →
+          </Link>
+          <form action={actionEnterGymOrg.bind(null, org.id)}>
+            <button
+              type="submit"
+              className="text-sm font-semibold px-4 py-2 rounded-xl text-zinc-900 hover:opacity-90 transition-opacity whitespace-nowrap"
+              style={{ backgroundColor: 'var(--nc-primary)' }}
+            >
+              Enter gym dashboard →
+            </button>
+          </form>
+        </div>
       </div>
 
       <SignupLinkPanel
@@ -84,6 +92,7 @@ export default async function GymDetailPage({
         existingLinks={(links ?? []).map((l) => ({
           id: l.id,
           code: l.code,
+          name: l.name,
           isActive: l.is_active,
           autoflowNames: autoflowsByLink.get(l.id) ?? [],
         }))}
