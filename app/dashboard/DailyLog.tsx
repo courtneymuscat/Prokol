@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { notifyMyCoach } from '@/lib/notifyMyCoach'
 import FoodSearch, { type FoodResult } from './FoodSearch'
 import EditFoodLogForm from './EditFoodLogForm'
+import EditLoggedMealForm from './EditLoggedMealForm'
 import MealScanModal from './MealScanModal'
 import InlineRecipeOrMealPicker from './InlineRecipeOrMealPicker'
 import { calcServes, sumServes, isFruitByName, fmt as fmtServe, type ServeTargets } from '@/lib/serves'
@@ -365,11 +366,12 @@ export default function DailyLog({
 
   async function handleUpdate(update: {
     food_name: string | null
-    serving_description: string | null
+    serving_description?: string | null
     calories: number
     protein: number
     carbs: number
     fat: number
+    notes?: string
   }) {
     if (!editingId) return
     const supabase = createClient()
@@ -986,6 +988,13 @@ export default function DailyLog({
                                 </button>
                               </div>
                             </div>
+                          ) : parseMealIngredients(log.notes) ? (
+                          <EditLoggedMealForm
+                            foodName={log.food_name}
+                            ingredients={parseMealIngredients(log.notes)!}
+                            onSave={(update) => handleUpdate(update)}
+                            onCancel={() => setEditingId(null)}
+                          />
                           ) : (
                           <EditFoodLogForm
                             log={log}
