@@ -10,10 +10,37 @@ type PlanRow = { id: string; client_id: string; content: unknown[] }
 let planRow: PlanRow | null = null
 let updatedContent: unknown[] | null = null
 
+type MyRecipeRow = { id: string; user_id: string; name: string; total_calories: number }
+let myRecipeRow: MyRecipeRow | null = null
+let myRecipeIngredients: Array<{ food_id: string | null; food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number; sort_order: number }> = []
+
 vi.mock('@/lib/supabase/server', () => ({
   createClient: async () => ({
     auth: { getUser: async () => ({ data: { user: { id: 'client-1' } } }) },
     from: (table: string) => {
+      if (table === 'client_recipes') {
+        return {
+          select: () => ({
+            eq: (_c1: string, id: string) => ({
+              eq: (_c2: string, userId: string) => ({
+                single: async () => ({
+                  data: myRecipeRow && myRecipeRow.id === id && myRecipeRow.user_id === userId ? myRecipeRow : null,
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        }
+      }
+      if (table === 'client_recipe_ingredients') {
+        return {
+          select: () => ({
+            eq: () => ({
+              order: async () => ({ data: myRecipeIngredients }),
+            }),
+          }),
+        }
+      }
       if (table === 'client_meal_plans') {
         return {
           select: () => ({
@@ -47,7 +74,7 @@ vi.mock('@/lib/supabase/server', () => ({
   }),
 }))
 
-type NewRecipeRow = { id: string; name: string; total_calories: number }
+type NewRecipeRow = { id: string; name: string; total_calories: number; is_global?: boolean; coach_id?: string }
 let newRecipeRow: NewRecipeRow | null = null
 let newRecipeIngredients: Array<{ food_id: string | null; food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number; sort_order: number }> = []
 
@@ -68,6 +95,20 @@ vi.mock('@/lib/supabase/admin', () => ({
           select: () => ({
             eq: () => ({
               order: async () => ({ data: newRecipeIngredients }),
+            }),
+          }),
+        }
+      }
+      // Ownership check for the swap — no active coach relationship needed
+      // in these fixtures since newRecipeRow.is_global covers the allowed
+      // path; a real client with a real coach would resolve here instead.
+      if (table === 'coach_clients') {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ data: null }),
+              }),
             }),
           }),
         }
@@ -100,8 +141,13 @@ beforeEach(() => {
       },
     ],
   }
-  newRecipeRow = { id: 'new-recipe', name: 'Egg Wrap', total_calories: 172.5 }
+  newRecipeRow = { id: 'new-recipe', name: 'Egg Wrap', total_calories: 172.5, is_global: true }
   newRecipeIngredients = [
+    { food_id: null, food_name: 'Eggs', grams: 100, calories: 150, protein: 12, carbs: 1, fat: 11, sort_order: 0 },
+    { food_id: null, food_name: 'Wrap', grams: 20, calories: 22.5, protein: 1, carbs: 4, fat: 0, sort_order: 1 },
+  ]
+  myRecipeRow = { id: 'my-recipe', user_id: 'client-1', name: 'My Chicken Bowl', total_calories: 172.5 }
+  myRecipeIngredients = [
     { food_id: null, food_name: 'Eggs', grams: 100, calories: 150, protein: 12, carbs: 1, fat: 11, sort_order: 0 },
     { food_id: null, food_name: 'Wrap', grams: 20, calories: 22.5, protein: 1, carbs: 4, fat: 0, sort_order: 1 },
   ]
@@ -125,6 +171,27 @@ describe('PATCH swap-recipe', () => {
     expect(foods[1]).toMatchObject({ food_name: 'Wrap', grams: 40, calories: 45, recipe_id: 'new-recipe' })
     // Untouched non-recipe food stays exactly as-is, in its original position.
     expect(foods[2]).toMatchObject({ food_name: 'Banana', calories: 90 })
+  })
+
+  it('replaces the recipe group with one of the client\'s own My Recipes', async () => {
+    const res = await PATCH(
+      fakeRequest({ meal_index: 0, recipe_id: 'old-recipe', new_client_recipe_id: 'my-recipe' }),
+      { params: Promise.resolve({ planId: 'plan-1' }) },
+    )
+    expect(res.status).not.toBe(400)
+    expect(res.status).not.toBe(404)
+
+    const foods = (updatedContent![0] as { foods: Array<Record<string, unknown>> }).foods
+    expect(foods[0]).toMatchObject({ food_name: 'Eggs', grams: 200, calories: 300, recipe_id: 'my-recipe', recipe_name: 'My Chicken Bowl', recipe_source: 'my_recipe' })
+  })
+
+  it('rejects a My Recipes replacement owned by a different client', async () => {
+    myRecipeRow = { id: 'my-recipe', user_id: 'someone-else', name: 'Not mine', total_calories: 172.5 }
+    const res = await PATCH(
+      fakeRequest({ meal_index: 0, recipe_id: 'old-recipe', new_client_recipe_id: 'my-recipe' }),
+      { params: Promise.resolve({ planId: 'plan-1' }) },
+    )
+    expect(res.status).toBe(404)
   })
 
   it('rejects a request for a plan the client does not own', async () => {

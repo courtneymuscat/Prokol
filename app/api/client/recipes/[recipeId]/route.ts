@@ -1,11 +1,15 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getSubscription } from '@/lib/subscription'
+import { FEATURES } from '@/lib/features'
 import type { NextRequest } from 'next/server'
 
 // GET /api/client/recipes/[recipeId] — full detail (ingredients +
 // modification notes) for the swap-recipe picker and the read-only
 // modification-notes reference panel. Ownership verified against the
-// client's own active coach, not just "any recipe exists with this id".
+// client's own active coach OR (if they can access the platform Meal
+// Library — see /api/client/recipes' comment) the recipe being is_global —
+// not just "any recipe exists with this id".
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ recipeId: string }> },
@@ -16,6 +20,8 @@ export async function GET(
   if (!session) return Response.json({ error: 'Unauthorised' }, { status: 401 })
 
   const admin = createAdminClient()
+  const sub = await getSubscription()
+  const canAccessLibrary = sub.canAccess(FEATURES.PLATFORM_RECIPE_LIBRARY)
 
   const { data: rel } = await admin
     .from('coach_clients')
@@ -23,15 +29,15 @@ export async function GET(
     .eq('client_id', session.user.id)
     .eq('status', 'active')
     .single()
-  if (!rel) return Response.json({ error: 'Not found' }, { status: 404 })
+  if (!rel && !canAccessLibrary) return Response.json({ error: 'Not found' }, { status: 404 })
 
   const { data: recipe, error } = await admin
     .from('recipes')
-    .select('id, name, category, instructions, total_calories, total_protein, total_carbs, total_fat, diet_tags, tier_tag')
+    .select('id, coach_id, name, category, instructions, total_calories, total_protein, total_carbs, total_fat, diet_tags, tier_tag, is_global')
     .eq('id', recipeId)
-    .eq('coach_id', rel.coach_id)
     .single()
-  if (error || !recipe) return Response.json({ error: 'Not found' }, { status: 404 })
+  const allowed = recipe && ((rel && recipe.coach_id === rel.coach_id) || (canAccessLibrary && recipe.is_global))
+  if (error || !recipe || !allowed) return Response.json({ error: 'Not found' }, { status: 404 })
 
   const [{ data: ingredients }, { data: modifications }] = await Promise.all([
     admin

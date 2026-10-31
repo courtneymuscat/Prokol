@@ -23,7 +23,7 @@ function isTab(value: string | null): value is 'recipes' | 'mine' | 'saved' {
   return value === 'recipes' || value === 'mine' || value === 'saved'
 }
 
-export default function RecipesPageClient({ canUseSavedMeals }: { canUseSavedMeals: boolean }) {
+export default function RecipesPageClient({ canUseSavedMeals, canAccessLibrary }: { canUseSavedMeals: boolean; canAccessLibrary: boolean }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const initialTab = searchParams.get('tab')
@@ -36,12 +36,13 @@ export default function RecipesPageClient({ canUseSavedMeals }: { canUseSavedMea
   const [query, setQuery] = useState('')
 
   const fetchRecipes = useCallback(async () => {
+    if (!canAccessLibrary) { setLoading(false); return }
     setLoading(true)
     const res = await fetch('/api/client/recipes')
     const data = await res.json()
     setRecipes(Array.isArray(data) ? data : [])
     setLoading(false)
-  }, [])
+  }, [canAccessLibrary])
 
   useEffect(() => { fetchRecipes() }, [fetchRecipes])
 
@@ -85,6 +86,15 @@ export default function RecipesPageClient({ canUseSavedMeals }: { canUseSavedMea
           <MyRecipes />
         ) : tab === 'saved' && canUseSavedMeals ? (
           <SavedMeals refreshKey={0} />
+        ) : !canAccessLibrary ? (
+          <div className="bg-white rounded-2xl border border-dashed p-8 text-center">
+            <p className="text-2xl mb-2">🔒</p>
+            <p className="text-sm font-semibold text-gray-700">Meal Library is an Optimiser+ feature</p>
+            <p className="text-xs text-gray-400 mt-1">Upgrade to unlock our curated recipe library.</p>
+            <a href="/subscribe" className="inline-block mt-4 text-sm font-medium bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition-colors">
+              Upgrade
+            </a>
+          </div>
         ) : (
           <>
             <input

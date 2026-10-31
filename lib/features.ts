@@ -18,6 +18,7 @@ export const FEATURES = {
   CYCLE_TRACKER:       'cycle_tracker',      // symptoms, BBT, cervical mucus, moods
   PROGRESS_PHOTOS:     'progress_photos',    // upload & view progress photos
   PROGRESS_COMPARE:    'progress_compare',   // before/after photo comparison
+  PLATFORM_RECIPE_LIBRARY: 'platform_recipe_library', // Court's platform-wide shared recipes
 
   // ── Tier: individual_elite ($34.99 AUD/mo) ────────────────────────────────
   MEAL_SCANNER:         'meal_scanner',         // AI photo → detect + log foods
@@ -90,6 +91,7 @@ const INDIVIDUAL_OPTIMISER_FEATURES: Feature[] = [
   FEATURES.CYCLE_TRACKER,
   FEATURES.PROGRESS_PHOTOS,
   FEATURES.PROGRESS_COMPARE,
+  FEATURES.PLATFORM_RECIPE_LIBRARY,
 ]
 
 const INDIVIDUAL_ELITE_FEATURES: Feature[] = [

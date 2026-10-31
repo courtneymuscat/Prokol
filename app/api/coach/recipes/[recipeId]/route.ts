@@ -41,11 +41,14 @@ export async function GET(
 
   const supabase = await createClient()
 
+  // RLS already restricts reads to own-or-global rows (see the recipes_select
+  // policy) — the .or() here just lets a coach fetch a global recipe authored
+  // by a different coach_id (Court's), not only their own.
   const { data: recipe, error } = await supabase
     .from('recipes')
-    .select('id, name, category, instructions, image_url, total_calories, total_protein, total_carbs, total_fat, diet_tags, tier_tag, archived_at')
+    .select('id, coach_id, name, category, instructions, image_url, total_calories, total_protein, total_carbs, total_fat, diet_tags, tier_tag, archived_at, is_global')
     .eq('id', recipeId)
-    .eq('coach_id', coachId)
+    .or(`coach_id.eq.${coachId},is_global.eq.true`)
     .single()
 
   if (error || !recipe) return Response.json({ error: 'Not found' }, { status: 404 })
@@ -70,7 +73,7 @@ export async function GET(
   }))
   const serveTotals = aggregateServeTotals(ingredients ?? [], serveMap)
 
-  return Response.json({ ...recipe, ingredients: ingredientsWithServes, modifications: modifications ?? [], serve_totals: serveTotals })
+  return Response.json({ ...recipe, is_mine: recipe.coach_id === coachId, ingredients: ingredientsWithServes, modifications: modifications ?? [], serve_totals: serveTotals })
 }
 
 export async function PATCH(
@@ -92,13 +95,14 @@ export async function PATCH(
   if (!existing) return Response.json({ error: 'Not found' }, { status: 404 })
 
   const body = await req.json()
-  const { name, category, instructions, image_url, diet_tags, tier_tag } = body as {
+  const { name, category, instructions, image_url, diet_tags, tier_tag, is_global } = body as {
     name?: string
     category?: string | null
     instructions?: string | null
     image_url?: string | null
     diet_tags?: string[]
     tier_tag?: string | null
+    is_global?: boolean
   }
   const ingredients = (body.ingredients ?? []) as IngredientInput[]
   const modifications = (body.modifications ?? []) as ModificationInput[]
@@ -108,10 +112,18 @@ export async function PATCH(
 
   const totals = sumTotals(ingredients)
 
+  // Same platform_admin-only guard as POST — see its comment.
+  let globalPatch: { is_global?: boolean } = {}
+  if (is_global !== undefined) {
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', coachId).single()
+    if (profile?.role === 'platform_admin') globalPatch = { is_global }
+  }
+
   const { error: updateError } = await supabase
     .from('recipes')
     .update({
       name: name.trim(),
+      ...globalPatch,
       category: category || null,
       instructions: instructions || null,
       image_url: image_url || null,

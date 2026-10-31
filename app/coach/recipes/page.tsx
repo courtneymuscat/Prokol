@@ -14,6 +14,8 @@ type Recipe = {
   total_fat: number
   diet_tags: string[]
   tier_tag: string | null
+  is_global: boolean
+  is_mine: boolean
 }
 
 const DIET_TAG_LABEL: Record<string, string> = { omnivore: 'Omnivore', vegan: 'Vegan', dairy_free: 'Dairy-free' }
@@ -149,13 +151,15 @@ export default function RecipesPage() {
                   <p className="font-semibold text-gray-900">{r.name}</p>
                   {r.category && <p className="text-xs text-gray-400 capitalize mt-0.5">{r.category}</p>}
                 </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); archiveRecipe(r.id) }}
-                  className="text-gray-300 hover:text-red-500 text-xs flex-shrink-0"
-                  title="Archive recipe"
-                >
-                  Archive
-                </button>
+                {r.is_mine && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); archiveRecipe(r.id) }}
+                    className="text-gray-300 hover:text-red-500 text-xs flex-shrink-0"
+                    title="Archive recipe"
+                  >
+                    Archive
+                  </button>
+                )}
               </div>
               <div className="flex flex-wrap gap-1.5 mt-1">
                 <span className="text-xs font-semibold text-gray-700">{Math.round(r.total_calories)} kcal</span>
@@ -163,8 +167,13 @@ export default function RecipesPage() {
                 <span className="text-xs text-orange-600">{Math.round(r.total_carbs)}g C</span>
                 <span className="text-xs text-yellow-600">{Math.round(r.total_fat)}g F</span>
               </div>
-              {((r.diet_tags && r.diet_tags.length > 0) || r.tier_tag) && (
+              {(r.is_global || (r.diet_tags && r.diet_tags.length > 0) || r.tier_tag) && (
                 <div className="flex flex-wrap gap-1.5">
+                  {r.is_global && (
+                    <span className="text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">
+                      Platform
+                    </span>
+                  )}
                   {r.tier_tag && (
                     <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${TIER_TAG_STYLE[r.tier_tag]?.className ?? 'bg-purple-50 text-purple-700'}`}>
                       {TIER_TAG_STYLE[r.tier_tag]?.label ?? r.tier_tag}

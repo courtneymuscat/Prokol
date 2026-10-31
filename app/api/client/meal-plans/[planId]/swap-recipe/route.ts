@@ -24,11 +24,12 @@ interface Meal {
 
 // PATCH /api/client/meal-plans/[planId]/swap-recipe — Mode A substitution:
 // swap an entire recipe-group (every consecutive food sharing the same
-// recipe_id) for a different recipe from the coach's library OR one of the
-// client's own Saved Meals, scaled so its total calories match what it's
-// replacing. Sibling to swap/route.ts (same ownership-check-then-update-
-// content pattern) — that route handles single-food swaps, this one
-// handles whole-recipe swaps.
+// recipe_id) for a different recipe from the coach's library (incl.
+// platform-wide recipes), one of the client's own "My Recipes"
+// (client_recipes), or one of their Saved Meals — scaled so its total
+// calories match what it's replacing. Sibling to swap/route.ts (same
+// ownership-check-then-update-content pattern) — that route handles
+// single-food swaps, this one handles whole-recipe swaps.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ planId: string }> },
@@ -39,13 +40,14 @@ export async function PATCH(
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { meal_index, recipe_id, new_recipe_id, new_saved_meal_id } = body as {
+  const { meal_index, recipe_id, new_recipe_id, new_saved_meal_id, new_client_recipe_id } = body as {
     meal_index: number
     recipe_id: string
     new_recipe_id?: string
     new_saved_meal_id?: string
+    new_client_recipe_id?: string
   }
-  if (!new_recipe_id && !new_saved_meal_id) {
+  if (!new_recipe_id && !new_saved_meal_id && !new_client_recipe_id) {
     return Response.json({ error: 'A replacement recipe or saved meal is required' }, { status: 400 })
   }
 
@@ -82,7 +84,7 @@ export async function PATCH(
   let newName: string
   let newTotalCalories: number
   let newIngredientsRaw: { food_id?: string | null; food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number }[]
-  let recipeSource: 'library' | 'saved_meal'
+  let recipeSource: 'library' | 'saved_meal' | 'my_recipe'
 
   if (new_recipe_id) {
     // Admin client — the client reading another coach-owned recipe's
@@ -91,10 +93,23 @@ export async function PATCH(
     const admin = createAdminClient()
     const { data: newRecipe } = await admin
       .from('recipes')
-      .select('id, name, total_calories')
+      .select('id, coach_id, name, total_calories, is_global')
       .eq('id', new_recipe_id)
       .single()
     if (!newRecipe) return Response.json({ error: 'Replacement recipe not found' }, { status: 404 })
+
+    // Ownership check — a client can only swap in a recipe from their own
+    // active coach, or one flagged is_global (the platform Meal Library).
+    // Previously missing entirely: any client could swap in any coach's
+    // recipe by id, global or not.
+    const { data: ownRel } = await admin
+      .from('coach_clients')
+      .select('coach_id')
+      .eq('client_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    const allowed = newRecipe.is_global || (ownRel && ownRel.coach_id === newRecipe.coach_id)
+    if (!allowed) return Response.json({ error: 'Replacement recipe not found' }, { status: 404 })
 
     const { data: newIngredients } = await admin
       .from('recipe_ingredients')
@@ -108,6 +123,30 @@ export async function PATCH(
     newTotalCalories = newRecipe.total_calories
     newIngredientsRaw = newIngredients
     recipeSource = 'library'
+  } else if (new_client_recipe_id) {
+    // The client's own "My Recipes" (client_recipes) — RLS already scopes
+    // these strictly to user_id = auth.uid(), so the regular session client
+    // is enough, same as the saved-meal branch below.
+    const { data: myRecipe } = await supabase
+      .from('client_recipes')
+      .select('id, name, total_calories')
+      .eq('id', new_client_recipe_id)
+      .eq('user_id', user.id)
+      .single()
+    if (!myRecipe) return Response.json({ error: 'Replacement recipe not found' }, { status: 404 })
+
+    const { data: myIngredients } = await supabase
+      .from('client_recipe_ingredients')
+      .select('food_id, food_name, grams, calories, protein, carbs, fat, sort_order')
+      .eq('recipe_id', new_client_recipe_id)
+      .order('sort_order', { ascending: true })
+    if (!myIngredients?.length) return Response.json({ error: 'Replacement recipe has no ingredients' }, { status: 400 })
+
+    newId = myRecipe.id
+    newName = myRecipe.name
+    newTotalCalories = myRecipe.total_calories
+    newIngredientsRaw = myIngredients
+    recipeSource = 'my_recipe'
   } else {
     // Saved meal — the client's own, so the regular (RLS-scoped) client is
     // enough; no need to reach for the admin client here.

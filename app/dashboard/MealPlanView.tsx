@@ -35,12 +35,13 @@ type MealFood = {
   // instead of as indistinguishable separate lines.
   recipe_id?: string
   recipe_name?: string
-  // 'saved_meal' when this group came from the client's own My Meals
-  // rather than the coach's recipe library — undefined/'library' for
-  // everything swapped in before this distinction existed. Saved meals
-  // have no coach-authored instructions/modification notes, so the group
-  // card hides the "View notes" affordance for them.
-  recipe_source?: 'library' | 'saved_meal'
+  // 'saved_meal' when this group came from the client's own My Meals,
+  // 'my_recipe' when it came from their own My Recipes — rather than the
+  // coach's recipe library — undefined/'library' for everything swapped in
+  // before this distinction existed. Neither saved meals nor My Recipes
+  // have coach-authored instructions/modification notes, so the group card
+  // hides the "View notes" affordance for them.
+  recipe_source?: 'library' | 'saved_meal' | 'my_recipe'
 }
 
 // Consecutive foods sharing a recipe_id (always inserted as a contiguous
@@ -49,7 +50,7 @@ type MealFood = {
 // separate lines.
 export type FoodGroup =
   | { type: 'single'; food: MealFood; index: number }
-  | { type: 'recipe'; recipeId: string; recipeName: string; recipeSource: 'library' | 'saved_meal'; items: Array<{ food: MealFood; index: number }> }
+  | { type: 'recipe'; recipeId: string; recipeName: string; recipeSource: 'library' | 'saved_meal' | 'my_recipe'; items: Array<{ food: MealFood; index: number }> }
 
 export function groupFoodsByRecipe(foods: MealFood[]): FoodGroup[] {
   const groups: FoodGroup[] = []
@@ -582,13 +583,14 @@ function RecipeGroupCard({
     { calories: 0, protein: 0, carbs: 0, fat: 0 },
   )
 
-  const isSavedMeal = group.recipeSource === 'saved_meal'
+  const hasNoNotes = group.recipeSource === 'saved_meal' || group.recipeSource === 'my_recipe'
+  const emoji = group.recipeSource === 'saved_meal' ? '🥡' : group.recipeSource === 'my_recipe' ? '📒' : '🍳'
 
   return (
     <div className="rounded-xl border border-purple-100 bg-purple-50/30 my-2 overflow-hidden">
       <div className="flex items-center justify-between gap-2 px-3 py-2 bg-purple-50 border-b border-purple-100">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-purple-900 truncate">{isSavedMeal ? '🥡' : '🍳'} {group.recipeName}</p>
+          <p className="text-sm font-semibold text-purple-900 truncate">{emoji} {group.recipeName}</p>
           {showMacros && (
             <p className="text-xs text-purple-500 mt-0.5">
               {Math.round(totals.calories)} kcal · {Math.round(totals.protein)}g P · {Math.round(totals.carbs)}g C · {Math.round(totals.fat)}g F
@@ -596,7 +598,7 @@ function RecipeGroupCard({
           )}
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          {!isSavedMeal && (
+          {!hasNoNotes && (
             <button
               onClick={onViewNotes}
               className="text-xs font-medium text-purple-600 bg-white border border-purple-200 rounded-lg px-2 py-1 hover:bg-purple-100 transition-colors"
@@ -643,6 +645,16 @@ type SavedMealListItem = {
   meal_items: { calories: number; protein: number; carbs: number; fat: number }[]
 }
 
+type MyRecipeListItem = {
+  id: string
+  name: string
+  category: string | null
+  total_calories: number
+  total_protein: number
+  total_carbs: number
+  total_fat: number
+}
+
 function sumSavedMeal(items: SavedMealListItem['meal_items']) {
   return items.reduce(
     (acc, i) => ({ calories: acc.calories + i.calories, protein: acc.protein + i.protein, carbs: acc.carbs + i.carbs, fat: acc.fat + i.fat }),
@@ -664,14 +676,16 @@ function RecipeSwapModal({
   mealIndex: number
   recipeId: string
   recipeName: string
-  currentSource: 'library' | 'saved_meal'
+  currentSource: 'library' | 'saved_meal' | 'my_recipe'
   originalCalories: number
   onClose: () => void
   onSwapped: () => void
 }) {
-  const [tab, setTab] = useState<'library' | 'saved'>('library')
+  const [tab, setTab] = useState<'library' | 'mine' | 'saved'>('library')
   const [recipes, setRecipes] = useState<ClientRecipeListItem[]>([])
   const [loadingRecipes, setLoadingRecipes] = useState(true)
+  const [myRecipes, setMyRecipes] = useState<MyRecipeListItem[]>([])
+  const [loadingMyRecipes, setLoadingMyRecipes] = useState(true)
   const [savedMeals, setSavedMeals] = useState<SavedMealListItem[]>([])
   const [loadingSaved, setLoadingSaved] = useState(true)
   const [query, setQuery] = useState('')
@@ -687,6 +701,15 @@ function RecipeSwapModal({
       .then((data) => {
         setRecipes(Array.isArray(data) ? data.filter((r: ClientRecipeListItem) => !(currentSource === 'library' && r.id === recipeId)) : [])
         setLoadingRecipes(false)
+      })
+  }, [recipeId, currentSource])
+
+  useEffect(() => {
+    fetch('/api/client/my-recipes')
+      .then((r) => r.json())
+      .then((data) => {
+        setMyRecipes(Array.isArray(data) ? data.filter((r: MyRecipeListItem) => !(currentSource === 'my_recipe' && r.id === recipeId)) : [])
+        setLoadingMyRecipes(false)
       })
   }, [recipeId, currentSource])
 
@@ -717,9 +740,14 @@ function RecipeSwapModal({
     if (query && !r.name.toLowerCase().includes(query.trim().toLowerCase())) return false
     return true
   })
+  const filteredMyRecipes = myRecipes.filter((r) => {
+    if (category && r.category !== category) return false
+    if (query && !r.name.toLowerCase().includes(query.trim().toLowerCase())) return false
+    return true
+  })
   const filteredSaved = savedMeals.filter((m) => !query.trim() || m.name.toLowerCase().includes(query.trim().toLowerCase()))
 
-  async function handlePick(body: { new_recipe_id?: string; new_saved_meal_id?: string }) {
+  async function handlePick(body: { new_recipe_id?: string; new_client_recipe_id?: string; new_saved_meal_id?: string }) {
     setSaving(true)
     setError(null)
     try {
@@ -755,7 +783,7 @@ function RecipeSwapModal({
         </div>
 
         <div className="flex gap-1 px-5 pt-4">
-          {(['library', 'saved'] as const).map((t) => (
+          {(['library', 'mine', 'saved'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -763,7 +791,7 @@ function RecipeSwapModal({
                 tab === t ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              {t === 'library' ? 'My Library' : 'My Meals'}
+              {t === 'library' ? 'My Library' : t === 'mine' ? 'My Recipes' : 'My Meals'}
             </button>
           ))}
         </div>
@@ -781,43 +809,43 @@ function RecipeSwapModal({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={tab === 'library' ? 'Search recipes…' : 'Search saved meals…'}
+            placeholder={tab === 'library' ? 'Search recipes…' : tab === 'mine' ? 'Search your recipes…' : 'Search saved meals…'}
             className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
           />
 
-          {tab === 'library' && (
-            <>
-              <div className="flex gap-2 overflow-x-auto">
-                {CATEGORIES.map((c) => (
-                  <button
-                    key={c.value}
-                    onClick={() => setCategory(c.value)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                      category === c.value ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    {c.label}
-                  </button>
-                ))}
-              </div>
+          {(tab === 'library' || tab === 'mine') && (
+            <div className="flex gap-2 overflow-x-auto">
+              {CATEGORIES.map((c) => (
+                <button
+                  key={c.value}
+                  onClick={() => setCategory(c.value)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                    category === c.value ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
 
-              <div className="flex flex-wrap gap-2">
-                <select
-                  value={dietFilter}
-                  onChange={(e) => setDietFilter(e.target.value)}
-                  className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-600"
-                >
-                  {DIET_FILTERS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-                </select>
-                <select
-                  value={tierFilter}
-                  onChange={(e) => setTierFilter(e.target.value)}
-                  className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-600"
-                >
-                  {TIER_FILTERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-              </div>
-            </>
+          {tab === 'library' && (
+            <div className="flex flex-wrap gap-2">
+              <select
+                value={dietFilter}
+                onChange={(e) => setDietFilter(e.target.value)}
+                className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-600"
+              >
+                {DIET_FILTERS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+              </select>
+              <select
+                value={tierFilter}
+                onChange={(e) => setTierFilter(e.target.value)}
+                className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-600"
+              >
+                {TIER_FILTERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
           )}
 
           {error && <p className="text-sm text-red-500">{error}</p>}
@@ -859,6 +887,32 @@ function RecipeSwapModal({
                           ))}
                         </div>
                       )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )
+          ) : tab === 'mine' ? (
+            loadingMyRecipes ? (
+              <p className="text-sm text-gray-400 text-center py-8">Loading…</p>
+            ) : filteredMyRecipes.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">
+                {myRecipes.length === 0 ? 'No recipes in My Recipes yet.' : 'No recipes match these filters.'}
+              </p>
+            ) : (
+              <ul className="rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+                {filteredMyRecipes.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      onClick={() => handlePick({ new_client_recipe_id: r.id })}
+                      disabled={saving}
+                      className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                    >
+                      <p className="text-sm font-medium text-gray-800">{r.name}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {r.category && <span className="capitalize">{r.category} · </span>}
+                        {Math.round(r.total_calories)} kcal · {Math.round(r.total_protein)}g P · {Math.round(r.total_carbs)}g C · {Math.round(r.total_fat)}g F
+                      </p>
                     </button>
                   </li>
                 ))}
@@ -987,7 +1041,7 @@ interface PlanViewProps {
 function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
   const [swapTarget, setSwapTarget] = useState<{ mealIndex: number; foodIndex: number } | null>(null)
   const [logTarget, setLogTarget] = useState<MealSlot | null>(null)
-  const [recipeSwapTarget, setRecipeSwapTarget] = useState<{ mealIndex: number; recipeId: string; recipeName: string; recipeSource: 'library' | 'saved_meal'; originalCalories: number } | null>(null)
+  const [recipeSwapTarget, setRecipeSwapTarget] = useState<{ mealIndex: number; recipeId: string; recipeName: string; recipeSource: 'library' | 'saved_meal' | 'my_recipe'; originalCalories: number } | null>(null)
   const [recipeNotesTarget, setRecipeNotesTarget] = useState<{ recipeId: string; recipeName: string } | null>(null)
 
   const slotContribution = (slot: MealSlot) => {

@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { requireCoach } from '@/lib/coach'
 import { getOrgForUser } from '@/lib/org'
+import { getSubscription } from '@/lib/subscription'
+import { FEATURES } from '@/lib/features'
 import type { NextRequest } from 'next/server'
 
 type IngredientInput = {
@@ -48,16 +50,25 @@ export async function GET(req: NextRequest) {
   // currently-active org would hide a coach's own recipes every time they
   // switch which gym they're acting as, which is the opposite of what's
   // wanted for a personal content library.
+  //
+  // Platform-wide recipes (is_global = true, authored by Court) are also
+  // merged in for any coach doing nutrition work — gated on MEAL_PLAN_COACH
+  // rather than every coach, so PT-only coaches (who have no meal-plan
+  // tooling at all) don't see a recipe library that's irrelevant to them.
+  const sub = await getSubscription()
+  const includeGlobal = sub.canAccess(FEATURES.MEAL_PLAN_COACH)
+
   let query = supabase
     .from('recipes')
-    .select('id, name, category, image_url, total_calories, total_protein, total_carbs, total_fat, diet_tags, tier_tag, archived_at, created_at')
-    .eq('coach_id', coachId)
+    .select('id, coach_id, name, category, image_url, total_calories, total_protein, total_carbs, total_fat, diet_tags, tier_tag, archived_at, created_at, is_global')
+  query = includeGlobal ? query.or(`coach_id.eq.${coachId},is_global.eq.true`) : query.eq('coach_id', coachId)
   if (category) query = query.eq('category', category)
   if (!includeArchived) query = query.is('archived_at', null)
 
   const { data, error } = await query.order('created_at', { ascending: false })
   if (error) return Response.json({ error: error.message }, { status: 500 })
-  return Response.json(data ?? [])
+  const withOwnership = (data ?? []).map((r) => ({ ...r, is_mine: r.coach_id === coachId }))
+  return Response.json(withOwnership)
 }
 
 export async function POST(req: NextRequest) {
@@ -65,13 +76,14 @@ export async function POST(req: NextRequest) {
   if (!coachId) return Response.json({ error: 'Unauthorised' }, { status: 401 })
 
   const body = await req.json()
-  const { name, category, instructions, image_url, diet_tags, tier_tag } = body as {
+  const { name, category, instructions, image_url, diet_tags, tier_tag, is_global } = body as {
     name?: string
     category?: string | null
     instructions?: string | null
     image_url?: string | null
     diet_tags?: string[]
     tier_tag?: string | null
+    is_global?: boolean
   }
   const ingredients = (body.ingredients ?? []) as IngredientInput[]
   const modifications = (body.modifications ?? []) as ModificationInput[]
@@ -82,6 +94,15 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const membership = await getOrgForUser(coachId)
   const totals = sumTotals(ingredients)
+
+  // Only Court (platform_admin) can publish a recipe platform-wide — any
+  // is_global sent by a non-admin coach is silently dropped rather than
+  // trusted from the request body.
+  let allowGlobal = false
+  if (is_global) {
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', coachId).single()
+    allowGlobal = profile?.role === 'platform_admin'
+  }
 
   const { data: recipe, error: recipeError } = await supabase
     .from('recipes')
@@ -94,6 +115,7 @@ export async function POST(req: NextRequest) {
       image_url: image_url || null,
       diet_tags: diet_tags ?? [],
       tier_tag: tier_tag || null,
+      is_global: allowGlobal,
       ...totals,
     })
     .select('id')

@@ -40,10 +40,17 @@ function makeQuery(initial: RecipeRow[]) {
   return builder
 }
 
+// getSubscription() (called to decide whether to also merge in platform
+// recipes) goes through this same mocked client — kept deterministically
+// without MEAL_PLAN_COACH here (coach_pt_solo has no meal-plan tooling) so
+// these tests keep exercising the pre-existing coach_id-only code path.
 vi.mock('@/lib/supabase/server', () => ({
   createClient: async () => ({
+    auth: { getUser: async () => ({ data: { user: { id: 'admin-1' } } }) },
     from: (table: string) => {
       if (table === 'recipes') return { select: () => makeQuery(recipeRows) }
+      if (table === 'profiles') return { select: () => ({ eq: () => ({ single: async () => ({ data: { subscription_tier: 'coach_pt_solo', user_type: 'coach' } }) }) }) }
+      if (table === 'coach_clients') return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) }) }
       throw new Error(`unexpected table: ${table}`)
     },
   }),

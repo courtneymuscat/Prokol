@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getSubscription } from '@/lib/subscription'
+import { FEATURES } from '@/lib/features'
 import Link from 'next/link'
 
 export default async function MorePage() {
@@ -27,6 +29,8 @@ export default async function MorePage() {
 
   const isCoached = !!coachRelRes.data
   const hasVisiblePlan = !!planRes.data
+  const sub = await getSubscription()
+  const canAccessMealLibrary = isCoached || sub.canAccess(FEATURES.PLATFORM_RECIPE_LIBRARY)
 
   // Check if coached client has any resources
   let hasResources = false
@@ -109,7 +113,7 @@ export default async function MorePage() {
     {
       href: '/recipes',
       label: 'Meal Library',
-      show: isCoached,
+      show: canAccessMealLibrary,
       icon: (
         <svg className="w-7 h-7 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d="M8 7h12m-12 5h12m-12 5h12M4 7h.01M4 12h.01M4 17h.01" />

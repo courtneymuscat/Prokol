@@ -10,9 +10,21 @@ type RecipeRow = { id: string; name: string; coach_id: string; archived_at: stri
 let coachClientRel: { coach_id: string } | null = null
 let recipeRows: RecipeRow[] = []
 
+// getSubscription() (called for the platform-recipe-library gate) also goes
+// through this same mocked client — kept deterministically ungated
+// (individual_free, no coach_clients row) here so these two tests keep
+// exercising the pre-existing coach-only code path unchanged.
 vi.mock('@/lib/supabase/server', () => ({
   createClient: async () => ({
-    auth: { getSession: async () => ({ data: { session: { user: { id: 'client-1' } } } }) },
+    auth: {
+      getSession: async () => ({ data: { session: { user: { id: 'client-1' } } } }),
+      getUser: async () => ({ data: { user: { id: 'client-1' } } }),
+    },
+    from: (table: string) => {
+      if (table === 'profiles') return { select: () => ({ eq: () => ({ single: async () => ({ data: { subscription_tier: 'individual_free', user_type: 'individual' } }) }) }) }
+      if (table === 'coach_clients') return { select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null }) }) }) }) }
+      throw new Error(`unexpected table (session client): ${table}`)
+    },
   }),
 }))
 

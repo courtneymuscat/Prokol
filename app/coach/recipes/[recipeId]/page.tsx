@@ -82,11 +82,23 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
   const [newModTag, setNewModTag] = useState('general')
   const [newModNote, setNewModNote] = useState('')
   const [serveMap, setServeMap] = useState<Record<string, ServeInfo>>({})
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
+  const [isGlobal, setIsGlobal] = useState(false)
+  const [isMine, setIsMine] = useState(true)
 
   useEffect(() => {
     fetch('/api/coach/recipes/serve-map')
       .then((r) => r.json())
       .then((map) => setServeMap(map && typeof map === 'object' ? map : {}))
+  }, [])
+
+  // Deliberately invisible (renders nothing) to every other coach — see
+  // /api/coach/recipes/is-admin's comment. Real enforcement is server-side
+  // in the POST/PATCH routes regardless of what this toggle shows.
+  useEffect(() => {
+    fetch('/api/coach/recipes/is-admin')
+      .then((res) => setIsPlatformAdmin(res.status === 200))
+      .catch(() => setIsPlatformAdmin(false))
   }, [])
 
   useEffect(() => {
@@ -101,6 +113,8 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
         setTierTag(data.tier_tag ?? '')
         setIngredients(data.ingredients ?? [])
         setModifications((data.modifications ?? []).map((m: Modification) => ({ tag: m.tag, note: m.note })))
+        setIsGlobal(!!data.is_global)
+        setIsMine(data.is_mine !== false)
         setLoading(false)
       })
   }, [recipeId, isNew])
@@ -144,7 +158,7 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
     if (!ingredients.length) { setError('Add at least one ingredient'); return }
     setSaving(true)
     setError(null)
-    const body = { name, category: category || null, instructions, diet_tags: dietTags, tier_tag: tierTag || null, ingredients, modifications }
+    const body = { name, category: category || null, instructions, diet_tags: dietTags, tier_tag: tierTag || null, ingredients, modifications, ...(isPlatformAdmin ? { is_global: isGlobal } : {}) }
     const res = await fetch(isNew ? '/api/coach/recipes' : `/api/coach/recipes/${recipeId}`, {
       method: isNew ? 'POST' : 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -161,11 +175,17 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
   return (
     <main className="flex-1 p-6 space-y-6 w-full max-w-3xl">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">{isNew ? 'New Recipe' : 'Edit Recipe'}</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{isNew ? 'New Recipe' : isMine ? 'Edit Recipe' : 'View Recipe'}</h1>
         <button onClick={() => router.push('/coach/recipes')} className="text-sm text-gray-500 hover:text-gray-700">
           Cancel
         </button>
       </div>
+
+      {!isNew && !isMine && (
+        <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+          <p className="text-sm text-amber-800">This is a platform recipe from the shared Meal Library — you can use it in meal plans, but only its author can edit it.</p>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
         <div>
@@ -224,6 +244,21 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
             ))}
           </select>
         </div>
+        {isPlatformAdmin && (
+          <div className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+            <div>
+              <p className="text-sm font-medium text-amber-900">Publish to platform Meal Library</p>
+              <p className="text-xs text-amber-700 mt-0.5">Visible to every coach, every client, and paying individual users — not just your own.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsGlobal((v) => !v)}
+              className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors ${isGlobal ? 'bg-amber-500' : 'bg-gray-200'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${isGlobal ? 'translate-x-5' : ''}`} />
+            </button>
+          </div>
+        )}
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1.5">Instructions</label>
           <textarea
@@ -356,7 +391,7 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
         </button>
         <button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || !isMine}
           className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Save Recipe'}
