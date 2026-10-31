@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { notifyMyCoach } from '@/lib/notifyMyCoach'
 import { Card } from '@/components/ui/card'
+import MealBuilder from './MealBuilder'
 
 type MealItem = {
   id: string
@@ -51,6 +52,7 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [pickingMealFor, setPickingMealFor] = useState<string | null>(null)
   const [logError, setLogError] = useState<string | null>(null)
+  const [showBuilder, setShowBuilder] = useState(false)
 
   const MEAL_TYPES = [
     { key: 'breakfast', label: 'Breakfast' },
@@ -378,19 +380,39 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
 
   return (
     <div className="space-y-3">
-      {/* Search */}
-      <div className="relative">
-        <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-        </svg>
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search meals..."
-          className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+      {/* Search + New */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search meals..."
+            className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowBuilder((v) => !v)}
+          className={`flex-shrink-0 text-sm font-semibold px-3 py-2 rounded-lg transition-colors ${
+            showBuilder ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'text-white bg-blue-600 hover:bg-blue-700'
+          }`}
+        >
+          {showBuilder ? 'Cancel' : '+ New'}
+        </button>
       </div>
+
+      {showBuilder && (
+        <MealBuilder
+          onSaved={() => {
+            setShowBuilder(false)
+            fetchMeals()
+          }}
+        />
+      )}
 
       {logError && (
         <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-xs text-red-700">{logError}</div>
