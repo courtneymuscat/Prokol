@@ -2,9 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requirePlatformAdmin } from '@/lib/admin'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getOrgFrontDoorUrl } from '@/lib/whitelabel'
 import { actionEnterGymOrg } from '@/app/actions/admin'
-import SignupLinkPanel from './SignupLinkPanel'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,28 +22,6 @@ export default async function GymDetailPage({
     .maybeSingle()
 
   if (!org || org.owner_id !== adminProfile.id) notFound()
-
-  const frontDoor = await getOrgFrontDoorUrl(orgId)
-  const frontDoorUrl = frontDoor?.url ?? process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.prokol.io'
-
-  const { data: links } = await admin
-    .from('org_signup_links')
-    .select('id, code, name, is_active, created_at')
-    .eq('org_id', orgId)
-    .order('created_at', { ascending: false })
-
-  const { data: linkAutoflowRows } = await admin
-    .from('org_signup_link_autoflows')
-    .select('link_id, autoflow_id, autoflow_templates(name)')
-    .in('link_id', (links ?? []).map((l) => l.id))
-
-  const autoflowsByLink = new Map<string, string[]>()
-  for (const row of linkAutoflowRows ?? []) {
-    const names = autoflowsByLink.get(row.link_id) ?? []
-    const tpl = row.autoflow_templates as unknown as { name: string } | null
-    names.push(tpl?.name ?? 'Untitled autoflow')
-    autoflowsByLink.set(row.link_id, names)
-  }
 
   return (
     <div className="space-y-6">
@@ -69,7 +45,7 @@ export default async function GymDetailPage({
         </div>
         <div className="flex items-center gap-3">
           <Link
-            href={`/admin/orgs/${org.id}`}
+            href={`/admin/orgs/${org.id}?tab=links`}
             className="text-sm font-medium px-4 py-2 rounded-xl text-zinc-300 border border-zinc-700 hover:bg-zinc-800 transition-colors whitespace-nowrap"
           >
             Organisation settings →
@@ -86,17 +62,10 @@ export default async function GymDetailPage({
         </div>
       </div>
 
-      <SignupLinkPanel
-        orgId={org.id}
-        frontDoorUrl={frontDoorUrl}
-        existingLinks={(links ?? []).map((l) => ({
-          id: l.id,
-          code: l.code,
-          name: l.name,
-          isActive: l.is_active,
-          autoflowNames: autoflowsByLink.get(l.id) ?? [],
-        }))}
-      />
+      <p className="text-sm text-zinc-500">
+        Signup links now live under Organisation settings →{' '}
+        <Link href={`/admin/orgs/${org.id}?tab=links`} className="text-emerald-400 hover:underline">Signup Links</Link>.
+      </p>
     </div>
   )
 }

@@ -1,5 +1,7 @@
 import { requirePlatformAdmin, getOrgDetail, getPublishableTemplates } from '@/lib/admin'
 import { computeOrgAnalytics, listOrgLeads } from '@/lib/org'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getOrgFrontDoorUrl } from '@/lib/whitelabel'
 import { notFound } from 'next/navigation'
 import OrgDetailClient from './OrgDetailClient'
 
@@ -22,6 +24,45 @@ export default async function AdminOrgDetailPage({
 
   if (!org) notFound()
 
+  // Signup links are gym-only — anyone who signs up through a reusable
+  // link has no coach to onboard them manually (see SignupLinkPanel), so
+  // the concept doesn't apply to a regular coaching-business org.
+  let frontDoorUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.prokol.io'
+  let existingLinks: { id: string; code: string; name: string | null; isActive: boolean; autoflowNames: string[] }[] = []
+  if (org.tenant_type === 'gym') {
+    const supabaseAdmin = createAdminClient()
+    const [frontDoor, { data: links }] = await Promise.all([
+      getOrgFrontDoorUrl(orgId),
+      supabaseAdmin
+        .from('org_signup_links')
+        .select('id, code, name, is_active, created_at')
+        .eq('org_id', orgId)
+        .order('created_at', { ascending: false }),
+    ])
+    frontDoorUrl = frontDoor?.url ?? frontDoorUrl
+
+    const { data: linkAutoflowRows } = await supabaseAdmin
+      .from('org_signup_link_autoflows')
+      .select('link_id, autoflow_id, autoflow_templates(name)')
+      .in('link_id', (links ?? []).map((l) => l.id))
+
+    const autoflowsByLink = new Map<string, string[]>()
+    for (const row of linkAutoflowRows ?? []) {
+      const names = autoflowsByLink.get(row.link_id) ?? []
+      const tpl = row.autoflow_templates as unknown as { name: string } | null
+      names.push(tpl?.name ?? 'Untitled autoflow')
+      autoflowsByLink.set(row.link_id, names)
+    }
+
+    existingLinks = (links ?? []).map((l) => ({
+      id: l.id,
+      code: l.code,
+      name: l.name,
+      isActive: l.is_active,
+      autoflowNames: autoflowsByLink.get(l.id) ?? [],
+    }))
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -38,6 +79,8 @@ export default async function AdminOrgDetailPage({
         pendingWhiteLabelApplication={pendingWhiteLabelApplication}
         analytics={analytics}
         initialLeads={leads}
+        frontDoorUrl={frontDoorUrl}
+        existingLinks={existingLinks}
       />
     </div>
   )

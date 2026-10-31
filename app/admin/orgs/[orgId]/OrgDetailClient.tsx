@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useSearchParams } from 'next/navigation'
+import SignupLinkPanel from './SignupLinkPanel'
 import {
   actionSetOrgTenantType,
   actionPublishTemplate,
@@ -17,15 +19,21 @@ import AdminAnalyticsView from '../../AdminAnalyticsView'
 import AdminOrgLeadsPanel from './AdminOrgLeadsPanel'
 
 type PublishableTemplate = { id: string; name: string }
+type ExistingLink = { id: string; code: string; name: string | null; isActive: boolean; autoflowNames: string[] }
 
-const TABS = [
+const ALL_TABS = [
   { id: 'org', label: 'Organisation' },
+  { id: 'links', label: 'Signup Links' },
   { id: 'leads', label: 'Leads' },
   { id: 'archived', label: 'Archived' },
   { id: 'analytics', label: 'Analytics' },
   { id: 'templates', label: 'Templates' },
 ] as const
-type TabId = typeof TABS[number]['id']
+type TabId = typeof ALL_TABS[number]['id']
+
+function isTabId(value: string | null): value is TabId {
+  return ALL_TABS.some((t) => t.id === value)
+}
 
 export default function OrgDetailClient({
   org,
@@ -36,6 +44,8 @@ export default function OrgDetailClient({
   pendingWhiteLabelApplication,
   analytics,
   initialLeads,
+  frontDoorUrl,
+  existingLinks,
 }: {
   org: OrgDetail
   members: OrgMemberRow[]
@@ -45,9 +55,14 @@ export default function OrgDetailClient({
   pendingWhiteLabelApplication: PendingWhiteLabelApplication | null
   analytics: OrgAnalytics
   initialLeads: OrgLead[]
+  frontDoorUrl: string
+  existingLinks: ExistingLink[]
 }) {
-  const [activeTab, setActiveTab] = useState<TabId>('org')
+  const searchParams = useSearchParams()
+  const requestedTab = searchParams.get('tab')
+  const [activeTab, setActiveTab] = useState<TabId>(isTabId(requestedTab) ? requestedTab : 'org')
   const [tenantType, setTenantType] = useState(org.tenant_type)
+  const tabs = ALL_TABS.filter((t) => t.id !== 'links' || tenantType === 'gym')
   const [tenantTypeSaving, startTenantTypeTransition] = useTransition()
   const [tenantTypeMsg, setTenantTypeMsg] = useState<string | null>(null)
 
@@ -227,7 +242,7 @@ export default function OrgDetailClient({
     <div className="space-y-6">
       {/* Tab bar */}
       <div className="flex gap-1 border-b border-zinc-800 overflow-x-auto">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
@@ -437,6 +452,10 @@ export default function OrgDetailClient({
         )}
       </div>
       </>
+      )}
+
+      {activeTab === 'links' && tenantType === 'gym' && (
+        <SignupLinkPanel orgId={org.id} frontDoorUrl={frontDoorUrl} existingLinks={existingLinks} />
       )}
 
       {activeTab === 'leads' && (
