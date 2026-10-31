@@ -1,6 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
 import { createClient } from '@/lib/supabase/server'
+import { targetMacrosToServes } from '@/lib/autoAssignNutrition'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ clientId: string }> }
@@ -66,5 +67,38 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
   const { error } = await admin.from('profiles').update(calcFields).eq('id', clientId)
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
+
+  // Auto-calculate and save serve targets whenever daily targets are
+  // (re)set — removes the previous manual "Apply to serve targets" ->
+  // "Save Targets" two-step dance a coach had to do separately, and keeps
+  // the Food Cheat Sheet's serve counts reconciled with the exact same
+  // equation that produced these targets (see targetMacrosToServes).
+  // Preserves any notes the coach already wrote; always overwrites the
+  // serve counts themselves, same as this endpoint already does for
+  // target_calories/protein/carbs/fat above.
+  if (body.apply_targets && calcFields.target_protein != null && calcFields.target_fat != null && calcFields.target_calories != null) {
+    const serves = targetMacrosToServes({
+      proteinG: calcFields.target_protein as number,
+      fatG: calcFields.target_fat as number,
+      targetCals: calcFields.target_calories as number,
+    })
+    const { data: existing } = await admin
+      .from('client_serve_targets')
+      .select('notes')
+      .eq('client_id', clientId)
+      .maybeSingle()
+    await admin.from('client_serve_targets').upsert({
+      client_id: clientId,
+      coach_id: coachId,
+      protein_serves: serves.protein_serves,
+      carb_serves: serves.carb_serves,
+      fat_serves: serves.fat_serves,
+      fruit_serves: 0,
+      veg_unlimited: serves.veg_unlimited,
+      notes: existing?.notes ?? null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'client_id' })
+  }
+
   return Response.json({ ok: true })
 }

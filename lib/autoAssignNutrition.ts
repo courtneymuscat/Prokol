@@ -18,6 +18,23 @@ export function mapDietaryPreferenceToMealPlanGoal(pref: string | null | undefin
 
 const roundHalf = (n: number) => Math.round(n * 2) / 2
 
+// Per-serve calorie/macro assumptions for the Daily Serve Targets model —
+// single source of truth shared between the coach-facing breakdown
+// (ClientServeGuide.tsx's ServeMathBreakdown, which imports these) and
+// targetMacrosToServes below, so the "how we calculated this" explainer
+// and the actual conversion math can never drift apart. Each serve bundles
+// a bit more than its primaryG*4-or-9 pure-macro calories — real lean
+// meat/eggs carry a little fat, grains/legumes a little protein, etc. —
+// which is exactly why a naive gram/serve-size division (the old
+// macrosToServes below) overshoots a calorie target once this padding and
+// the veg reservation are both counted; see targetMacrosToServes.
+export const SERVE_BUDGET = {
+  protein: { kcal: 135, primaryG: 30, primaryMacro: 'P' as const, extras: '+ ~3g fat typical in lean meat/eggs' },
+  carb:    { kcal:  90, primaryG: 20, primaryMacro: 'C' as const, extras: '+ ~3g protein typical in grains/legumes (includes fruit — same 20g carb unit)' },
+  fat:     { kcal:  95, primaryG: 10, primaryMacro: 'F' as const, extras: '+ small protein/carbs in nuts/seeds' },
+}
+export const VEG_KCAL = 150
+
 // How many carb serves the whole-day veg reservation below is worth, in
 // the same units as macrosToServes' carb_serves — a fixed amount, since
 // both the reservation (150 kcal) and the serve size (20g) are constants.
@@ -53,6 +70,31 @@ export function macrosToServes(macros: { proteinG: number; carbG: number; fatG: 
     fat_serves: roundHalf(macros.fatG / 10),
     veg_unlimited: true,
   }
+}
+
+// Converts a whole-day calorie/macro TARGET into serve counts whose
+// real-food kcal total (via SERVE_BUDGET + VEG_KCAL above) actually
+// reproduces that target, instead of overshooting it by ~150-250kcal the
+// way macrosToServes does. Protein and fat serves are still driven
+// directly off their own gram targets (clinical protein-per-kg /
+// fat-per-kg choices, not up for negotiation) — carbs is solved backwards
+// from whatever calorie budget is left once protein, fat, and the flat
+// veg reservation have taken their (padded) share, mirroring how
+// calcMacros (TDEESection.tsx) already treats carbs as "whatever calories
+// are left over" once protein and fat are fixed.
+//
+// Derivation: each serve type's padding is exactly 0.5kcal per primary
+// gram (protein 15kcal padding / 30g = 0.5; carb 10/20 = 0.5; fat 5/10 =
+// 0.5), so kcalEstimate = 4·primaryC + (4.5·proteinG + 9.5·fatG) +
+// 0.5·primaryC + VEG_KCAL — solving that for primaryC (as carb_serves ·
+// SERVE_BUDGET.carb.kcal, which already folds in its own 0.5·primaryG
+// padding) gives the formula below.
+export function targetMacrosToServes(macros: { proteinG: number; fatG: number; targetCals: number }) {
+  const proteinServes = roundHalf(macros.proteinG / SERVE_BUDGET.protein.primaryG)
+  const fatServes = roundHalf(macros.fatG / SERVE_BUDGET.fat.primaryG)
+  const remainingForCarbs = macros.targetCals - proteinServes * SERVE_BUDGET.protein.kcal - fatServes * SERVE_BUDGET.fat.kcal - VEG_KCAL
+  const carbServes = Math.max(0, roundHalf(remainingForCarbs / SERVE_BUDGET.carb.kcal))
+  return { protein_serves: proteinServes, carb_serves: carbServes, fat_serves: fatServes, veg_unlimited: true }
 }
 
 // Same per-serve standard as macrosToServes (30g protein / 20g carbs /

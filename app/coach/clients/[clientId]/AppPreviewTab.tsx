@@ -302,6 +302,7 @@ export default function AppPreviewTab({
   foodLogAccess, onFoodLogAccess, savingFoodLog,
   showMealBuilder, onToggleMealBuilder, savingMealBuilder,
   showSavedMeals, onToggleSavedMeals, savingSavedMeals,
+  showServeTargets, onToggleServeTargets, savingServeTargets,
   targetsSource, targetsMealPlanId, onTargetsSource, savingTargetsSource,
 }: {
   clientId: string
@@ -310,6 +311,7 @@ export default function AppPreviewTab({
   onFoodLogAccess: (v: 'full' | 'no_scan' | 'note_only' | 'off') => void; savingFoodLog: boolean
   showMealBuilder: boolean;    onToggleMealBuilder: () => void;   savingMealBuilder: boolean
   showSavedMeals: boolean;     onToggleSavedMeals: () => void;    savingSavedMeals: boolean
+  showServeTargets: boolean;   onToggleServeTargets: () => void;  savingServeTargets: boolean
   targetsSource: 'tdee' | 'meal_plan'
   targetsMealPlanId: string | null
   onTargetsSource: (source: 'tdee' | 'meal_plan', planId: string | null) => void
@@ -520,6 +522,7 @@ export default function AppPreviewTab({
           {[
             { label: 'Meal builder', sub: 'Build meals from individual foods', checked: showMealBuilder, onChange: onToggleMealBuilder, disabled: savingMealBuilder },
             { label: 'My meals',  sub: 'Access and log previously saved meals', checked: showSavedMeals,   onChange: onToggleSavedMeals,   disabled: savingSavedMeals },
+            { label: 'Serve targets', sub: 'Numeric serve counts on Food Log & Cheat Sheet', checked: showServeTargets, onChange: onToggleServeTargets, disabled: savingServeTargets },
           ].map(({ label, sub, checked, onChange, disabled }) => (
             <div key={label} className="flex items-center justify-between">
               <div>
@@ -552,7 +555,7 @@ export default function AppPreviewTab({
             { label: 'Food log',     on: foodLogAccess !== 'off' },
             { label: 'Meal builder', on: showMealBuilder },
             { label: 'My meals',  on: showSavedMeals },
-            { label: 'Cheat sheet',  on: !!serve_targets },
+            { label: 'Cheat sheet',  on: !!serve_targets && showServeTargets },
           ].map(({ label, on }) => (
             <div key={label}>
               <div className="flex items-center gap-2">
@@ -564,7 +567,7 @@ export default function AppPreviewTab({
                 </span>
                 <span className={`text-xs ${on ? 'text-gray-700' : 'text-gray-400'}`}>{label}</span>
               </div>
-              {label === 'Cheat sheet' && serve_targets && (
+              {label === 'Cheat sheet' && serve_targets && showServeTargets && (
                 <div className="ml-6 mt-1 space-y-0.5">
                   <p className="text-[10px] text-emerald-600 font-medium">Client can see allocated food serves</p>
                   <div className="flex flex-wrap gap-1">
@@ -574,6 +577,9 @@ export default function AppPreviewTab({
                     {serve_targets.veg_unlimited && <span className="text-[9px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded-full">Veg ∞</span>}
                   </div>
                 </div>
+              )}
+              {label === 'Cheat sheet' && serve_targets && !showServeTargets && (
+                <p className="ml-6 mt-1 text-[10px] text-gray-400">Serves are set but hidden from the client — turn on &quot;Serve targets&quot; above to show them.</p>
               )}
             </div>
           ))}
@@ -803,8 +809,8 @@ export default function AppPreviewTab({
               </Section>
             )}
 
-            {/* Food Cheat Sheet — shown ABOVE food log when serve targets are set */}
-            {serve_targets && (
+            {/* Food Cheat Sheet — shown ABOVE food log when serve targets are set and visible */}
+            {serve_targets && showServeTargets && (
               <Section label="">
                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50 overflow-hidden">
                   <div className="flex items-center justify-between gap-2 px-3 py-2.5">

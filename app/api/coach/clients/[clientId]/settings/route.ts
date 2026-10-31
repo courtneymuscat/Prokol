@@ -27,7 +27,7 @@ export async function GET(
   const supabase = await createClient()
   const { data } = await supabase
     .from('coach_clients')
-    .select('show_daily_targets, food_log_access, show_meal_builder, show_saved_meals, targets_source, targets_meal_plan_id')
+    .select('show_daily_targets, food_log_access, show_meal_builder, show_saved_meals, show_serve_targets, targets_source, targets_meal_plan_id')
     .eq('coach_id', coachId)
     .eq('client_id', clientId)
     .single()
@@ -38,6 +38,7 @@ export async function GET(
     food_log_access: d?.food_log_access ?? 'full',
     show_meal_builder: d?.show_meal_builder ?? true,
     show_saved_meals: d?.show_saved_meals ?? true,
+    show_serve_targets: d?.show_serve_targets ?? true,
     targets_source: d?.targets_source ?? 'tdee',
     targets_meal_plan_id: d?.targets_meal_plan_id ?? null,
   })
@@ -53,7 +54,7 @@ export async function PUT(
   if (!(await verifyAccess(coachId, clientId))) return Response.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await req.json()
-  const { show_daily_targets, food_log_access, show_meal_builder, show_saved_meals, targets_source, targets_meal_plan_id } = body
+  const { show_daily_targets, food_log_access, show_meal_builder, show_saved_meals, show_serve_targets, targets_source, targets_meal_plan_id } = body
 
   const validFoodLogAccess = ['full', 'no_scan', 'note_only', 'off']
   if (food_log_access !== undefined && !validFoodLogAccess.includes(food_log_access)) {
@@ -65,6 +66,7 @@ export async function PUT(
   if (food_log_access !== undefined) update.food_log_access = food_log_access
   if (typeof show_meal_builder === 'boolean') update.show_meal_builder = show_meal_builder
   if (typeof show_saved_meals === 'boolean') update.show_saved_meals = show_saved_meals
+  if (typeof show_serve_targets === 'boolean') update.show_serve_targets = show_serve_targets
   if (targets_source !== undefined) update.targets_source = targets_source
   if ('targets_meal_plan_id' in body) update.targets_meal_plan_id = targets_meal_plan_id ?? null
 

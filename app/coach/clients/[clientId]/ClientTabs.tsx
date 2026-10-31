@@ -2963,6 +2963,8 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
   const [savingMealBuilder, setSavingMealBuilder] = useState(false)
   const [showSavedMeals, setShowSavedMeals] = useState(true)
   const [savingSavedMeals, setSavingSavedMeals] = useState(false)
+  const [showServeTargets, setShowServeTargets] = useState(true)
+  const [savingServeTargets, setSavingServeTargets] = useState(false)
   const [targetsSource, setTargetsSource] = useState<'tdee' | 'meal_plan'>('tdee')
   const [targetsMealPlanId, setTargetsMealPlanId] = useState<string | null>(null)
   const [savingTargetsSource, setSavingTargetsSource] = useState(false)
@@ -2977,6 +2979,7 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
       setFoodLogAccess(settings.food_log_access ?? 'full')
       setShowMealBuilder(settings.show_meal_builder ?? true)
       setShowSavedMeals(settings.show_saved_meals ?? true)
+      setShowServeTargets(settings.show_serve_targets ?? true)
       setTargetsSource(settings.targets_source ?? 'tdee')
       setTargetsMealPlanId(settings.targets_meal_plan_id ?? null)
     }).finally(() => setLoading(false))
@@ -3054,6 +3057,24 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
     }
   }
 
+  async function handleToggleServeTargets() {
+    const next = !showServeTargets
+    setShowServeTargets(next)
+    setSavingServeTargets(true)
+    try {
+      const res = await fetch(`/api/coach/clients/${clientId}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ show_serve_targets: next }),
+      })
+      if (!res.ok) setShowServeTargets(!next)
+    } catch {
+      setShowServeTargets(!next)
+    } finally {
+      setSavingServeTargets(false)
+    }
+  }
+
   async function handleTargetsSource(source: 'tdee' | 'meal_plan', planId: string | null) {
     setTargetsSource(source)
     setTargetsMealPlanId(planId)
@@ -3114,6 +3135,9 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
             showSavedMeals={showSavedMeals}
             onToggleSavedMeals={handleToggleSavedMeals}
             savingSavedMeals={savingSavedMeals}
+            showServeTargets={showServeTargets}
+            onToggleServeTargets={handleToggleServeTargets}
+            savingServeTargets={savingServeTargets}
             targetsSource={targetsSource}
             targetsMealPlanId={targetsMealPlanId}
             onTargetsSource={handleTargetsSource}

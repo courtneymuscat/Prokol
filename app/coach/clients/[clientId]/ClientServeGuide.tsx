@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import TDEESection from './TDEESection'
-import { macrosToServes } from '@/lib/autoAssignNutrition'
+import { targetMacrosToServes, SERVE_BUDGET, VEG_KCAL } from '@/lib/autoAssignNutrition'
 
 // ─── ClientServeGuide ─────────────────────────────────────────────────────────
 
@@ -31,16 +31,6 @@ const CAT_CONFIG: Record<string, { label: string; serve: string; badge: string; 
 }
 const SEC_LABELS: Record<string, string> = { fat: '+ 1 fat', carb: '+ 1 carb', fat_half: '+ ½ fat', carb_half: '+ ½ carb', protein_half: '+ ½ protein', protein: '+ 1 protein' }
 const SEC_COLORS: Record<string, string> = { fat: 'bg-green-100 text-green-700', carb: 'bg-teal-100 text-teal-700', fat_half: 'bg-green-50 text-green-600', carb_half: 'bg-teal-50 text-teal-600', protein_half: 'bg-pink-50 text-pink-600', protein: 'bg-pink-100 text-pink-700' }
-
-// Per-serve calorie / macro assumptions. Kept in one place so the
-// "How this is calculated" breakdown and the estimate totals can never
-// drift apart.
-const SERVE_BUDGET = {
-  protein: { kcal: 135, primaryG: 30, primaryMacro: 'P' as const, extras: '+ ~3g fat typical in lean meat/eggs' },
-  carb:    { kcal:  90, primaryG: 20, primaryMacro: 'C' as const, extras: '+ ~3g protein typical in grains/legumes (includes fruit — same 20g carb unit)' },
-  fat:     { kcal:  95, primaryG: 10, primaryMacro: 'F' as const, extras: '+ small protein/carbs in nuts/seeds' },
-}
-const VEG_KCAL = 150
 
 function ServeMathBreakdown({
   protein_serves, carb_serves, fat_serves, veg_unlimited,
@@ -135,8 +125,8 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
     }).finally(() => setLoading(false))
   }, [clientId])
 
-  function applyMacrosToServes(macros: { proteinG: number; carbG: number; fatG: number }) {
-    const serves = macrosToServes(macros)
+  function applyMacrosToServes(macros: { targetCals: number; proteinG: number; carbG: number; fatG: number }) {
+    const serves = targetMacrosToServes(macros)
     setDraft(d => ({ ...d, ...serves }))
     setEditingTargets(true)
     setAutoAssign(true)
