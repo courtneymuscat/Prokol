@@ -149,10 +149,10 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
     }
 
     setLoggedId(meal.id)
-    setTimeout(() => setLoggedId(null), 2500)
     notifyMyCoach('food')
     // Signal DailyLog to re-fetch
     window.dispatchEvent(new CustomEvent('meal-logged'))
+    router.push('/log-food')
   }
 
   async function deleteMeal(mealId: string) {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { notifyMyCoach } from '@/lib/notifyMyCoach'
 
@@ -57,6 +58,7 @@ function guessMealType(label: string): MealTypeKey {
 }
 
 export default function LogMealModal({ slot, onClose }: { slot: LoggableSlot; onClose: () => void }) {
+  const router = useRouter()
   const today = new Date().toISOString().slice(0, 10)
   const [mealType, setMealType] = useState<MealTypeKey>(guessMealType(slot.label))
   const [date, setDate] = useState(today)
@@ -127,7 +129,7 @@ export default function LogMealModal({ slot, onClose }: { slot: LoggableSlot; on
               </div>
               <p className="text-sm font-semibold text-gray-900">Logged {slot.foods.length} item{slot.foods.length !== 1 ? 's' : ''}!</p>
               <p className="text-xs text-gray-400">{Math.round(totalCal)} kcal added to {MEAL_TYPE_OPTIONS.find(o => o.key === mealType)?.label} on {new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
-              <button onClick={onClose} className="w-full mt-2 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors">Done</button>
+              <button onClick={() => router.push('/log-food')} className="w-full mt-2 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors">Go to Food Log →</button>
             </div>
           ) : (
             <>

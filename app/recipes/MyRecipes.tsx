@@ -148,9 +148,9 @@ export default function MyRecipes() {
     }
 
     setLoggedId(recipe.id)
-    setTimeout(() => setLoggedId(null), 2500)
     notifyMyCoach('food')
     window.dispatchEvent(new CustomEvent('meal-logged'))
+    router.push('/log-food')
   }
 
   if (loading) {
