@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import LogMealModal, { formatServing } from '@/app/components/LogMealModal'
 import { mealMacrosToServes, macrosToServes, VEG_RESERVE_CARB_SERVES } from '@/lib/autoAssignNutrition'
 import ServeCalcNote from '@/app/components/ServeCalcNote'
+import { CATEGORIES, DIET_TAG_LABEL, TIER_TAG_STYLE, DIET_FILTERS, TIER_FILTERS } from '@/lib/recipeTags'
 
 const BarcodeScanner = dynamic(() => import('./BarcodeScanner'), { ssr: false })
 
@@ -620,6 +621,8 @@ type ClientRecipeListItem = {
   total_protein: number
   total_carbs: number
   total_fat: number
+  diet_tags: string[]
+  tier_tag: string | null
 }
 
 function RecipeSwapModal({
@@ -642,6 +645,9 @@ function RecipeSwapModal({
   const [recipes, setRecipes] = useState<ClientRecipeListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
+  const [category, setCategory] = useState('')
+  const [dietFilter, setDietFilter] = useState('')
+  const [tierFilter, setTierFilter] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -654,7 +660,13 @@ function RecipeSwapModal({
       })
   }, [recipeId])
 
-  const filtered = recipes.filter((r) => r.name.toLowerCase().includes(query.trim().toLowerCase()))
+  const filtered = recipes.filter((r) => {
+    if (category && r.category !== category) return false
+    if (dietFilter && !r.diet_tags?.includes(dietFilter)) return false
+    if (tierFilter && r.tier_tag !== tierFilter) return false
+    if (query && !r.name.toLowerCase().includes(query.trim().toLowerCase())) return false
+    return true
+  })
 
   async function handlePick(newRecipeId: string) {
     setSaving(true)
@@ -707,6 +719,38 @@ function RecipeSwapModal({
             placeholder="Search recipes…"
             className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
           />
+
+          <div className="flex gap-2 overflow-x-auto">
+            {CATEGORIES.map((c) => (
+              <button
+                key={c.value}
+                onClick={() => setCategory(c.value)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                  category === c.value ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={dietFilter}
+              onChange={(e) => setDietFilter(e.target.value)}
+              className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-600"
+            >
+              {DIET_FILTERS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+            </select>
+            <select
+              value={tierFilter}
+              onChange={(e) => setTierFilter(e.target.value)}
+              className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-600"
+            >
+              {TIER_FILTERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+
           {error && <p className="text-sm text-red-500">{error}</p>}
         </div>
 
@@ -714,7 +758,9 @@ function RecipeSwapModal({
           {loading ? (
             <p className="text-sm text-gray-400 text-center py-8">Loading…</p>
           ) : filtered.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-8">No other recipes available.</p>
+            <p className="text-sm text-gray-400 text-center py-8">
+              {recipes.length === 0 ? 'No other recipes available.' : 'No recipes match these filters.'}
+            </p>
           ) : (
             <ul className="rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden">
               {filtered.map((r) => (
@@ -726,8 +772,23 @@ function RecipeSwapModal({
                   >
                     <p className="text-sm font-medium text-gray-800">{r.name}</p>
                     <p className="text-xs text-gray-400 mt-0.5">
+                      {r.category && <span className="capitalize">{r.category} · </span>}
                       {Math.round(r.total_calories)} kcal · {Math.round(r.total_protein)}g P · {Math.round(r.total_carbs)}g C · {Math.round(r.total_fat)}g F
                     </p>
+                    {((r.diet_tags && r.diet_tags.length > 0) || r.tier_tag) && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {r.tier_tag && (
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${TIER_TAG_STYLE[r.tier_tag]?.className ?? 'bg-purple-50 text-purple-700'}`}>
+                            {TIER_TAG_STYLE[r.tier_tag]?.label ?? r.tier_tag}
+                          </span>
+                        )}
+                        {(r.diet_tags ?? []).map((t) => (
+                          <span key={t} className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                            {DIET_TAG_LABEL[t] ?? t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </button>
                 </li>
               ))}
