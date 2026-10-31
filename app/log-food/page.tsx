@@ -54,6 +54,7 @@ export default async function LogFoodPage() {
 
   const canMealScanner = sub.canAccess(FEATURES.MEAL_SCANNER)
   const canMealBuilder = sub.canAccess(FEATURES.MEAL_BUILDER)
+  const canUseSavedMeals = canMealBuilder && (!isCoached || showSavedMeals)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -69,6 +70,7 @@ export default async function LogFoodPage() {
       <main className="max-w-2xl mx-auto p-6 space-y-6">
         <DailyLog
           canScanMeal={canMealScanner && foodLogAccess !== 'no_scan' && foodLogAccess !== 'note_only' && foodLogAccess !== 'off'}
+          canUseSavedMeals={canUseSavedMeals}
           foodLogAccess={isCoached ? foodLogAccess : 'full'}
           targetCalories={(!isCoached || showDailyTargets) ? (profile?.target_calories ?? null) : null}
           targetProtein={(!isCoached || showDailyTargets) ? (profile?.target_protein ?? null) : null}
@@ -92,11 +94,11 @@ export default async function LogFoodPage() {
           </div>
         )}
 
-        {(!isCoached || showMealBuilder || showSavedMeals) && (
+        {(!isCoached || showMealBuilder) && (
           <section>
             {canMealBuilder
-              ? <MealSection showMealBuilder={!isCoached || showMealBuilder} showSavedMeals={!isCoached || showSavedMeals} />
-              : <UpgradePrompt plan="Optimiser" feature="Meal builder & saved meals" />
+              ? <MealSection showMealBuilder={!isCoached || showMealBuilder} />
+              : <UpgradePrompt plan="Optimiser" feature="Meal builder" />
             }
           </section>
         )}
