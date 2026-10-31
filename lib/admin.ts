@@ -265,19 +265,30 @@ export type ArchivedClientRow = {
  * Archived coach_clients for a set of coaches, grouped by coach_id. Shared
  * by getAllCoaches, getOrgDetail, and getCoachDetail so the query + client
  * profile lookup isn't copy-pasted three times.
+ *
+ * `orgId`, when given, additionally restricts to clients who joined
+ * through that specific org (coach_clients.org_id) — needed by
+ * getOrgDetail: a coach who owns/belongs to multiple orgs (e.g. Court's
+ * own coaching business AND a gym org she also owns) otherwise has every
+ * archived client from every context lumped onto each org's Archived tab,
+ * since coach_id alone doesn't distinguish which org a client came from.
+ * getAllCoaches/getCoachDetail intentionally omit it — they want a coach's
+ * full archived history regardless of org.
  */
 async function fetchArchivedClientsForCoaches(
   admin: ReturnType<typeof createAdminClient>,
   coachIds: string[],
+  orgId?: string,
 ): Promise<Record<string, ArchivedClientRow[]>> {
   if (coachIds.length === 0) return {}
 
-  const { data: archivedRows } = await admin
+  let query = admin
     .from('coach_clients')
     .select('coach_id, client_id, archived_at')
     .in('coach_id', coachIds)
     .eq('status', 'archived')
-    .order('archived_at', { ascending: false, nullsFirst: false })
+  if (orgId) query = query.eq('org_id', orgId)
+  const { data: archivedRows } = await query.order('archived_at', { ascending: false, nullsFirst: false })
 
   const clientIds = [...new Set((archivedRows ?? []).map((r) => r.client_id))]
   const clientProfilesRes = clientIds.length
@@ -478,6 +489,7 @@ export type OrgDetail = {
   id: string
   name: string
   slug: string
+  owner_id: string
   tenant_type: 'coaching_business' | 'gym'
   billing_status: string
   subscription_tier: string
@@ -534,7 +546,7 @@ export async function getOrgDetail(orgId: string) {
   const [{ data: org }, { data: members }, { data: pendingApp }] = await Promise.all([
     admin
       .from('organisations')
-      .select('id, name, slug, tenant_type, billing_status, subscription_tier, is_active, logo_url, brand_colour, brand_colour_secondary, app_name, created_at, is_white_label, white_label_tier, support_email, favicon_url')
+      .select('id, name, slug, owner_id, tenant_type, billing_status, subscription_tier, is_active, logo_url, brand_colour, brand_colour_secondary, app_name, created_at, is_white_label, white_label_tier, support_email, favicon_url')
       .eq('id', orgId)
       .single(),
     admin
@@ -586,7 +598,7 @@ export async function getOrgDetail(orgId: string) {
   )
 
   const coachIds = memberRows.map((m) => m.user_id)
-  const archivedByCoachId = await fetchArchivedClientsForCoaches(admin, coachIds)
+  const archivedByCoachId = await fetchArchivedClientsForCoaches(admin, coachIds, orgId)
   // Flatten back into one list sorted by archived_at desc across every
   // coach in the org (the helper only sorts within each coach's own group).
   const archivedClients: ArchivedClientRow[] = Object.values(archivedByCoachId)

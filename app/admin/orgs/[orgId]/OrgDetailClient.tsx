@@ -46,6 +46,7 @@ export default function OrgDetailClient({
   initialLeads,
   frontDoorUrl,
   existingLinks,
+  canManageSignupLinks,
 }: {
   org: OrgDetail
   members: OrgMemberRow[]
@@ -57,12 +58,13 @@ export default function OrgDetailClient({
   initialLeads: OrgLead[]
   frontDoorUrl: string
   existingLinks: ExistingLink[]
+  canManageSignupLinks: boolean
 }) {
   const searchParams = useSearchParams()
   const requestedTab = searchParams.get('tab')
   const [activeTab, setActiveTab] = useState<TabId>(isTabId(requestedTab) ? requestedTab : 'org')
   const [tenantType, setTenantType] = useState(org.tenant_type)
-  const tabs = ALL_TABS.filter((t) => t.id !== 'links' || tenantType === 'gym')
+  const tabs = ALL_TABS.filter((t) => t.id !== 'links' || canManageSignupLinks)
   const [tenantTypeSaving, startTenantTypeTransition] = useTransition()
   const [tenantTypeMsg, setTenantTypeMsg] = useState<string | null>(null)
 
@@ -454,7 +456,7 @@ export default function OrgDetailClient({
       </>
       )}
 
-      {activeTab === 'links' && tenantType === 'gym' && (
+      {activeTab === 'links' && canManageSignupLinks && (
         <SignupLinkPanel orgId={org.id} frontDoorUrl={frontDoorUrl} existingLinks={existingLinks} />
       )}
 

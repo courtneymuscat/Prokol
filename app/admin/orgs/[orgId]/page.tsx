@@ -24,12 +24,18 @@ export default async function AdminOrgDetailPage({
 
   if (!org) notFound()
 
-  // Signup links are gym-only — anyone who signs up through a reusable
-  // link has no coach to onboard them manually (see SignupLinkPanel), so
-  // the concept doesn't apply to a regular coaching-business org.
+  // Signup links only make sense for orgs this platform admin themselves
+  // owns — same "gym" definition app/admin/gyms/page.tsx and the gym
+  // detail page already use ("just any organisation this platform admin
+  // owns, not a special tenant_type"): a signup-link signup resolves its
+  // coach_id from org.owner_id, which only works end-to-end when that
+  // owner is the admin actually running this flow. tenant_type is a
+  // separate, unrelated dimension (coaching_business vs gym affects
+  // health-data visibility, not signup links).
+  const isOwnedByAdmin = org.owner_id === admin.id
   let frontDoorUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.prokol.io'
   let existingLinks: { id: string; code: string; name: string | null; isActive: boolean; autoflowNames: string[] }[] = []
-  if (org.tenant_type === 'gym') {
+  if (isOwnedByAdmin) {
     const supabaseAdmin = createAdminClient()
     const [frontDoor, { data: links }] = await Promise.all([
       getOrgFrontDoorUrl(orgId),
@@ -81,6 +87,7 @@ export default async function AdminOrgDetailPage({
         initialLeads={leads}
         frontDoorUrl={frontDoorUrl}
         existingLinks={existingLinks}
+        canManageSignupLinks={isOwnedByAdmin}
       />
     </div>
   )

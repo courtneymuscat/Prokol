@@ -16,7 +16,7 @@ vi.mock('@/lib/supabase/admin', () => ({
     from: (table: string) => {
       const fixtures: Record<string, Record<string, unknown>[]> = {
         organisations: [{
-          id: 'org-1', name: 'Test Org', slug: 'test-org', tenant_type: 'coaching_business',
+          id: 'org-1', name: 'Test Org', slug: 'test-org', owner_id: 'owner-user', tenant_type: 'coaching_business',
           billing_status: 'active', subscription_tier: 'org_enterprise', is_active: true,
           logo_url: null, brand_colour: null, brand_colour_secondary: null, app_name: null,
           created_at: '2026-01-01', is_white_label: false, white_label_tier: null,
@@ -25,8 +25,11 @@ vi.mock('@/lib/supabase/admin', () => ({
         org_members: [{ id: 'member-1', org_id: 'org-1', user_id: 'owner-user', role: 'owner', is_active: true }],
         white_label_applications: [],
         profiles: [{ id: 'owner-user', full_name: 'Org Owner', email: 'owner@example.com' }],
+        // org_id: 'org-1' matters here — getOrgDetail now scopes archived
+        // clients to clients who actually joined through this org, not
+        // just any archived client this coach has ever had anywhere.
         coach_clients: [
-          { coach_id: 'owner-user', client_id: 'client-1', archived_at: '2026-02-01', status: 'archived' },
+          { coach_id: 'owner-user', client_id: 'client-1', archived_at: '2026-02-01', status: 'archived', org_id: 'org-1' },
         ],
       }
       let rows = [...(fixtures[table] ?? [])]
