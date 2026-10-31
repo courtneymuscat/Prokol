@@ -6,6 +6,7 @@ import LogMealModal, { formatServing } from '@/app/components/LogMealModal'
 import { mealMacrosToServes, macrosToServes, VEG_RESERVE_CARB_SERVES } from '@/lib/autoAssignNutrition'
 import ServeCalcNote from '@/app/components/ServeCalcNote'
 import { CATEGORIES, DIET_TAG_LABEL, TIER_TAG_STYLE, DIET_FILTERS, TIER_FILTERS } from '@/lib/recipeTags'
+import { createClient } from '@/lib/supabase/client'
 
 const BarcodeScanner = dynamic(() => import('./BarcodeScanner'), { ssr: false })
 
@@ -34,6 +35,12 @@ type MealFood = {
   // instead of as indistinguishable separate lines.
   recipe_id?: string
   recipe_name?: string
+  // 'saved_meal' when this group came from the client's own Saved Meals
+  // rather than the coach's recipe library — undefined/'library' for
+  // everything swapped in before this distinction existed. Saved meals
+  // have no coach-authored instructions/modification notes, so the group
+  // card hides the "View notes" affordance for them.
+  recipe_source?: 'library' | 'saved_meal'
 }
 
 // Consecutive foods sharing a recipe_id (always inserted as a contiguous
@@ -42,7 +49,7 @@ type MealFood = {
 // separate lines.
 export type FoodGroup =
   | { type: 'single'; food: MealFood; index: number }
-  | { type: 'recipe'; recipeId: string; recipeName: string; items: Array<{ food: MealFood; index: number }> }
+  | { type: 'recipe'; recipeId: string; recipeName: string; recipeSource: 'library' | 'saved_meal'; items: Array<{ food: MealFood; index: number }> }
 
 export function groupFoodsByRecipe(foods: MealFood[]): FoodGroup[] {
   const groups: FoodGroup[] = []
@@ -52,12 +59,13 @@ export function groupFoodsByRecipe(foods: MealFood[]): FoodGroup[] {
     if (food.recipe_id) {
       const recipeId = food.recipe_id
       const recipeName = food.recipe_name ?? 'Recipe'
+      const recipeSource = food.recipe_source ?? 'library'
       const items: Array<{ food: MealFood; index: number }> = []
       while (i < foods.length && foods[i].recipe_id === recipeId) {
         items.push({ food: foods[i], index: i })
         i++
       }
-      groups.push({ type: 'recipe', recipeId, recipeName, items })
+      groups.push({ type: 'recipe', recipeId, recipeName, recipeSource, items })
     } else {
       groups.push({ type: 'single', food, index: i })
       i++
@@ -574,11 +582,13 @@ function RecipeGroupCard({
     { calories: 0, protein: 0, carbs: 0, fat: 0 },
   )
 
+  const isSavedMeal = group.recipeSource === 'saved_meal'
+
   return (
     <div className="rounded-xl border border-purple-100 bg-purple-50/30 my-2 overflow-hidden">
       <div className="flex items-center justify-between gap-2 px-3 py-2 bg-purple-50 border-b border-purple-100">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-purple-900 truncate">🍳 {group.recipeName}</p>
+          <p className="text-sm font-semibold text-purple-900 truncate">{isSavedMeal ? '🥡' : '🍳'} {group.recipeName}</p>
           {showMacros && (
             <p className="text-xs text-purple-500 mt-0.5">
               {Math.round(totals.calories)} kcal · {Math.round(totals.protein)}g P · {Math.round(totals.carbs)}g C · {Math.round(totals.fat)}g F
@@ -586,13 +596,15 @@ function RecipeGroupCard({
           )}
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          <button
-            onClick={onViewNotes}
-            className="text-xs font-medium text-purple-600 bg-white border border-purple-200 rounded-lg px-2 py-1 hover:bg-purple-100 transition-colors"
-            title="View recipe instructions and adjustment notes"
-          >
-            📖 Recipe
-          </button>
+          {!isSavedMeal && (
+            <button
+              onClick={onViewNotes}
+              className="text-xs font-medium text-purple-600 bg-white border border-purple-200 rounded-lg px-2 py-1 hover:bg-purple-100 transition-colors"
+              title="View recipe instructions and adjustment notes"
+            >
+              📖 Recipe
+            </button>
+          )}
           <button
             onClick={onSwapRecipe}
             className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-purple-100 text-purple-400 hover:text-purple-600 transition-colors text-base"
@@ -625,11 +637,25 @@ type ClientRecipeListItem = {
   tier_tag: string | null
 }
 
+type SavedMealListItem = {
+  id: string
+  name: string
+  meal_items: { calories: number; protein: number; carbs: number; fat: number }[]
+}
+
+function sumSavedMeal(items: SavedMealListItem['meal_items']) {
+  return items.reduce(
+    (acc, i) => ({ calories: acc.calories + i.calories, protein: acc.protein + i.protein, carbs: acc.carbs + i.carbs, fat: acc.fat + i.fat }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0 },
+  )
+}
+
 function RecipeSwapModal({
   planId,
   mealIndex,
   recipeId,
   recipeName,
+  currentSource,
   originalCalories,
   onClose,
   onSwapped,
@@ -638,12 +664,16 @@ function RecipeSwapModal({
   mealIndex: number
   recipeId: string
   recipeName: string
+  currentSource: 'library' | 'saved_meal'
   originalCalories: number
   onClose: () => void
   onSwapped: () => void
 }) {
+  const [tab, setTab] = useState<'library' | 'saved'>('library')
   const [recipes, setRecipes] = useState<ClientRecipeListItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loadingRecipes, setLoadingRecipes] = useState(true)
+  const [savedMeals, setSavedMeals] = useState<SavedMealListItem[]>([])
+  const [loadingSaved, setLoadingSaved] = useState(true)
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('')
   const [dietFilter, setDietFilter] = useState('')
@@ -655,27 +685,48 @@ function RecipeSwapModal({
     fetch('/api/client/recipes')
       .then((r) => r.json())
       .then((data) => {
-        setRecipes(Array.isArray(data) ? data.filter((r: ClientRecipeListItem) => r.id !== recipeId) : [])
-        setLoading(false)
+        setRecipes(Array.isArray(data) ? data.filter((r: ClientRecipeListItem) => !(currentSource === 'library' && r.id === recipeId)) : [])
+        setLoadingRecipes(false)
       })
-  }, [recipeId])
+  }, [recipeId, currentSource])
 
-  const filtered = recipes.filter((r) => {
+  useEffect(() => {
+    ;(async () => {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { setLoadingSaved(false); return }
+      const { data: mealsData } = await supabase.from('meals').select('id, name').eq('user_id', session.user.id).order('created_at', { ascending: false })
+      if (!mealsData || mealsData.length === 0) { setSavedMeals([]); setLoadingSaved(false); return }
+      const mealIds = mealsData.map((m) => m.id)
+      const { data: itemsData } = await supabase.from('meal_items').select('meal_id, calories, protein, carbs, fat').in('meal_id', mealIds)
+      const byMeal: Record<string, SavedMealListItem['meal_items']> = {}
+      for (const item of itemsData ?? []) (byMeal[item.meal_id] ??= []).push(item)
+      setSavedMeals(
+        mealsData
+          .filter((m) => !(currentSource === 'saved_meal' && m.id === recipeId))
+          .map((m) => ({ ...m, meal_items: byMeal[m.id] ?? [] })),
+      )
+      setLoadingSaved(false)
+    })()
+  }, [recipeId, currentSource])
+
+  const filteredRecipes = recipes.filter((r) => {
     if (category && r.category !== category) return false
     if (dietFilter && !r.diet_tags?.includes(dietFilter)) return false
     if (tierFilter && r.tier_tag !== tierFilter) return false
     if (query && !r.name.toLowerCase().includes(query.trim().toLowerCase())) return false
     return true
   })
+  const filteredSaved = savedMeals.filter((m) => !query.trim() || m.name.toLowerCase().includes(query.trim().toLowerCase()))
 
-  async function handlePick(newRecipeId: string) {
+  async function handlePick(body: { new_recipe_id?: string; new_saved_meal_id?: string }) {
     setSaving(true)
     setError(null)
     try {
       const res = await fetch(`/api/client/meal-plans/${planId}/swap-recipe`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ meal_index: mealIndex, recipe_id: recipeId, new_recipe_id: newRecipeId }),
+        body: JSON.stringify({ meal_index: mealIndex, recipe_id: recipeId, ...body }),
       })
       if (!res.ok) {
         const err = await res.json()
@@ -703,6 +754,20 @@ function RecipeSwapModal({
           </button>
         </div>
 
+        <div className="flex gap-1 px-5 pt-4">
+          {(['library', 'saved'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                tab === t ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {t === 'library' ? 'My Library' : 'My Saved Meals'}
+            </button>
+          ))}
+        </div>
+
         <div className="p-5 pb-3 flex flex-col gap-3">
           <div className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3">
             <p className="text-xs text-gray-400 mb-1">Replacing</p>
@@ -716,82 +781,114 @@ function RecipeSwapModal({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search recipes…"
+            placeholder={tab === 'library' ? 'Search recipes…' : 'Search saved meals…'}
             className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
           />
 
-          <div className="flex gap-2 overflow-x-auto">
-            {CATEGORIES.map((c) => (
-              <button
-                key={c.value}
-                onClick={() => setCategory(c.value)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                  category === c.value ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {c.label}
-              </button>
-            ))}
-          </div>
+          {tab === 'library' && (
+            <>
+              <div className="flex gap-2 overflow-x-auto">
+                {CATEGORIES.map((c) => (
+                  <button
+                    key={c.value}
+                    onClick={() => setCategory(c.value)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                      category === c.value ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
 
-          <div className="flex flex-wrap gap-2">
-            <select
-              value={dietFilter}
-              onChange={(e) => setDietFilter(e.target.value)}
-              className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-600"
-            >
-              {DIET_FILTERS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-            </select>
-            <select
-              value={tierFilter}
-              onChange={(e) => setTierFilter(e.target.value)}
-              className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-600"
-            >
-              {TIER_FILTERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          </div>
+              <div className="flex flex-wrap gap-2">
+                <select
+                  value={dietFilter}
+                  onChange={(e) => setDietFilter(e.target.value)}
+                  className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-600"
+                >
+                  {DIET_FILTERS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+                </select>
+                <select
+                  value={tierFilter}
+                  onChange={(e) => setTierFilter(e.target.value)}
+                  className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-600"
+                >
+                  {TIER_FILTERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+            </>
+          )}
 
           {error && <p className="text-sm text-red-500">{error}</p>}
         </div>
 
         <div className="overflow-y-auto flex-1 px-5 pb-5">
-          {loading ? (
+          {tab === 'library' ? (
+            loadingRecipes ? (
+              <p className="text-sm text-gray-400 text-center py-8">Loading…</p>
+            ) : filteredRecipes.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">
+                {recipes.length === 0 ? 'No other recipes available.' : 'No recipes match these filters.'}
+              </p>
+            ) : (
+              <ul className="rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+                {filteredRecipes.map((r) => (
+                  <li key={r.id}>
+                    <button
+                      onClick={() => handlePick({ new_recipe_id: r.id })}
+                      disabled={saving}
+                      className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                    >
+                      <p className="text-sm font-medium text-gray-800">{r.name}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {r.category && <span className="capitalize">{r.category} · </span>}
+                        {Math.round(r.total_calories)} kcal · {Math.round(r.total_protein)}g P · {Math.round(r.total_carbs)}g C · {Math.round(r.total_fat)}g F
+                      </p>
+                      {((r.diet_tags && r.diet_tags.length > 0) || r.tier_tag) && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {r.tier_tag && (
+                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${TIER_TAG_STYLE[r.tier_tag]?.className ?? 'bg-purple-50 text-purple-700'}`}>
+                              {TIER_TAG_STYLE[r.tier_tag]?.label ?? r.tier_tag}
+                            </span>
+                          )}
+                          {(r.diet_tags ?? []).map((t) => (
+                            <span key={t} className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full">
+                              {DIET_TAG_LABEL[t] ?? t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )
+          ) : loadingSaved ? (
             <p className="text-sm text-gray-400 text-center py-8">Loading…</p>
-          ) : filtered.length === 0 ? (
+          ) : filteredSaved.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-8">
-              {recipes.length === 0 ? 'No other recipes available.' : 'No recipes match these filters.'}
+              {savedMeals.length === 0 ? 'No saved meals yet.' : 'No meals match your search.'}
             </p>
           ) : (
             <ul className="rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden">
-              {filtered.map((r) => (
-                <li key={r.id}>
-                  <button
-                    onClick={() => handlePick(r.id)}
-                    disabled={saving}
-                    className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors disabled:opacity-50"
-                  >
-                    <p className="text-sm font-medium text-gray-800">{r.name}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {r.category && <span className="capitalize">{r.category} · </span>}
-                      {Math.round(r.total_calories)} kcal · {Math.round(r.total_protein)}g P · {Math.round(r.total_carbs)}g C · {Math.round(r.total_fat)}g F
-                    </p>
-                    {((r.diet_tags && r.diet_tags.length > 0) || r.tier_tag) && (
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {r.tier_tag && (
-                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${TIER_TAG_STYLE[r.tier_tag]?.className ?? 'bg-purple-50 text-purple-700'}`}>
-                            {TIER_TAG_STYLE[r.tier_tag]?.label ?? r.tier_tag}
-                          </span>
-                        )}
-                        {(r.diet_tags ?? []).map((t) => (
-                          <span key={t} className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded-full">
-                            {DIET_TAG_LABEL[t] ?? t}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </button>
-                </li>
-              ))}
+              {filteredSaved.map((m) => {
+                const t = sumSavedMeal(m.meal_items)
+                return (
+                  <li key={m.id}>
+                    <button
+                      onClick={() => handlePick({ new_saved_meal_id: m.id })}
+                      disabled={saving}
+                      className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                    >
+                      <p className="text-sm font-medium text-gray-800">{m.name}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {Math.round(t.calories)} kcal · {Math.round(t.protein)}g P · {Math.round(t.carbs)}g C · {Math.round(t.fat)}g F
+                      </p>
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>
@@ -890,7 +987,7 @@ interface PlanViewProps {
 function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
   const [swapTarget, setSwapTarget] = useState<{ mealIndex: number; foodIndex: number } | null>(null)
   const [logTarget, setLogTarget] = useState<MealSlot | null>(null)
-  const [recipeSwapTarget, setRecipeSwapTarget] = useState<{ mealIndex: number; recipeId: string; recipeName: string; originalCalories: number } | null>(null)
+  const [recipeSwapTarget, setRecipeSwapTarget] = useState<{ mealIndex: number; recipeId: string; recipeName: string; recipeSource: 'library' | 'saved_meal'; originalCalories: number } | null>(null)
   const [recipeNotesTarget, setRecipeNotesTarget] = useState<{ recipeId: string; recipeName: string } | null>(null)
 
   const slotContribution = (slot: MealSlot) => {
@@ -1124,7 +1221,7 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
                       onSwapIngredient={(foodIndex) => setSwapTarget({ mealIndex, foodIndex })}
                       onSwapRecipe={() => {
                         const originalCalories = group.items.reduce((sum, it) => sum + it.food.calories, 0)
-                        setRecipeSwapTarget({ mealIndex, recipeId: group.recipeId, recipeName: group.recipeName, originalCalories })
+                        setRecipeSwapTarget({ mealIndex, recipeId: group.recipeId, recipeName: group.recipeName, recipeSource: group.recipeSource, originalCalories })
                       }}
                       onViewNotes={() => setRecipeNotesTarget({ recipeId: group.recipeId, recipeName: group.recipeName })}
                     />
@@ -1171,6 +1268,7 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
           mealIndex={recipeSwapTarget.mealIndex}
           recipeId={recipeSwapTarget.recipeId}
           recipeName={recipeSwapTarget.recipeName}
+          currentSource={recipeSwapTarget.recipeSource}
           originalCalories={recipeSwapTarget.originalCalories}
           onClose={() => setRecipeSwapTarget(null)}
           onSwapped={() => {

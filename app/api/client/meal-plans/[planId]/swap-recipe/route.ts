@@ -24,10 +24,11 @@ interface Meal {
 
 // PATCH /api/client/meal-plans/[planId]/swap-recipe — Mode A substitution:
 // swap an entire recipe-group (every consecutive food sharing the same
-// recipe_id) for a different recipe from the coach's library, scaled so
-// its total calories match what it's replacing. Sibling to swap/route.ts
-// (same ownership-check-then-update-content pattern) — that route handles
-// single-food swaps, this one handles whole-recipe swaps.
+// recipe_id) for a different recipe from the coach's library OR one of the
+// client's own Saved Meals, scaled so its total calories match what it's
+// replacing. Sibling to swap/route.ts (same ownership-check-then-update-
+// content pattern) — that route handles single-food swaps, this one
+// handles whole-recipe swaps.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ planId: string }> },
@@ -38,10 +39,14 @@ export async function PATCH(
   if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { meal_index, recipe_id, new_recipe_id } = body as {
+  const { meal_index, recipe_id, new_recipe_id, new_saved_meal_id } = body as {
     meal_index: number
     recipe_id: string
-    new_recipe_id: string
+    new_recipe_id?: string
+    new_saved_meal_id?: string
+  }
+  if (!new_recipe_id && !new_saved_meal_id) {
+    return Response.json({ error: 'A replacement recipe or saved meal is required' }, { status: 400 })
   }
 
   const { data: plan, error: fetchError } = await supabase
@@ -73,26 +78,62 @@ export async function PATCH(
   const originalGroup = groupIndices.map((i) => meal.foods[i])
   const originalCalories = originalGroup.reduce((sum, f) => sum + (f.calories || 0), 0)
 
-  // Admin client — the client reading another coach-owned recipe's
-  // ingredients would otherwise be blocked by recipes'/recipe_ingredients'
-  // coach_id = auth.uid() RLS policies.
-  const admin = createAdminClient()
-  const { data: newRecipe } = await admin
-    .from('recipes')
-    .select('id, name, total_calories')
-    .eq('id', new_recipe_id)
-    .single()
-  if (!newRecipe) return Response.json({ error: 'Replacement recipe not found' }, { status: 404 })
+  let newId: string
+  let newName: string
+  let newTotalCalories: number
+  let newIngredientsRaw: { food_id?: string | null; food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number }[]
+  let recipeSource: 'library' | 'saved_meal'
 
-  const { data: newIngredients } = await admin
-    .from('recipe_ingredients')
-    .select('food_id, food_name, grams, calories, protein, carbs, fat, sort_order')
-    .eq('recipe_id', new_recipe_id)
-    .order('sort_order', { ascending: true })
-  if (!newIngredients?.length) return Response.json({ error: 'Replacement recipe has no ingredients' }, { status: 400 })
+  if (new_recipe_id) {
+    // Admin client — the client reading another coach-owned recipe's
+    // ingredients would otherwise be blocked by recipes'/recipe_ingredients'
+    // coach_id = auth.uid() RLS policies.
+    const admin = createAdminClient()
+    const { data: newRecipe } = await admin
+      .from('recipes')
+      .select('id, name, total_calories')
+      .eq('id', new_recipe_id)
+      .single()
+    if (!newRecipe) return Response.json({ error: 'Replacement recipe not found' }, { status: 404 })
 
-  const scale = computeRecipeSwapScale(originalCalories, newRecipe.total_calories)
-  const scaled = scaleRecipeIngredients(newIngredients, scale)
+    const { data: newIngredients } = await admin
+      .from('recipe_ingredients')
+      .select('food_id, food_name, grams, calories, protein, carbs, fat, sort_order')
+      .eq('recipe_id', new_recipe_id)
+      .order('sort_order', { ascending: true })
+    if (!newIngredients?.length) return Response.json({ error: 'Replacement recipe has no ingredients' }, { status: 400 })
+
+    newId = newRecipe.id
+    newName = newRecipe.name
+    newTotalCalories = newRecipe.total_calories
+    newIngredientsRaw = newIngredients
+    recipeSource = 'library'
+  } else {
+    // Saved meal — the client's own, so the regular (RLS-scoped) client is
+    // enough; no need to reach for the admin client here.
+    const { data: savedMeal } = await supabase
+      .from('meals')
+      .select('id, name')
+      .eq('id', new_saved_meal_id)
+      .eq('user_id', user.id)
+      .single()
+    if (!savedMeal) return Response.json({ error: 'Saved meal not found' }, { status: 404 })
+
+    const { data: items } = await supabase
+      .from('meal_items')
+      .select('food_id, food_name, grams, calories, protein, carbs, fat')
+      .eq('meal_id', new_saved_meal_id)
+    if (!items?.length) return Response.json({ error: 'That saved meal has no food items' }, { status: 400 })
+
+    newId = savedMeal.id
+    newName = savedMeal.name
+    newTotalCalories = items.reduce((sum, i) => sum + (i.calories || 0), 0)
+    newIngredientsRaw = items
+    recipeSource = 'saved_meal'
+  }
+
+  const scale = computeRecipeSwapScale(originalCalories, newTotalCalories)
+  const scaled = scaleRecipeIngredients(newIngredientsRaw, scale)
 
   const newFoods: FoodItem[] = scaled.map((i, idx) => ({
     food_id: i.food_id ?? undefined,
@@ -102,8 +143,9 @@ export async function PATCH(
     protein: i.protein,
     carbs: i.carbs,
     fat: i.fat,
-    recipe_id: newRecipe.id,
-    recipe_name: newRecipe.name,
+    recipe_id: newId,
+    recipe_name: newName,
+    recipe_source: recipeSource,
     ...(idx === 0 ? { swapped_from: originalGroup } : {}),
   }))
 
