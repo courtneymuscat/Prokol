@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
   if (!q || q.length < 2) return Response.json([])
 
   const supabase = await createClient()
+  const { data: { session } } = await supabase.auth.getSession()
 
   // For multi-word queries (e.g. "chicken raw"), search each word individually
   // so "Chicken, raw breast" is found even though "chicken raw" isn't a substring.
@@ -23,6 +24,19 @@ export async function GET(req: NextRequest) {
     return query
   }
 
+  // `foods` RLS allows any authenticated user to read any row (plain
+  // custom foods are treated as a shared low-risk reference list), but a
+  // food mirrored from someone's own named recipe (see
+  // lib/clientRecipeFoodSync.ts) is more personally identifying — scope
+  // those specifically to their owner rather than inheriting that global
+  // visibility. Plain custom foods (source_client_recipe_id null) keep
+  // today's existing behaviour unchanged.
+  function applyRecipeFoodScope(query: ReturnType<typeof applyTerms>) {
+    return session
+      ? query.or(`source_client_recipe_id.is.null,user_id.eq.${session.user.id}`)
+      : query.is('source_client_recipe_id', null)
+  }
+
   const [
     { data: dbStarts },
     { data: dbContains },
@@ -30,7 +44,7 @@ export async function GET(req: NextRequest) {
   ] = await Promise.all([
     applyTerms(supabase.from('food_database')).ilike('name', `${terms[0]}%`).order('name').limit(20),
     applyTerms(supabase.from('food_database')).order('name').limit(30),
-    applyTerms(supabase.from('foods')).order('name').limit(10),
+    applyRecipeFoodScope(applyTerms(supabase.from('foods'))).order('name').limit(10),
   ])
 
   // Score each DB result by how many query terms appear in the name,

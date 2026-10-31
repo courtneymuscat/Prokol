@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import SavedMeals from '@/app/dashboard/SavedMeals'
+import MyRecipes from './MyRecipes'
 import { CATEGORIES, DIET_TAG_LABEL, TIER_TAG_STYLE, DIET_FILTERS, TIER_FILTERS } from '@/lib/recipeTags'
 
 type Recipe = {
@@ -20,7 +21,7 @@ type Recipe = {
 
 export default function RecipesPageClient({ canUseSavedMeals }: { canUseSavedMeals: boolean }) {
   const router = useRouter()
-  const [tab, setTab] = useState<'recipes' | 'saved'>('recipes')
+  const [tab, setTab] = useState<'recipes' | 'mine' | 'saved'>('recipes')
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState('')
@@ -58,9 +59,10 @@ export default function RecipesPageClient({ canUseSavedMeals }: { canUseSavedMea
       </nav>
 
       <main className="max-w-lg mx-auto p-6 space-y-5">
-        {canUseSavedMeals && (
-          <div className="flex gap-1">
-            {(['recipes', 'saved'] as const).map((t) => (
+        <div className="flex gap-1">
+          {(['recipes', 'mine', 'saved'] as const)
+            .filter((t) => t !== 'saved' || canUseSavedMeals)
+            .map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -68,13 +70,14 @@ export default function RecipesPageClient({ canUseSavedMeals }: { canUseSavedMea
                   tab === t ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {t === 'recipes' ? 'Recipes' : 'Saved Meals'}
+                {t === 'recipes' ? 'Recipes' : t === 'mine' ? 'My Recipes' : 'Saved Meals'}
               </button>
             ))}
-          </div>
-        )}
+        </div>
 
-        {tab === 'saved' && canUseSavedMeals ? (
+        {tab === 'mine' ? (
+          <MyRecipes />
+        ) : tab === 'saved' && canUseSavedMeals ? (
           <SavedMeals refreshKey={0} />
         ) : (
           <>
