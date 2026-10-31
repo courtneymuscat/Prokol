@@ -160,6 +160,10 @@ export default function MyRecipes() {
 
   return (
     <div className="space-y-3">
+      <p className="text-xs text-gray-400">
+        For things you&apos;ll reuse across meals or portion out — a cake, a sauce batch. Just logging something
+        once? Use Meal Builder on the Log Food page instead.
+      </p>
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
           <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
