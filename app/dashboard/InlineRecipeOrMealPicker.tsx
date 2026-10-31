@@ -18,6 +18,16 @@ type LibraryRecipe = {
   tier_tag: string | null
 }
 
+type MyRecipeItem = {
+  id: string
+  name: string
+  category: string | null
+  total_calories: number
+  total_protein: number
+  total_carbs: number
+  total_fat: number
+}
+
 type SavedMealItem = { food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number }
 type SavedMeal = { id: string; name: string; meal_items: SavedMealItem[] }
 
@@ -29,19 +39,21 @@ function sumItems(items: { calories: number; protein: number; carbs: number; fat
 }
 
 type Props = {
-  source: 'library' | 'saved'
+  source: 'library' | 'saved' | 'mine'
   mealKey: 'breakfast' | 'lunch' | 'dinner' | 'snacks'
   date: string
   onLogged: () => void
 }
 
-// Lets a client log a whole coach recipe or a saved meal into this meal in
-// one tap, straight from the Add Food panel — alongside searching the food
-// database for individual foods. Logged as a single food_logs row with the
-// ingredient breakdown in `notes`, same shape DailyLog already parses for
-// scanned meals and SavedMeals (see parseMealIngredients).
+// Lets a client log a whole coach recipe, one of their own My Recipes, or a
+// saved meal into this meal in one tap, straight from the Add Food panel —
+// alongside searching the food database for individual foods. Logged as a
+// single food_logs row with the ingredient breakdown in `notes`, same shape
+// DailyLog already parses for scanned meals and SavedMeals (see
+// parseMealIngredients).
 export default function InlineRecipeOrMealPicker({ source, mealKey, date, onLogged }: Props) {
   const [recipes, setRecipes] = useState<LibraryRecipe[]>([])
+  const [myRecipes, setMyRecipes] = useState<MyRecipeItem[]>([])
   const [savedMeals, setSavedMeals] = useState<SavedMeal[]>([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
@@ -58,6 +70,11 @@ export default function InlineRecipeOrMealPicker({ source, mealKey, date, onLogg
       fetch('/api/client/recipes')
         .then((r) => r.json())
         .then((data) => { setRecipes(Array.isArray(data) ? data : []); setLoading(false) })
+        .catch(() => setLoading(false))
+    } else if (source === 'mine') {
+      fetch('/api/client/my-recipes')
+        .then((r) => r.json())
+        .then((data) => { setMyRecipes(Array.isArray(data) ? data : []); setLoading(false) })
         .catch(() => setLoading(false))
     } else {
       ;(async () => {
@@ -80,6 +97,11 @@ export default function InlineRecipeOrMealPicker({ source, mealKey, date, onLogg
     if (category && r.category !== category) return false
     if (dietFilter && !r.diet_tags?.includes(dietFilter)) return false
     if (tierFilter && r.tier_tag !== tierFilter) return false
+    if (query && !r.name.toLowerCase().includes(query.trim().toLowerCase())) return false
+    return true
+  })
+  const filteredMyRecipes = myRecipes.filter((r) => {
+    if (category && r.category !== category) return false
     if (query && !r.name.toLowerCase().includes(query.trim().toLowerCase())) return false
     return true
   })
@@ -122,10 +144,25 @@ export default function InlineRecipeOrMealPicker({ source, mealKey, date, onLogg
     await logEntry(recipe.name, ingredients, recipe.id)
   }
 
+  async function pickMyRecipe(recipe: MyRecipeItem) {
+    setLogging(recipe.id)
+    setError(null)
+    const res = await fetch(`/api/client/my-recipes/${recipe.id}`)
+    const detail = await res.json()
+    if (!res.ok) { setError('Failed to load recipe'); setLogging(null); return }
+    const ingredients = Array.isArray(detail.ingredients) ? detail.ingredients : []
+    if (ingredients.length === 0) { setError('This recipe has no ingredients yet.'); setLogging(null); return }
+    await logEntry(recipe.name, ingredients, recipe.id)
+  }
+
   async function pickSavedMeal(meal: SavedMeal) {
     if (meal.meal_items.length === 0) { setError('This meal has no food items.'); return }
     await logEntry(meal.name, meal.meal_items, meal.id)
   }
+
+  const placeholder = source === 'library' ? 'Search recipes…' : source === 'mine' ? 'Search my recipes…' : 'Search my meals…'
+  const buildHref = source === 'saved' ? '/recipes?tab=saved' : '/recipes/mine/new'
+  const buildLabel = source === 'saved' ? 'Meal' : 'Recipe'
 
   return (
     <div className="space-y-3">
@@ -133,41 +170,42 @@ export default function InlineRecipeOrMealPicker({ source, mealKey, date, onLogg
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder={source === 'library' ? 'Search recipes…' : 'Search my meals…'}
+        placeholder={placeholder}
         className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
       />
 
       <Link
-        href={source === 'library' ? '/recipes/mine/new' : '/recipes?tab=saved'}
+        href={buildHref}
         className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
       >
-        Don&apos;t see it? Build a {source === 'library' ? 'Recipe' : 'Meal'} →
+        Don&apos;t see it? Build a {buildLabel} →
       </Link>
 
+      {(source === 'library' || source === 'mine') && (
+        <div className="flex gap-2 overflow-x-auto">
+          {CATEGORIES.map((c) => (
+            <button
+              key={c.value}
+              onClick={() => setCategory(c.value)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                category === c.value ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {source === 'library' && (
-        <>
-          <div className="flex gap-2 overflow-x-auto">
-            {CATEGORIES.map((c) => (
-              <button
-                key={c.value}
-                onClick={() => setCategory(c.value)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                  category === c.value ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {c.label}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <select value={dietFilter} onChange={(e) => setDietFilter(e.target.value)} className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-600">
-              {DIET_FILTERS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
-            </select>
-            <select value={tierFilter} onChange={(e) => setTierFilter(e.target.value)} className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-600">
-              {TIER_FILTERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          </div>
-        </>
+        <div className="flex flex-wrap gap-2">
+          <select value={dietFilter} onChange={(e) => setDietFilter(e.target.value)} className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-600">
+            {DIET_FILTERS.map((d) => <option key={d.value} value={d.value}>{d.label}</option>)}
+          </select>
+          <select value={tierFilter} onChange={(e) => setTierFilter(e.target.value)} className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-600">
+            {TIER_FILTERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+        </div>
       )}
 
       {error && <p className="text-sm text-red-500">{error}</p>}
@@ -211,6 +249,33 @@ export default function InlineRecipeOrMealPicker({ source, mealKey, date, onLogg
                         ))}
                       </div>
                     )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : source === 'mine' ? (
+          filteredMyRecipes.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">
+              {myRecipes.length === 0 ? 'No recipes built yet.' : 'No recipes match these filters.'}
+            </p>
+          ) : (
+            <ul className="rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+              {filteredMyRecipes.map((r) => (
+                <li key={r.id}>
+                  <button
+                    onClick={() => pickMyRecipe(r)}
+                    disabled={logging === r.id}
+                    className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-gray-800">{r.name}</p>
+                      {loggedId === r.id && <span className="text-xs font-semibold text-green-600 flex-shrink-0">✓ Logged</span>}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {r.category && <span className="capitalize">{r.category} · </span>}
+                      {Math.round(r.total_calories)} kcal · {Math.round(r.total_protein)}g P · {Math.round(r.total_carbs)}g C · {Math.round(r.total_fat)}g F
+                    </p>
                   </button>
                 </li>
               ))}

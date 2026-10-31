@@ -114,7 +114,7 @@ export default function DailyLog({
   )
   const [loading, setLoading] = useState(!hasInitialData)
   const [addingTo, setAddingTo] = useState<MealKey | null>(null)
-  const [addMode, setAddMode] = useState<'search' | 'recipe' | 'meal'>('search')
+  const [addMode, setAddMode] = useState<'search' | 'recipe' | 'mine' | 'meal'>('search')
   const [pendingEntry, setPendingEntry] = useState<{ food: FoodResult; grams: number; servingDescription?: string } | null>(null)
   const [saving, setSaving] = useState(false)
   const [logError, setLogError] = useState<string | null>(null)
@@ -1212,6 +1212,7 @@ export default function DailyLog({
                       {([
                         { key: 'search' as const, label: 'Search' },
                         { key: 'recipe' as const, label: 'Meal Library' },
+                        { key: 'mine' as const, label: 'My Recipes' },
                         ...(canUseSavedMeals ? [{ key: 'meal' as const, label: 'My Meal' }] : []),
                       ]).map((m) => (
                         <button
@@ -1247,7 +1248,7 @@ export default function DailyLog({
                       </>
                     ) : (
                       <InlineRecipeOrMealPicker
-                        source={addMode === 'recipe' ? 'library' : 'saved'}
+                        source={addMode === 'recipe' ? 'library' : addMode === 'mine' ? 'mine' : 'saved'}
                         mealKey={meal.key}
                         date={date}
                         onLogged={fetchLogs}
