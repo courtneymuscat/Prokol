@@ -3,17 +3,63 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import MealFoodRow, { type RowData } from './MealFoodRow'
+import type { FoodResult } from './FoodSearch'
 import { Card } from '@/components/ui/card'
 
 type MealItem = RowData & { id: string }
+
+export type ExistingMealItem = {
+  id: string
+  food_id: string | null
+  food_name: string
+  grams: number
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+}
+
+export type ExistingMeal = {
+  id: string
+  name: string
+  items: ExistingMealItem[]
+}
 
 function emptyItem(): MealItem {
   return { id: crypto.randomUUID(), food: null, grams: 100, calories: 0, protein: 0, carbs: 0, fat: 0 }
 }
 
-export default function MealBuilder({ onSaved }: { onSaved: () => void }) {
-  const [mealName, setMealName] = useState('')
-  const [items, setItems] = useState<MealItem[]>([emptyItem()])
+// Reconstructs a per-100g FoodResult from a saved meal_items snapshot row
+// (which only stores grams + totals, not the per-100g basis) so the row
+// both displays correctly and recalculates correctly if the gram amount
+// is changed during editing.
+function itemToMealItem(it: ExistingMealItem): MealItem {
+  const factor = it.grams > 0 ? 100 / it.grams : 0
+  const food: FoodResult = {
+    id: it.food_id ?? it.id,
+    name: it.food_name,
+    calories_per_100g: it.calories * factor,
+    protein_per_100g: it.protein * factor,
+    carbs_per_100g: it.carbs * factor,
+    fat_per_100g: it.fat * factor,
+  }
+  return { id: it.id, food, grams: it.grams, calories: it.calories, protein: it.protein, carbs: it.carbs, fat: it.fat }
+}
+
+export default function MealBuilder({
+  onSaved,
+  existingMeal,
+  onCancelEdit,
+}: {
+  onSaved: () => void
+  existingMeal?: ExistingMeal | null
+  onCancelEdit?: () => void
+}) {
+  const isEditing = !!existingMeal
+  const [mealName, setMealName] = useState(existingMeal?.name ?? '')
+  const [items, setItems] = useState<MealItem[]>(() =>
+    existingMeal && existingMeal.items.length > 0 ? existingMeal.items.map(itemToMealItem) : [emptyItem()],
+  )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -41,6 +87,33 @@ export default function MealBuilder({ onSaved }: { onSaved: () => void }) {
     const supabase = createClient()
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { setError('Not authenticated'); setSaving(false); return }
+
+    const mealId = existingMeal?.id
+    if (isEditing && mealId) {
+      const { error: nameErr } = await supabase.from('meals').update({ name: mealName.trim() }).eq('id', mealId)
+      if (nameErr) { setError(nameErr.message); setSaving(false); return }
+
+      // Full replace, matching the recipe editors' existing
+      // content-replacement convention rather than diffing rows.
+      await supabase.from('meal_items').delete().eq('meal_id', mealId)
+      const { error: itemsErr } = await supabase.from('meal_items').insert(
+        validItems.map((item) => ({
+          meal_id: mealId,
+          food_id: item.food!.id,
+          food_name: item.food!.name,
+          grams: item.grams,
+          calories: item.calories,
+          protein: item.protein,
+          carbs: item.carbs,
+          fat: item.fat,
+        }))
+      )
+      if (itemsErr) { setError(itemsErr.message); setSaving(false); return }
+
+      setSaving(false)
+      onSaved()
+      return
+    }
 
     const { data: meal, error: mealErr } = await supabase
       .from('meals')
@@ -97,6 +170,7 @@ export default function MealBuilder({ onSaved }: { onSaved: () => void }) {
         {items.map((item) => (
           <MealFoodRow
             key={item.id}
+            initial={item.food ? { food: item.food, grams: item.grams } : undefined}
             onChange={(data) =>
               setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, ...data } : i)))
             }
@@ -136,14 +210,25 @@ export default function MealBuilder({ onSaved }: { onSaved: () => void }) {
       {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
       {success && <p className="text-sm text-green-600 bg-green-50 rounded-lg px-3 py-2">Meal saved!</p>}
 
-      <button
-        type="button"
-        onClick={handleSave}
-        disabled={saving}
-        className="w-full bg-blue-600 text-white rounded-xl px-4 py-2.5 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
-      >
-        {saving ? 'Saving...' : 'Save Meal'}
-      </button>
+      <div className="flex gap-2">
+        {isEditing && onCancelEdit && (
+          <button
+            type="button"
+            onClick={onCancelEdit}
+            className="flex-1 border border-gray-200 text-gray-600 rounded-xl px-4 py-2.5 text-sm font-semibold hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="flex-1 bg-blue-600 text-white rounded-xl px-4 py-2.5 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+        >
+          {saving ? 'Saving...' : isEditing ? 'Save Changes' : 'Save Meal'}
+        </button>
+      </div>
     </Card>
   )
 }

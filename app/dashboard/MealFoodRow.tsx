@@ -16,6 +16,7 @@ export type RowData = {
 type Props = {
   onChange: (data: RowData) => void
   onRemove: () => void
+  initial?: { food: FoodResult; grams: number }
 }
 
 function calc(food: FoodResult, grams: number) {
@@ -28,14 +29,14 @@ function calc(food: FoodResult, grams: number) {
   }
 }
 
-export default function MealFoodRow({ onChange, onRemove }: Props) {
-  const [query, setQuery] = useState('')
+export default function MealFoodRow({ onChange, onRemove, initial }: Props) {
+  const [query, setQuery] = useState(initial?.food.name ?? '')
   const [results, setResults] = useState<FoodResult[]>([])
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
-  const [food, setFood] = useState<FoodResult | null>(null)
-  const [grams, setGrams] = useState(100)
-  const [unit, setUnit] = useState<'g' | 'ml'>('g')
+  const [food, setFood] = useState<FoodResult | null>(initial?.food ?? null)
+  const [grams, setGrams] = useState(initial?.grams ?? 100)
+  const [unit, setUnit] = useState<'g' | 'ml'>(initial?.food.unit === 'ml' ? 'ml' : 'g')
   const [creatingFood, setCreatingFood] = useState(false)
   const [newFood, setNewFood] = useState({ name: '', calories: '', protein: '', carbs: '', fat: '' })
   const [foodScope, setFoodScope] = useState<'personal' | 'global'>('personal')

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { notifyMyCoach } from '@/lib/notifyMyCoach'
 import { Card } from '@/components/ui/card'
-import MealBuilder from './MealBuilder'
+import MealBuilder, { type ExistingMeal } from './MealBuilder'
 
 type MealItem = {
   id: string
@@ -46,8 +46,7 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
   const [loggedId, setLoggedId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [fetchError, setFetchError] = useState<string | null>(null)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editName, setEditName] = useState('')
+  const [editingMealId, setEditingMealId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [pickingMealFor, setPickingMealFor] = useState<string | null>(null)
@@ -165,12 +164,10 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
     setDeletingId(null)
   }
 
-  async function saveEditName(mealId: string) {
-    if (!editName.trim()) { setEditingId(null); return }
-    const supabase = createClient()
-    await supabase.from('meals').update({ name: editName.trim() }).eq('id', mealId)
-    setMeals((prev) => prev.map((m) => m.id === mealId ? { ...m, name: editName.trim() } : m))
-    setEditingId(null)
+  function startEditingMeal(meal: Meal) {
+    setShowBuilder(false)
+    setEditingMealId(meal.id)
+    setExpanded(meal.id)
   }
 
   if (loading) {
@@ -203,7 +200,7 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
   function MealCard({ meal }: { meal: Meal }) {
     const t = mealTotals(meal.meal_items)
     const isExpanded = expanded === meal.id
-    const isEditing = editingId === meal.id
+    const isEditingThis = editingMealId === meal.id
     const isConfirmingDelete = confirmDeleteId === meal.id
     const isPicking = pickingMealFor === meal.id
 
@@ -212,7 +209,7 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
         {/* Header row */}
         <div
           className="flex items-center gap-2 px-3 py-3 cursor-pointer hover:bg-gray-50 transition-colors select-none"
-          onClick={() => { if (!isEditing) setExpanded(isExpanded ? null : meal.id) }}
+          onClick={() => { if (!isEditingThis) setExpanded(isExpanded ? null : meal.id) }}
         >
           <svg
             className={`h-4 w-4 text-gray-300 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
@@ -222,31 +219,14 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
           </svg>
 
           {/* Name */}
-          <div className="flex-1 min-w-0" onClick={(e) => isEditing && e.stopPropagation()}>
-            {isEditing ? (
-              <input
-                autoFocus
-                type="text"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') saveEditName(meal.id)
-                  if (e.key === 'Escape') setEditingId(null)
-                }}
-                onBlur={() => saveEditName(meal.id)}
-                className="w-full border border-blue-300 rounded-lg px-2 py-0.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-400"
-              />
-            ) : (
-              <p className="font-semibold text-gray-900 truncate text-sm">{meal.name}</p>
-            )}
-            {!isEditing && (
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
-                <span className="text-xs font-medium text-gray-500">{Math.round(t.calories)} kcal</span>
-                <span className="text-xs text-macro-p">P {Math.round(t.protein * 10) / 10}g</span>
-                <span className="text-xs text-macro-c">C {Math.round(t.carbs * 10) / 10}g</span>
-                <span className="text-xs text-macro-f">F {Math.round(t.fat * 10) / 10}g</span>
-              </div>
-            )}
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-gray-900 truncate text-sm">{meal.name}</p>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+              <span className="text-xs font-medium text-gray-500">{Math.round(t.calories)} kcal</span>
+              <span className="text-xs text-macro-p">P {Math.round(t.protein * 10) / 10}g</span>
+              <span className="text-xs text-macro-c">C {Math.round(t.carbs * 10) / 10}g</span>
+              <span className="text-xs text-macro-f">F {Math.round(t.fat * 10) / 10}g</span>
+            </div>
           </div>
 
           {/* Actions */}
@@ -294,9 +274,9 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
                 )}
                 <button
                   type="button"
-                  onClick={() => { setEditingId(meal.id); setEditName(meal.name); setExpanded(null) }}
+                  onClick={() => startEditingMeal(meal)}
                   className="p-1.5 text-gray-300 hover:text-blue-500 transition-colors rounded-lg hover:bg-blue-50"
-                  title="Rename meal"
+                  title="Edit meal"
                 >
                   <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 012.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2a2 2 0 01.586-1.414z" />
@@ -334,36 +314,59 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
           </div>
         )}
 
-        {/* Expanded food list */}
+        {/* Expanded: editor when editing this meal, read-only list otherwise */}
         {isExpanded && (
-          <div className="border-t border-gray-50">
-            {meal.meal_items.map((item, idx) => (
-              <div
-                key={item.id}
-                className={`flex items-center justify-between px-4 py-2 text-sm ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
-              >
-                <div>
-                  <p className="font-medium text-gray-800">{item.food_name}</p>
-                  <p className="text-xs text-gray-400">{item.grams}g</p>
+          isEditingThis ? (
+            <div className="border-t border-gray-100 p-3">
+              <MealBuilder
+                existingMeal={{
+                  id: meal.id,
+                  name: meal.name,
+                  items: meal.meal_items.map((i) => ({
+                    id: i.id,
+                    food_id: null,
+                    food_name: i.food_name,
+                    grams: i.grams,
+                    calories: i.calories,
+                    protein: i.protein,
+                    carbs: i.carbs,
+                    fat: i.fat,
+                  })),
+                } satisfies ExistingMeal}
+                onSaved={() => { setEditingMealId(null); fetchMeals() }}
+                onCancelEdit={() => setEditingMealId(null)}
+              />
+            </div>
+          ) : (
+            <div className="border-t border-gray-50">
+              {meal.meal_items.map((item, idx) => (
+                <div
+                  key={item.id}
+                  className={`flex items-center justify-between px-4 py-2 text-sm ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}
+                >
+                  <div>
+                    <p className="font-medium text-gray-800">{item.food_name}</p>
+                    <p className="text-xs text-gray-400">{item.grams}g</p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="font-medium text-gray-600">{item.calories} kcal</span>
+                    <span className="text-macro-p">P {item.protein}g</span>
+                    <span className="text-macro-c">C {item.carbs}g</span>
+                    <span className="text-macro-f">F {item.fat}g</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="font-medium text-gray-600">{item.calories} kcal</span>
-                  <span className="text-macro-p">P {item.protein}g</span>
-                  <span className="text-macro-c">C {item.carbs}g</span>
-                  <span className="text-macro-f">F {item.fat}g</span>
+              ))}
+              <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-t border-gray-100">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</p>
+                <div className="flex items-center gap-2 text-xs font-semibold">
+                  <span className="text-gray-700">{Math.round(t.calories)} kcal</span>
+                  <span className="text-macro-p">P {Math.round(t.protein * 10) / 10}g</span>
+                  <span className="text-macro-c">C {Math.round(t.carbs * 10) / 10}g</span>
+                  <span className="text-macro-f">F {Math.round(t.fat * 10) / 10}g</span>
                 </div>
-              </div>
-            ))}
-            <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-t border-gray-100">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</p>
-              <div className="flex items-center gap-2 text-xs font-semibold">
-                <span className="text-gray-700">{Math.round(t.calories)} kcal</span>
-                <span className="text-macro-p">P {Math.round(t.protein * 10) / 10}g</span>
-                <span className="text-macro-c">C {Math.round(t.carbs * 10) / 10}g</span>
-                <span className="text-macro-f">F {Math.round(t.fat * 10) / 10}g</span>
               </div>
             </div>
-          </div>
+          )
         )}
       </Card>
     )
