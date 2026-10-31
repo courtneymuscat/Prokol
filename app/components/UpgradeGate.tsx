@@ -2,7 +2,7 @@
 
 import { useState, useEffect, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { canAccess, type Feature, type SubscriptionTier } from '@/lib/features'
+import { canAccess, type Feature, type SubscriptionTier, type UserType } from '@/lib/features'
 
 type Props = {
   feature: Feature
@@ -23,6 +23,7 @@ type Props = {
  */
 export default function UpgradeGate({ feature, children, message, overlay = false }: Props) {
   const [tier, setTier] = useState<SubscriptionTier | null>(null)
+  const [userType, setUserType] = useState<UserType | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -32,10 +33,11 @@ export default function UpgradeGate({ feature, children, message, overlay = fals
       if (!session) { setLoading(false); return }
       const { data: profile } = await supabase
         .from('profiles')
-        .select('subscription_tier')
+        .select('subscription_tier, user_type')
         .eq('id', session.user.id)
         .single()
       setTier((profile?.subscription_tier as SubscriptionTier | null) ?? 'individual_free')
+      setUserType((profile?.user_type as UserType | null) ?? 'individual')
       setLoading(false)
     }
     load()
@@ -43,7 +45,7 @@ export default function UpgradeGate({ feature, children, message, overlay = fals
 
   if (loading) return null
 
-  const allowed = canAccess(feature, tier)
+  const allowed = canAccess(feature, tier, userType)
   if (allowed) return <>{children}</>
 
   const cta = message ?? 'Upgrade your plan to access this feature.'

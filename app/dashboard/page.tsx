@@ -5,8 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   FEATURES,
-  TIER_FEATURES,
-  COACH_TIER_FEATURES,
+  computeFeatureSet,
   type Feature,
   type SubscriptionTier,
   type UserType,
@@ -244,11 +243,7 @@ export default async function DashboardPage() {
   const isCoach = userType === 'coach'
   const isCoached = tier === 'coached' || !!coachRel
 
-  const featureSet: Set<Feature> = new Set(
-    userType === 'coach'
-      ? [...(COACH_TIER_FEATURES[tier] ?? []), ...TIER_FEATURES['individual_elite']]
-      : (TIER_FEATURES[tier] ?? TIER_FEATURES['individual_free']),
-  )
+  const featureSet = computeFeatureSet(tier, userType)
   for (const [feature, tierMap] of Object.entries(featureOverrides ?? {})) {
     const tm = tierMap as Record<string, boolean>
     if (tier in tm) {

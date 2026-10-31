@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { TIER_FEATURES, COACH_TIER_FEATURES, type Feature, type SubscriptionTier, type UserType } from '@/lib/features'
+import { computeFeatureSet, type Feature, type SubscriptionTier, type UserType } from '@/lib/features'
 import { getFeatureOverrides } from '@/lib/feature-matrix'
 
 export type Subscription = {
@@ -38,12 +38,7 @@ export async function getSubscription(): Promise<Subscription> {
   // If the user has an active coach relationship, treat them as coached regardless of stored tier
   const tier: SubscriptionTier = coachRel ? 'coached' : storedTier
 
-  // Hardcoded baseline: coaches get their coach features + full elite individual access
-  const baseline: Set<Feature> = new Set(
-    userType === 'coach'
-      ? [...(COACH_TIER_FEATURES[tier] ?? []), ...TIER_FEATURES['individual_elite']]
-      : (TIER_FEATURES[tier] ?? TIER_FEATURES['individual_free']),
-  )
+  const baseline = computeFeatureSet(tier, userType)
 
   // Apply admin overrides (cached — usually no extra latency)
   try {

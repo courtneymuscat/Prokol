@@ -193,16 +193,33 @@ export const COACH_TIER_FEATURES: Record<string, Feature[]> = {
 
 // ─── canAccess helper ─────────────────────────────────────────────────────────
 
+// Single source of truth for "what can this account do" — coaches and
+// business/white-label account owners ('business' is always a coach-tier
+// account on a wl_* plan, see app/subscribe/success/page.tsx) use the app
+// personally too (their own food log, cycle tracking, etc.), so they get
+// their coach-side features PLUS full individual-elite access, same as a
+// coached client already gets regardless of their coach's own plan. Was
+// previously duplicated (and had drifted) across lib/subscription.ts and
+// app/dashboard/page.tsx — those now both call this instead.
+export function computeFeatureSet(
+  tier: SubscriptionTier,
+  userType: UserType | null | undefined,
+): Set<Feature> {
+  const isCoachSide = userType === 'coach' || userType === 'business'
+  return new Set(
+    isCoachSide
+      ? [...(COACH_TIER_FEATURES[tier] ?? []), ...TIER_FEATURES['individual_elite']]
+      : (TIER_FEATURES[tier] ?? TIER_FEATURES['individual_free']),
+  )
+}
+
 export function canAccess(
   feature: Feature,
   tier: SubscriptionTier | null | undefined,
   userType?: UserType | null,
 ): boolean {
   if (!tier) return false
-  if (userType === 'coach') {
-    return (COACH_TIER_FEATURES[tier] ?? []).includes(feature)
-  }
-  return (TIER_FEATURES[tier] ?? []).includes(feature)
+  return computeFeatureSet(tier, userType).has(feature)
 }
 
 // ─── Pricing config ───────────────────────────────────────────────────────────
