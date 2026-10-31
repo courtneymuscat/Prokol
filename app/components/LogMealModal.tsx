@@ -79,10 +79,14 @@ export default function LogMealModal({ slot, onClose }: { slot: LoggableSlot; on
     const rows = slot.foods.map(f => ({
       user_id: session.user.id,
       food_name: f.food_name,
-      calories: f.calories,
-      protein: f.protein,
-      carbs: f.carbs,
-      fat: f.fat,
+      // food_logs.calories is an integer column — a non-whole ingredient
+      // calorie value (e.g. 240g of something scaled to 142.8 kcal)
+      // previously crashed the insert with "invalid input syntax for
+      // type integer". Round the same way every other logging path does.
+      calories: Math.round(f.calories),
+      protein: Math.round(f.protein * 10) / 10,
+      carbs: Math.round(f.carbs * 10) / 10,
+      fat: Math.round(f.fat * 10) / 10,
       meal_type: mealType,
       log_date: date,
       serving_description: `${f.grams}g (${slot.label})`,

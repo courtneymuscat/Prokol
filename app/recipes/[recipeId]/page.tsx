@@ -115,7 +115,7 @@ export default function ClientRecipeDetailPage({ params }: { params: Promise<{ r
                 onClick={() => setShowLog(true)}
                 className="w-full py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors"
               >
-                + Log this recipe
+                + Log this meal
               </button>
             </div>
 
