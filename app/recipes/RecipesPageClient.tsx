@@ -61,7 +61,7 @@ export default function RecipesPageClient({ canUseSavedMeals }: { canUseSavedMea
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </a>
-        <span className="text-[15px] font-bold tracking-tight text-gray-900">Recipes</span>
+        <span className="text-[15px] font-bold tracking-tight text-gray-900">Meal Library</span>
       </nav>
 
       <main className="max-w-lg mx-auto p-6 space-y-5">
@@ -76,7 +76,7 @@ export default function RecipesPageClient({ canUseSavedMeals }: { canUseSavedMea
                   tab === t ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {t === 'recipes' ? 'Recipes' : t === 'mine' ? 'My Recipes' : 'Saved Meals'}
+                {t === 'recipes' ? 'Meal Library' : t === 'mine' ? 'My Recipes' : 'My Meals'}
               </button>
             ))}
         </div>

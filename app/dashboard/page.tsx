@@ -638,7 +638,7 @@ export default async function DashboardPage() {
 
 
         {/* Log food — shortcut to the dedicated Log Food page (Food Log,
-            Meal Builder, Saved Meals), which no longer live inline here.
+            Meal Builder, My Meals), which no longer live inline here.
             Keeps the tour-food-log anchor so the onboarding tour still
             highlights it. */}
         <div id="tour-food-log">

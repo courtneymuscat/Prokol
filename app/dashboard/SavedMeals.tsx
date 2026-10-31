@@ -412,7 +412,7 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
       {filtered.length === 0 && (
         meals.length === 0 ? (
           <Card className="p-8 text-center border-dashed">
-            <p className="text-sm font-medium text-gray-400">No saved meals yet</p>
+            <p className="text-sm font-medium text-gray-400">No meals saved yet</p>
             <p className="text-xs text-gray-300 mt-1">Tap + New above to build one</p>
           </Card>
         ) : (

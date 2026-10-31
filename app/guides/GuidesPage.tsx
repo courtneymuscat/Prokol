@@ -853,7 +853,7 @@ export default function GuidesPage() {
                   Tap the <strong>camera icon</strong> in the food log. Take a photo of your meal or upload one from your camera roll. The AI identifies the foods and estimates quantities. Review what it found, adjust any amounts, and confirm to log everything at once. This is especially useful for mixed meals or restaurant food.
                 </Step>
                 <Step n={3} title="Saving meals for reuse (Optimiser and above)">
-                  If you eat the same meals regularly, save them. Build your meal using + Add Food (e.g. your standard breakfast: oats, protein powder, banana, almond butter). Once all ingredients are in, click <strong>Save Meal</strong> and give it a name. Next time, find it under <strong>Saved Meals</strong> and add it with one tap — macros and all.
+                  If you eat the same meals regularly, save them. Build your meal using + Add Food (e.g. your standard breakfast: oats, protein powder, banana, almond butter). Once all ingredients are in, click <strong>Save Meal</strong> and give it a name. Next time, find it under <strong>My Meals</strong> and add it with one tap — macros and all.
                 </Step>
                 <Step n={4} title="Using your meal plan">
                   If your coach has created a meal plan for you, it appears on your dashboard. Use it as a guide for what to eat, then log your actual foods in the food log to track adherence. Your coach can see both what you&apos;re prescribed and what you&apos;re actually eating.

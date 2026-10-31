@@ -1211,8 +1211,8 @@ export default function DailyLog({
                     <div className="flex gap-1">
                       {([
                         { key: 'search' as const, label: 'Search' },
-                        { key: 'recipe' as const, label: 'Recipe' },
-                        ...(canUseSavedMeals ? [{ key: 'meal' as const, label: 'Saved Meal' }] : []),
+                        { key: 'recipe' as const, label: 'Meal Library' },
+                        ...(canUseSavedMeals ? [{ key: 'meal' as const, label: 'My Meal' }] : []),
                       ]).map((m) => (
                         <button
                           key={m.key}

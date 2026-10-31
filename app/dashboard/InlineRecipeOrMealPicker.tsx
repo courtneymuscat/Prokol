@@ -133,7 +133,7 @@ export default function InlineRecipeOrMealPicker({ source, mealKey, date, onLogg
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder={source === 'library' ? 'Search recipes…' : 'Search saved meals…'}
+        placeholder={source === 'library' ? 'Search recipes…' : 'Search my meals…'}
         className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40"
       />
 
@@ -218,7 +218,7 @@ export default function InlineRecipeOrMealPicker({ source, mealKey, date, onLogg
           )
         ) : filteredSaved.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-6">
-            {savedMeals.length === 0 ? 'No saved meals yet.' : 'No meals match your search.'}
+            {savedMeals.length === 0 ? 'No meals saved yet.' : 'No meals match your search.'}
           </p>
         ) : (
           <ul className="rounded-xl border border-gray-200 divide-y divide-gray-100 overflow-hidden">

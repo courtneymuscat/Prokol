@@ -519,7 +519,7 @@ export default function AppPreviewTab({
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Food log features</p>
           {[
             { label: 'Meal builder', sub: 'Build meals from individual foods', checked: showMealBuilder, onChange: onToggleMealBuilder, disabled: savingMealBuilder },
-            { label: 'Saved meals',  sub: 'Access and log previously saved meals', checked: showSavedMeals,   onChange: onToggleSavedMeals,   disabled: savingSavedMeals },
+            { label: 'My meals',  sub: 'Access and log previously saved meals', checked: showSavedMeals,   onChange: onToggleSavedMeals,   disabled: savingSavedMeals },
           ].map(({ label, sub, checked, onChange, disabled }) => (
             <div key={label} className="flex items-center justify-between">
               <div>
@@ -551,7 +551,7 @@ export default function AppPreviewTab({
             { label: 'Check-ins',    on: hasCheckins },
             { label: 'Food log',     on: foodLogAccess !== 'off' },
             { label: 'Meal builder', on: showMealBuilder },
-            { label: 'Saved meals',  on: showSavedMeals },
+            { label: 'My meals',  on: showSavedMeals },
             { label: 'Cheat sheet',  on: !!serve_targets },
           ].map(({ label, on }) => (
             <div key={label}>

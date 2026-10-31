@@ -35,7 +35,7 @@ type MealFood = {
   // instead of as indistinguishable separate lines.
   recipe_id?: string
   recipe_name?: string
-  // 'saved_meal' when this group came from the client's own Saved Meals
+  // 'saved_meal' when this group came from the client's own My Meals
   // rather than the coach's recipe library — undefined/'library' for
   // everything swapped in before this distinction existed. Saved meals
   // have no coach-authored instructions/modification notes, so the group
@@ -763,7 +763,7 @@ function RecipeSwapModal({
                 tab === t ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
-              {t === 'library' ? 'My Library' : 'My Saved Meals'}
+              {t === 'library' ? 'My Library' : 'My Meals'}
             </button>
           ))}
         </div>
