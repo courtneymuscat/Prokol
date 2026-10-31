@@ -86,6 +86,7 @@ function mapMealNotes(rows: InitialMealNote[]): Record<string, { note: string | 
 
 export default function DailyLog({
   canScanMeal = false,
+  canUseSavedMeals = true,
   foodLogAccess = 'full',
   targetCalories = null,
   targetProtein = null,
@@ -96,6 +97,7 @@ export default function DailyLog({
   initialMealNotes,
 }: {
   canScanMeal?: boolean
+  canUseSavedMeals?: boolean
   foodLogAccess?: 'full' | 'no_scan' | 'note_only' | 'off'
   targetCalories?: number | null
   targetProtein?: number | null
@@ -1210,7 +1212,7 @@ export default function DailyLog({
                       {([
                         { key: 'search' as const, label: 'Search' },
                         { key: 'recipe' as const, label: 'Recipe' },
-                        { key: 'meal' as const, label: 'Saved Meal' },
+                        ...(canUseSavedMeals ? [{ key: 'meal' as const, label: 'Saved Meal' }] : []),
                       ]).map((m) => (
                         <button
                           key={m.key}
@@ -1225,7 +1227,7 @@ export default function DailyLog({
                       ))}
                     </div>
 
-                    {addMode === 'search' ? (
+                    {addMode === 'search' || (addMode === 'meal' && !canUseSavedMeals) ? (
                       <>
                         <FoodSearch key={searchKey} onSelect={(food, grams, servingDescription) => setPendingEntry({ food, grams, servingDescription })} />
                         {logError && (
