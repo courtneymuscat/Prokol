@@ -67,8 +67,8 @@ export default async function AdminGymsPage() {
               </button>
             </form>
             <Link
-              href={`/admin/gyms/${gym.id}`}
-              title="Manage signup link"
+              href={`/admin/orgs/${gym.id}`}
+              title="Organisation settings"
               className="flex-shrink-0 p-2.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -2,6 +2,7 @@ import { requirePlatformAdmin, getOrgDetail, getPublishableTemplates } from '@/l
 import { computeOrgAnalytics, listOrgLeads } from '@/lib/org'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getOrgFrontDoorUrl } from '@/lib/whitelabel'
+import { actionEnterGymOrg } from '@/app/actions/admin'
 import { notFound } from 'next/navigation'
 import OrgDetailClient from './OrgDetailClient'
 
@@ -24,14 +25,13 @@ export default async function AdminOrgDetailPage({
 
   if (!org) notFound()
 
-  // Signup links only make sense for orgs this platform admin themselves
-  // owns — same "gym" definition app/admin/gyms/page.tsx and the gym
-  // detail page already use ("just any organisation this platform admin
-  // owns, not a special tenant_type"): a signup-link signup resolves its
-  // coach_id from org.owner_id, which only works end-to-end when that
-  // owner is the admin actually running this flow. tenant_type is a
-  // separate, unrelated dimension (coaching_business vs gym affects
-  // health-data visibility, not signup links).
+  // Same "gym" definition app/admin/gyms/page.tsx uses — "just any
+  // organisation this platform admin owns, not a special tenant_type".
+  // Gates both the Enter gym dashboard shortcut below and signup links:
+  // a signup-link signup resolves its coach_id from org.owner_id, which
+  // only works end-to-end when that owner is the admin actually running
+  // this flow. tenant_type is a separate, unrelated dimension
+  // (coaching_business vs gym affects health-data visibility, not this).
   const isOwnedByAdmin = org.owner_id === admin.id
   let frontDoorUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.prokol.io'
   let existingLinks: { id: string; code: string; name: string | null; isActive: boolean; autoflowNames: string[] }[] = []
@@ -71,10 +71,23 @@ export default async function AdminOrgDetailPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <a href="/admin/orgs" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">← All organisations</a>
-        <h1 className="text-2xl font-bold text-zinc-100 mt-1">{org.name}</h1>
-        <p className="text-sm text-zinc-500 mt-1">/{org.slug}</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <a href="/admin/orgs" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors">← All organisations</a>
+          <h1 className="text-2xl font-bold text-zinc-100 mt-1">{org.name}</h1>
+          <p className="text-sm text-zinc-500 mt-1">/{org.slug}</p>
+        </div>
+        {isOwnedByAdmin && (
+          <form action={actionEnterGymOrg.bind(null, org.id)}>
+            <button
+              type="submit"
+              className="text-sm font-semibold px-4 py-2 rounded-xl text-zinc-900 hover:opacity-90 transition-opacity whitespace-nowrap"
+              style={{ backgroundColor: 'var(--nc-primary)' }}
+            >
+              Enter gym dashboard →
+            </button>
+          </form>
+        )}
       </div>
       <OrgDetailClient
         org={org}
