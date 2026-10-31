@@ -18,7 +18,18 @@ type RecipeListItem = {
   total_fat: number
 }
 
-type Ingredient = { food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number }
+type Ingredient = { food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number; section?: string | null }
+
+function groupIngredients(items: Ingredient[]): { title: string | null; items: Ingredient[] }[] {
+  const sectionNames: string[] = []
+  for (const i of items) {
+    if (i.section && !sectionNames.includes(i.section)) sectionNames.push(i.section)
+  }
+  return [
+    { title: null, items: items.filter((i) => !i.section) },
+    ...sectionNames.map((s) => ({ title: s, items: items.filter((i) => i.section === s) })),
+  ]
+}
 type RecipeDetail = { ingredients: Ingredient[]; instructions: string | null }
 
 const MEAL_TYPES = [
@@ -278,10 +289,17 @@ export default function MyRecipes() {
                             <p className="text-sm text-gray-700 whitespace-pre-wrap">{d.instructions}</p>
                           </div>
                         )}
-                        {d.ingredients.map((item, idx) => (
-                          <div key={idx} className={`flex items-center justify-between px-4 py-2 text-sm ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
-                            <p className="font-medium text-gray-800">{item.food_name}</p>
-                            <span className="text-xs text-gray-400">{item.grams}g · {Math.round(item.calories)} kcal</span>
+                        {groupIngredients(d.ingredients).map((group) => (
+                          <div key={group.title ?? '__ungrouped'}>
+                            {group.title && (
+                              <p className="px-4 pt-2 pb-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50/50">{group.title}</p>
+                            )}
+                            {group.items.map((item, idx) => (
+                              <div key={idx} className={`flex items-center justify-between px-4 py-2 text-sm ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`}>
+                                <p className="font-medium text-gray-800">{item.food_name}</p>
+                                <span className="text-xs text-gray-400">{item.grams}g · {Math.round(item.calories)} kcal</span>
+                              </div>
+                            ))}
                           </div>
                         ))}
 

@@ -10,6 +10,7 @@ type IngredientInput = {
   protein: number
   carbs: number
   fat: number
+  section?: string | null
 }
 
 function sumTotals(ingredients: IngredientInput[]) {
@@ -45,7 +46,7 @@ export async function GET(
 
   const { data: ingredients } = await supabase
     .from('client_recipe_ingredients')
-    .select('id, food_id, food_name, grams, calories, protein, carbs, fat, sort_order')
+    .select('id, food_id, food_name, grams, calories, protein, carbs, fat, section, sort_order')
     .eq('recipe_id', recipeId)
     .order('sort_order', { ascending: true })
 
@@ -109,6 +110,7 @@ export async function PATCH(
       protein: i.protein,
       carbs: i.carbs,
       fat: i.fat,
+      section: i.section || null,
       sort_order: idx,
     })),
   )

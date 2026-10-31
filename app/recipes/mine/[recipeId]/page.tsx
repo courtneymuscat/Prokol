@@ -13,9 +13,10 @@ type Ingredient = {
   protein: number
   carbs: number
   fat: number
+  section?: string | null
 }
 
-function toIngredient(food: MealFood): Ingredient {
+function toIngredient(food: MealFood, section: string | null): Ingredient {
   return {
     food_id: food.food_id ?? null,
     food_name: food.food_name,
@@ -24,6 +25,7 @@ function toIngredient(food: MealFood): Ingredient {
     protein: food.protein,
     carbs: food.carbs,
     fat: food.fat,
+    section,
   }
 }
 
@@ -41,6 +43,8 @@ export default function MyRecipeEditorPage({ params }: { params: Promise<{ recip
   const [instructions, setInstructions] = useState('')
   const [servings, setServings] = useState('')
   const [ingredients, setIngredients] = useState<Ingredient[]>([])
+  const [sections, setSections] = useState<string[]>([])
+  const [newSectionName, setNewSectionName] = useState('')
 
   useEffect(() => {
     if (isNew) return
@@ -51,7 +55,13 @@ export default function MyRecipeEditorPage({ params }: { params: Promise<{ recip
         setCategory(data.category ?? '')
         setInstructions(data.instructions ?? '')
         setServings(data.servings ? String(data.servings) : '')
-        setIngredients(data.ingredients ?? [])
+        const loadedIngredients: Ingredient[] = data.ingredients ?? []
+        setIngredients(loadedIngredients)
+        const loadedSections: string[] = []
+        for (const ing of loadedIngredients) {
+          if (ing.section && !loadedSections.includes(ing.section)) loadedSections.push(ing.section)
+        }
+        setSections(loadedSections)
         setLoading(false)
       })
   }, [recipeId, isNew])
@@ -68,12 +78,27 @@ export default function MyRecipeEditorPage({ params }: { params: Promise<{ recip
   )
   const servingsNum = Number(servings) || 0
 
-  function addIngredient(food: MealFood) {
-    setIngredients((prev) => [...prev, toIngredient(food)])
+  function addIngredient(food: MealFood, section: string | null) {
+    setIngredients((prev) => [...prev, toIngredient(food, section)])
   }
-  function removeIngredient(idx: number) {
-    setIngredients((prev) => prev.filter((_, i) => i !== idx))
+  function removeIngredient(target: Ingredient) {
+    setIngredients((prev) => prev.filter((i) => i !== target))
   }
+  function addSection() {
+    const trimmed = newSectionName.trim()
+    if (!trimmed || sections.includes(trimmed)) return
+    setSections((prev) => [...prev, trimmed])
+    setNewSectionName('')
+  }
+  function removeSection(name: string) {
+    setSections((prev) => prev.filter((s) => s !== name))
+    setIngredients((prev) => prev.map((i) => (i.section === name ? { ...i, section: null } : i)))
+  }
+
+  const ingredientGroups: { title: string | null; items: Ingredient[] }[] = [
+    { title: null, items: ingredients.filter((i) => !i.section) },
+    ...sections.map((s) => ({ title: s, items: ingredients.filter((i) => i.section === s) })),
+  ]
 
   async function handleSave() {
     if (!name.trim()) { setError('Give your recipe a name'); return }
@@ -187,25 +212,54 @@ export default function MyRecipeEditorPage({ params }: { params: Promise<{ recip
             </p>
           )}
 
-          {ingredients.length > 0 && (
-            <ul className="divide-y divide-gray-50">
-              {ingredients.map((i, idx) => (
-                <li key={idx} className="flex items-start justify-between py-2.5 gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-800 truncate">{i.food_name}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {i.grams}g · {Math.round(i.calories)} kcal · {Math.round(i.protein)}g P · {Math.round(i.carbs)}g C · {Math.round(i.fat)}g F
-                    </p>
-                  </div>
-                  <button onClick={() => removeIngredient(idx)} className="text-gray-300 hover:text-red-500 text-xs flex-shrink-0 mt-0.5">
-                    Remove
+          {ingredientGroups.map((group, gi) => (
+            <div key={group.title ?? '__ungrouped'} className={gi > 0 ? 'pt-4 border-t border-gray-100' : ''}>
+              {group.title && (
+                <div className="flex items-center justify-between mb-1.5">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{group.title}</h3>
+                  <button onClick={() => removeSection(group.title!)} className="text-[11px] text-gray-300 hover:text-red-500">
+                    Remove section
                   </button>
-                </li>
-              ))}
-            </ul>
-          )}
+                </div>
+              )}
+              {group.items.length > 0 && (
+                <ul className="divide-y divide-gray-50 mb-2">
+                  {group.items.map((i, idx) => (
+                    <li key={idx} className="flex items-start justify-between py-2.5 gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-800 truncate">{i.food_name}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {i.grams}g · {Math.round(i.calories)} kcal · {Math.round(i.protein)}g P · {Math.round(i.carbs)}g C · {Math.round(i.fat)}g F
+                        </p>
+                      </div>
+                      <button onClick={() => removeIngredient(i)} className="text-gray-300 hover:text-red-500 text-xs flex-shrink-0 mt-0.5">
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <MealPlanFoodSearch onAdd={(food) => addIngredient(food, group.title)} />
+            </div>
+          ))}
 
-          <MealPlanFoodSearch onAdd={addIngredient} />
+          <div className="flex gap-2 pt-1 border-t border-gray-100">
+            <input
+              type="text"
+              value={newSectionName}
+              onChange={(e) => setNewSectionName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addSection() } }}
+              placeholder="Section name — e.g. Base, Centre, Top…"
+              className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm mt-3 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+            />
+            <button
+              onClick={addSection}
+              disabled={!newSectionName.trim()}
+              className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 mt-3 whitespace-nowrap"
+            >
+              + Add Section
+            </button>
+          </div>
         </div>
 
         {error && <p className="text-sm text-red-500">{error}</p>}

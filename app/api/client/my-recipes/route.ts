@@ -17,6 +17,7 @@ type IngredientInput = {
   protein: number
   carbs: number
   fat: number
+  section?: string | null
 }
 
 function sumTotals(ingredients: IngredientInput[]) {
@@ -92,6 +93,7 @@ export async function POST(req: NextRequest) {
       protein: i.protein,
       carbs: i.carbs,
       fat: i.fat,
+      section: i.section || null,
       sort_order: idx,
     })),
   )
