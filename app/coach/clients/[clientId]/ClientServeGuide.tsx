@@ -108,7 +108,6 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
   const [editingTargets, setEditingTargets] = useState(false)
   const [draft, setDraft] = useState({ protein_serves: 0, carb_serves: 0, fat_serves: 0, veg_unlimited: true, notes: '' })
   const [savingTargets, setSavingTargets] = useState(false)
-  const [removingTargets, setRemovingTargets] = useState(false)
   const [showServeTargets, setShowServeTargets] = useState(true)
   const [savingVisibility, setSavingVisibility] = useState(false)
 
@@ -148,15 +147,6 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
     }
   }
 
-  async function removeTargets() {
-    if (!confirm('Remove serve targets for this client? They will no longer see the serve guide in their app.')) return
-    setRemovingTargets(true)
-    await fetch(`/api/coach/clients/serve-targets?clientId=${clientId}`, { method: 'DELETE' })
-    setTargets(null)
-    setEditingTargets(false)
-    setRemovingTargets(false)
-  }
-
   async function saveTargets() {
     setSavingTargets(true)
     const r = await fetch('/api/coach/clients/serve-targets', {
@@ -194,13 +184,8 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
               </svg>
               PDF
             </a>
-            {targets && !editingTargets && (
-              <button onClick={removeTargets} disabled={removingTargets} className="text-xs text-red-500 hover:text-red-600 font-medium disabled:opacity-50">
-                {removingTargets ? 'Removing…' : 'Remove'}
-              </button>
-            )}
             <button onClick={() => setEditingTargets(v => !v)} className="text-xs text-blue-600 hover:text-blue-700 font-medium">
-              {editingTargets ? 'Cancel' : targets ? 'Edit' : 'Set Targets'}
+              {editingTargets ? 'Cancel' : 'Edit'}
             </button>
           </div>
         </div>
@@ -345,7 +330,7 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
             {targets.notes && <p className="text-xs text-gray-500 bg-gray-50 rounded-xl px-3 py-2 whitespace-pre-wrap">{targets.notes}</p>}
           </div>
         ) : (
-          <p className="text-sm text-gray-400">No targets set yet. Click "Set Targets" above.</p>
+          <p className="text-sm text-gray-400">No daily target set yet for this client — calculate one above and serves will populate automatically. Or click &quot;Edit&quot; to set them directly.</p>
         )}
       </div>
 
