@@ -164,6 +164,24 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
 
   return (
     <div className="space-y-5">
+      {/* Points the coach at the Cheat Sheet — where the serve-category
+          mechanics (what counts as 1 serve of what) actually live and get
+          managed, rather than duplicating that explanation here. */}
+      <a
+        href="/coach/cheat-sheet"
+        className="flex items-center justify-between gap-3 bg-indigo-50 border border-indigo-100 rounded-2xl px-4 py-3 hover:bg-indigo-100 transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <span className="text-lg">📋</span>
+          <p className="text-xs text-indigo-800">
+            <span className="font-semibold">Not sure how the Serve Guide works?</span> The Cheat Sheet explains it and is where you manage which foods count as a serve.
+          </p>
+        </div>
+        <svg className="w-4 h-4 text-indigo-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        </svg>
+      </a>
+
       {/* Serve targets panel */}
       <div className="bg-white rounded-2xl border border-gray-200 p-5">
         <div className="flex items-center justify-between mb-4">

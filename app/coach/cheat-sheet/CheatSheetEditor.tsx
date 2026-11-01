@@ -375,7 +375,10 @@ export default function CheatSheetEditor() {
       {/* How it works */}
       <div className="bg-blue-50 border border-blue-100 rounded-2xl px-5 py-4 space-y-1.5">
         <p className="text-sm font-semibold text-blue-900">How it works</p>
-        <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
+        <p className="text-xs text-blue-700">
+          A simpler way for clients who get overwhelmed tracking exact macros — give them a number of serves to hit per category each day, and let them choose whichever foods from the list fill that. No weighing, no precise logging, just &quot;3 protein, 8 carbs, 4 fat.&quot;
+        </p>
+        <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside pt-1">
           <li>Search any food and tag it with a serve category — this builds your cheat sheet</li>
           <li>When clients log that food, the system automatically shows their serve count</li>
           <li>Tag fruit as <strong>Carbs</strong> too — a fruit serve is just 20g carbs, same as any starchy carb</li>
@@ -387,7 +390,7 @@ export default function CheatSheetEditor() {
           <span className="text-[11px] font-semibold bg-white border border-blue-100 rounded px-2 py-0.5 text-blue-700">1 Fat serve = 10g fat</span>
         </div>
         <p className="text-[11px] text-blue-600 pt-0.5">
-          Clients see a &quot;Food Cheat Sheet&quot; link in their food log only after you set their daily serve targets in the client&apos;s Serve Guide tab.
+          Daily serve targets are set (and now calculated automatically from the client&apos;s daily target) in the client&apos;s Nutrition → Serve Guide tab — the client can see the Cheat Sheet itself either way, but targets are what make it actionable.
         </p>
       </div>
 
