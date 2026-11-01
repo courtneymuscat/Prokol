@@ -86,7 +86,7 @@ export default async function DashboardPage() {
     // coached branch below.
     admin
       .from('coach_clients')
-      .select('coach_id, show_daily_targets, food_log_access, show_meal_builder, show_saved_meals, targets_source, targets_meal_plan_id, form_id')
+      .select('coach_id, show_daily_targets, show_serve_targets, food_log_access, show_meal_builder, show_saved_meals, targets_source, targets_meal_plan_id, form_id')
       .eq('client_id', user.id)
       .eq('status', 'active')
       .maybeSingle(),
@@ -157,7 +157,12 @@ export default async function DashboardPage() {
 
   const profile = profileRes.data
   const coachRel = coachRelRes.data
-  const serveTargets = serveTargetsRes.data
+  // show_serve_targets defaults true (same fallback as /api/client/serve-targets
+  // and the settings route) — only an explicit false actually hides it.
+  // This card queries client_serve_targets directly (server component, not
+  // the API route) so it needs its own check — missed when the toggle was
+  // first built, which is why it was leaking regardless of the toggle.
+  const serveTargets = (coachRel as Record<string, unknown> | null)?.show_serve_targets === false ? null : serveTargetsRes.data
   const pendingInvite = pendingInviteRes.data
   const initialWeightLogs = weightLogsRes.data ?? []
   const initialFoodLogs = foodLogsRes.data ?? []

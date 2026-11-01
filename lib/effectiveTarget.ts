@@ -45,6 +45,9 @@ export type EffectiveTarget = {
   fromRealFood: boolean
 }
 
+type KnownRel = { targets_source: string | null; targets_meal_plan_id: string | null } | null
+type KnownProfile = { target_calories: number | null; target_protein: number | null; target_carbs: number | null; target_fat: number | null } | null
+
 /**
  * Resolves what a client's daily calorie/macro target ACTUALLY currently
  * is — the single source of truth used by the client's own dashboard
@@ -61,18 +64,30 @@ export type EffectiveTarget = {
  * profiles.target_calories directly (the coach's own TDEE card included)
  * could show stale numbers left over from before a coach switched a
  * client onto meal-plan-driven targets.
+ *
+ * `known` lets a caller that already has the coach_clients row and/or
+ * profile fields in hand (e.g. the settings route just wrote
+ * targets_source itself; the TDEE route already fetched the profile row
+ * for its own calculator fields) skip re-querying them — purely a latency
+ * optimization for a couple of hot, user-visible save paths that were
+ * doing the same reads two or three times over in a single action. Omit
+ * it (or pass nothing) and this behaves exactly as before, always
+ * querying fresh.
  */
 export async function resolveEffectiveTarget(
   admin: SupabaseClient,
   clientId: string,
   coachId: string,
+  known?: { rel?: KnownRel; profile?: KnownProfile },
 ): Promise<EffectiveTarget> {
-  const { data: rel } = await admin
-    .from('coach_clients')
-    .select('targets_source, targets_meal_plan_id')
-    .eq('coach_id', coachId)
-    .eq('client_id', clientId)
-    .maybeSingle()
+  const rel = known?.rel !== undefined
+    ? known.rel
+    : (await admin
+        .from('coach_clients')
+        .select('targets_source, targets_meal_plan_id')
+        .eq('coach_id', coachId)
+        .eq('client_id', clientId)
+        .maybeSingle()).data
 
   if (rel?.targets_source === 'meal_plan' && rel.targets_meal_plan_id) {
     const { data: plan } = await admin
@@ -89,11 +104,13 @@ export async function resolveEffectiveTarget(
     return { calories: 0, protein: 0, carbs: 0, fat: 0, fromRealFood: false }
   }
 
-  const { data: profile } = await admin
-    .from('profiles')
-    .select('target_calories, target_protein, target_carbs, target_fat')
-    .eq('id', clientId)
-    .maybeSingle()
+  const profile = known?.profile !== undefined
+    ? known.profile
+    : (await admin
+        .from('profiles')
+        .select('target_calories, target_protein, target_carbs, target_fat')
+        .eq('id', clientId)
+        .maybeSingle()).data
   return {
     calories: profile?.target_calories ?? 0,
     protein: profile?.target_protein ?? 0,

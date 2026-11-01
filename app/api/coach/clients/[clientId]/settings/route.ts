@@ -86,8 +86,18 @@ export async function PUT(
   // reflecting whatever source was active before. See
   // syncServeTargetsForClient's comment for why this re-resolves fresh
   // instead of computing the new target inline here.
+  //
+  // We just wrote targets_source/targets_meal_plan_id above, so when the
+  // request set both explicitly, pass them straight through instead of
+  // having the sync immediately re-query the exact row this request just
+  // updated — this is the save the coach is actively waiting on, so
+  // skipping a redundant round trip here is worth it. Falls back to
+  // querying fresh (unchanged behaviour) if only one of the two was sent.
   if (targets_source !== undefined || 'targets_meal_plan_id' in body) {
-    await syncServeTargetsForClient(admin, clientId, coachId)
+    const knownRel = targets_source !== undefined && 'targets_meal_plan_id' in body
+      ? { targets_source: targets_source ?? 'tdee', targets_meal_plan_id: targets_meal_plan_id ?? null }
+      : undefined
+    await syncServeTargetsForClient(admin, clientId, coachId, knownRel)
   }
 
   return Response.json({ ok: true })

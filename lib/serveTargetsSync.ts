@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { targetMacrosToServes, macrosToServes } from './autoAssignNutrition'
 import { resolveEffectiveTarget } from './effectiveTarget'
 
+type KnownRel = { targets_source: string | null; targets_meal_plan_id: string | null } | null
+
 /**
  * Recomputes and upserts a client's Food Cheat Sheet serve targets from
  * whatever their daily target ACTUALLY currently resolves to (see
@@ -30,25 +32,32 @@ import { resolveEffectiveTarget } from './effectiveTarget'
  * with only a calorie target and no food items or per-slot macros yet) —
  * same "don't guess" precedent as the pre-existing profile-macro sync in
  * the meal-plan routes.
+ *
+ * `knownRel` lets a caller that just wrote targets_source/targets_meal_plan_id
+ * itself (the settings route) pass those along instead of this function
+ * re-querying the row it was only just updated — see resolveEffectiveTarget's
+ * own comment. Omit it to always query fresh, as before.
  */
 export async function syncServeTargetsForClient(
   admin: SupabaseClient,
   clientId: string,
   coachId: string,
+  knownRel?: KnownRel,
 ): Promise<void> {
-  const { calories, protein, carbs, fat, fromRealFood } = await resolveEffectiveTarget(admin, clientId, coachId)
+  // Independent reads — resolving the effective target doesn't depend on
+  // whatever notes a coach previously wrote, so there's no reason to wait
+  // on one before starting the other.
+  const [effective, { data: existing }] = await Promise.all([
+    resolveEffectiveTarget(admin, clientId, coachId, knownRel !== undefined ? { rel: knownRel } : undefined),
+    admin.from('client_serve_targets').select('notes').eq('client_id', clientId).maybeSingle(),
+  ])
+  const { calories, protein, carbs, fat, fromRealFood } = effective
 
   if (!(calories > 0 && (protein > 0 || fat > 0))) return
 
   const serves = fromRealFood
     ? macrosToServes({ proteinG: protein, carbG: carbs, fatG: fat })
     : targetMacrosToServes({ proteinG: protein, fatG: fat, targetCals: calories })
-
-  const { data: existing } = await admin
-    .from('client_serve_targets')
-    .select('notes')
-    .eq('client_id', clientId)
-    .maybeSingle()
 
   await admin.from('client_serve_targets').upsert({
     client_id: clientId,

@@ -26,11 +26,24 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   if (!(await verifyAccess(coachId, clientId))) return Response.json({ error: 'Forbidden' }, { status: 403 })
 
   const admin = createAdminClient()
-  const { data } = await admin
-    .from('profiles')
-    .select('age, sex, height_cm, weight_kg, steps_per_day, activities, goal, adjustment_pct, tdee, target_calories, target_protein, target_carbs, target_fat')
-    .eq('id', clientId)
-    .single()
+  // Both independent reads, fired together rather than one after the
+  // other — and both handed to resolveEffectiveTarget below so it doesn't
+  // re-query either one: the coach_clients row (just fetched here anyway)
+  // and, when the source turns out to be TDEE rather than a meal plan, the
+  // target_calories/protein/carbs/fat already sitting in `data`.
+  const [{ data }, { data: rel }] = await Promise.all([
+    admin
+      .from('profiles')
+      .select('age, sex, height_cm, weight_kg, steps_per_day, activities, goal, adjustment_pct, tdee, target_calories, target_protein, target_carbs, target_fat')
+      .eq('id', clientId)
+      .single(),
+    admin
+      .from('coach_clients')
+      .select('targets_source, targets_meal_plan_id')
+      .eq('coach_id', coachId)
+      .eq('client_id', clientId)
+      .maybeSingle(),
+  ])
 
   // The calculator INPUTS (age/sex/height/weight/steps/activities/goal) and
   // its own TDEE OUTPUT always reflect the saved calculator state, as-is.
@@ -41,7 +54,12 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   // already does for the client's own view). Without this, the coach's own
   // "Daily target — what the client sees" preview could show stale numbers
   // left over from before the client was switched onto a meal plan.
-  const effective = await resolveEffectiveTarget(admin, clientId, coachId)
+  const effective = await resolveEffectiveTarget(admin, clientId, coachId, {
+    rel,
+    profile: data
+      ? { target_calories: data.target_calories, target_protein: data.target_protein, target_carbs: data.target_carbs, target_fat: data.target_fat }
+      : null,
+  })
   const target = effective.calories > 0
     ? {
         target_calories: Math.round(effective.calories),
