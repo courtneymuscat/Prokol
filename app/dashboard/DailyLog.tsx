@@ -745,7 +745,7 @@ export default function DailyLog({
               <p className="text-xs text-gray-400 italic whitespace-pre-wrap">{serveTargets.notes}</p>
             )}
             <p className="text-[11px] text-gray-400 leading-relaxed border-t border-gray-50 pt-2">
-              💡 Serve counts only track foods from your coach&apos;s <a href="/cheat-sheet" className="underline hover:text-gray-600">Food Cheat Sheet</a>. Foods logged from general search don&apos;t count towards these targets.
+              💡 Serve counts only track foods from your coach&apos;s <a href="/cheat-sheet" className="underline hover:text-gray-600">Food Cheat Sheet</a>. Foods logged from general search don&apos;t count towards these targets. Hitting all your serves is a close estimate of your target, not exact — that&apos;s the point, it keeps tracking simple.
             </p>
             <a
               href="/cheat-sheet"

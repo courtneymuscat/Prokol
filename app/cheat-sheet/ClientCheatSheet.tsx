@@ -324,6 +324,9 @@ export default function ClientCheatSheet() {
             <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2 leading-relaxed">
               Veg is flexible, not calorie-free — a typical day&apos;s veg (~150 kcal) is already factored into your Carbs number above. If you&apos;re eating a lot of veg, that&apos;s already covered — just don&apos;t also max out every carb serve on top of it, or you&apos;ll be eating more than your target.
             </p>
+            <p className="text-[11px] text-gray-400 leading-relaxed">
+              These serve counts are a close estimate, not an exact prescription — real food always carries a bit of crossover between categories (a little fat in lean meat, a little protein in grains, etc.), so what you actually log will land close to your target but rarely land on it exactly. That&apos;s by design — it&apos;s a tool to make tracking simple, not a replacement for weighing every gram.
+            </p>
             {targets.notes && <p className="text-xs text-gray-500 border-t border-gray-50 pt-2">{targets.notes}</p>}
           </div>
         </div>

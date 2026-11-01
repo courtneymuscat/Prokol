@@ -335,6 +335,12 @@ export default function ClientServeGuide({
             <p className="text-xs text-blue-500">
               Client can now see the &quot;Food Cheat Sheet&quot; link in their food log.
             </p>
+            <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2.5 space-y-1">
+              <p className="text-xs font-semibold text-indigo-900">Worth knowing: this is an estimate, on purpose</p>
+              <p className="text-[11px] text-indigo-700 leading-relaxed">
+                That&apos;s a feature, not a gap — the whole point of serves is to give a client a simple number to hit instead of weighing every gram, which is exactly what reduces overwhelm for someone who&apos;d otherwise be tracking exact macros. The trade-off is that what they actually log will land close to {Math.round(targets.protein_serves * SERVE_BUDGET.protein.kcal + targets.carb_serves * SERVE_BUDGET.carb.kcal + targets.fat_serves * SERVE_BUDGET.fat.kcal + (targets.veg_unlimited ? VEG_KCAL : 0))} kcal, not exactly on it — e.g. if they pick a leaner protein source than the {SERVE_BUDGET.protein.primaryG}g-protein-plus-a-bit-of-fat assumption behind each protein serve, their real total comes in a bit under; a fattier choice, a bit over. Worth saying to a client up front so a day that logs 150-250kcal off this estimate doesn&apos;t read as doing it wrong.
+              </p>
+            </div>
             {targets.notes && <p className="text-xs text-gray-500 bg-gray-50 rounded-xl px-3 py-2 whitespace-pre-wrap">{targets.notes}</p>}
           </div>
         ) : (

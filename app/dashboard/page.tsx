@@ -612,6 +612,9 @@ export default async function DashboardPage() {
             <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2 leading-relaxed">
               Veg is flexible, not calorie-free — a typical day&apos;s veg (~150 kcal) is already factored into your Carbs number above. If you&apos;re eating a lot of veg, that&apos;s already covered — just don&apos;t also max out every carb serve on top of it, or you&apos;ll be eating more than your target.
             </p>
+            <p className="text-[11px] text-gray-400 leading-relaxed">
+              These are a close estimate, not an exact prescription — real food always has a bit of crossover between categories, so what you actually log will land close to target but rarely exactly on it. That&apos;s by design, to keep tracking simple.
+            </p>
             {serveTargets.notes && <p className="text-xs text-gray-500 border-t border-gray-50 pt-2">{serveTargets.notes}</p>}
             <a href="/cheat-sheet" className="block text-[11px] text-blue-500 hover:text-blue-600 underline pt-0.5">
               See your full Cheat Sheet →
