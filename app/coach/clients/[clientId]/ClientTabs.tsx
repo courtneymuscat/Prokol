@@ -21,6 +21,7 @@ const SupplementsTab = lazy(() => import('./SupplementsTab'))
 const ProtocolTab = lazy(() => import('./ProtocolTab'))
 const CycleTab = lazy(() => import('./CycleTab'))
 import CoachWeeklyPlanCard from './CoachWeeklyPlanCard'
+import { calcPhase, calcAvgCycle, todayString, type Phase } from '@/lib/cyclePhase'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1082,6 +1083,59 @@ function UpcomingEventsPanel({ clientId }: { clientId: string }) {
   )
 }
 
+// ── Coach Cycle Summary (Overview) ────────────────────────────────────────────
+// Quick "Day X · Phase" glance, computed with the exact same
+// calcPhase/calcAvgCycle the client's own CyclePhaseBar uses on their
+// dashboard, from the same cycle_logs data — so the coach never sees a
+// different day/phase than the client does. Renders nothing when there
+// isn't enough period data to place the client in a cycle (no logs yet,
+// or a client who doesn't track one at all), same as CyclePhaseBar.
+function CoachCycleSummary({ clientId }: { clientId: string }) {
+  const [phase, setPhase] = useState<Phase | null>(null)
+  const [daysUntilPeriod, setDaysUntilPeriod] = useState<number | null>(null)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    fetch(`/api/coach/clients/${clientId}/cycle-logs?limit=180`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: { log_date: string; period: boolean }[]) => {
+        if (!Array.isArray(rows) || rows.length === 0) return
+        const logs: Record<string, boolean> = {}
+        for (const row of rows) logs[row.log_date] = row.period
+        const today = todayString()
+        const avg = calcAvgCycle(logs, today)
+        const p = calcPhase(logs, today, avg)
+        setPhase(p)
+        if (p) setDaysUntilPeriod(Math.max(0, avg - p.day))
+      })
+      .catch(() => {})
+      .finally(() => setLoaded(true))
+  }, [clientId])
+
+  if (!loaded || !phase) return null
+
+  return (
+    <a
+      href={`/coach/clients/${clientId}?tab=cycle`}
+      className={`block rounded-2xl p-5 bg-gradient-to-br ${phase.gradient} hover:opacity-95 transition-opacity`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className={`text-[10px] font-semibold uppercase tracking-wide ${phase.muted}`}>Cycle · Day {phase.day}</p>
+          <p className={`text-lg font-bold mt-0.5 ${phase.text}`}>{phase.name} Phase</p>
+        </div>
+        {daysUntilPeriod != null && (
+          <div className="flex-shrink-0 text-center px-3 py-2 rounded-xl bg-white/20">
+            <p className={`text-sm font-bold ${phase.text}`}>{daysUntilPeriod === 0 ? 'Today' : `${daysUntilPeriod}d`}</p>
+            <p className={`text-[10px] ${phase.muted}`}>next period est.</p>
+          </div>
+        )}
+      </div>
+      <p className={`text-[11px] font-medium mt-3 ${phase.muted}`}>View full cycle tracker →</p>
+    </a>
+  )
+}
+
 // ── Overview tab ──────────────────────────────────────────────────────────────
 
 function OverviewTab({ data, clientId }: {
@@ -1113,6 +1167,10 @@ function OverviewTab({ data, clientId }: {
 
       {/* Current week's plan — same card client sees, plus coach note */}
       <CoachWeeklyPlanCard clientId={clientId} />
+
+      {/* Cycle summary — day of cycle + current phase, hidden entirely if
+          there's no cycle data for this client */}
+      <CoachCycleSummary clientId={clientId} />
 
       {/* Upcoming personal/travel events */}
       <UpcomingEventsPanel clientId={clientId} />
