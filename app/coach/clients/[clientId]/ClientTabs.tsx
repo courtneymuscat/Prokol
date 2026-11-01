@@ -3214,8 +3214,8 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
             <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit overflow-x-auto">
               {([
                 { id: 'mealplan' as const, label: 'Meal Plan' },
-                { id: 'foodlog' as const, label: 'Food Log' },
                 { id: 'serveguide' as const, label: 'Serve Guide' },
+                { id: 'foodlog' as const, label: 'Client Food Log' },
               ]).map((st) => (
                 <button
                   key={st.id}
