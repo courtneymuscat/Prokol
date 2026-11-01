@@ -1625,9 +1625,6 @@ function OverviewTab({ data, clientId }: {
         </div>
       )}
 
-      {/* TDEE calculator */}
-      <TDEESection clientId={clientId} />
-
     </div>
   )
 }
@@ -2908,6 +2905,20 @@ function AutoflowCheckinsLinked({ clientId, onViewFlows, refreshKey }: { clientI
 
 type TabId = 'overview' | 'checkins' | 'nutrition' | 'training' | 'program' | 'calendar' | 'mealplan' | 'habits' | 'notes' | 'files' | 'flows' | 'preview' | 'resources' | 'cheatsheet' | 'supplements' | 'protocol' | 'cycle' | 'plan' | 'metrics'
 
+// Meal Plan, Food Log, and Serve Guide used to be three separate top-level
+// tabs, each with its own (or no) TDEE calculator. They're now one
+// "Nutrition" tab (TabId 'nutrition') with the TDEE calculator pinned once
+// at the top and these three as an internal toggle — 'mealplan' and
+// 'cheatsheet' stay in TabId only so old ?tab=mealplan / ?tab=cheatsheet
+// links (e.g. ClientMealPlanEditor.tsx) still land somewhere sensible, via
+// the legacy-tab mapping below, rather than silently 404ing into Overview.
+type NutritionSubTab = 'mealplan' | 'foodlog' | 'serveguide'
+const LEGACY_TAB_TO_NUTRITION_SUBTAB: Partial<Record<TabId, NutritionSubTab>> = {
+  mealplan: 'mealplan',
+  cheatsheet: 'serveguide',
+  nutrition: 'foodlog',
+}
+
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'preview', label: 'App Preview' },
@@ -2915,9 +2926,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'resources', label: 'Resources' },
   { id: 'calendar', label: 'Calendar' },
   { id: 'program', label: 'Programs' },
-  { id: 'mealplan', label: 'Meal Plan' },
-  { id: 'nutrition', label: 'Food Logs' },
-  { id: 'cheatsheet', label: 'Serve Guide' },
+  { id: 'nutrition', label: 'Nutrition' },
   { id: 'cycle', label: 'Cycle' },
   { id: 'plan', label: 'Weekly Changes' },
   { id: 'supplements', label: 'Supplements' },
@@ -2931,7 +2940,9 @@ const TABS: { id: TabId; label: string }[] = [
 
 // Tiers that include the training (programs) toolset
 const TRAINING_TIERS = new Set(['coach_solo', 'coach_pt_solo', 'coach_pro', 'coach_business', 'wl_starter', 'wl_pro'])
-// Tiers that include the nutrition (meal plans / serve guide) toolset
+// Tiers that include the nutrition (meal plans / serve guide) toolset —
+// PT-only coaches still get the Nutrition tab (TDEE + Food Log), just
+// without the Meal Plan / Serve Guide sub-tabs.
 const NUTRITION_TIERS = new Set(['coach_solo', 'coach_nutritionist_solo', 'coach_pro', 'coach_business', 'wl_starter', 'wl_pro'])
 
 export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pro' }: { clientId: string; initialTab?: string; coachTier?: string }) {
@@ -2939,18 +2950,32 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
   const hasNutrition = NUTRITION_TIERS.has(coachTier)
   const visibleTabs = TABS.filter((t) => {
     if (t.id === 'program') return hasTraining
-    if (t.id === 'mealplan' || t.id === 'cheatsheet') return hasNutrition
     return true
   })
   const validTabs: TabId[] = ['overview', 'checkins', 'nutrition', 'training', 'program', 'calendar', 'mealplan', 'habits', 'notes', 'files', 'flows', 'preview', 'resources', 'cheatsheet', 'supplements', 'protocol', 'cycle', 'plan', 'metrics']
-  const [tab, setTab] = useState<TabId>(validTabs.includes(initialTab as TabId) ? initialTab as TabId : 'overview')
+  const [tab, setTab] = useState<TabId>(() => {
+    if (!validTabs.includes(initialTab as TabId)) return 'overview'
+    const t = initialTab as TabId
+    return t === 'mealplan' || t === 'cheatsheet' ? 'nutrition' : t
+  })
+  const [nutritionSubTab, setNutritionSubTab] = useState<NutritionSubTab>(() => {
+    const legacy = LEGACY_TAB_TO_NUTRITION_SUBTAB[initialTab as TabId]
+    if (legacy === 'foodlog') return 'foodlog'
+    if ((legacy === 'mealplan' || legacy === 'serveguide') && hasNutrition) return legacy
+    return hasNutrition ? 'mealplan' : 'foodlog'
+  })
   // Tabs the coach has opened at least once, kept mounted (hidden via CSS
   // rather than unmounted) after that — so switching back to one doesn't
-  // re-fetch its data from scratch every time.
+  // re-fetch its data from scratch every time. Nutrition's three internal
+  // sub-views get the same treatment via visitedNutritionSubTabs below.
   const [visitedTabs, setVisitedTabs] = useState<Set<TabId>>(() => new Set([tab]))
+  const [visitedNutritionSubTabs, setVisitedNutritionSubTabs] = useState<Set<NutritionSubTab>>(() => new Set([nutritionSubTab]))
   useEffect(() => {
     setVisitedTabs((prev) => (prev.has(tab) ? prev : new Set(prev).add(tab)))
   }, [tab])
+  useEffect(() => {
+    setVisitedNutritionSubTabs((prev) => (prev.has(nutritionSubTab) ? prev : new Set(prev).add(nutritionSubTab)))
+  }, [nutritionSubTab])
   const [autoflowRefreshKey, setAutoflowRefreshKey] = useState(0)
   const [data, setData] = useState<ClientData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -3176,18 +3201,59 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
         </Suspense>
       )}</div>
 
-      {/* Meal Plan */}
-      <div style={{ display: tab === 'mealplan' ? undefined : 'none' }}>{visitedTabs.has('mealplan') && (
-        <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading meal plans…</p>}>
-          <MealPlanTab clientId={clientId} />
-        </Suspense>
-      )}</div>
-
-      {/* Food Logs */}
+      {/* Nutrition — TDEE calculator pinned at top, then Meal Plan / Food
+          Log / Serve Guide as an internal toggle. Meal Plan and Serve
+          Guide are nutrition-tier only; Food Log is universal (matches the
+          old standalone Food Logs tab's visibility), so a PT-only coach
+          just gets TDEE + Food Log with no toggle to switch between. */}
       <div style={{ display: tab === 'nutrition' ? undefined : 'none' }}>{visitedTabs.has('nutrition') && (
-        <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading food logs…</p>}>
-          <FoodLogsTab clientId={clientId} />
-        </Suspense>
+        <div className="space-y-5">
+          <TDEESection clientId={clientId} onOverrideMealPlan={() => handleTargetsSource('tdee', null)} />
+
+          {hasNutrition && (
+            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit overflow-x-auto">
+              {([
+                { id: 'mealplan' as const, label: 'Meal Plan' },
+                { id: 'foodlog' as const, label: 'Food Log' },
+                { id: 'serveguide' as const, label: 'Serve Guide' },
+              ]).map((st) => (
+                <button
+                  key={st.id}
+                  onClick={() => setNutritionSubTab(st.id)}
+                  className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    nutritionSubTab === st.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {st.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {hasNutrition ? (
+            <>
+              <div style={{ display: nutritionSubTab === 'mealplan' ? undefined : 'none' }}>{visitedNutritionSubTabs.has('mealplan') && (
+                <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading meal plans…</p>}>
+                  <MealPlanTab clientId={clientId} />
+                </Suspense>
+              )}</div>
+              <div style={{ display: nutritionSubTab === 'foodlog' ? undefined : 'none' }}>{visitedNutritionSubTabs.has('foodlog') && (
+                <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading food logs…</p>}>
+                  <FoodLogsTab clientId={clientId} />
+                </Suspense>
+              )}</div>
+              <div style={{ display: nutritionSubTab === 'serveguide' ? undefined : 'none' }}>{visitedNutritionSubTabs.has('serveguide') && (
+                <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading serve guide…</p>}>
+                  <ClientServeGuide clientId={clientId} />
+                </Suspense>
+              )}</div>
+            </>
+          ) : (
+            <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading food logs…</p>}>
+              <FoodLogsTab clientId={clientId} />
+            </Suspense>
+          )}
+        </div>
       )}</div>
 
       {/* Habits */}
@@ -3209,12 +3275,6 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
         </Suspense>
       )}</div>
 
-      {/* Serve Guide / Cheat Sheet */}
-      <div style={{ display: tab === 'cheatsheet' ? undefined : 'none' }}>{visitedTabs.has('cheatsheet') && (
-        <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading serve guide…</p>}>
-          <ClientServeGuide clientId={clientId} />
-        </Suspense>
-      )}</div>
 
       {/* Supplements */}
       <div style={{ display: tab === 'supplements' ? undefined : 'none' }}>{visitedTabs.has('supplements') && (

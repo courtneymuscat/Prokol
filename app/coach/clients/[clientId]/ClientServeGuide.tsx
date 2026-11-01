@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import TDEESection from './TDEESection'
-import { targetMacrosToServes, SERVE_BUDGET, VEG_KCAL } from '@/lib/autoAssignNutrition'
+import { SERVE_BUDGET, VEG_KCAL } from '@/lib/autoAssignNutrition'
 
 // ─── ClientServeGuide ─────────────────────────────────────────────────────────
 
@@ -110,7 +109,6 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
   const [draft, setDraft] = useState({ protein_serves: 0, carb_serves: 0, fat_serves: 0, veg_unlimited: true, notes: '' })
   const [savingTargets, setSavingTargets] = useState(false)
   const [removingTargets, setRemovingTargets] = useState(false)
-  const [autoAssign, setAutoAssign] = useState(false)
   const [showServeTargets, setShowServeTargets] = useState(true)
   const [savingVisibility, setSavingVisibility] = useState(false)
 
@@ -150,13 +148,6 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
     }
   }
 
-  function applyMacrosToServes(macros: { targetCals: number; proteinG: number; carbG: number; fatG: number }) {
-    const serves = targetMacrosToServes(macros)
-    setDraft(d => ({ ...d, ...serves }))
-    setEditingTargets(true)
-    setAutoAssign(true)
-  }
-
   async function removeTargets() {
     if (!confirm('Remove serve targets for this client? They will no longer see the serve guide in their app.')) return
     setRemovingTargets(true)
@@ -177,26 +168,12 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
     setTargets(d.targets)
     setEditingTargets(false)
     setSavingTargets(false)
-    setAutoAssign(false)
   }
 
   if (loading) return <div className="py-12 text-center text-gray-400 text-sm animate-pulse">Loading…</div>
 
   return (
     <div className="space-y-5">
-      {/* TDEE calculator */}
-      <TDEESection
-        clientId={clientId}
-        onApplyToServes={applyMacrosToServes}
-        onOverrideMealPlan={() => {
-          fetch(`/api/coach/clients/${clientId}/settings`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ targets_source: 'tdee', targets_meal_plan_id: null }),
-          })
-        }}
-      />
-
       {/* Serve targets panel */}
       <div className="bg-white rounded-2xl border border-gray-200 p-5">
         <div className="flex items-center justify-between mb-4">
@@ -248,14 +225,12 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
 
         {editingTargets ? (
           <div className="space-y-4">
-            {autoAssign && (
-              <div className="flex items-center gap-2 bg-teal-50 border border-teal-100 rounded-xl px-3 py-2.5">
-                <svg className="w-4 h-4 text-teal-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-xs text-teal-700">Serves auto-calculated from TDEE — adjust if needed, then save.</p>
-              </div>
-            )}
+            <div className="flex items-center gap-2 bg-teal-50 border border-teal-100 rounded-xl px-3 py-2.5">
+              <svg className="w-4 h-4 text-teal-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-xs text-teal-700">These are auto-calculated from the client&apos;s daily target (TDEE or meal plan) — adjust below if you want to deviate from the formula.</p>
+            </div>
             <div className="grid grid-cols-3 gap-3">
               {([
                 { key: 'protein_serves', label: 'Protein', color: 'text-pink-600' },
@@ -267,9 +242,9 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
                   <input type="number" min="0" max="20" step="0.5"
                     className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     value={draft[key]} onChange={e => setDraft(d => ({ ...d, [key]: parseFloat(e.target.value) || 0 }))} />
-                  {key === 'carb_serves' && draft.veg_unlimited && autoAssign && (
+                  {key === 'carb_serves' && draft.veg_unlimited && (
                     <p className="text-[10px] text-teal-600 mt-1 leading-snug">
-                      ~{Math.round(VEG_KCAL / 4)}g (~{VEG_KCAL} kcal) of this was already set aside for veg by the TDEE auto-calc
+                      ~{Math.round(VEG_KCAL / 4)}g (~{VEG_KCAL} kcal) of this is already set aside for veg
                     </p>
                   )}
                 </div>

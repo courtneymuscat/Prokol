@@ -869,7 +869,7 @@ export default function ClientMealPlanEditor({
       {/* Header */}
       <div className="bg-white border-b px-6 py-4 flex items-center gap-4">
         <a
-          href={`/coach/clients/${clientId}?tab=mealplan`}
+          href={`/coach/clients/${clientId}?tab=nutrition`}
           className="text-gray-400 hover:text-gray-700 transition-colors flex-shrink-0"
           title="Back to client"
         >
@@ -909,7 +909,7 @@ export default function ClientMealPlanEditor({
             {plan.status === 'active' ? 'Active' : 'Inactive'}
           </span>
           <a
-            href={`/coach/clients/${clientId}?tab=mealplan`}
+            href={`/coach/clients/${clientId}?tab=nutrition`}
             className="text-xs text-gray-400 hover:text-blue-600 transition-colors ml-1"
           >
             ← Back to client
