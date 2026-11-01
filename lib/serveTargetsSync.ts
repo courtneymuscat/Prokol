@@ -1,49 +1,18 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { targetMacrosToServes, macrosToServes } from './autoAssignNutrition'
-
-type MealFood = { calories?: number; protein?: number; carbs?: number; fat?: number }
-type MealSlot = {
-  foods?: MealFood[]
-  target_calories?: number | null
-  target_protein?: number | null
-  target_carbs?: number | null
-  target_fat?: number | null
-}
-
-// Same per-slot summing shape as the (independently duplicated) computeMacros
-// in meal-plans/route.ts, [planId]/route.ts, and app/dashboard/page.tsx.
-function sumPlanMacros(content: unknown): { calories: number; protein: number; carbs: number; fat: number } {
-  let calories = 0, protein = 0, carbs = 0, fat = 0
-  for (const slot of (Array.isArray(content) ? content : []) as MealSlot[]) {
-    const foods = (Array.isArray(slot?.foods) ? slot.foods : []) as MealFood[]
-    if (foods.length > 0) {
-      for (const food of foods) {
-        calories += Number(food?.calories) || 0
-        protein  += Number(food?.protein)  || 0
-        carbs    += Number(food?.carbs)    || 0
-        fat      += Number(food?.fat)      || 0
-      }
-    } else {
-      calories += Number(slot?.target_calories) || 0
-      protein  += Number(slot?.target_protein)  || 0
-      carbs    += Number(slot?.target_carbs)    || 0
-      fat      += Number(slot?.target_fat)      || 0
-    }
-  }
-  return { calories, protein, carbs, fat }
-}
+import { resolveEffectiveTarget } from './effectiveTarget'
 
 /**
  * Recomputes and upserts a client's Food Cheat Sheet serve targets from
- * whatever their daily target ACTUALLY currently resolves to — the same
- * way the client's own dashboard resolves it (app/dashboard/page.tsx):
- * TDEE-saved profile fields by default, or an active meal plan's summed
- * content when coach_clients.targets_source is 'meal_plan'. Re-resolved
- * fresh from the DB every call rather than trusting whichever route
- * triggered the sync, so it stays correct no matter which of the several
- * places a client's effective target can change (saving TDEE targets,
- * switching targets_source, assigning or editing a meal plan) was the one
- * that actually fired.
+ * whatever their daily target ACTUALLY currently resolves to (see
+ * resolveEffectiveTarget) — TDEE-saved profile fields by default, or an
+ * active meal plan's real summed food totals when
+ * coach_clients.targets_source is 'meal_plan'. Re-resolved fresh from the
+ * DB every call rather than trusting whichever route triggered the sync,
+ * so it stays correct no matter which of the several places a client's
+ * effective target can change (saving TDEE targets, switching
+ * targets_source, assigning or editing a meal plan) was the one that
+ * actually fired.
  *
  * The two sources use different serve math on purpose: a meal plan has
  * real food with real gram totals, so its serves come from macrosToServes
@@ -67,43 +36,7 @@ export async function syncServeTargetsForClient(
   clientId: string,
   coachId: string,
 ): Promise<void> {
-  const { data: rel } = await admin
-    .from('coach_clients')
-    .select('targets_source, targets_meal_plan_id')
-    .eq('coach_id', coachId)
-    .eq('client_id', clientId)
-    .maybeSingle()
-
-  let calories = 0
-  let protein = 0
-  let carbs = 0
-  let fat = 0
-  let fromRealFood = false
-
-  if (rel?.targets_source === 'meal_plan' && rel.targets_meal_plan_id) {
-    const { data: plan } = await admin
-      .from('client_meal_plans')
-      .select('content, total_calories')
-      .eq('id', rel.targets_meal_plan_id)
-      .maybeSingle()
-    if (plan) {
-      const summed = sumPlanMacros(plan.content)
-      calories = summed.calories > 0 ? summed.calories : (plan.total_calories ?? 0)
-      protein = summed.protein
-      carbs = summed.carbs
-      fat = summed.fat
-      fromRealFood = summed.calories > 0
-    }
-  } else {
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('target_calories, target_protein, target_fat')
-      .eq('id', clientId)
-      .maybeSingle()
-    calories = profile?.target_calories ?? 0
-    protein = profile?.target_protein ?? 0
-    fat = profile?.target_fat ?? 0
-  }
+  const { calories, protein, carbs, fat, fromRealFood } = await resolveEffectiveTarget(admin, clientId, coachId)
 
   if (!(calories > 0 && (protein > 0 || fat > 0))) return
 

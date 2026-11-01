@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
 import { createClient } from '@/lib/supabase/server'
 import { syncServeTargetsForClient } from '@/lib/serveTargetsSync'
+import { resolveEffectiveTarget } from '@/lib/effectiveTarget'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ clientId: string }> }
@@ -31,7 +32,26 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     .eq('id', clientId)
     .single()
 
-  return Response.json(data ?? {})
+  // The calculator INPUTS (age/sex/height/weight/steps/activities/goal) and
+  // its own TDEE OUTPUT always reflect the saved calculator state, as-is.
+  // The daily TARGET fields, though, need to reflect whatever the client
+  // actually currently sees — which is the meal plan's real totals, not
+  // these saved-but-possibly-inactive profile fields, whenever
+  // targets_source is 'meal_plan' (same resolution app/dashboard/page.tsx
+  // already does for the client's own view). Without this, the coach's own
+  // "Daily target — what the client sees" preview could show stale numbers
+  // left over from before the client was switched onto a meal plan.
+  const effective = await resolveEffectiveTarget(admin, clientId, coachId)
+  const target = effective.calories > 0
+    ? {
+        target_calories: Math.round(effective.calories),
+        target_protein: Math.round(effective.protein),
+        target_carbs: Math.round(effective.carbs),
+        target_fat: Math.round(effective.fat),
+      }
+    : {}
+
+  return Response.json({ ...(data ?? {}), ...target })
 }
 
 export async function PUT(req: NextRequest, { params }: Ctx) {

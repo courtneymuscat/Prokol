@@ -767,31 +767,20 @@ export default function MealPlanEditor({
   const pushToClientsRef = useRef(true)
 
   const totals = computeMacros(plan.content)
-  // Protein and fat totals stay the sum of each meal's own (rounded)
-  // serve count — perfectly additive, since there's no veg-related
-  // adjustment needed for either. Only counts meals with foods in them,
-  // matching exactly which meals show a serves badge (see MealSlotCard).
-  const { proteinServesSum, fatServesSum } = plan.content.reduce(
-    (acc, slot) => {
-      if (slot.foods.length === 0) return acc
-      const m = slot.foods.reduce((s, f) => ({ p: s.p + f.protein, f: s.f + f.fat }), { p: 0, f: 0 })
-      const s = mealMacrosToServes({ proteinG: m.p, carbG: 0, fatG: m.f })
-      return { proteinServesSum: acc.proteinServesSum + s.protein_serves, fatServesSum: acc.fatServesSum + s.fat_serves }
-    },
-    { proteinServesSum: 0, fatServesSum: 0 },
-  )
-  // Carb total deliberately uses macrosToServes — the same formula as
-  // the Serve Guide, which holds back ~38g carbs (~150 kcal) for veg
-  // before converting the rest to carb serves. Without that, a client
-  // could fully use every carb serve shown AND treat veg as genuinely
-  // free on top of it, landing in a real surplus with no warning. Each
-  // meal's own carb serves above (mealMacrosToServes) deliberately do
-  // NOT reserve this — a whole-day reservation applied per meal zeroes
-  // out almost every meal's carb serves, which is a worse problem than
-  // the carb total not quite matching the literal sum of its meals. See
-  // ServeCalcNote for the explanation shown to the coach/client.
-  const carbServes = macrosToServes({ proteinG: 0, carbG: totals.carbs, fatG: 0 }).carb_serves
-  const totalServes = { protein_serves: proteinServesSum, carb_serves: carbServes, fat_serves: fatServesSum }
+  // Whole-day totals run through macrosToServes ONCE on the real aggregate
+  // macros — the exact same call the Food Cheat Sheet's serve targets use
+  // (see lib/serveTargetsSync.ts) — rather than summing each meal's own
+  // (separately rounded) serve count, which can drift from the real total
+  // purely from rounding order even though the underlying food is
+  // identical. This is what keeps this total and the Serve Guide's target
+  // always showing the same number. Carbs in particular also holds back
+  // ~38g (~150 kcal) for veg before converting the rest to carb serves —
+  // see ServeCalcNote for the client-facing explanation of why Carbs here
+  // reads lower than the meals below add up to. Each meal's OWN serve
+  // badge (mealMacrosToServes, in MealSlotCard) stays a separate,
+  // per-meal-only figure — summing a whole day's veg reservation into a
+  // single meal would zero out most meals' carb serves.
+  const totalServes = macrosToServes({ proteinG: totals.protein, carbG: totals.carbs, fatG: totals.fat })
 
   const scheduleSave = useCallback((updated: MealPlan) => {
     if (readOnly) return

@@ -88,6 +88,10 @@ export default function TDEESection({
   showDailyTargets,
   onToggleDailyTargets,
   savingDailyTargetsVisibility,
+  targetsSource,
+  targetsMealPlanId,
+  onTargetsSource,
+  savingTargetsSource,
 }: {
   clientId: string
   onApplyToWeek?: (macros: MacroResult) => void
@@ -101,6 +105,15 @@ export default function TDEESection({
   showDailyTargets?: boolean
   onToggleDailyTargets?: () => void
   savingDailyTargetsVisibility?: boolean
+  // Optional — same "Targets source: TDEE / Meal Plan" picker as App
+  // Preview, sharing its exact state (lifted to ClientTabs) so picking a
+  // source here and in App Preview can never disagree. Lets a coach
+  // directly see/fix which of several meal plans is actually driving a
+  // client's target, right from this card.
+  targetsSource?: 'tdee' | 'meal_plan'
+  targetsMealPlanId?: string | null
+  onTargetsSource?: (source: 'tdee' | 'meal_plan', planId: string | null) => void
+  savingTargetsSource?: boolean
 }) {
   const [loading, setLoading] = useState(true)
   const [savingTdee, setSavingTdee] = useState(false)
@@ -108,6 +121,7 @@ export default function TDEESection({
   const [savedMsg, setSavedMsg] = useState<string | null>(null)
   const [expanded, setExpanded] = useState(false)
   const [hasActiveMealPlan, setHasActiveMealPlan] = useState(false)
+  const [activeMealPlans, setActiveMealPlans] = useState<{ id: string; name: string }[]>([])
 
   const [sex, setSex] = useState<TDEESex | ''>('')
   const [age, setAge] = useState('')
@@ -149,7 +163,9 @@ export default function TDEESection({
       setSavedProtein(d.target_protein ?? null)
       setSavedCarbs(d.target_carbs ?? null)
       setSavedFat(d.target_fat ?? null)
-      setHasActiveMealPlan(Array.isArray(plans) && plans.some((p: Record<string, unknown>) => p.status === 'active'))
+      const active = Array.isArray(plans) ? plans.filter((p: Record<string, unknown>) => p.status === 'active') : []
+      setHasActiveMealPlan(active.length > 0)
+      setActiveMealPlans(active.map((p: Record<string, unknown>) => ({ id: p.id as string, name: p.name as string })))
     }).finally(() => setLoading(false))
   }, [clientId])
 
@@ -306,6 +322,59 @@ export default function TDEESection({
               </div>
             </div>
           </div>
+
+          {onTargetsSource && (
+            <div>
+              <p className="text-xs text-gray-400 mb-1.5">Where this comes from</p>
+              <div className="space-y-1.5">
+                <button
+                  type="button"
+                  onClick={() => onTargetsSource('tdee', null)}
+                  disabled={savingTargetsSource}
+                  className={`w-full flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors disabled:opacity-50 ${
+                    targetsSource === 'tdee' ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300 bg-white'
+                  }`}
+                >
+                  <span className="text-base">🧮</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-semibold ${targetsSource === 'tdee' ? 'text-blue-700' : 'text-gray-700'}`}>TDEE Calculated</p>
+                    <p className="text-[11px] text-gray-400">Uses the targets calculated above</p>
+                  </div>
+                  {targetsSource === 'tdee' && <span className="w-4 h-4 rounded-full bg-blue-500 flex-shrink-0 flex items-center justify-center"><svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg></span>}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onTargetsSource('meal_plan', targetsMealPlanId ?? (activeMealPlans[0]?.id ?? null))}
+                  disabled={savingTargetsSource || activeMealPlans.length === 0}
+                  className={`w-full flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors disabled:opacity-40 ${
+                    targetsSource === 'meal_plan' ? 'border-teal-400 bg-teal-50' : 'border-gray-200 hover:border-gray-300 bg-white'
+                  }`}
+                >
+                  <span className="text-base">🍽️</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-semibold ${targetsSource === 'meal_plan' ? 'text-teal-700' : 'text-gray-700'}`}>From Meal Plan</p>
+                    <p className="text-[11px] text-gray-400">{activeMealPlans.length === 0 ? 'No active meal plans' : 'Uses real totals from an active meal plan'}</p>
+                  </div>
+                  {targetsSource === 'meal_plan' && <span className="w-4 h-4 rounded-full bg-teal-500 flex-shrink-0 flex items-center justify-center"><svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg></span>}
+                </button>
+                {targetsSource === 'meal_plan' && activeMealPlans.length > 1 && (
+                  <select
+                    value={targetsMealPlanId ?? ''}
+                    onChange={e => onTargetsSource('meal_plan', e.target.value || null)}
+                    disabled={savingTargetsSource}
+                    className="w-full border border-teal-200 rounded-xl px-3 py-2 text-xs text-teal-900 bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-300 disabled:opacity-50"
+                  >
+                    {activeMealPlans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                )}
+                {targetsSource === 'meal_plan' && activeMealPlans.length > 1 && (
+                  <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5">
+                    This client has {activeMealPlans.length} active meal plans — only the one selected above drives their target, serves, and what they see on their dashboard. Viewing a different plan in Meal Plan or in their own app can show different numbers; that&apos;s expected.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       ) : !expanded ? (
         <p className="text-sm text-gray-400">No TDEE calculated yet. Click Calculate to get started.</p>

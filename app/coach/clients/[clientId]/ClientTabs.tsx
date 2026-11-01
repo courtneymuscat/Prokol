@@ -2780,6 +2780,10 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
             showDailyTargets={showDailyTargets}
             onToggleDailyTargets={handleToggleTargets}
             savingDailyTargetsVisibility={savingTargets}
+            targetsSource={targetsSource}
+            targetsMealPlanId={targetsMealPlanId}
+            onTargetsSource={handleTargetsSource}
+            savingTargetsSource={savingTargetsSource}
           />
 
           {hasNutrition && (
