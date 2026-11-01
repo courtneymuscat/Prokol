@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
+import { syncServeTargetsForClient } from '@/lib/serveTargetsSync'
 import type { NextRequest } from 'next/server'
 
 type MealFood = { calories?: number; protein?: number; carbs?: number; fat?: number }
@@ -130,6 +131,13 @@ export async function POST(
     // Sync calorie target only (no food items yet, macros unknown)
     await admin.from('profiles').update({ target_calories: total_calories }).eq('id', clientId)
   }
+
+  // Keeps Food Cheat Sheet serve targets in lockstep whenever a plan is
+  // assigned — re-resolves the client's actual effective target rather
+  // than assuming this new plan is it (e.g. the client might still be on
+  // targets_source: 'tdee', in which case this is a no-op match against
+  // the TDEE numbers). See syncServeTargetsForClient.
+  await syncServeTargetsForClient(admin, clientId, coachId)
 
   return Response.json(data)
 }

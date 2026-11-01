@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
+import { syncServeTargetsForClient } from '@/lib/serveTargetsSync'
 import type { NextRequest } from 'next/server'
 
 type MealFood = { calories?: number; protein?: number; carbs?: number; fat?: number }
@@ -114,9 +115,14 @@ export async function PATCH(
 
   if (error || !data) return Response.json({ error: error?.message ?? 'Not found' }, { status: 400 })
 
-  // Sync client's daily targets whenever content or calorie target changes on an active plan
+  // Sync client's daily targets whenever an active plan's content, calorie
+  // target, or active status itself changes — the last of those three
+  // matters too: a coach flipping an already-built, untouched plan to
+  // 'active' (no content/total_calories in the same request) still needs
+  // this to fire, or targets silently stay stale until the plan is next
+  // edited.
   const planIsActive = (status ?? data.status) === 'active'
-  if (planIsActive && (content !== undefined || total_calories !== undefined)) {
+  if (planIsActive && (content !== undefined || total_calories !== undefined || status !== undefined)) {
     const macros = computeMacros(data.content)
     const admin = createAdminClient()
     if (macros.target_calories > 0) {
@@ -126,6 +132,11 @@ export async function PATCH(
       // No food items yet — sync calorie target only
       await admin.from('profiles').update({ target_calories: data.total_calories }).eq('id', clientId)
     }
+
+    // Keeps Food Cheat Sheet serve targets in lockstep with whatever this
+    // edit/activation just changed about the client's effective target —
+    // re-resolved fresh rather than assumed, see syncServeTargetsForClient.
+    await syncServeTargetsForClient(admin, clientId, coachId)
   }
 
   return Response.json(data)

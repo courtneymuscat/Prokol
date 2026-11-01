@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
+import { syncServeTargetsForClient } from '@/lib/serveTargetsSync'
 import type { NextRequest } from 'next/server'
 
 async function verifyAccess(coachId: string, clientId: string): Promise<boolean> {
@@ -78,5 +79,16 @@ export async function PUT(
     .eq('client_id', clientId)
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
+
+  // Switching which source drives this client's daily target (or which
+  // meal plan it's sourced from) changes what their effective target
+  // resolves to — resync serves immediately rather than leaving them
+  // reflecting whatever source was active before. See
+  // syncServeTargetsForClient's comment for why this re-resolves fresh
+  // instead of computing the new target inline here.
+  if (targets_source !== undefined || 'targets_meal_plan_id' in body) {
+    await syncServeTargetsForClient(admin, clientId, coachId)
+  }
+
   return Response.json({ ok: true })
 }

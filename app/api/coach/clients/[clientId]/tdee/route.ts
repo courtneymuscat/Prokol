@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
 import { createClient } from '@/lib/supabase/server'
-import { targetMacrosToServes } from '@/lib/autoAssignNutrition'
+import { syncServeTargetsForClient } from '@/lib/serveTargetsSync'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ clientId: string }> }
@@ -70,34 +70,15 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
 
   // Auto-calculate and save serve targets whenever daily targets are
   // (re)set — removes the previous manual "Apply to serve targets" ->
-  // "Save Targets" two-step dance a coach had to do separately, and keeps
-  // the Food Cheat Sheet's serve counts reconciled with the exact same
-  // equation that produced these targets (see targetMacrosToServes).
-  // Preserves any notes the coach already wrote; always overwrites the
-  // serve counts themselves, same as this endpoint already does for
-  // target_calories/protein/carbs/fat above.
-  if (body.apply_targets && calcFields.target_protein != null && calcFields.target_fat != null && calcFields.target_calories != null) {
-    const serves = targetMacrosToServes({
-      proteinG: calcFields.target_protein as number,
-      fatG: calcFields.target_fat as number,
-      targetCals: calcFields.target_calories as number,
-    })
-    const { data: existing } = await admin
-      .from('client_serve_targets')
-      .select('notes')
-      .eq('client_id', clientId)
-      .maybeSingle()
-    await admin.from('client_serve_targets').upsert({
-      client_id: clientId,
-      coach_id: coachId,
-      protein_serves: serves.protein_serves,
-      carb_serves: serves.carb_serves,
-      fat_serves: serves.fat_serves,
-      fruit_serves: 0,
-      veg_unlimited: serves.veg_unlimited,
-      notes: existing?.notes ?? null,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'client_id' })
+  // "Save Targets" two-step dance a coach had to do separately. Re-resolves
+  // the client's actual EFFECTIVE target rather than assuming these
+  // just-saved TDEE numbers are it — if the client is still on
+  // targets_source: 'meal_plan' (this instance of TDEESection doesn't flip
+  // it back the way the Serve Guide tab's "Override daily targets" does),
+  // serves stay synced to the meal plan they're actually seeing instead of
+  // the saved-but-inactive TDEE numbers. See syncServeTargetsForClient.
+  if (body.apply_targets) {
+    await syncServeTargetsForClient(admin, clientId, coachId)
   }
 
   return Response.json({ ok: true })
