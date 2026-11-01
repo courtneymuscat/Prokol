@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { resolveClientCurrentWeek, type WeekInfo } from './weeklyPlan'
 
 type MealFood = { calories?: number; protein?: number; carbs?: number; fat?: number }
 type MealSlot = {
@@ -43,6 +44,12 @@ export type EffectiveTarget = {
   // no real food behind it (so targetMacrosToServes' backward-solved
   // estimate is the right one instead). See lib/autoAssignNutrition.ts.
   fromRealFood: boolean
+  // Present whenever targets_source is 'weekly_plan' — null if no visible
+  // plan currently covers today (so calories/protein/carbs/fat below fell
+  // back to the TDEE-saved profile fields instead), otherwise the actual
+  // plan/week that produced them. Lets a caller like the coach's TDEE card
+  // show which plan/week is driving the target without a second query.
+  weekInfo?: WeekInfo | null
 }
 
 type KnownRel = { targets_source: string | null; targets_meal_plan_id: string | null } | null
@@ -64,6 +71,12 @@ type KnownProfile = { target_calories: number | null; target_protein: number | n
  * profiles.target_calories directly (the coach's own TDEE card included)
  * could show stale numbers left over from before a coach switched a
  * client onto meal-plan-driven targets.
+ *
+ * Also switches to whichever week is current in the client's visible
+ * phased "Weekly Changes" plan when targets_source is 'weekly_plan' (see
+ * lib/weeklyPlan.ts) — so a client on a changing-macros protocol gets
+ * their target updated automatically as weeks roll over, without the
+ * coach having to manually re-apply each new week's numbers.
  *
  * `known` lets a caller that already has the coach_clients row and/or
  * profile fields in hand (e.g. the settings route just wrote
@@ -88,6 +101,23 @@ export async function resolveEffectiveTarget(
         .eq('coach_id', coachId)
         .eq('client_id', clientId)
         .maybeSingle()).data
+
+  if (rel?.targets_source === 'weekly_plan') {
+    const weekInfo = await resolveClientCurrentWeek(admin, clientId, coachId)
+    if (weekInfo && (weekInfo.calories ?? 0) > 0) {
+      return {
+        calories: weekInfo.calories ?? 0,
+        protein: weekInfo.protein ?? 0,
+        carbs: weekInfo.carbs ?? 0,
+        fat: weekInfo.fat ?? 0,
+        fromRealFood: false,
+        weekInfo,
+      }
+    }
+    // No visible plan currently covers today (not started yet, finished,
+    // or none marked visible) — fall through to the TDEE-saved profile
+    // fields below rather than showing the client a target of zero.
+  }
 
   if (rel?.targets_source === 'meal_plan' && rel.targets_meal_plan_id) {
     const { data: plan } = await admin
@@ -117,5 +147,6 @@ export async function resolveEffectiveTarget(
     carbs: profile?.target_carbs ?? 0,
     fat: profile?.target_fat ?? 0,
     fromRealFood: false,
+    ...(rel?.targets_source === 'weekly_plan' ? { weekInfo: null } : {}),
   }
 }

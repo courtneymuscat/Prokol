@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { TDEECalcExplainer, MealPlanDrivenNote } from '@/app/components/TDEEExplainerNote'
+import type { WeekInfo } from '@/lib/weeklyPlan'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -105,14 +106,14 @@ export default function TDEESection({
   showDailyTargets?: boolean
   onToggleDailyTargets?: () => void
   savingDailyTargetsVisibility?: boolean
-  // Optional — same "Targets source: TDEE / Meal Plan" picker as App
-  // Preview, sharing its exact state (lifted to ClientTabs) so picking a
-  // source here and in App Preview can never disagree. Lets a coach
-  // directly see/fix which of several meal plans is actually driving a
-  // client's target, right from this card.
-  targetsSource?: 'tdee' | 'meal_plan'
+  // Optional — same "Targets source: TDEE / Meal Plan / Weekly Plan"
+  // picker as App Preview, sharing its exact state (lifted to ClientTabs)
+  // so picking a source here and in App Preview can never disagree. Lets
+  // a coach directly see/fix which of several meal plans is actually
+  // driving a client's target, right from this card.
+  targetsSource?: 'tdee' | 'meal_plan' | 'weekly_plan'
   targetsMealPlanId?: string | null
-  onTargetsSource?: (source: 'tdee' | 'meal_plan', planId: string | null) => void
+  onTargetsSource?: (source: 'tdee' | 'meal_plan' | 'weekly_plan', planId: string | null) => void
   savingTargetsSource?: boolean
 }) {
   const [loading, setLoading] = useState(true)
@@ -122,6 +123,8 @@ export default function TDEESection({
   const [expanded, setExpanded] = useState(false)
   const [hasActiveMealPlan, setHasActiveMealPlan] = useState(false)
   const [activeMealPlans, setActiveMealPlans] = useState<{ id: string; name: string }[]>([])
+  const [hasVisiblePlan, setHasVisiblePlan] = useState(false)
+  const [weekInfo, setWeekInfo] = useState<WeekInfo | null>(null)
 
   const [sex, setSex] = useState<TDEESex | ''>('')
   const [age, setAge] = useState('')
@@ -145,7 +148,10 @@ export default function TDEESection({
     Promise.all([
       fetch(`/api/coach/clients/${clientId}/tdee`).then(r => r.json()),
       fetch(`/api/coach/clients/${clientId}/meal-plans`).then(r => r.json()),
-    ]).then(([d, plans]) => {
+      fetch(`/api/coach/clients/${clientId}/plans`).then(r => r.json()),
+    ]).then(([d, plans, weeklyPlans]) => {
+      setHasVisiblePlan(Array.isArray(weeklyPlans) && weeklyPlans.some((p: Record<string, unknown>) => p.is_visible_to_client))
+      setWeekInfo(d.weekInfo ?? null)
       setSex(d.sex ?? '')
       setAge(d.age != null ? String(d.age) : '')
       setHeightCm(d.height_cm != null ? String(d.height_cm) : '')
@@ -186,6 +192,7 @@ export default function TDEESection({
         setSavedProtein(d.target_protein ?? null)
         setSavedCarbs(d.target_carbs ?? null)
         setSavedFat(d.target_fat ?? null)
+        setWeekInfo(d.weekInfo ?? null)
       })
     }
     wasSavingTargetsSource.current = savingTargetsSource
@@ -311,7 +318,7 @@ export default function TDEESection({
                 <p className="text-2xl font-bold text-blue-700">{effectiveMacros.targetCals.toLocaleString()} <span className="text-sm font-normal text-blue-400">kcal/day</span></p>
               </div>
             )}
-            {effectiveMacros && savedCals != null && targetsSource !== 'meal_plan' && Math.abs(effectiveMacros.targetCals - savedCals) > 5 && (
+            {effectiveMacros && savedCals != null && targetsSource !== 'meal_plan' && targetsSource !== 'weekly_plan' && Math.abs(effectiveMacros.targetCals - savedCals) > 5 && (
               <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5 mt-1.5">
                 This doesn&apos;t match the {savedCals.toLocaleString()} kcal saved as the daily target below — they were saved from different inputs. Click Recalculate, then Save TDEE &amp; targets (or Set as daily targets) to bring them back in sync.
               </p>
@@ -384,6 +391,28 @@ export default function TDEESection({
                       This client has {activeMealPlans.length} active meal plans — only the one selected above drives their target, serves, and what they see on their dashboard. Viewing a different plan in Meal Plan or in their own app can show different numbers; that&apos;s expected.
                     </p>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => onTargetsSource('weekly_plan', null)}
+                    disabled={savingTargetsSource || !hasVisiblePlan}
+                    className={`w-full flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors disabled:opacity-40 ${
+                      targetsSource === 'weekly_plan' ? 'border-purple-400 bg-purple-50' : 'border-gray-200 hover:border-gray-300 bg-white'
+                    }`}
+                  >
+                    <span className="text-base">📅</span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs font-semibold ${targetsSource === 'weekly_plan' ? 'text-purple-700' : 'text-gray-700'}`}>From Weekly Plan</p>
+                      <p className="text-[11px] text-gray-400">
+                        {!hasVisiblePlan ? 'No Weekly Changes plan visible to client' : 'Auto-updates to the current week as time passes'}
+                      </p>
+                    </div>
+                    {targetsSource === 'weekly_plan' && <span className="w-4 h-4 rounded-full bg-purple-500 flex-shrink-0 flex items-center justify-center"><svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg></span>}
+                  </button>
+                  {targetsSource === 'weekly_plan' && !weekInfo && (
+                    <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5">
+                      No week of this plan covers today right now (it may not have started yet, or has finished) — showing the TDEE-calculated target below until it does.
+                    </p>
+                  )}
                 </div>
               </div>
             )}
@@ -398,6 +427,12 @@ export default function TDEESection({
                   <p className="text-xs text-blue-700 font-medium bg-blue-50 border border-blue-100 rounded-lg px-2.5 py-2 leading-relaxed mb-2">
                     {targetsSource === 'meal_plan' ? (
                       <>These numbers come from the client&apos;s active meal plan{activeMealPlanName && <> (<strong>{activeMealPlanName}</strong>)</>}, not the TDEE calculation above — this is exactly what the client sees in their app.</>
+                    ) : targetsSource === 'weekly_plan' ? (
+                      weekInfo ? (
+                        <>These numbers come from <strong>Week {weekInfo.weekNumber} of {weekInfo.totalWeeks}</strong> ({weekInfo.phaseName}) of the client&apos;s Weekly Changes plan, not the TDEE calculation above — this is exactly what the client sees, and it will move on to the next week&apos;s numbers automatically as time passes.</>
+                      ) : (
+                        <>No week of the Weekly Changes plan covers today, so these are the TDEE-calculated numbers for now — they&apos;ll switch over automatically once the plan&apos;s current week starts.</>
+                      )
                     ) : (
                       <>These numbers come from the TDEE calculation above — this is exactly what the client sees in their app.</>
                     )}

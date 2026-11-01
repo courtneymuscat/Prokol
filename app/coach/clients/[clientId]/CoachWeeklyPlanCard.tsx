@@ -1,87 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-
-type WeekData = {
-  calorie_target: number | null
-  protein_g: number | null
-  carbs_g: number | null
-  fat_g: number | null
-  fibre_g: number | null
-}
-
-type Phase = {
-  id: string
-  name: string
-  type: string
-  duration_weeks: number
-  calorie_target: number | null
-  protein_g: number | null
-  carbs_g: number | null
-  fat_g: number | null
-  week_data: WeekData[]
-  week_notes: string[]
-  coach_week_notes: string[]
-}
-
-type Plan = {
-  id: string
-  name: string
-  start_date: string | null
-  is_visible_to_client: boolean
-  phases: Phase[]
-}
-
-type WeekInfo = {
-  weekNumber: number
-  totalWeeks: number
-  phaseName: string
-  note: string         // client-visible note
-  coachNote: string    // internal coach note
-  calories: number | null
-  protein: number | null
-  carbs: number | null
-  fat: number | null
-  fibre: number | null
-}
-
-function getWeekInfo(plan: Plan): WeekInfo | null {
-  if (!plan.start_date || !plan.phases?.length) return null
-
-  const start = new Date(plan.start_date)
-  start.setHours(0, 0, 0, 0)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const daysDiff = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-  const weekNumber = Math.floor(daysDiff / 7) + 1
-  if (weekNumber < 1) return null
-
-  const totalWeeks = plan.phases.reduce((sum, p) => sum + (p.duration_weeks || 0), 0)
-  if (weekNumber > totalWeeks) return null
-
-  let cumWeeks = 0
-  for (const phase of plan.phases) {
-    cumWeeks += phase.duration_weeks
-    if (weekNumber <= cumWeeks) {
-      const weekInPhase = weekNumber - (cumWeeks - phase.duration_weeks) - 1
-      const wd = (phase.week_data ?? [])[weekInPhase]
-      return {
-        weekNumber,
-        totalWeeks,
-        phaseName: phase.name,
-        note: (phase.week_notes ?? [])[weekInPhase] ?? '',
-        coachNote: (phase.coach_week_notes ?? [])[weekInPhase] ?? '',
-        calories: wd?.calorie_target ?? phase.calorie_target,
-        protein: wd?.protein_g ?? phase.protein_g,
-        carbs: wd?.carbs_g ?? phase.carbs_g,
-        fat: wd?.fat_g ?? phase.fat_g,
-        fibre: wd?.fibre_g ?? null,
-      }
-    }
-  }
-  return null
-}
+import { pickCurrentWeek, type WeekInfo, type WeekPlan } from '@/lib/weeklyPlan'
 
 export default function CoachWeeklyPlanCard({ clientId }: { clientId: string }) {
   const [info, setInfo] = useState<WeekInfo | null | 'loading'>('loading')
@@ -89,24 +9,23 @@ export default function CoachWeeklyPlanCard({ clientId }: { clientId: string }) 
   useEffect(() => {
     async function load() {
       try {
-        const today = new Date().toISOString().slice(0, 10)
-        const plans: Plan[] = await fetch(`/api/coach/clients/${clientId}/plans`).then(r => r.json())
+        const plans: (WeekPlan & { is_visible_to_client: boolean })[] =
+          await fetch(`/api/coach/clients/${clientId}/plans`).then(r => r.json())
         if (!Array.isArray(plans) || plans.length === 0) { setInfo(null); return }
 
-        // Pick the plan most recently started that covers today
-        const started = plans.filter(p => p.start_date && p.start_date <= today)
-        const candidate = started.length > 0
-          ? started.reduce((latest, p) => p.start_date! > latest.start_date! ? p : latest)
-          : plans[0]
+        // Only a plan actually visible to the client can be "what they're
+        // on this week" — matches exactly what their own dashboard and the
+        // Daily Target (when sourced from the weekly plan) would show.
+        const visible = plans.filter(p => p.is_visible_to_client)
+        if (visible.length === 0) { setInfo(null); return }
 
-        // Fetch full plan (includes phases with week_data + notes)
-        const full: Plan = await fetch(`/api/coach/clients/${clientId}/plans/${candidate.id}`).then(r => r.json())
-        if (full.id) {
-          const week = getWeekInfo(full)
-          setInfo(week)
-        } else {
-          setInfo(null)
-        }
+        // Fetch full plans (phases + week_data + notes) and pick whichever
+        // one is actually in range right now — same precedence rule used
+        // everywhere else this is computed.
+        const fulls = await Promise.all(
+          visible.map(p => fetch(`/api/coach/clients/${clientId}/plans/${p.id}`).then(r => r.json()))
+        )
+        setInfo(pickCurrentWeek(fulls.filter((f): f is WeekPlan => !!f?.id)))
       } catch {
         setInfo(null)
       }

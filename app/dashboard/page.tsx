@@ -15,6 +15,7 @@ import { logout } from '@/app/actions/auth'
 import { headers } from 'next/headers'
 import { getBrandingFromHeaders, DEFAULT_BRANDING } from '@/lib/branding'
 import { syncProfileFromStripe } from '@/lib/billing'
+import { resolveEffectiveTarget } from '@/lib/effectiveTarget'
 
 import DailyCheckIn from './DailyCheckIn'
 import WeightLog from './WeightLog'
@@ -275,10 +276,18 @@ export default async function DashboardPage() {
     const coachFormId = (rel.form_id as string | null) ?? null
 
     // ── Coached-branch parallel batch ──────────────────────────────────────────
-    // Three independent coach-relationship-dependent reads.
+    // Three independent coach-relationship-dependent reads. The effective
+    // target resolution (meal-plan real totals, or the current week of a
+    // visible "Weekly Changes" plan) is delegated to resolveEffectiveTarget
+    // — the same single source of truth the coach's own TDEE card and the
+    // Serve Guide sync use — instead of this page carrying its own
+    // duplicate copy of the meal-plan-override math. `rel`/`profile` are
+    // passed in since both are already fetched here, so this adds exactly
+    // one new query (and only when targets_source is actually 'meal_plan'
+    // or 'weekly_plan' — the common 'tdee' case adds none).
     const [
       coachProfileRes,
-      planRes,
+      effectiveTarget,
       submissionRes,
     ] = await Promise.all([
       admin
@@ -286,13 +295,20 @@ export default async function DashboardPage() {
         .select('email, brand_colour, logo_url, brand_name')
         .eq('id', coachRel.coach_id)
         .single(),
-      rel.targets_source === 'meal_plan' && rel.targets_meal_plan_id
-        ? admin
-            .from('client_meal_plans')
-            .select('content, total_calories')
-            .eq('id', rel.targets_meal_plan_id as string)
-            .single()
-        : Promise.resolve({ data: null as { content?: unknown; total_calories?: number | null } | null }),
+      resolveEffectiveTarget(admin, user.id, coachRel.coach_id, {
+        rel: {
+          targets_source: (rel.targets_source as string | null) ?? null,
+          targets_meal_plan_id: (rel.targets_meal_plan_id as string | null) ?? null,
+        },
+        profile: profile
+          ? {
+              target_calories: (profile as Record<string, unknown>).target_calories as number | null,
+              target_protein: (profile as Record<string, unknown>).target_protein as number | null,
+              target_carbs: (profile as Record<string, unknown>).target_carbs as number | null,
+              target_fat: (profile as Record<string, unknown>).target_fat as number | null,
+            }
+          : null,
+      }),
       coachFormId
         ? supabase
             .from('form_submissions')
@@ -310,40 +326,12 @@ export default async function DashboardPage() {
     coachLogoUrl = (coachProfile as Record<string, unknown>)?.logo_url as string | null ?? null
     coachBrandName = (coachProfile as Record<string, unknown>)?.brand_name as string | null ?? null
 
-    // Meal-plan macro override: patch profile in memory only.
-    const plan = planRes.data
-    if (plan && profile) {
-      type MealFood = { calories?: number; protein?: number; carbs?: number; fat?: number }
-      type MealSlot = {
-        foods?: MealFood[]
-        target_calories?: number | null
-        target_protein?: number | null
-        target_carbs?: number | null
-        target_fat?: number | null
-      }
-      let cal = 0, pro = 0, carb = 0, fat = 0
-      for (const slot of (Array.isArray(plan.content) ? plan.content : []) as MealSlot[]) {
-        const foods = (Array.isArray(slot?.foods) ? slot.foods : []) as MealFood[]
-        if (foods.length > 0) {
-          for (const food of foods) {
-            cal  += Number(food?.calories) || 0
-            pro  += Number(food?.protein)  || 0
-            carb += Number(food?.carbs)    || 0
-            fat  += Number(food?.fat)      || 0
-          }
-        } else {
-          cal  += Number(slot?.target_calories) || 0
-          pro  += Number(slot?.target_protein)  || 0
-          carb += Number(slot?.target_carbs)    || 0
-          fat  += Number(slot?.target_fat)      || 0
-        }
-      }
-      if (cal > 0 || (plan.total_calories ?? 0) > 0) {
-        (profile as Record<string, unknown>).target_calories = cal > 0 ? Math.round(cal) : plan.total_calories
-        if (pro > 0) (profile as Record<string, unknown>).target_protein = Math.round(pro)
-        if (carb > 0) (profile as Record<string, unknown>).target_carbs = Math.round(carb)
-        if (fat > 0) (profile as Record<string, unknown>).target_fat = Math.round(fat)
-      }
+    // Patch profile in memory only — the stored row is untouched.
+    if (profile && effectiveTarget.calories > 0) {
+      (profile as Record<string, unknown>).target_calories = Math.round(effectiveTarget.calories)
+      if (effectiveTarget.protein > 0) (profile as Record<string, unknown>).target_protein = Math.round(effectiveTarget.protein)
+      if (effectiveTarget.carbs > 0) (profile as Record<string, unknown>).target_carbs = Math.round(effectiveTarget.carbs)
+      if (effectiveTarget.fat > 0) (profile as Record<string, unknown>).target_fat = Math.round(effectiveTarget.fat)
     }
 
     if (coachFormId && !submissionRes.data) pendingFormId = coachFormId

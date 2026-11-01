@@ -69,7 +69,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       }
     : {}
 
-  return Response.json({ ...(data ?? {}), ...target })
+  return Response.json({ ...(data ?? {}), ...target, weekInfo: effective.weekInfo ?? null })
 }
 
 export async function PUT(req: NextRequest, { params }: Ctx) {

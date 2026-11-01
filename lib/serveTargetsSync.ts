@@ -7,9 +7,10 @@ type KnownRel = { targets_source: string | null; targets_meal_plan_id: string | 
 /**
  * Recomputes and upserts a client's Food Cheat Sheet serve targets from
  * whatever their daily target ACTUALLY currently resolves to (see
- * resolveEffectiveTarget) — TDEE-saved profile fields by default, or an
+ * resolveEffectiveTarget) — TDEE-saved profile fields by default, an
  * active meal plan's real summed food totals when
- * coach_clients.targets_source is 'meal_plan'. Re-resolved fresh from the
+ * coach_clients.targets_source is 'meal_plan', or the current week of a
+ * visible phased plan when it's 'weekly_plan'. Re-resolved fresh from the
  * DB every call rather than trusting whichever route triggered the sync,
  * so it stays correct no matter which of the several places a client's
  * effective target can change (saving TDEE targets, switching

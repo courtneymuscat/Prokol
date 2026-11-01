@@ -2556,7 +2556,7 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
   const [savingSavedMeals, setSavingSavedMeals] = useState(false)
   const [showServeTargets, setShowServeTargets] = useState(true)
   const [savingServeTargets, setSavingServeTargets] = useState(false)
-  const [targetsSource, setTargetsSource] = useState<'tdee' | 'meal_plan'>('tdee')
+  const [targetsSource, setTargetsSource] = useState<'tdee' | 'meal_plan' | 'weekly_plan'>('tdee')
   const [targetsMealPlanId, setTargetsMealPlanId] = useState<string | null>(null)
   const [savingTargetsSource, setSavingTargetsSource] = useState(false)
 
@@ -2666,7 +2666,7 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
     }
   }
 
-  async function handleTargetsSource(source: 'tdee' | 'meal_plan', planId: string | null) {
+  async function handleTargetsSource(source: 'tdee' | 'meal_plan' | 'weekly_plan', planId: string | null) {
     setTargetsSource(source)
     setTargetsMealPlanId(planId)
     setSavingTargetsSource(true)

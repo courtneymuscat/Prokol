@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
+import { computeWeekInfo, type WeekInfo, type WeekPlan } from '@/lib/weeklyPlan'
 
 type PreviewData = {
   branding: { brand_colour: string | null; logo_url: string | null; brand_name: string | null }
@@ -234,56 +235,6 @@ const PHASE_COLOURS: Record<string, { color: string; bg: string; text: string }>
 }
 
 type PreviewResource = { id: string; title: string; url: string | null; folder_name: string | null; type: string }
-type PreviewWeekData = {
-  calorie_target: number | null
-  calorie_adjustment_pct: number | null
-  protein_g: number | null
-  carbs_g: number | null
-  fat_g: number | null
-  fibre_g: number | null
-}
-type PreviewPhase = {
-  id: string; name: string; type: string; duration_weeks: number
-  calorie_target: number | null; protein_g: number | null; carbs_g: number | null; fat_g: number | null
-  week_notes?: string[]
-  week_data?: PreviewWeekData[]
-}
-type PreviewPlan = { id: string; name: string; start_date: string | null; phases: PreviewPhase[] }
-
-type HomeWeekInfo = {
-  weekNumber: number; totalWeeks: number; phaseName: string; phaseType: string
-  calories: number | null; protein: number | null; carbs: number | null; fat: number | null; fibre: number | null
-  note: string
-}
-
-function computeHomeWeekInfo(plan: PreviewPlan): HomeWeekInfo | null {
-  if (!plan.start_date || !plan.phases?.length) return null
-  const start = new Date(plan.start_date); start.setHours(0, 0, 0, 0)
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const weekNumber = Math.floor((today.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000)) + 1
-  if (weekNumber < 1) return null
-  const totalWeeks = plan.phases.reduce((s, p) => s + (p.duration_weeks || 0), 0)
-  if (weekNumber > totalWeeks) return null
-  let cum = 0
-  for (const phase of plan.phases) {
-    cum += phase.duration_weeks
-    if (weekNumber <= cum) {
-      const wi = weekNumber - (cum - phase.duration_weeks) - 1
-      const wd = (phase.week_data ?? [])[wi]
-      return {
-        weekNumber, totalWeeks,
-        phaseName: phase.name, phaseType: phase.type,
-        calories: wd?.calorie_target ?? phase.calorie_target,
-        protein:  wd?.protein_g   ?? phase.protein_g,
-        carbs:    wd?.carbs_g     ?? phase.carbs_g,
-        fat:      wd?.fat_g       ?? phase.fat_g,
-        fibre:    wd?.fibre_g     ?? null,
-        note: (phase.week_notes ?? [])[wi] ?? '',
-      }
-    }
-  }
-  return null
-}
 
 // ── Food log access options ───────────────────────────────────────────────────
 
@@ -312,9 +263,9 @@ export default function AppPreviewTab({
   showMealBuilder: boolean;    onToggleMealBuilder: () => void;   savingMealBuilder: boolean
   showSavedMeals: boolean;     onToggleSavedMeals: () => void;    savingSavedMeals: boolean
   showServeTargets: boolean;   onToggleServeTargets: () => void;  savingServeTargets: boolean
-  targetsSource: 'tdee' | 'meal_plan'
+  targetsSource: 'tdee' | 'meal_plan' | 'weekly_plan'
   targetsMealPlanId: string | null
-  onTargetsSource: (source: 'tdee' | 'meal_plan', planId: string | null) => void
+  onTargetsSource: (source: 'tdee' | 'meal_plan' | 'weekly_plan', planId: string | null) => void
   savingTargetsSource: boolean
 }) {
   const [data, setData] = useState<PreviewData | null>(null)
@@ -327,11 +278,11 @@ export default function AppPreviewTab({
 
   // More screen data (lazy-loaded on first visit)
   const [previewResources, setPreviewResources] = useState<PreviewResource[] | null>(null)
-  const [previewPlan, setPreviewPlan] = useState<PreviewPlan | null | false>(null) // null=not loaded, false=no visible plan
+  const [previewPlan, setPreviewPlan] = useState<WeekPlan | null | false>(null) // null=not loaded, false=no visible plan
   const [moreLoading, setMoreLoading] = useState(false)
 
   // Home screen weekly plan card — fetched eagerly on mount
-  const [homeWeekInfo, setHomeWeekInfo] = useState<HomeWeekInfo | null>(null)
+  const [homeWeekInfo, setHomeWeekInfo] = useState<WeekInfo | null>(null)
 
   useEffect(() => {
     setLoading(true); setError(null)
@@ -346,7 +297,7 @@ export default function AppPreviewTab({
   // weekly card and the More screen's plan preview below — these used to
   // each independently fetch the plans list + the same full plan, two
   // identical round trips for the same data.
-  const [visiblePlanFull, setVisiblePlanFull] = useState<PreviewPlan | null | false>(null) // null=loading, false=none
+  const [visiblePlanFull, setVisiblePlanFull] = useState<WeekPlan | null | false>(null) // null=loading, false=none
 
   useEffect(() => {
     fetch(`/api/coach/clients/${clientId}/plans`)
@@ -355,13 +306,13 @@ export default function AppPreviewTab({
         const visible = plans.find(p => p.is_visible_to_client)
         if (!visible) { setVisiblePlanFull(false); return }
         const full = await fetch(`/api/coach/clients/${clientId}/plans/${visible.id}`).then(r => r.json())
-        setVisiblePlanFull(full?.id ? (full as PreviewPlan) : false)
+        setVisiblePlanFull(full?.id ? (full as WeekPlan) : false)
       })
       .catch(() => setVisiblePlanFull(false))
   }, [clientId])
 
   useEffect(() => {
-    if (visiblePlanFull) setHomeWeekInfo(computeHomeWeekInfo(visiblePlanFull))
+    if (visiblePlanFull) setHomeWeekInfo(computeWeekInfo(visiblePlanFull))
   }, [visiblePlanFull])
 
   // Lazy-load More screen resources when coach navigates there (the plan
@@ -394,6 +345,8 @@ export default function AppPreviewTab({
     : null
   const previewTargets = selectedPlan
     ? { cal: selectedPlan.target_calories, pro: selectedPlan.target_protein, carb: selectedPlan.target_carbs, fat: selectedPlan.target_fat }
+    : targetsSource === 'weekly_plan'
+    ? { cal: homeWeekInfo?.calories ?? null, pro: homeWeekInfo?.protein ?? null, carb: homeWeekInfo?.carbs ?? null, fat: homeWeekInfo?.fat ?? null }
     : { cal: profile?.target_calories ?? null, pro: profile?.target_protein ?? null, carb: profile?.target_carbs ?? null, fat: profile?.target_fat ?? null }
 
   const hasTargets = !!(previewTargets.cal)
@@ -497,9 +450,33 @@ export default function AppPreviewTab({
                   {meal_plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               )}
+              {/* Weekly plan option */}
+              <button
+                onClick={() => onTargetsSource('weekly_plan', null)}
+                disabled={savingTargetsSource || visiblePlanFull === false}
+                className={`w-full flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors disabled:opacity-40 ${
+                  targetsSource === 'weekly_plan'
+                    ? 'border-purple-400 bg-purple-50'
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <span className="text-base">📅</span>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-xs font-semibold ${targetsSource === 'weekly_plan' ? 'text-purple-700' : 'text-gray-700'}`}>From Weekly Plan</p>
+                  <p className="text-[11px] text-gray-400">
+                    {visiblePlanFull === false ? 'No Weekly Changes plan visible to client' : 'Auto-updates to the current week as time passes'}
+                  </p>
+                </div>
+                {targetsSource === 'weekly_plan' && <span className="w-4 h-4 rounded-full bg-purple-500 flex-shrink-0 flex items-center justify-center"><svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg></span>}
+              </button>
               {!hasTargets && targetsSource === 'tdee' && (
                 <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
                   No TDEE targets set yet — calculate in the Overview tab.
+                </p>
+              )}
+              {!hasTargets && targetsSource === 'weekly_plan' && (
+                <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+                  No week of this plan covers today right now — it may not have started yet, or has finished.
                 </p>
               )}
             </div>
