@@ -299,6 +299,18 @@ export default function TDEESection({
               <TDEECalcExplainer />
             </div>
             <p className="text-xl font-bold text-gray-900">{savedTdee.toLocaleString()} <span className="text-xs font-normal text-gray-400">kcal/day</span></p>
+            {effectiveMacros && goal && (
+              <p className="text-xs text-gray-500 mt-1">
+                Target from current inputs ({TDEE_GOALS.find(g => g.value === goal)?.label}
+                {(goal === 'fat_loss' || goal === 'muscle_gain') && `, ${adjustmentPct}% ${goal === 'fat_loss' ? 'deficit' : 'surplus'}`}):{' '}
+                <span className="font-semibold text-gray-700">{effectiveMacros.targetCals.toLocaleString()} kcal</span>
+              </p>
+            )}
+            {effectiveMacros && savedCals != null && targetsSource !== 'meal_plan' && Math.abs(effectiveMacros.targetCals - savedCals) > 5 && (
+              <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5 mt-1.5">
+                This doesn&apos;t match the {savedCals.toLocaleString()} kcal saved as the daily target below — they were saved from different inputs. Click Recalculate, then Save TDEE &amp; targets (or Set as daily targets) to bring them back in sync.
+              </p>
+            )}
           </div>
 
           <div>
