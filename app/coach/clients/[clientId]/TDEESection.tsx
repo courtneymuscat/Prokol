@@ -242,22 +242,41 @@ export default function TDEESection({
 
       {/* Always show saved values — visible both collapsed and while recalculating */}
       {savedTdee ? (
-        <div className="space-y-2">
-          <div className="flex gap-4">
-            <div>
-              <p className="text-xs text-gray-400">TDEE</p>
-              <p className="text-xl font-bold text-gray-900">{savedTdee.toLocaleString()} <span className="text-xs font-normal text-gray-400">kcal/day</span></p>
+        <div className="space-y-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-gray-400">TDEE <span className="text-gray-300 font-normal">— total daily energy expenditure</span></p>
+              <TDEECalcExplainer />
             </div>
-            <div>
-              <p className="text-xs text-gray-400">Daily target</p>
-              <p className="text-xl font-bold text-gray-900">{savedCals?.toLocaleString() ?? '—'} <span className="text-xs font-normal text-gray-400">kcal/day</span></p>
+            <p className="text-xl font-bold text-gray-900">{savedTdee.toLocaleString()} <span className="text-xs font-normal text-gray-400">kcal/day</span></p>
+          </div>
+
+          {hasActiveMealPlan && <MealPlanDrivenNote />}
+
+          <div>
+            <p className="text-xs text-gray-400 mb-1.5">Daily target <span className="text-gray-400">— what the client sees</span></p>
+            <div className="bg-gray-50 rounded-2xl border border-gray-100 px-5 py-4">
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-3">Daily targets</p>
+              <div className="grid grid-cols-4 gap-3 text-center">
+                <div>
+                  <p className="text-xl font-bold text-gray-900">{savedCals?.toLocaleString() ?? '—'}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">kcal</p>
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-teal-400">{savedProtein ?? '—'}g</p>
+                  <p className="text-xs text-gray-400 mt-0.5">protein</p>
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-green-400">{savedCarbs ?? '—'}g</p>
+                  <p className="text-xs text-gray-400 mt-0.5">carbs</p>
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-blue-400">{savedFat ?? '—'}g</p>
+                  <p className="text-xs text-gray-400 mt-0.5">fat</p>
+                </div>
+              </div>
             </div>
           </div>
-          {(savedProtein || savedCarbs || savedFat) && (
-            <p className="text-xs text-gray-500">{savedProtein}g P · {savedCarbs}g C · {savedFat}g F</p>
-          )}
-          {hasActiveMealPlan && <MealPlanDrivenNote />}
-          <TDEECalcExplainer />
         </div>
       ) : !expanded ? (
         <p className="text-sm text-gray-400">No TDEE calculated yet. Click Calculate to get started.</p>
