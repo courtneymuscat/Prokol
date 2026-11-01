@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { TDEECalcExplainer, MealPlanDrivenNote } from '@/app/components/TDEEExplainerNote'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -169,6 +169,30 @@ export default function TDEESection({
     }).finally(() => setLoading(false))
   }, [clientId])
 
+  // Picking a different source in "Where this comes from" changes what the
+  // client's target actually resolves to server-side, but doesn't by
+  // itself touch any state in THIS component — without this, the Daily
+  // Target preview kept showing whatever was last fetched (e.g. meal-plan
+  // numbers) even after switching back to "TDEE Calculated". Keyed off
+  // savingTargetsSource's true -> false transition (the PUT settling)
+  // rather than targetsSource itself, since ClientTabs updates that prop
+  // optimistically before the save actually lands — refetching immediately
+  // on the prop change would race the write and could reload stale data.
+  const wasSavingTargetsSource = useRef(savingTargetsSource)
+  useEffect(() => {
+    if (wasSavingTargetsSource.current && !savingTargetsSource) {
+      fetch(`/api/coach/clients/${clientId}/tdee`).then(r => r.json()).then(d => {
+        setSavedCals(d.target_calories ?? null)
+        setSavedProtein(d.target_protein ?? null)
+        setSavedCarbs(d.target_carbs ?? null)
+        setSavedFat(d.target_fat ?? null)
+      })
+    }
+    wasSavingTargetsSource.current = savingTargetsSource
+  }, [savingTargetsSource, clientId])
+
+  const activeMealPlanName = activeMealPlans.find(p => p.id === targetsMealPlanId)?.name ?? null
+
   const statsComplete = age && sex && heightCm && weightKg && goal
   const tdeeResult = statsComplete
     ? calcTDEE(parseFloat(age), sex as TDEESex, parseFloat(heightCm), parseFloat(weightKg), activities, parseFloat(stepsPerDay) || 0)
@@ -277,8 +301,6 @@ export default function TDEESection({
             <p className="text-xl font-bold text-gray-900">{savedTdee.toLocaleString()} <span className="text-xs font-normal text-gray-400">kcal/day</span></p>
           </div>
 
-          {hasActiveMealPlan && <MealPlanDrivenNote />}
-
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <p className="text-xs text-gray-400">Daily target <span className="text-gray-400">— what the client sees</span></p>
@@ -295,32 +317,47 @@ export default function TDEESection({
                 </button>
               )}
             </div>
-            {onToggleDailyTargets && !showDailyTargets && (
-              <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5 mb-2">
-                Hidden from client — this preview shows what they&apos;d see if turned on.
+
+            {onToggleDailyTargets && !showDailyTargets ? (
+              <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5">
+                Hidden from client — turn this on to set or preview their daily target.
               </p>
+            ) : (
+              <>
+                {targetsSource ? (
+                  <p className="text-xs text-blue-700 font-medium bg-blue-50 border border-blue-100 rounded-lg px-2.5 py-2 leading-relaxed mb-2">
+                    {targetsSource === 'meal_plan' ? (
+                      <>These numbers come from the client&apos;s active meal plan{activeMealPlanName && <> (<strong>{activeMealPlanName}</strong>)</>}, not the TDEE calculation above — this is exactly what the client sees in their app.</>
+                    ) : (
+                      <>These numbers come from the TDEE calculation above — this is exactly what the client sees in their app.</>
+                    )}
+                  </p>
+                ) : (
+                  hasActiveMealPlan && <MealPlanDrivenNote />
+                )}
+                <div className="bg-gray-50 rounded-2xl border border-gray-100 px-5 py-4">
+                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-3">Daily targets</p>
+                  <div className="grid grid-cols-4 gap-3 text-center">
+                    <div>
+                      <p className="text-xl font-bold text-gray-900">{savedCals?.toLocaleString() ?? '—'}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">kcal</p>
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold text-teal-400">{savedProtein ?? '—'}g</p>
+                      <p className="text-xs text-gray-400 mt-0.5">protein</p>
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold text-green-400">{savedCarbs ?? '—'}g</p>
+                      <p className="text-xs text-gray-400 mt-0.5">carbs</p>
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold text-blue-400">{savedFat ?? '—'}g</p>
+                      <p className="text-xs text-gray-400 mt-0.5">fat</p>
+                    </div>
+                  </div>
+                </div>
+              </>
             )}
-            <div className="bg-gray-50 rounded-2xl border border-gray-100 px-5 py-4">
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-3">Daily targets</p>
-              <div className="grid grid-cols-4 gap-3 text-center">
-                <div>
-                  <p className="text-xl font-bold text-gray-900">{savedCals?.toLocaleString() ?? '—'}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">kcal</p>
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-teal-400">{savedProtein ?? '—'}g</p>
-                  <p className="text-xs text-gray-400 mt-0.5">protein</p>
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-green-400">{savedCarbs ?? '—'}g</p>
-                  <p className="text-xs text-gray-400 mt-0.5">carbs</p>
-                </div>
-                <div>
-                  <p className="text-xl font-bold text-blue-400">{savedFat ?? '—'}g</p>
-                  <p className="text-xs text-gray-400 mt-0.5">fat</p>
-                </div>
-              </div>
-            </div>
           </div>
 
           {onTargetsSource && (
