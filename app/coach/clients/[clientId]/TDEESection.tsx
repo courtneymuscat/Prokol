@@ -84,13 +84,23 @@ type MacroResult = { targetCals: number; proteinG: number; carbG: number; fatG: 
 export default function TDEESection({
   clientId,
   onApplyToWeek,
-  onApplyToServes,
   onOverrideMealPlan,
+  showDailyTargets,
+  onToggleDailyTargets,
+  savingDailyTargetsVisibility,
 }: {
   clientId: string
   onApplyToWeek?: (macros: MacroResult) => void
-  onApplyToServes?: (macros: MacroResult) => void
   onOverrideMealPlan?: () => void
+  // Optional — when provided (the pinned Nutrition-tab usage), shows a
+  // toggle next to the "what the client sees" preview, sharing the exact
+  // same state as App Preview's "Show daily targets" toggle (passed down
+  // from ClientTabs rather than self-fetched) so the two can never show
+  // different on/off states. Omitted in PlanBuilderTab's usage, where this
+  // concept doesn't apply.
+  showDailyTargets?: boolean
+  onToggleDailyTargets?: () => void
+  savingDailyTargetsVisibility?: boolean
 }) {
   const [loading, setLoading] = useState(true)
   const [savingTdee, setSavingTdee] = useState(false)
@@ -254,7 +264,26 @@ export default function TDEESection({
           {hasActiveMealPlan && <MealPlanDrivenNote />}
 
           <div>
-            <p className="text-xs text-gray-400 mb-1.5">Daily target <span className="text-gray-400">— what the client sees</span></p>
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="text-xs text-gray-400">Daily target <span className="text-gray-400">— what the client sees</span></p>
+              {onToggleDailyTargets && (
+                <button
+                  type="button"
+                  onClick={onToggleDailyTargets}
+                  disabled={savingDailyTargetsVisibility}
+                  className={`relative flex-shrink-0 w-9 h-5 rounded-full transition-colors disabled:opacity-50 ${showDailyTargets ? 'bg-blue-600' : 'bg-gray-300'}`}
+                  aria-label="Toggle whether the client can see daily targets"
+                  title={showDailyTargets ? 'Client can see this — click to hide' : 'Hidden from client — click to show'}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${showDailyTargets ? 'translate-x-4' : ''}`} />
+                </button>
+              )}
+            </div>
+            {onToggleDailyTargets && !showDailyTargets && (
+              <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5 mb-2">
+                Hidden from client — this preview shows what they&apos;d see if turned on.
+              </p>
+            )}
             <div className="bg-gray-50 rounded-2xl border border-gray-100 px-5 py-4">
               <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-widest mb-3">Daily targets</p>
               <div className="grid grid-cols-4 gap-3 text-center">
@@ -510,15 +539,6 @@ export default function TDEESection({
               className="w-full py-2.5 rounded-xl text-sm font-semibold text-white bg-[#1D9E75] hover:opacity-90 disabled:opacity-40 transition-opacity"
             >
               Set to phase / week →
-            </button>
-          ) : onApplyToServes ? (
-            /* Serve guide mode — convert macros to serves */
-            <button
-              disabled={!effectiveMacros}
-              onClick={() => effectiveMacros && onApplyToServes(effectiveMacros)}
-              className="w-full py-2.5 rounded-xl text-sm font-semibold text-white bg-[#1D9E75] hover:opacity-90 disabled:opacity-40 transition-opacity"
-            >
-              Apply to serve targets →
             </button>
           ) : (
             /* Overview mode — save to DB / push to client dashboard */

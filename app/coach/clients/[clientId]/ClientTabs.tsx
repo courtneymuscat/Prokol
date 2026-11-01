@@ -2774,7 +2774,13 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
           just gets TDEE + Food Log with no toggle to switch between. */}
       <div style={{ display: tab === 'nutrition' ? undefined : 'none' }}>{visitedTabs.has('nutrition') && (
         <div className="space-y-5">
-          <TDEESection clientId={clientId} onOverrideMealPlan={() => handleTargetsSource('tdee', null)} />
+          <TDEESection
+            clientId={clientId}
+            onOverrideMealPlan={() => handleTargetsSource('tdee', null)}
+            showDailyTargets={showDailyTargets}
+            onToggleDailyTargets={handleToggleTargets}
+            savingDailyTargetsVisibility={savingTargets}
+          />
 
           {hasNutrition && (
             <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit overflow-x-auto">
@@ -2810,7 +2816,12 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
               )}</div>
               <div style={{ display: nutritionSubTab === 'serveguide' ? undefined : 'none' }}>{visitedNutritionSubTabs.has('serveguide') && (
                 <Suspense fallback={<p className="text-sm text-gray-400 py-10 text-center">Loading serve guide…</p>}>
-                  <ClientServeGuide clientId={clientId} />
+                  <ClientServeGuide
+                    clientId={clientId}
+                    showServeTargets={showServeTargets}
+                    onToggleServeTargets={handleToggleServeTargets}
+                    savingVisibility={savingServeTargets}
+                  />
                 </Suspense>
               )}</div>
             </>

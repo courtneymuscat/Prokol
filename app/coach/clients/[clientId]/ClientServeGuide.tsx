@@ -100,7 +100,22 @@ function ServeMathBreakdown({
   )
 }
 
-export default function ClientServeGuide({ clientId }: { clientId: string }) {
+export default function ClientServeGuide({
+  clientId,
+  showServeTargets,
+  onToggleServeTargets,
+  savingVisibility,
+}: {
+  clientId: string
+  // Shared with App Preview's "Show serve targets" toggle — passed down
+  // from ClientTabs (same state App Preview reads/writes) rather than
+  // fetched independently here, so the two can never disagree about
+  // whether the toggle is on, even when both stay mounted at once under
+  // ClientTabs' tab-caching.
+  showServeTargets: boolean
+  onToggleServeTargets: () => void
+  savingVisibility: boolean
+}) {
   const [foods, setFoods] = useState<ServeFood[]>([])
   const [targets, setTargets] = useState<ServeTargets>(null)
   const [loading, setLoading] = useState(true)
@@ -108,44 +123,19 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
   const [editingTargets, setEditingTargets] = useState(false)
   const [draft, setDraft] = useState({ protein_serves: 0, carb_serves: 0, fat_serves: 0, veg_unlimited: true, notes: '' })
   const [savingTargets, setSavingTargets] = useState(false)
-  const [showServeTargets, setShowServeTargets] = useState(true)
-  const [savingVisibility, setSavingVisibility] = useState(false)
 
   useEffect(() => {
     Promise.all([
       fetch('/api/coach/food-serves').then(r => r.json()),
       fetch(`/api/coach/clients/serve-targets?clientId=${clientId}`).then(r => r.json()),
-      fetch(`/api/coach/clients/${clientId}/settings`).then(r => r.json()),
-    ]).then(([fd, td, settings]) => {
+    ]).then(([fd, td]) => {
       setFoods(fd.foods ?? [])
       if (td.targets) {
         setTargets(td.targets)
         setDraft({ ...td.targets, notes: td.targets.notes ?? '' })
       }
-      setShowServeTargets(settings.show_serve_targets ?? true)
     }).finally(() => setLoading(false))
   }, [clientId])
-
-  // Same toggle as App Preview's "Show serve targets" — surfaced here too
-  // so a coach working from this tab doesn't have to jump over there to
-  // see or change whether the client can actually see what's below.
-  async function toggleVisibility() {
-    const next = !showServeTargets
-    setShowServeTargets(next)
-    setSavingVisibility(true)
-    try {
-      const res = await fetch(`/api/coach/clients/${clientId}/settings`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ show_serve_targets: next }),
-      })
-      if (!res.ok) setShowServeTargets(!next)
-    } catch {
-      setShowServeTargets(!next)
-    } finally {
-      setSavingVisibility(false)
-    }
-  }
 
   async function saveTargets() {
     setSavingTargets(true)
@@ -217,7 +207,7 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
           </div>
           <button
             type="button"
-            onClick={toggleVisibility}
+            onClick={onToggleServeTargets}
             disabled={savingVisibility}
             className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors disabled:opacity-50 ${showServeTargets ? 'bg-blue-600' : 'bg-gray-300'}`}
             aria-label="Toggle whether the client can see serve targets"

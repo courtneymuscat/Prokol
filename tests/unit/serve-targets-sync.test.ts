@@ -61,22 +61,26 @@ describe('syncServeTargetsForClient', () => {
     expect(upserted).toMatchObject({ protein_serves: 3.5, carb_serves: 7.5, fat_serves: 8, veg_unlimited: true })
   })
 
-  it('syncs from the active meal plan\'s summed content when targets_source is meal_plan, ignoring stale profile fields', async () => {
+  it('syncs from the active meal plan\'s REAL gram totals (matching the plan\'s own Total Serves display) when targets_source is meal_plan, ignoring stale profile fields', async () => {
     rel = { targets_source: 'meal_plan', targets_meal_plan_id: 'plan-1' }
     // Stale/irrelevant TDEE numbers that must NOT be used
     profile = { target_calories: 9999, target_protein: 999, target_fat: 999 }
     plansById['plan-1'] = {
       total_calories: null,
       content: [
-        { foods: [{ calories: 230, protein: 8, fat: 4 }, { calories: 115, protein: 25, fat: 1 }] },
-        { foods: [{ calories: 400, protein: 20, fat: 15 }] },
+        { foods: [{ calories: 230, protein: 8, carbs: 40, fat: 4 }, { calories: 115, protein: 25, carbs: 2, fat: 1 }] },
+        { foods: [{ calories: 400, protein: 20, carbs: 45, fat: 15 }] },
       ],
     }
     await syncServeTargetsForClient(fakeAdmin(), 'client-1', 'coach-1')
-    // calories = 230+115+400 = 745, protein = 8+25+20 = 53, fat = 4+1+15 = 20
+    // calories = 745, protein = 53, carbs = 87, fat = 20 — real grams, so this
+    // must use macrosToServes (veg-reserved real division), not
+    // targetMacrosToServes (which would ignore the real 87g and backward-solve
+    // carb_serves to 1.5 from the 745kcal budget instead of the correct 2.5).
     expect(upserted).not.toBeNull()
     expect((upserted as Record<string, unknown>).protein_serves).toBeCloseTo(2) // 53/30 = 1.77 -> roundHalf -> 2
     expect((upserted as Record<string, unknown>).fat_serves).toBeCloseTo(2) // 20/10
+    expect((upserted as Record<string, unknown>).carb_serves).toBeCloseTo(2.5) // (87-38 veg reserve)/20 = 2.45 -> roundHalf -> 2.5
   })
 
   it('falls back to a plan\'s flat total_calories when it has no food items yet, but skips sync without a macro breakdown', async () => {

@@ -1,35 +1,36 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { targetMacrosToServes } from './autoAssignNutrition'
+import { targetMacrosToServes, macrosToServes } from './autoAssignNutrition'
 
-type MealFood = { calories?: number; protein?: number; fat?: number }
+type MealFood = { calories?: number; protein?: number; carbs?: number; fat?: number }
 type MealSlot = {
   foods?: MealFood[]
   target_calories?: number | null
   target_protein?: number | null
+  target_carbs?: number | null
   target_fat?: number | null
 }
 
 // Same per-slot summing shape as the (independently duplicated) computeMacros
-// in meal-plans/route.ts, [planId]/route.ts, and app/dashboard/page.tsx —
-// carbs intentionally omitted here since targetMacrosToServes derives carb
-// serves from the calorie budget itself, not from a carb gram figure.
-function sumPlanMacros(content: unknown): { calories: number; protein: number; fat: number } {
-  let calories = 0, protein = 0, fat = 0
+// in meal-plans/route.ts, [planId]/route.ts, and app/dashboard/page.tsx.
+function sumPlanMacros(content: unknown): { calories: number; protein: number; carbs: number; fat: number } {
+  let calories = 0, protein = 0, carbs = 0, fat = 0
   for (const slot of (Array.isArray(content) ? content : []) as MealSlot[]) {
     const foods = (Array.isArray(slot?.foods) ? slot.foods : []) as MealFood[]
     if (foods.length > 0) {
       for (const food of foods) {
         calories += Number(food?.calories) || 0
         protein  += Number(food?.protein)  || 0
+        carbs    += Number(food?.carbs)    || 0
         fat      += Number(food?.fat)      || 0
       }
     } else {
       calories += Number(slot?.target_calories) || 0
       protein  += Number(slot?.target_protein)  || 0
+      carbs    += Number(slot?.target_carbs)    || 0
       fat      += Number(slot?.target_fat)      || 0
     }
   }
-  return { calories, protein, fat }
+  return { calories, protein, carbs, fat }
 }
 
 /**
@@ -43,6 +44,16 @@ function sumPlanMacros(content: unknown): { calories: number; protein: number; f
  * places a client's effective target can change (saving TDEE targets,
  * switching targets_source, assigning or editing a meal plan) was the one
  * that actually fired.
+ *
+ * The two sources use different serve math on purpose: a meal plan has
+ * real food with real gram totals, so its serves come from macrosToServes
+ * — the exact same real-grams-÷-serve-size formula (incl. the veg carb
+ * reservation) the meal plan's own "Total serves" display already uses —
+ * so the two numbers always agree. TDEE-only targets have no real food to
+ * measure, just an abstract calorie/macro figure, so those use
+ * targetMacrosToServes instead, which solves carbs backwards from the
+ * calorie budget so the real-food serve estimate still lands on the
+ * stated target (see that function's own comment for why).
  *
  * Preserves any notes the coach already wrote on client_serve_targets;
  * always overwrites the serve counts themselves. No-ops when there isn't
@@ -65,7 +76,9 @@ export async function syncServeTargetsForClient(
 
   let calories = 0
   let protein = 0
+  let carbs = 0
   let fat = 0
+  let fromRealFood = false
 
   if (rel?.targets_source === 'meal_plan' && rel.targets_meal_plan_id) {
     const { data: plan } = await admin
@@ -77,7 +90,9 @@ export async function syncServeTargetsForClient(
       const summed = sumPlanMacros(plan.content)
       calories = summed.calories > 0 ? summed.calories : (plan.total_calories ?? 0)
       protein = summed.protein
+      carbs = summed.carbs
       fat = summed.fat
+      fromRealFood = summed.calories > 0
     }
   } else {
     const { data: profile } = await admin
@@ -92,7 +107,9 @@ export async function syncServeTargetsForClient(
 
   if (!(calories > 0 && (protein > 0 || fat > 0))) return
 
-  const serves = targetMacrosToServes({ proteinG: protein, fatG: fat, targetCals: calories })
+  const serves = fromRealFood
+    ? macrosToServes({ proteinG: protein, carbG: carbs, fatG: fat })
+    : targetMacrosToServes({ proteinG: protein, fatG: fat, targetCals: calories })
 
   const { data: existing } = await admin
     .from('client_serve_targets')
