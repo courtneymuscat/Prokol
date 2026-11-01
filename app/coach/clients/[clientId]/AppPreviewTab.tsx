@@ -442,6 +442,13 @@ export default function AppPreviewTab({
             </div>
             <Toggle checked={showDailyTargets} onChange={onToggleTargets} disabled={savingTargets} />
           </div>
+          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+            <div>
+              <p className="text-sm font-medium text-gray-900">Show serve targets</p>
+              <p className="text-xs text-gray-400 mt-0.5">Numeric serve counts on Food Log &amp; Cheat Sheet</p>
+            </div>
+            <Toggle checked={showServeTargets} onChange={onToggleServeTargets} disabled={savingServeTargets} />
+          </div>
           {showDailyTargets && (
             <div className="space-y-2">
               <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Targets source</p>
@@ -522,7 +529,6 @@ export default function AppPreviewTab({
           {[
             { label: 'Meal builder', sub: 'Build meals from individual foods', checked: showMealBuilder, onChange: onToggleMealBuilder, disabled: savingMealBuilder },
             { label: 'My meals',  sub: 'Access and log previously saved meals', checked: showSavedMeals,   onChange: onToggleSavedMeals,   disabled: savingSavedMeals },
-            { label: 'Serve targets', sub: 'Numeric serve counts on Food Log & Cheat Sheet', checked: showServeTargets, onChange: onToggleServeTargets, disabled: savingServeTargets },
           ].map(({ label, sub, checked, onChange, disabled }) => (
             <div key={label} className="flex items-center justify-between">
               <div>

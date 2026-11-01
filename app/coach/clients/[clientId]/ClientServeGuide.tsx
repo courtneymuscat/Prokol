@@ -111,19 +111,44 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
   const [savingTargets, setSavingTargets] = useState(false)
   const [removingTargets, setRemovingTargets] = useState(false)
   const [autoAssign, setAutoAssign] = useState(false)
+  const [showServeTargets, setShowServeTargets] = useState(true)
+  const [savingVisibility, setSavingVisibility] = useState(false)
 
   useEffect(() => {
     Promise.all([
       fetch('/api/coach/food-serves').then(r => r.json()),
       fetch(`/api/coach/clients/serve-targets?clientId=${clientId}`).then(r => r.json()),
-    ]).then(([fd, td]) => {
+      fetch(`/api/coach/clients/${clientId}/settings`).then(r => r.json()),
+    ]).then(([fd, td, settings]) => {
       setFoods(fd.foods ?? [])
       if (td.targets) {
         setTargets(td.targets)
         setDraft({ ...td.targets, notes: td.targets.notes ?? '' })
       }
+      setShowServeTargets(settings.show_serve_targets ?? true)
     }).finally(() => setLoading(false))
   }, [clientId])
+
+  // Same toggle as App Preview's "Show serve targets" — surfaced here too
+  // so a coach working from this tab doesn't have to jump over there to
+  // see or change whether the client can actually see what's below.
+  async function toggleVisibility() {
+    const next = !showServeTargets
+    setShowServeTargets(next)
+    setSavingVisibility(true)
+    try {
+      const res = await fetch(`/api/coach/clients/${clientId}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ show_serve_targets: next }),
+      })
+      if (!res.ok) setShowServeTargets(!next)
+    } catch {
+      setShowServeTargets(!next)
+    } finally {
+      setSavingVisibility(false)
+    }
+  }
 
   function applyMacrosToServes(macros: { targetCals: number; proteinG: number; carbG: number; fatG: number }) {
     const serves = targetMacrosToServes(macros)
@@ -201,6 +226,24 @@ export default function ClientServeGuide({ clientId }: { clientId: string }) {
               {editingTargets ? 'Cancel' : targets ? 'Edit' : 'Set Targets'}
             </button>
           </div>
+        </div>
+
+        <div className={`flex items-center justify-between gap-3 rounded-xl px-3.5 py-2.5 mb-4 ${showServeTargets ? 'bg-gray-50 border border-gray-100' : 'bg-amber-50 border border-amber-100'}`}>
+          <div className="flex items-center gap-2">
+            <span className="text-sm">{showServeTargets ? '👁️' : '🙈'}</span>
+            <p className={`text-xs ${showServeTargets ? 'text-gray-500' : 'text-amber-700 font-medium'}`}>
+              {showServeTargets ? 'Client can see serve targets in their app' : 'Hidden from client — they won\'t see serve targets in Food Log or Cheat Sheet'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={toggleVisibility}
+            disabled={savingVisibility}
+            className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors disabled:opacity-50 ${showServeTargets ? 'bg-blue-600' : 'bg-gray-300'}`}
+            aria-label="Toggle whether the client can see serve targets"
+          >
+            <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${showServeTargets ? 'translate-x-5' : ''}`} />
+          </button>
         </div>
 
         {editingTargets ? (
