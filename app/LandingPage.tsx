@@ -448,7 +448,6 @@ export default function LandingPage({
               'Add a note and product URL to any meal item — clients know exactly what you are referring to',
               'Barcode scanner built in — scan or upload a photo of any product to get the most accurate nutritional data',
               'Choose to hide calories and macros from client meal plans — provide clean food guides without the overwhelm',
-              'AI meal scanner — clients photograph their plate, macros populate automatically (50 scans per client/month)',
               'Client food photo uploads + meal notes — coach portion sizes without requiring gram tracking',
             ]}
             screenshots={[
@@ -710,7 +709,7 @@ export default function LandingPage({
                 Everything in one place. One login.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {['Food tracking & AI meal scanner','Training plans & protocol builder','Check-in forms (per-client questions)','Cycle tracking & intelligence','Coach notes & client timeline','Autoflows, billing & calendar'].map(item => (
+                {['Food tracking & macro logging','Training plans & protocol builder','Check-in forms (per-client questions)','Cycle tracking & intelligence','Coach notes & client timeline','Autoflows, billing & calendar'].map(item => (
                   <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.teal, flexShrink: 0 }} />
                     <span style={{ fontSize: '0.84rem', color: 'rgba(255,255,255,0.7)' }}>{item}</span>
@@ -739,7 +738,6 @@ export default function LandingPage({
                   ['Serve guide / food cheat sheet','Not available','Every coach plan'],
                   ['Cycle tracking + intelligence','Not available','Full cycle intelligence built in'],
                   ['Personalised check-in questions per client','One template for all','Edit per client, no remake'],
-                  ['AI meal photo scanner','Separate app or unavailable','Native — Elite & coached clients'],
                   ['Food photo + note food diary','Not available','Built in'],
                   ['Client event calendar','Not available','Built in'],
                   ['PWA — save to home screen','Not available','Both coaches and clients'],
@@ -927,7 +925,7 @@ export default function LandingPage({
                 <p style={{ fontSize: '0.88rem', color: T.tealDeep, fontWeight: 500 }}>
                   <strong>For individuals who don&apos;t have a coach.</strong> Track nutrition, training, weight, cycle, and health data — all in one place, on your own terms.
                   <br /><br />
-                  If you&apos;re currently working with a coach on Prokol, you don&apos;t need one of these plans — your coach gives you full Elite-level access automatically.
+                  If you&apos;re currently working with a coach on Prokol, you don&apos;t need one of these plans — your coach gives you Elite-level access automatically (AI meal scanning is the one exception, available only on a self-subscribed Elite plan).
                   <br /><br />
                   <span style={{ color: T.tealDeep }}>Once you stop working with a coach, your account moves to the Free tier automatically — all your data is saved and your history stays intact. You can subscribe to Optimiser or Elite at any time to continue tracking at the level you&apos;re used to.</span>
                 </p>

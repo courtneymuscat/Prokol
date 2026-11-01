@@ -238,9 +238,8 @@ type PreviewResource = { id: string; title: string; url: string | null; folder_n
 
 // ── Food log access options ───────────────────────────────────────────────────
 
-const FOOD_LOG_OPTIONS: { value: 'full' | 'no_scan' | 'note_only' | 'off'; label: string; desc: string }[] = [
-  { value: 'full',      label: 'Full access',  desc: 'Food log, AI scanning, and meal notes' },
-  { value: 'no_scan',   label: 'No AI scan',   desc: 'Food log and meal notes, no camera scanning' },
+const FOOD_LOG_OPTIONS: { value: 'full' | 'note_only' | 'off'; label: string; desc: string }[] = [
+  { value: 'full',      label: 'Full access',  desc: 'Food log and meal notes' },
   { value: 'note_only', label: 'Notes only',   desc: 'Meal photo & note section only' },
   { value: 'off',       label: 'Off',          desc: 'Food log hidden entirely' },
 ]
@@ -258,8 +257,8 @@ export default function AppPreviewTab({
 }: {
   clientId: string
   showDailyTargets: boolean;   onToggleTargets: () => void;       savingTargets: boolean
-  foodLogAccess: 'full' | 'no_scan' | 'note_only' | 'off'
-  onFoodLogAccess: (v: 'full' | 'no_scan' | 'note_only' | 'off') => void; savingFoodLog: boolean
+  foodLogAccess: 'full' | 'note_only' | 'off'
+  onFoodLogAccess: (v: 'full' | 'note_only' | 'off') => void; savingFoodLog: boolean
   showMealBuilder: boolean;    onToggleMealBuilder: () => void;   savingMealBuilder: boolean
   showSavedMeals: boolean;     onToggleSavedMeals: () => void;    savingSavedMeals: boolean
   showServeTargets: boolean;   onToggleServeTargets: () => void;  savingServeTargets: boolean

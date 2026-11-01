@@ -48,7 +48,7 @@ export default async function LogFoodPage() {
 
   const isCoached = !!coachRel
   const showDailyTargets = (coachRel?.show_daily_targets as boolean | null) ?? false
-  const foodLogAccess = (coachRel?.food_log_access as 'full' | 'no_scan' | 'note_only' | 'off' | null) ?? 'full'
+  const foodLogAccess = (coachRel?.food_log_access as 'full' | 'note_only' | 'off' | null) ?? 'full'
   const showMealBuilder = (coachRel?.show_meal_builder as boolean | null) ?? true
   const showSavedMeals = (coachRel?.show_saved_meals as boolean | null) ?? true
 
@@ -69,7 +69,7 @@ export default async function LogFoodPage() {
 
       <main className="max-w-2xl mx-auto p-6 space-y-6">
         <DailyLog
-          canScanMeal={canMealScanner && foodLogAccess !== 'no_scan' && foodLogAccess !== 'note_only' && foodLogAccess !== 'off'}
+          canScanMeal={canMealScanner && foodLogAccess !== 'note_only' && foodLogAccess !== 'off'}
           canUseSavedMeals={canUseSavedMeals}
           foodLogAccess={isCoached ? foodLogAccess : 'full'}
           targetCalories={(!isCoached || showDailyTargets) ? (profile?.target_calories ?? null) : null}
@@ -81,7 +81,10 @@ export default async function LogFoodPage() {
           initialMealNotes={mealNotesRaw ?? []}
         />
 
-        {!canMealScanner && (
+        {/* Not shown to coached clients — the AI scanner isn't available on
+            any plan while being coached, so an upgrade CTA here would be
+            misleading (there's nothing to upgrade to that unlocks it). */}
+        {!canMealScanner && !isCoached && (
           <div className="flex items-center gap-4 bg-teal-50 border border-teal-100 rounded-2xl px-5 py-4">
             <span className="text-2xl">📸</span>
             <div className="flex-1">

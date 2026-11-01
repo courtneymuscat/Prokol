@@ -99,7 +99,7 @@ export default function DailyLog({
 }: {
   canScanMeal?: boolean
   canUseSavedMeals?: boolean
-  foodLogAccess?: 'full' | 'no_scan' | 'note_only' | 'off'
+  foodLogAccess?: 'full' | 'note_only' | 'off'
   targetCalories?: number | null
   targetProtein?: number | null
   targetCarbs?: number | null

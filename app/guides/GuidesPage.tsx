@@ -849,8 +849,8 @@ export default function GuidesPage() {
                 <Step n={1} title="Adding a food">
                   Tap the <strong>+</strong> button next to the meal you want to add to (e.g. Breakfast). Type the food name in the search bar (e.g. "chicken breast", "oats", "banana"). Select the food from the results, choose the serving size and quantity, and tap <strong>Add</strong>. The food appears in your log and your running totals update at the top.
                 </Step>
-                <Step n={2} title="AI meal scanner (Elite tier)">
-                  Tap the <strong>camera icon</strong> in the food log. Take a photo of your meal or upload one from your camera roll. The AI identifies the foods and estimates quantities. Review what it found, adjust any amounts, and confirm to log everything at once. This is especially useful for mixed meals or restaurant food.
+                <Step n={2} title="AI meal scanner (self-subscribed Elite plan only)">
+                  If you&apos;re on a self-subscribed Elite plan (not available while being coached), tap the <strong>camera icon</strong> in the food log. Take a photo of your meal or upload one from your camera roll. The AI identifies the foods and estimates quantities. Review what it found, adjust any amounts, and confirm to log everything at once. This is especially useful for mixed meals or restaurant food.
                 </Step>
                 <Step n={3} title="Saving meals for reuse (Optimiser and above)">
                   If you eat the same meals regularly, save them. Build your meal using + Add Food (e.g. your standard breakfast: oats, protein powder, banana, almond butter). Once all ingredients are in, click <strong>Save Meal</strong> and give it a name. Next time, find it under <strong>My Meals</strong> and add it with one tap — macros and all.

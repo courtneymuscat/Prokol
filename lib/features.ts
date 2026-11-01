@@ -102,6 +102,15 @@ const INDIVIDUAL_ELITE_FEATURES: Feature[] = [
   FEATURES.EXERCISE_VIDEO_UPLOAD,
 ]
 
+// Coached clients get full Elite-level access EXCEPT the AI meal scanner —
+// it calls a paid OpenAI vision API per scan, billed to the platform
+// rather than passed through a subscription price, so it's kept to
+// self-subscribed Elite individuals only (whose plan price accounts for
+// it) and withheld here regardless of which plan a client's coach is on.
+const COACHED_FEATURES: Feature[] = INDIVIDUAL_ELITE_FEATURES.filter(
+  (f) => f !== FEATURES.MEAL_SCANNER,
+)
+
 // ─── Coach base features (shared by all solo variants) ───────────────────────
 
 const COACH_BASE_FEATURES: Feature[] = [
@@ -173,7 +182,7 @@ export const TIER_FEATURES: Record<SubscriptionTier, Feature[]> = {
   individual_free:           INDIVIDUAL_FREE_FEATURES,
   individual_optimiser:      INDIVIDUAL_OPTIMISER_FEATURES,
   individual_elite:          INDIVIDUAL_ELITE_FEATURES,
-  coached:                   INDIVIDUAL_ELITE_FEATURES, // coached clients get full Elite-level access
+  coached:                   COACHED_FEATURES, // full Elite-level access minus the AI meal scanner — see COACHED_FEATURES above
   coach_solo:                COACH_SOLO_FEATURES,       // legacy
   coach_pt_solo:             COACH_PT_SOLO_FEATURES,
   coach_nutritionist_solo:   COACH_NUTRITIONIST_SOLO_FEATURES,

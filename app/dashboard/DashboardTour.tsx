@@ -42,7 +42,7 @@ const STEPS: Step[] = [
     targetId: 'tour-food-log',
     emoji: '🍽️',
     title: 'Food log',
-    body: 'Tap here to log everything you eat. Search foods, scan barcodes, or use AI to photograph a meal.',
+    body: 'Tap here to log everything you eat. Search foods or scan barcodes to add them in seconds.',
     cta: 'Got it →',
     tooltipSide: 'above',
   },

@@ -57,7 +57,10 @@ export async function PUT(
   const body = await req.json()
   const { show_daily_targets, food_log_access, show_meal_builder, show_saved_meals, show_serve_targets, targets_source, targets_meal_plan_id } = body
 
-  const validFoodLogAccess = ['full', 'no_scan', 'note_only', 'off']
+  // 'no_scan' removed — AI meal scanning is now withheld from every coached
+  // client regardless of this setting, so it no longer does anything
+  // distinct from 'full'. Existing rows were migrated to 'full'.
+  const validFoodLogAccess = ['full', 'note_only', 'off']
   if (food_log_access !== undefined && !validFoodLogAccess.includes(food_log_access)) {
     return Response.json({ error: 'Invalid food_log_access value' }, { status: 400 })
   }

@@ -539,9 +539,8 @@ function GoalsSection({ clientId }: { clientId: string }) {
 
 // ── Client settings section (inside Overview) ─────────────────────────────────
 
-const FOOD_LOG_OPTIONS: { value: 'full' | 'no_scan' | 'note_only' | 'off'; label: string; desc: string }[] = [
-  { value: 'full',      label: 'Full access',   desc: 'Food log, AI scanning, and meal notes' },
-  { value: 'no_scan',   label: 'No AI scan',    desc: 'Food log and meal notes, no camera scanning' },
+const FOOD_LOG_OPTIONS: { value: 'full' | 'note_only' | 'off'; label: string; desc: string }[] = [
+  { value: 'full',      label: 'Full access',   desc: 'Food log and meal notes' },
   { value: 'note_only', label: 'Notes only',    desc: 'Meal photo & note section only — no food logging' },
   { value: 'off',       label: 'Off',           desc: 'Food log hidden entirely' },
 ]
@@ -620,8 +619,8 @@ function ClientSettingsSection({
   showDailyTargets: boolean
   onToggle: () => void
   saving: boolean
-  foodLogAccess: 'full' | 'no_scan' | 'note_only' | 'off'
-  onFoodLogAccess: (v: 'full' | 'no_scan' | 'note_only' | 'off') => void
+  foodLogAccess: 'full' | 'note_only' | 'off'
+  onFoodLogAccess: (v: 'full' | 'note_only' | 'off') => void
   savingFoodLog: boolean
 }) {
   return (
@@ -2548,7 +2547,7 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
   const [error, setError] = useState<string | null>(null)
   const [showDailyTargets, setShowDailyTargets] = useState(true)
   const [savingTargets, setSavingTargets] = useState(false)
-  const [foodLogAccess, setFoodLogAccess] = useState<'full' | 'no_scan' | 'note_only' | 'off'>('full')
+  const [foodLogAccess, setFoodLogAccess] = useState<'full' | 'note_only' | 'off'>('full')
   const [savingFoodLog, setSavingFoodLog] = useState(false)
   const [showMealBuilder, setShowMealBuilder] = useState(true)
   const [savingMealBuilder, setSavingMealBuilder] = useState(false)

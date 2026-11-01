@@ -73,8 +73,9 @@ export default async function PricingPage({
             </div>
             <h3 className="text-lg font-bold text-gray-900">You&apos;re with a coach</h3>
             <p className="text-sm text-gray-500">
-              Your coach covers your plan — you have full Elite access included. Individual plans are not needed while you&apos;re being coached.
+              Your coach covers your plan — you have Elite access included. Individual plans are not needed while you&apos;re being coached.
             </p>
+            <p className="text-xs text-gray-400">AI meal photo scanning isn&apos;t included while coached — it&apos;s only on a self-subscribed Elite plan. Everything else is covered.</p>
             <p className="text-xs text-gray-400">If you leave your coach you&apos;ll be moved to the free Tracker plan and can upgrade from here.</p>
           </div>
         )}
@@ -98,7 +99,7 @@ export default async function PricingPage({
               },
               {
                 q: "What happens when I'm added by a coach?",
-                a: "You'll get full Elite access covered by your coach's plan. If you ever leave, you'll return to the free Tracker plan.",
+                a: "You'll get Elite-level access covered by your coach's plan — the one exception is AI meal photo scanning, which is only available on a self-subscribed Elite plan. If you ever leave, you'll return to the free Tracker plan.",
               },
             ].map(({ q, a }) => (
               <div key={q}>
