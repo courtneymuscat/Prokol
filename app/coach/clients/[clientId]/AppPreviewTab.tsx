@@ -826,7 +826,7 @@ export default function AppPreviewTab({
                   <span className="text-xl flex-shrink-0">🍽️</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-gray-900">Log food</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5">Search foods, scan a barcode, or use AI</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Search foods or scan a barcode</p>
                   </div>
                   <svg className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

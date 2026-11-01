@@ -661,7 +661,7 @@ export default async function DashboardPage() {
                   )}
                 </p>
               ) : (
-                <p className="text-xs text-gray-400 mt-0.5">Nothing logged yet today — search foods, scan a barcode, or use AI</p>
+                <p className="text-xs text-gray-400 mt-0.5">Nothing logged yet today — search foods or scan a barcode</p>
               )}
             </div>
             <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
