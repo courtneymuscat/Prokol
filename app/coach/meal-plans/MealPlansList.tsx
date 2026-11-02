@@ -58,6 +58,18 @@ const DIET_BADGE: Record<string, { label: string; className: string }> = {
   other:       { label: 'Other',       className: 'bg-gray-100 text-gray-500' },
 }
 
+// ── Filters ───────────────────────────────────────────────────────────────────
+
+const CALORIE_BANDS: { label: string; min: number; max: number }[] = [
+  { label: 'Under 1,500 kcal',   min: 0,    max: 1499 },
+  { label: '1,500–2,000 kcal',   min: 1500, max: 1999 },
+  { label: '2,000–2,500 kcal',   min: 2000, max: 2499 },
+  { label: '2,500–3,000 kcal',   min: 2500, max: 2999 },
+  { label: '3,000–3,500 kcal',   min: 3000, max: 3499 },
+  { label: '3,500–4,000 kcal',   min: 3500, max: 3999 },
+  { label: '4,000+ kcal',        min: 4000, max: Infinity },
+]
+
 // ── Assign modal ──────────────────────────────────────────────────────────────
 
 type Client = { id: string; email: string; full_name: string | null }
@@ -199,6 +211,8 @@ export default function MealPlansList({
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
   const [assigningPlan, setAssigningPlan] = useState<MealPlan | null>(null)
   const [copying, setCopying] = useState<string | null>(null)
+  const [dietFilter, setDietFilter] = useState('all')
+  const [calorieFilter, setCalorieFilter] = useState('all')
 
   // Lazy-load archived plans on first switch into that view.
   useEffect(() => {
@@ -378,10 +392,59 @@ export default function MealPlansList({
           </div>
         )}
 
+        {/* Filters */}
+        {plans.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 mb-5">
+            <select
+              value={dietFilter}
+              onChange={(e) => setDietFilter(e.target.value)}
+              className="text-xs font-semibold text-gray-600 border border-gray-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All meal types</option>
+              {Object.entries(DIET_BADGE).map(([value, b]) => (
+                <option key={value} value={value}>{b.label}</option>
+              ))}
+            </select>
+            <select
+              value={calorieFilter}
+              onChange={(e) => setCalorieFilter(e.target.value)}
+              className="text-xs font-semibold text-gray-600 border border-gray-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All calorie ranges</option>
+              {CALORIE_BANDS.map((b) => (
+                <option key={b.label} value={b.label}>{b.label}</option>
+              ))}
+            </select>
+            {(dietFilter !== 'all' || calorieFilter !== 'all') && (
+              <button
+                onClick={() => { setDietFilter('all'); setCalorieFilter('all') }}
+                className="text-xs font-semibold text-gray-400 hover:text-gray-700 px-2 py-2 transition-colors"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Grid */}
         {plans.length > 0 && (() => {
-          const orgPlans = plans.filter((p) => p.is_org_template)
-          const ownPlans = plans.filter((p) => !p.is_org_template)
+          const filteredPlans = plans.filter((p) => {
+            if (dietFilter !== 'all' && p.goal !== dietFilter) return false
+            if (calorieFilter !== 'all') {
+              const band = CALORIE_BANDS.find((b) => b.label === calorieFilter)
+              if (band && (p.total_calories < band.min || p.total_calories > band.max)) return false
+            }
+            return true
+          })
+          if (filteredPlans.length === 0) {
+            return (
+              <p className="text-sm text-gray-400 text-center py-16">
+                No meal plans match these filters.
+              </p>
+            )
+          }
+          const orgPlans = filteredPlans.filter((p) => p.is_org_template)
+          const ownPlans = filteredPlans.filter((p) => !p.is_org_template)
           return (
             <div className="space-y-6">
               {orgPlans.length > 0 && (
