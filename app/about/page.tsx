@@ -107,7 +107,7 @@ export default function AboutPage() {
           <div>
             <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: BERRY }}>About Me</p>
             <h1 style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 'clamp(2rem,4.5vw,3rem)', lineHeight: 1.1, letterSpacing: '-0.02em', marginBottom: 20 }}>
-              Court: helping as many people as I can understand their body.
+              Court: helping as many people as I can, understand their body.
             </h1>
             <p className="text-lg leading-relaxed mb-5" style={{ color: INK_SOFT, fontWeight: 300 }}>
               That&apos;s genuinely it. Nutrition and training get made way more complicated than they need to be, and most people end up with more noise in their head than actual understanding of their own body. So I&apos;ve built things to fix that — I coach and educate people directly, and if I can&apos;t reach someone myself, I&apos;ve got programs, seminars, and Prokol — the platform other coaches use to help their own clients just as simply.

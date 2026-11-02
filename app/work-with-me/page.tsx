@@ -53,7 +53,7 @@ export default function WorkWithMePage() {
             </p>
             <div className="rounded-xl px-5 py-4" style={{ background: '#fff', borderLeft: `3px solid ${BERRY}` }}>
               <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>
-                I see too many young people — especially young women — pushed to ignore their period symptoms, chase how they look over how they feel, and never learn what&apos;s actually happening in their body. Every service here exists to close that gap: real education, not more rules — so people can live symptom-free, eat without fear, and fuel properly for how they want to perform.
+                I see too many people — especially women — pushed to ignore their period symptoms, chase how they look over how they feel, and never learn what&apos;s actually happening in their body. Every service here exists to close that gap: real education, not more rules — so people can live symptom-free, eat without fear, and fuel properly for how they want to perform.
               </p>
             </div>
           </div>
