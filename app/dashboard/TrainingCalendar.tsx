@@ -1282,6 +1282,7 @@ function AddEventModal({ dateStr, onClose, onCreated, onStartWorkout }: {
 }) {
   const [type, setType] = useState<ClientEventType>('personal')
   const [title, setTitle] = useState('')
+  const [notes, setNotes] = useState('')
   const [endDate, setEndDate] = useState(dateStr)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -1314,6 +1315,7 @@ function AddEventModal({ dateStr, onClose, onCreated, onStartWorkout }: {
           end_date: isTravel && endDate > dateStr ? endDate : undefined,
           type,
           title: title.trim(),
+          content: type === 'extra_activity' && notes.trim() ? { note: notes.trim() } : undefined,
         }),
       })
       if (!res.ok) throw new Error(await res.text())
@@ -1402,6 +1404,21 @@ function AddEventModal({ dateStr, onClose, onCreated, onStartWorkout }: {
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
                 onKeyDown={(e) => e.key === 'Enter' && handleSave()}
                 autoFocus
+              />
+            </div>
+          )}
+
+          {type === 'extra_activity' && (
+            <div>
+              <label className="text-xs font-semibold text-gray-500 mb-1.5 block">
+                Notes <span className="text-gray-300 font-normal">(optional)</span>
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Distance, how it felt, anything else worth noting…"
+                rows={3}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
               />
             </div>
           )}
@@ -1547,15 +1564,20 @@ function DayDetailSheet({ date, workouts, events, onClose, onWorkoutTap, onAddEv
               )
             }
 
+            const note = contentRec?.note as string | undefined
+
             const inner = (
-              <div className="flex items-center gap-3">
-                <span className="text-base flex-shrink-0">{icon}</span>
-                <p className="text-sm text-gray-800 flex-1 truncate">{ev.title}</p>
+              <div className="flex items-start gap-3">
+                <span className="text-base flex-shrink-0 mt-0.5">{icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-800 truncate">{ev.title}</p>
+                  {note && <p className="text-xs text-gray-400 mt-0.5 whitespace-pre-line">{note}</p>}
+                </div>
                 {isClientEvent && (
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); e.preventDefault(); onDeleteEvent(ev.id) }}
-                    className="flex-shrink-0 text-gray-300 hover:text-red-400 transition-colors"
+                    className="flex-shrink-0 text-gray-300 hover:text-red-400 transition-colors mt-0.5"
                     title="Remove"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
