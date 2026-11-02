@@ -20,7 +20,6 @@ const dmSans = DM_Sans({
 const INK = '#211A17'
 const INK_SOFT = 'rgba(33,26,23,0.62)'
 const BERRY = '#8C3B52'
-const BERRY_DEEP = '#5E2537'
 const HEAD = 'var(--font-sans, Geist, system-ui, sans-serif)'
 
 const STATS = [
@@ -43,20 +42,6 @@ const CURRENT_ROLES = [
     href: '/work-with-me',
     desc: 'Everything that isn’t behind a screen — 1:1 clients, group classes, seminars, workshops, and nutrition consulting, wherever it’s needed. Personalised programs built around hormonal health and blood panel review, and education that actually sticks, not just another plan to follow for a few weeks.',
   },
-]
-
-const ACHIEVEMENTS = [
-  { year: '2024', label: 'FMG Bikini Athletic Pro' },
-  { year: '2024', label: 'Quarterfinalist, CrossFit Open' },
-  { year: '2023', label: '3rd Place, WBFF' },
-  { year: '2022', label: '3rd Place, WBFF Debut' },
-]
-
-const ALWAYS_LEARNING = [
-  'Learning directly from respected names in the industry',
-  'Podcasts and new research, on rotation',
-  'Reading education books, constantly',
-  'Investing in my own coaching',
 ]
 
 const JOURNEY = [
@@ -192,35 +177,6 @@ export default function AboutPage() {
                 </div>
                 <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>{r.desc}</p>
               </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Always learning ─────────────────────────────────────────────── */}
-      <section className="px-6 py-20" style={{ background: BERRY_DEEP }}>
-        <div className="max-w-4xl mx-auto text-center">
-          <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(255,255,255,0.55)' }}>Always Learning</p>
-          <h2 style={{ fontFamily: HEAD, fontWeight: 700, fontSize: 'clamp(1.4rem,3vw,1.9rem)', color: '#fff', marginBottom: 40, lineHeight: 1.4 }}>
-            I don&apos;t think you&apos;re ever done learning. Competing is one part of it — the rest is studying under people who know more than me, and never letting what I coach go stale.
-          </h2>
-
-          <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(255,255,255,0.45)' }}>On The Competition Floor</p>
-          <div className="flex flex-wrap items-center justify-center gap-3 mb-12">
-            {ACHIEVEMENTS.map((a) => (
-              <div key={a.label} className="flex items-center gap-2.5 px-4 py-2.5 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                <span className="text-xs font-bold" style={{ color: '#fff' }}>{a.year}</span>
-                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>{a.label}</span>
-              </div>
-            ))}
-          </div>
-
-          <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(255,255,255,0.45)' }}>And Off It</p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            {ALWAYS_LEARNING.map((l) => (
-              <div key={l} className="px-4 py-2.5 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>{l}</span>
-              </div>
             ))}
           </div>
         </div>
