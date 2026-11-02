@@ -41,7 +41,7 @@ const CURRENT_ROLES = [
     tag: 'Ongoing',
     title: 'Nutrition Coaching & Educating',
     href: '/work-with-me',
-    desc: 'Everything that isn’t behind a screen — 1:1 clients, group classes, seminars, workshops, and nutrition consulting, wherever it’s needed. Personalised programs built around hormonal health and blood panel review, and education that actually sticks, not just another plan to follow for a few weeks.',
+    desc: 'The direct, human side of it — 1:1 clients, group classes, seminars, workshops, and nutrition consulting, wherever it’s needed, in person or on a call. Personalised programs built around hormonal health and blood panel review, and education that actually sticks, not just another plan to follow for a few weeks.',
   },
   {
     tag: 'Genuinely My Favourite Part',
