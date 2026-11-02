@@ -196,6 +196,14 @@ function addDays(date: Date, n: number): Date {
   return d
 }
 
+function weekStartInMonth(date: Date): Date {
+  const start = startOfWeek(date)
+  if (start.getMonth() !== date.getMonth() || start.getFullYear() !== date.getFullYear()) {
+    return addDays(start, 7)
+  }
+  return start
+}
+
 function differenceInDays(a: Date, b: Date): number {
   const aUTC = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())
   const bUTC = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate())
@@ -2137,7 +2145,7 @@ export default function TrainingCalendar() {
       {showMonthPicker && (
         <MonthPicker
           current={weekStart}
-          onSelect={(d) => { setWeekStart(startOfWeek(d)); setShowMonthPicker(false) }}
+          onSelect={(d) => { setWeekStart(weekStartInMonth(d)); setShowMonthPicker(false) }}
           onClose={() => setShowMonthPicker(false)}
         />
       )}

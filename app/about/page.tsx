@@ -42,6 +42,11 @@ const CURRENT_ROLES = [
     href: '/work-with-me',
     desc: 'Everything that isn’t behind a screen — 1:1 clients, group classes, seminars, workshops, and nutrition consulting, wherever it’s needed. Personalised programs built around hormonal health and blood panel review, and education that actually sticks, not just another plan to follow for a few weeks.',
   },
+  {
+    tag: 'Genuinely My Favourite Part',
+    title: 'Coaching On The Floor',
+    desc: 'Face to face, in the room, real time. There’s a different energy to it — you see the moment something clicks for someone, you get to fix a cue on the spot, you get an actual high off it. Every session is a chance to make someone’s day a bit better, and after everything else I’ve built, this is still the part I’d never give up.',
+  },
 ]
 
 const JOURNEY = [
@@ -150,34 +155,51 @@ export default function AboutPage() {
               What I do today
             </h2>
             <p style={{ color: INK_SOFT, fontWeight: 300, maxWidth: 560, margin: '0 auto' }}>
-              Two things running at once, each feeding the other.
+              Three things running at once, each feeding the other.
             </p>
           </div>
-          <div className="grid md:grid-cols-2 gap-5">
-            {CURRENT_ROLES.map((r) => (
-              <Link
-                key={r.title}
-                href={r.href}
-                className="block rounded-2xl p-7 bg-white hover:shadow-lg transition-shadow"
-                style={{ border: '1px solid rgba(33,26,23,0.08)' }}
-              >
-                <span className="inline-block text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full mb-4" style={{ background: 'rgba(140,59,82,0.1)', color: BERRY }}>
-                  {r.tag}
-                </span>
-                <div className="flex items-center justify-between gap-3 mb-2">
-                  <p className="font-bold text-lg" style={{ fontFamily: HEAD }}>{r.title}</p>
-                  <span
-                    className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
-                    style={{ background: 'rgba(140,59,82,0.1)', color: BERRY }}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                    </svg>
+          <div className="grid md:grid-cols-3 gap-5">
+            {CURRENT_ROLES.map((r) => {
+              const cardInner = (
+                <>
+                  <span className="inline-block text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full mb-4" style={{ background: 'rgba(140,59,82,0.1)', color: BERRY }}>
+                    {r.tag}
                   </span>
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <p className="font-bold text-lg" style={{ fontFamily: HEAD }}>{r.title}</p>
+                    {r.href && (
+                      <span
+                        className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
+                        style={{ background: 'rgba(140,59,82,0.1)', color: BERRY }}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                        </svg>
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>{r.desc}</p>
+                </>
+              )
+              return r.href ? (
+                <Link
+                  key={r.title}
+                  href={r.href}
+                  className="block rounded-2xl p-7 bg-white hover:shadow-lg transition-shadow"
+                  style={{ border: '1px solid rgba(33,26,23,0.08)' }}
+                >
+                  {cardInner}
+                </Link>
+              ) : (
+                <div
+                  key={r.title}
+                  className="rounded-2xl p-7 bg-white"
+                  style={{ border: '1px solid rgba(33,26,23,0.08)' }}
+                >
+                  {cardInner}
                 </div>
-                <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>{r.desc}</p>
-              </Link>
-            ))}
+              )
+            })}
           </div>
         </div>
       </section>
