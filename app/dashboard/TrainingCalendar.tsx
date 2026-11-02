@@ -1965,10 +1965,13 @@ export default function TrainingCalendar() {
           <h2 className="text-base font-semibold text-gray-900">Training Calendar</h2>
           <button
             onClick={() => datePickerRef.current?.showPicker()}
-            className="text-sm text-gray-400 hover:text-gray-700 transition-colors cursor-pointer"
-            title="Jump to date"
+            className="flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors cursor-pointer"
+            title="Jump to a date"
           >
             {monthLabel}
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
           </button>
           <input
             ref={datePickerRef}
