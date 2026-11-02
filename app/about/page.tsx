@@ -24,7 +24,7 @@ const BERRY_DEEP = '#5E2537'
 const HEAD = 'var(--font-sans, Geist, system-ui, sans-serif)'
 
 const STATS = [
-  { v: '200+', l: 'Solo-led per class' },
+  { v: '200+', l: 'People led per class' },
   { v: '6+', l: 'Years coaching' },
   { v: '0→1', l: 'Meal prep business, from scratch' },
   { v: "'24", l: 'FMG Bikini Athletic Pro' },
