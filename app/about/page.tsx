@@ -24,10 +24,10 @@ const BERRY_DEEP = '#5E2537'
 const HEAD = 'var(--font-sans, Geist, system-ui, sans-serif)'
 
 const STATS = [
-  { v: '200+', l: 'Coached per class' },
-  { v: '5+', l: 'Years coaching' },
-  { v: '6', l: 'Coaching & nutrition qualifications' },
-  { v: "'24", l: 'CrossFit Open Quarterfinalist' },
+  { v: '200+', l: 'Solo-led per class' },
+  { v: '6+', l: 'Years coaching' },
+  { v: '0→1', l: 'Meal prep business, from scratch' },
+  { v: "'24", l: 'FMG Bikini Athletic Pro' },
 ]
 
 const CURRENT_ROLES = [
@@ -82,7 +82,12 @@ const JOURNEY = [
     year: '2024 – 2026',
     title: 'Two years at Bambu Fitness, Bali',
     href: 'https://www.bambufitnessbali.com/',
-    desc: 'Coaching full-time across six modalities for classes of 200+, with 1:1 nutrition support alongside it. I held webinars on women’s health and women in training, and was a guest speaker at retreats across sport performance, body recomposition, healthy periods, and pre and post-menopause. I also helped build Fuel by Bambu, the gym’s in-house meal prep business, establishing its systems from the ground up.',
+    desc: 'Coaching full-time across six modalities for classes of 200+, with 1:1 nutrition support alongside it. I held webinars on women’s health and women in training, and was a guest speaker at retreats across sport performance, body recomposition, healthy periods, and pre and post-menopause.',
+  },
+  {
+    year: 'Jul 2024 – Apr 2026',
+    title: 'Built Fuel by Bambu, a meal prep business',
+    desc: 'Alongside coaching, I helped build Fuel by Bambu from the ground up — a macro-balanced meal prep business based in Bali. I established the operational systems, worked directly with the chefs to turn recipes into balanced macros, ran the trials, and onboarded the first members. It’s still running today.',
   },
   {
     year: 'Now',
