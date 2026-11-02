@@ -34,23 +34,14 @@ const CURRENT_ROLES = [
   {
     tag: 'Founder & Builder',
     title: 'Prokol',
+    href: '/',
     desc: 'After years coaching across gyms, group classes, and my own clients, I brought everything I’d learned into Prokol — the coaching platform I built and now run, used by coaches and their clients for nutrition, training, and cycle tracking in one place.',
   },
   {
     tag: 'Ongoing',
     title: 'Nutrition Coaching & Educating',
+    href: '/work-with-me',
     desc: 'Everything that isn’t behind a screen — 1:1 clients, group classes, seminars, workshops, and nutrition consulting, wherever it’s needed. Personalised programs built around hormonal health and blood panel review, and education that actually sticks, not just another plan to follow for a few weeks.',
-  },
-]
-
-const SKILL_GROUPS = [
-  {
-    label: 'Nutrition & Hormonal Health',
-    skills: ['Accredited Sports Nutritionist (SNA)', 'Hormonal Health Education', 'Blood Panel Review', 'Sports Nutrition & Meal Prep', 'Pre & Post Natal Nutrition'],
-  },
-  {
-    label: 'Movement, Training & Rehab',
-    skills: ['CrossFit Level 1', 'Cert III & IV in Fitness', 'Cert IV in Allied Health Assistance', 'Pilates Instructor (InBalance Education)', 'TGA Gymnastics Course', 'Strength & Conditioning', 'Reformer Pilates', 'HIIT / Hyrox / Shred', 'Booty / Glute Programming', 'Rehab & Pre-hab'],
   },
 ]
 
@@ -172,39 +163,28 @@ export default function AboutPage() {
           </div>
           <div className="grid md:grid-cols-2 gap-5">
             {CURRENT_ROLES.map((r) => (
-              <div key={r.title} className="rounded-2xl p-7 bg-white" style={{ border: '1px solid rgba(33,26,23,0.08)' }}>
+              <Link
+                key={r.title}
+                href={r.href}
+                className="block rounded-2xl p-7 bg-white hover:shadow-lg transition-shadow"
+                style={{ border: '1px solid rgba(33,26,23,0.08)' }}
+              >
                 <span className="inline-block text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full mb-4" style={{ background: 'rgba(140,59,82,0.1)', color: BERRY }}>
                   {r.tag}
                 </span>
-                <p className="font-bold text-lg mb-2" style={{ fontFamily: HEAD }}>{r.title}</p>
-                <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>{r.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Credentials & Expertise ─────────────────────────────────────── */}
-      <section className="px-6 py-20" style={{ background: '#EFEAE2' }}>
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-14">
-            <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: BERRY }}>Credentials & Expertise</p>
-            <h2 style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 'clamp(1.6rem,3.5vw,2.2rem)' }}>
-              A rare combination, on purpose
-            </h2>
-          </div>
-          <div className="grid md:grid-cols-2 gap-6">
-            {SKILL_GROUPS.map((g) => (
-              <div key={g.label} className="rounded-2xl p-7 bg-white" style={{ border: '1px solid rgba(33,26,23,0.08)' }}>
-                <p className="font-bold mb-4" style={{ fontFamily: HEAD, fontSize: '1.05rem' }}>{g.label}</p>
-                <div className="flex flex-wrap gap-2">
-                  {g.skills.map((s) => (
-                    <span key={s} className="text-xs font-medium px-3 py-1.5 rounded-full" style={{ background: 'rgba(33,26,23,0.05)', color: INK }}>
-                      {s}
-                    </span>
-                  ))}
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <p className="font-bold text-lg" style={{ fontFamily: HEAD }}>{r.title}</p>
+                  <span
+                    className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
+                    style={{ background: 'rgba(140,59,82,0.1)', color: BERRY }}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                  </span>
                 </div>
-              </div>
+                <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>{r.desc}</p>
+              </Link>
             ))}
           </div>
         </div>
