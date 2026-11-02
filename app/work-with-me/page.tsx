@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { DM_Sans } from 'next/font/google'
+import Image from 'next/image'
 import Link from 'next/link'
 import { PersonalNav, PersonalFooter } from '@/app/components/PersonalSiteShell'
 import WaysToWorkWithMe from './WaysToWorkWithMe'
@@ -29,28 +30,35 @@ export default function WorkWithMePage() {
       <PersonalNav active="work" />
 
       {/* ── Hero ────────────────────────────────────────────────────────── */}
-      <section className="px-6 pt-16 pb-14">
-        <div className="max-w-3xl mx-auto text-center">
-          <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: BERRY }}>Work With Me</p>
-          <h1 style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 'clamp(2rem,5vw,3rem)', lineHeight: 1.15, letterSpacing: '-0.02em', marginBottom: 20 }}>
-            Understanding your body shouldn&apos;t be optional.
-          </h1>
-          <p className="text-lg leading-relaxed" style={{ color: INK_SOFT, fontWeight: 300 }}>
-            I coach, consult, and teach so people — especially young women — stop pushing through symptoms they&apos;ve been told are normal, and start understanding what their body is actually telling them.
-          </p>
-        </div>
-      </section>
+      <section className="px-6 pt-16 pb-16">
+        <div className="max-w-5xl mx-auto grid md:grid-cols-[280px_1fr] gap-12 items-center">
+          {/* TODO: swap for the laptop photo once the file is available —
+              placeholder reuses the About page headshot for now. */}
+          <div className="relative w-full max-w-xs mx-auto md:max-w-none rounded-3xl overflow-hidden shadow-xl" style={{ aspectRatio: '2 / 3' }}>
+            <Image
+              src="/about/courtney-muscat.jpg"
+              alt="Courtney Muscat"
+              fill
+              sizes="(min-width: 768px) 280px, 280px"
+              className="object-cover"
+              priority
+            />
+          </div>
 
-      {/* ── Why this matters to me ──────────────────────────────────────── */}
-      <section className="px-6 py-20" style={{ background: BERRY_DEEP }}>
-        <div className="max-w-3xl mx-auto">
-          <p className="text-xs font-bold uppercase tracking-widest mb-6 text-center" style={{ color: 'rgba(255,255,255,0.55)' }}>Why This Matters To Me</p>
-          <p style={{ fontFamily: HEAD, fontWeight: 700, fontSize: 'clamp(1.25rem,2.6vw,1.6rem)', lineHeight: 1.6, color: '#fff', marginBottom: 24 }}>
-            I see too many young people — especially young women — who don&apos;t understand what their period symptoms are actually telling them. They&apos;re taught to push through pain, obsess over how they look instead of how they feel, and chase things that don&apos;t actually matter for their health. Nobody ever sat them down and explained what&apos;s happening in their body, or why it matters.
-          </p>
-          <p className="leading-relaxed" style={{ color: 'rgba(255,255,255,0.8)', fontWeight: 300, fontSize: '1.05rem' }}>
-            That&apos;s the gap every service on this page exists to close. Not more rules. Not more restriction. Real education and understanding — so people can live a whole life: symptomless periods, knowing what&apos;s actually happening in your body, food freedom instead of fear, and fuelling properly for how you want to perform. Long-term, I want to take this education into schools, so the next generation gets it before they spend years without it.
-          </p>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: BERRY }}>Work With Me</p>
+            <h1 style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 'clamp(2rem,5vw,3rem)', lineHeight: 1.15, letterSpacing: '-0.02em', marginBottom: 20 }}>
+              Understanding your body shouldn&apos;t be optional.
+            </h1>
+            <p className="text-lg leading-relaxed mb-6" style={{ color: INK_SOFT, fontWeight: 300 }}>
+              I coach, consult, and teach so people — especially young women — stop pushing through symptoms they&apos;ve been told are normal, and start understanding what their body is actually telling them.
+            </p>
+            <div className="rounded-xl px-5 py-4" style={{ background: '#fff', borderLeft: `3px solid ${BERRY}` }}>
+              <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>
+                Every service on this page comes back to the same thing: real education, not more rules — so people can live symptom-free, eat without fear, and fuel properly for how they want to perform. Long-term, I want to take this into schools too.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
