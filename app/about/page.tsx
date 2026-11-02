@@ -76,7 +76,7 @@ const JOURNEY = [
   {
     year: '2023 onward',
     title: 'Coaching on every front, at once',
-    desc: 'While still coaching on the gym floor — casual CrossFit coaching and 1:1 personal training — I started taking on my own nutrition clients at the same time. Program design, technique coaching, and nutrition coaching, side by side rather than one after the other.',
+    desc: 'While still coaching on the gym floor, I started taking on my own nutrition clients at the same time. Program design, technique coaching, and nutrition coaching, side by side rather than one after the other.',
   },
   {
     year: '2024 – 2026',
