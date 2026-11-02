@@ -1272,6 +1272,53 @@ function WorkoutModal({ workout, onClose, onSaved, onMoved }: {
   )
 }
 
+// ─── Month Picker ─────────────────────────────────────────────────────────────
+// Custom month/year picker — replaces a hidden <input type="date"> +
+// showPicker(), which iOS Safari (especially running as an installed PWA in
+// standalone mode) doesn't reliably support: tapping the trigger silently
+// does nothing instead of opening the native picker. This has no native
+// dependency, so it works the same everywhere.
+
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+export function MonthPicker({ current, onSelect, onClose }: {
+  current: Date
+  onSelect: (date: Date) => void
+  onClose: () => void
+}) {
+  const [year, setYear] = useState(current.getFullYear())
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <button type="button" onClick={() => setYear((y) => y - 1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors" aria-label="Previous year">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          </button>
+          <p className="text-sm font-bold text-gray-900">{year}</p>
+          <button type="button" onClick={() => setYear((y) => y + 1)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors" aria-label="Next year">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          </button>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {MONTH_ABBR.map((m, i) => {
+            const isActive = year === current.getFullYear() && i === current.getMonth()
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => onSelect(new Date(year, i, 1))}
+                className={`py-2.5 rounded-xl text-sm font-semibold transition-colors ${isActive ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'}`}
+              >
+                {m}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Add Event Modal ──────────────────────────────────────────────────────────
 
 function AddEventModal({ dateStr, onClose, onCreated, onStartWorkout }: {
@@ -1912,12 +1959,7 @@ export default function TrainingCalendar() {
   const goToNextWeek = () => setWeekStart((d) => addDays(d, 7))
   const goToThisWeek = () => setWeekStart(startOfWeek(new Date()))
 
-  const datePickerRef = useRef<HTMLInputElement>(null)
-  function handleDatePickerChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!e.target.value) return
-    const [y, m, d] = e.target.value.split('-').map(Number)
-    setWeekStart(startOfWeek(new Date(y, m - 1, d)))
-  }
+  const [showMonthPicker, setShowMonthPicker] = useState(false)
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -1986,7 +2028,7 @@ export default function TrainingCalendar() {
         <div className="flex items-center gap-3">
           <h2 className="text-base font-semibold text-gray-900">Training Calendar</h2>
           <button
-            onClick={() => datePickerRef.current?.showPicker()}
+            onClick={() => setShowMonthPicker(true)}
             className="flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-blue-600 transition-colors cursor-pointer"
             title="Jump to a date"
           >
@@ -1995,13 +2037,6 @@ export default function TrainingCalendar() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          <input
-            ref={datePickerRef}
-            type="date"
-            className="sr-only"
-            value={toDateStr(weekStart)}
-            onChange={handleDatePickerChange}
-          />
         </div>
         <div className="flex items-center gap-1">
           {!isCurrentWeek && (
@@ -2095,6 +2130,15 @@ export default function TrainingCalendar() {
           onClose={() => setViewingWorkout(null)}
           onSaved={handleSaved}
           onMoved={handleWorkoutMoved}
+        />
+      )}
+
+      {/* Month picker */}
+      {showMonthPicker && (
+        <MonthPicker
+          current={weekStart}
+          onSelect={(d) => { setWeekStart(startOfWeek(d)); setShowMonthPicker(false) }}
+          onClose={() => setShowMonthPicker(false)}
         />
       )}
 

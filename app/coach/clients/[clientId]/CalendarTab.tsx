@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import { MonthPicker } from '@/app/dashboard/TrainingCalendar'
 
 // ── Calendar tab ──────────────────────────────────────────────────────────────
 
@@ -565,7 +566,7 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [clientTimezone, setClientTimezone] = useState<string | null>(null)
-  const datePickerRef = useRef<HTMLInputElement>(null)
+  const [showMonthPicker, setShowMonthPicker] = useState(false)
   const [addingEvent, setAddingEvent] = useState<string | null>(null)
   const [newEvent, setNewEvent] = useState({ type: 'task', title: '', content: '', repeat: 'none', endDate: '', resourceId: '', repeatDays: [] as number[] })
   // Coach's resource library — lazy-loaded the first time the Add Event
@@ -660,18 +661,14 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
     setCalView(v)
   }
 
-  function handleDatePickerChange(e: React.ChangeEvent<HTMLInputElement>) {
-    if (!e.target.value) return
-    const [y, m, d] = e.target.value.split('-').map(Number)
-    const picked = new Date(y, m - 1, d)
+  function handleMonthPicked(picked: Date) {
     if (calView === 'week') {
       setWeekStart(getWeekStart(picked))
     } else {
-      setMonthStart(new Date(y, m - 1, 1))
+      setMonthStart(new Date(picked.getFullYear(), picked.getMonth(), 1))
     }
+    setShowMonthPicker(false)
   }
-
-  const datePickerValue = calView === 'week' ? toDateStr(weekStart) : toDateStr(monthStart)
 
   async function saveEvent(date: string) {
     if (!newEvent.title.trim()) return
@@ -886,7 +883,7 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
             <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
           </button>
           <button
-            onClick={() => datePickerRef.current?.showPicker()}
+            onClick={() => setShowMonthPicker(true)}
             className="flex items-center gap-1 text-sm font-semibold text-gray-700 ml-1 hover:text-blue-600 transition-colors cursor-pointer"
             title="Jump to a date"
           >
@@ -895,13 +892,6 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
-          <input
-            ref={datePickerRef}
-            type="date"
-            className="sr-only"
-            value={datePickerValue}
-            onChange={handleDatePickerChange}
-          />
         </div>
         {/* View toggle */}
         <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold">
@@ -1126,6 +1116,15 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
             })}
           </div>
         </div>
+      )}
+
+      {/* Month picker */}
+      {showMonthPicker && (
+        <MonthPicker
+          current={calView === 'week' ? weekStart : monthStart}
+          onSelect={handleMonthPicked}
+          onClose={() => setShowMonthPicker(false)}
+        />
       )}
 
       {/* Edit event modal */}
