@@ -242,6 +242,7 @@ export default function LandingPage({
     { label: 'Pricing', href: '#pricing' },
     { label: 'Guides', href: '/guides' },
     { label: 'White-Label', href: '#pricing' },
+    { label: 'About', href: '/about' },
   ]
 
   return (
@@ -1093,7 +1094,7 @@ export default function LandingPage({
             </p>
           </div>
           <div className="flex items-center gap-6 flex-wrap justify-center">
-            {[{l:'Privacy Policy',h:'/privacy'},{l:'Terms of Service',h:'/terms'},{l:'Health Data',h:'/health-data'},{l:'DPA',h:'/dpa'},{l:'Guides',h:'/guides'},{l:'Contact',h:'mailto:info@prokol.io'}].map(x => (
+            {[{l:'About',h:'/about'},{l:'Work With Me',h:'/work-with-me'},{l:'Privacy Policy',h:'/privacy'},{l:'Terms of Service',h:'/terms'},{l:'Health Data',h:'/health-data'},{l:'DPA',h:'/dpa'},{l:'Guides',h:'/guides'},{l:'Contact',h:'mailto:info@prokol.io'}].map(x => (
               <a key={x.l} href={x.h} style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.45)', textDecoration: 'none', fontWeight: 400 }}>{x.l}</a>
             ))}
           </div>
