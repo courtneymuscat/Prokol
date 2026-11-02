@@ -52,6 +52,13 @@ const ACHIEVEMENTS = [
   { year: '2022', label: '3rd Place, WBFF Debut' },
 ]
 
+const ALWAYS_LEARNING = [
+  'Learning directly from respected names in the industry',
+  'Podcasts and new research, on rotation',
+  'Reading education books, constantly',
+  'Investing in my own coaching',
+]
+
 const JOURNEY = [
   {
     year: '2018 – 2024',
@@ -190,18 +197,29 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* ── On the competition floor ────────────────────────────────────── */}
+      {/* ── Always learning ─────────────────────────────────────────────── */}
       <section className="px-6 py-20" style={{ background: BERRY_DEEP }}>
         <div className="max-w-4xl mx-auto text-center">
-          <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(255,255,255,0.55)' }}>On The Competition Floor</p>
-          <h2 style={{ fontFamily: HEAD, fontWeight: 700, fontSize: 'clamp(1.4rem,3vw,1.9rem)', color: '#fff', marginBottom: 32, lineHeight: 1.4 }}>
-            Everything I coach, I&apos;ve also competed at. I don&apos;t ask a client to do anything I haven&apos;t tested on myself.
+          <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(255,255,255,0.55)' }}>Always Learning</p>
+          <h2 style={{ fontFamily: HEAD, fontWeight: 700, fontSize: 'clamp(1.4rem,3vw,1.9rem)', color: '#fff', marginBottom: 40, lineHeight: 1.4 }}>
+            I don&apos;t think you&apos;re ever done learning. Competing is one part of it — the rest is studying under people who know more than me, and never letting what I coach go stale.
           </h2>
-          <div className="flex flex-wrap items-center justify-center gap-3">
+
+          <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(255,255,255,0.45)' }}>On The Competition Floor</p>
+          <div className="flex flex-wrap items-center justify-center gap-3 mb-12">
             {ACHIEVEMENTS.map((a) => (
               <div key={a.label} className="flex items-center gap-2.5 px-4 py-2.5 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }}>
                 <span className="text-xs font-bold" style={{ color: '#fff' }}>{a.year}</span>
                 <span className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>{a.label}</span>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: 'rgba(255,255,255,0.45)' }}>And Off It</p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            {ALWAYS_LEARNING.map((l) => (
+              <div key={l} className="px-4 py-2.5 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>{l}</span>
               </div>
             ))}
           </div>
