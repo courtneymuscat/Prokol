@@ -26,7 +26,7 @@ const SERVICES = [
   {
     icon: '🏋️',
     title: 'Your Gym or Studio’s In-House Nutritionist',
-    desc: 'I work inside gyms and studios as their embedded nutrition coach — running member consults, building group nutrition offerings, and giving your trainers a nutrition specialist to lean on without hiring one full-time.',
+    desc: 'I work inside gyms and studios as an Accredited Sports Nutritionist and coach — running member consults, building group nutrition offerings, and giving your trainers a nutrition specialist to lean on without hiring one full-time. At Bambu Fitness I coach classes of 200+ across six modalities and run nutrition support alongside it — I know what it takes to do this at real scale.',
     highlight: true,
   },
   {
@@ -37,7 +37,7 @@ const SERVICES = [
   {
     icon: '🌸',
     title: "Women's Health Seminars",
-    desc: 'Talks and workshops for gyms, studios, and teams on training and eating around the female cycle — practical, not theoretical.',
+    desc: 'Talks and workshops for gyms, studios, and teams on training and eating around the female cycle — the same seminars I host for Bambu Fitness’s retreats and community, practical rather than theoretical.',
   },
   {
     icon: '🌱',
@@ -46,8 +46,8 @@ const SERVICES = [
   },
   {
     icon: '🍱',
-    title: 'Meal Prep Service',
-    desc: 'A meal prep offering built around the same nutrition principles I coach with — currently in build, more details coming soon.',
+    title: 'Meal Prep, Built From Scratch',
+    desc: 'I designed and launched Fuel by Bambu — a gym-based, macro-balanced meal prep service — from nothing: the systems, the recipes, the trials, the onboarding. It’s still running today. If your gym wants the same, I’ve already done it once.',
   },
 ]
 
