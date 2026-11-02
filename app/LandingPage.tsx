@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 
@@ -22,18 +22,6 @@ const T = {
 
 // Heading font: Geist (clean geometric sans — matches Prokol brand)
 const HEAD = 'var(--font-sans, Geist, system-ui, sans-serif)'
-
-// ── Hooks ─────────────────────────────────────────────────────────────────────
-function useFadeUp() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [vis, setVis] = useState(false)
-  useEffect(() => {
-    const el = ref.current; if (!el) return
-    const o = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVis(true); o.disconnect() } }, { threshold: 0.12 })
-    o.observe(el); return () => o.disconnect()
-  }, [])
-  return { ref, vis }
-}
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 function Check() {
@@ -167,36 +155,266 @@ function ScreenshotArea({ screenshots, screenshotCols }: {
   )
 }
 
-function Showcase({ label, h3, body, bullets, screenshots, flip, extra, screenshotCols }: {
-  label: string; h3: string; body: string; bullets: string[]
+// ── Feature tabs (interactive — replaces 11 stacked full-page sections with
+// one clickable panel, so the platform tour reads in a fraction of the
+// scroll without dropping any copy, bullets, or screenshots) ─────────────────
+type FeatureItem = {
+  icon: string
+  label: string
+  h3: string
+  body: string
+  bullets: string[]
   screenshots: { file: string; dims: string; desc: string }[]
-  flip?: boolean; extra?: React.ReactNode; screenshotCols?: 2
-}) {
-  const { ref, vis } = useFadeUp()
+  screenshotCols?: 2
+}
+
+const FEATURES: FeatureItem[] = [
+  {
+    icon: '📊',
+    label: 'Coach Dashboard',
+    h3: 'Every client. Every metric. Always up to date.',
+    body: "Your coach dashboard updates automatically as clients log food, complete check-ins, submit forms, and finish workouts. Lapsed clients surface to the top. Unread submissions are flagged. You see everything without chasing anyone.",
+    bullets: [
+      'Automatic client activity feed — updated in real time as clients engage',
+      'Lapsed client alerts — nobody falls through the cracks',
+      'Unread check-ins and form submissions flagged immediately',
+      '13-tab client profile: overview, nutrition, training, meal plan, check-ins, habits, notes, files, autoflows, resources, calendar, app preview, serve guide',
+      "App preview tab — see your client's exact dashboard before making changes",
+    ],
+    screenshots: [{ file: '/public/screenshots/client-overview.png', dims: '1280×800px', desc: 'Client file overview — goals, progress photos, weight, check-in history, and client activity visible' }],
+  },
+  {
+    icon: '✨',
+    label: 'Client Onboarding',
+    h3: 'Send a link. They do the rest.',
+    body: 'Send your client an invite link. They create their account, complete payment, and land directly on a personalised onboarding form — which saves automatically into their client file. Files they upload during onboarding are stored instantly. No chasing, no manual setup, no data entry on your end.',
+    bullets: [
+      'Invite via link or email — client handles signup and payment in one flow',
+      'Onboarding form saves directly to client file automatically',
+      'Files uploaded during onboarding stored in client file instantly',
+      'Inbuilt TDEE calculator using MET-based activity levels to get the most accurate breakdown',
+      'Choose to set these targets or build a meal plan to override these targets',
+    ],
+    screenshots: [{ file: '/public/screenshots/onboarding.png', dims: '1280×800px', desc: 'Client-facing onboarding — service card, payment step, welcome screen' }],
+  },
+  {
+    icon: '🥗',
+    label: 'Nutrition',
+    h3: 'Coach nutrition your way — meal plans, portions, or both.',
+    body: 'Not every client tracks macros. Prokol gives you multiple ways to coach nutrition depending on what your client actually needs. Build a structured meal plan with food-level detail and food swaps. Or use the built-in food cheat sheet to set visual serve targets — so clients understand portions using cups, tablespoons, and hand guides rather than weighing every gram. Both approaches work side by side.',
+    bullets: [
+      'Full food-level meal plan editor — build and assign reusable templates',
+      'Multi-plan support — assign more than one active plan simultaneously',
+      'Clients can suggest food swaps inline — you see every change',
+      'Client-visible notes and hidden coach-only notes kept separate',
+      'Clone templates across different clients in one click',
+      "Save a client's edited plan back as a new template",
+      'Built-in food cheat sheet — set visual serve targets per client (protein, carbs, fat)',
+      'Household measures included for every food (cups, tbsp, palms) — no scales needed',
+      'Add a note and product URL to any meal item — clients know exactly what you are referring to',
+      'Barcode scanner built in — scan or upload a photo of any product to get the most accurate nutritional data',
+      'Choose to hide calories and macros from client meal plans — provide clean food guides without the overwhelm',
+      'Client food photo uploads + meal notes — coach portion sizes without requiring gram tracking',
+    ],
+    screenshots: [
+      { file: '/public/screenshots/meal-plan-builder.png', dims: '1280×800px', desc: 'Coach meal plan editor — meals, food items, macros, assign button visible' },
+      { file: '/public/screenshots/client-meal-plan.png', dims: '390×844px (portrait)', desc: 'Client app view — meal plan with food items, swap button, and coach notes visible' },
+      { file: '/public/screenshots/cheat-sheet-client.png', dims: '390×844px (portrait)', desc: 'Client app cheat sheet — serve targets panel (rose/teal/green bars), food list with household measures visible' },
+    ],
+  },
+  {
+    icon: '🔁',
+    label: 'Check-ins & Automation',
+    h3: 'Personalised check-ins. Zero admin.',
+    body: "No two clients are the same — so their check-in questions shouldn't be identical either. Start from a template, then add, remove, or change questions per individual client without rebuilding the form from scratch. Schedule check-ins, automate reminders, and let Prokol handle the follow-up while you focus on coaching.",
+    bullets: [
+      'Edit check-in questions per individual client — no remake required',
+      'Scheduled automated check-ins with push notification reminders',
+      'Autoflow sequences — automated multi-step task and form delivery',
+      'Coach feedback written and sent back to clients on each submission',
+      'Central check-in feed — all clients in one view, colour-coded by status',
+      'Clients can upload training videos for form assessment and review',
+      'Form builder with pre-built templates + JotForm import',
+    ],
+    screenshots: [
+      { file: '/public/screenshots/client-checkin-due..png', dims: '390×844px (portrait)', desc: 'Client app home screen — check-in due card showing form title, schedule, and Fill in button' },
+    ],
+  },
+  {
+    icon: '🏋️',
+    label: 'Training',
+    h3: 'Programs that train the client, not the coach.',
+    body: 'Build multi-week training programs from your exercise library and assign them directly to clients. Clients log their workouts session by session, tracking sets, reps, and weight. They can upload form-check videos so you can review technique. You see their full workout history inside their client file.',
+    bullets: [
+      'Multi-week training program builder with exercises, sets, reps, and rest timers',
+      'Assign programs to clients directly from their client file',
+      'Clients log workouts from their program — sets, reps, weight, and rest timer built in',
+      'Exercise video upload — clients record their form, you review it in the app',
+      'Full exercise history per movement — track progression over time',
+      'Custom exercise library — add your own exercises with video demonstrations',
+    ],
+    screenshots: [
+      { file: '/public/screenshots/client-workout.png', dims: '390×844px (portrait)', desc: 'Client app — active workout session showing current exercise, sets/reps input, rest timer, and progress' },
+    ],
+  },
+  {
+    icon: '💊',
+    label: 'Supplements & Protocol',
+    h3: "The clinical layer other platforms don't have.",
+    body: 'Prokol goes beyond food and training. Assign supplement stacks with dosage, benefits, and brand links. Write structured coaching protocols that clients read in their app. Set daily habits, weekly mini-goals, and grand goals — everything a high-touch practice needs to deliver a clinical-grade experience.',
+    bullets: [
+      'Supplement management — assign name, dosage, benefits, brand URL, and private coach notes',
+      'Protocol builder — structured written protocols clients see in their app',
+      'Daily habits — set trackable habits per client with targets and units',
+      'Weekly mini-goals and grand goals — visible to the client in their dashboard',
+    ],
+    screenshots: [
+      { file: '/public/screenshots/client-file-supplements.png', dims: '1280×800px', desc: 'Client file — Supplements tab showing assigned supplement stack with dosage, benefits, and brand links' },
+      { file: '/public/screenshots/client-file-protocol.png', dims: '1280×800px', desc: 'Client file — Protocol tab showing structured coaching protocol sections visible to the client' },
+    ],
+  },
+  {
+    icon: '📈',
+    label: 'Weekly Changes',
+    h3: 'Plan every phase. Every week. In advance.',
+    body: "Most coaches plan phases in their head or a spreadsheet. Prokol gives you a proper phase and periodisation builder — right inside the client file. Map out a full protocol of deficit, surplus, diet breaks, reverse diet, or peak week phases. Set calorie targets, macros, and notes per individual week. Share the plan with your client so they always know what phase they're in and what's coming.",
+    bullets: [
+      'Drag-and-drop phase builder — deficit, surplus, maintenance, diet break, reverse diet, recomp, peak week, or custom',
+      'Set calorie targets per week — absolute kcal or % from TDEE adjustment',
+      'Set macros per week — protein, carbs, and fat targets with one-click calculator',
+      'Timeline bar with current week highlighted — coach and client always know where they are',
+      'Per-week notes visible to client + private coach-only notes on every week',
+      "Copy any week's settings to following weeks or the whole phase in one click",
+      "Apply a week's targets to the client's live dashboard instantly",
+      'Share the plan with the client — they see their weekly schedule in the app',
+      'Save plans as reusable templates — apply your go-to protocols to new clients instantly',
+      'TDEE calculator built in — calculate and push targets to any week without switching tabs',
+    ],
+    screenshots: [
+      { file: '/public/screenshots/weekly-changes.png', dims: '1280×800px', desc: 'Weekly Changes tab in client file — phase timeline, phase cards, and weekly schedule with dates, phase labels, and calorie targets' },
+    ],
+  },
+  {
+    icon: '🌸',
+    label: 'Cycle Tracking',
+    h3: 'The tool that turns hormonal health into coaching intel.',
+    body: "For female clients, the menstrual cycle is one of the most powerful data points a coach can track — and almost no platform touches it. Prokol includes full cycle phase tracking built into the client app. Coaches with nutritionist access can view the data directly inside the client file, giving them context that changes how they program, plan, and coach.",
+    bullets: [
+      'Full cycle phase tracking — menstrual, follicular, ovulation, and luteal',
+      'Symptom logging — cramps, headaches, fatigue, acne, breast tenderness, and more',
+      'Basal body temperature (BBT), cervical mucus, libido, digestion, and sleep tracking',
+      'Mood and energy tracking tied to cycle phase',
+      'Cycle intelligence — predicted period, ovulation window, and fertile window',
+      "Personalised insights based on the client's logged history",
+      'Coaches with nutritionist access can view all cycle data inside the client file',
+    ],
+    screenshots: [
+      { file: '/public/screenshots/cycle-coach-view.png', dims: '1280×800px', desc: 'Cycle tab inside client file (coach view) — monthly calendar with period days, predictions, hover tooltip showing mood/symptoms/BBT for a specific date' },
+      { file: '/public/screenshots/cycle-logging-client.png', dims: '390×844px (portrait)', desc: 'Client app — cycle logging modal open for a specific day, showing symptom chips selected (e.g. cramps, fatigue), mood picker, energy selector, BBT input, and cervical mucus options' },
+      { file: '/public/screenshots/cycle-intelligence-client.png', dims: '390×844px (portrait)', desc: 'Client app — cycle intelligence view showing the prediction strip (next period in Xd, ovulation est., avg cycle length), the phase bar at the top, and personalised insight text below' },
+    ],
+  },
+  {
+    icon: '📝',
+    label: 'Notes & Templates',
+    h3: 'Every insight captured. Ready to use again.',
+    body: 'Great coaching requires context. Prokol gives you a private notes system per client — write observations, track progress, flag concerns, and reference past sessions. Build note templates for things you write repeatedly — onboarding notes, program review summaries, check-in responses — and apply them in one click.',
+    bullets: [
+      'Private per-client notes — visible only to the coach, never to the client',
+      'Rich text notes with timestamps — build a full coaching history per client',
+      'Note templates — create reusable templates for common note types',
+      'Apply a template to any client in one click and customise from there',
+      'Notes visible inside the client file alongside check-ins, goals, and data',
+    ],
+    screenshots: [
+      { file: '/public/screenshots/client-notes.png', dims: '1280×800px', desc: 'Notes tab inside a client file — showing a list of dated coach notes with text content and a "New note" button' },
+      { file: '/public/screenshots/note-templates.png', dims: '1280×800px', desc: 'Note templates page — list of saved templates with names, preview text, and apply/edit options' },
+    ],
+  },
+  {
+    icon: '🗓️',
+    label: 'Client Calendar',
+    h3: 'Coach the whole person. Not just the workout.',
+    body: 'Clients can add events — social dinners, holidays, travel, extra workouts — directly in their app. You see their calendar inside the client file and can help them prepare for occasions rather than react to them. This is what separates clinical coaching from generic programming.',
+    bullets: [
+      'Client calendar with events, travel, social occasions, and extra activity',
+      'Coaches see the full client calendar inside their client file',
+      'Pre-plan meals and training around upcoming life events',
+      'Adjust targets or plans around holidays and occasions proactively',
+      'Clients add events, social occasions, and extra activity so you can pre-plan with them in advance',
+    ],
+    screenshots: [
+      { file: '/public/screenshots/client-calendar.png', dims: '1280×800px', desc: 'Calendar tab in client file — events, travel dates, and social occasions on calendar grid' },
+    ],
+  },
+  {
+    icon: '💳',
+    label: 'Bookings & Calendar',
+    h3: 'Schedule sessions, count pack credits, and get paid — without leaving the platform.',
+    body: "Most coaching platforms make you bolt on a separate scheduler and a separate payment tool. Prokol bakes it in. Build a service like 'PT Session — 12 pack' once, then book sessions against it from the coach calendar. The platform tracks the count, charges the right amount, reminds the client, and respects their time zone — automatically.",
+    bullets: [
+      'Session packs that count themselves — every booking shows "Session 3 of 12" on the calendar',
+      'Anything booked beyond a pack is flagged as billed separately, never silently included',
+      'Attach a payment link per service (Stripe or any URL) — unpaid sessions surface the link to the client',
+      'Override the payment link or duration on any individual booking when a session is unique',
+      "Time-zone aware — book in yours, client always sees the session in theirs, with a warning if you're in different zones",
+      'Automatic 24-hour push reminder to the client, formatted in their local time, with a nudge to let you know of changes',
+      'Reschedule without renumbering — booking keeps its slot in the pack so "Session 3 of 12" stays Session 3',
+      'No-show and late-cancel statuses still consume a pack credit — only genuine cancels free the slot for the next booking',
+      'Recurring bookings — create a whole 12-week series in one go and edit individual sessions later',
+    ],
+    screenshots: [],
+  },
+]
+
+function FeatureTabs() {
+  const [active, setActive] = useState(0)
+  const f = FEATURES[active]
   return (
-    <div ref={ref} className={`flex flex-col ${flip ? 'lg:flex-row-reverse' : 'lg:flex-row'} gap-12 lg:gap-16 items-center mb-24`}
-      style={{ opacity: vis ? 1 : 0, transform: vis ? 'none' : 'translateY(24px)', transition: 'opacity 0.6s ease, transform 0.6s ease' }}>
-      {/* Text */}
-      <div className={screenshots.length > 0 ? 'flex-1 min-w-0' : 'w-full max-w-2xl'}>
-        <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: T.teal }}>{label}</p>
-        <h3 style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 'clamp(1.4rem,3vw,2rem)', color: T.textPrimary, marginBottom: 16, lineHeight: 1.2 }}>{h3}</h3>
-        <p style={{ fontSize: '0.95rem', color: T.textSec, lineHeight: 1.75, marginBottom: 24, fontWeight: 300 }}>{body}</p>
-        <ul className={screenshots.length > 0 ? 'space-y-3' : 'grid sm:grid-cols-2 gap-3'}>
-          {bullets.map(b => (
-            <li key={b} className="flex items-start gap-3">
-              <Check />
-              <span style={{ fontSize: '0.88rem', color: T.textPrimary, lineHeight: 1.5 }}>{b}</span>
-            </li>
-          ))}
-        </ul>
-        {extra}
+    <div>
+      {/* Tab pills */}
+      <div className="flex flex-wrap justify-center gap-2 mb-14">
+        {FEATURES.map((feat, i) => (
+          <button
+            key={feat.label}
+            onClick={() => setActive(i)}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
+            style={{
+              background: active === i ? T.teal : T.white,
+              color: active === i ? '#fff' : T.textSec,
+              border: active === i ? 'none' : '1px solid rgba(10,26,20,0.1)',
+              boxShadow: active === i ? '0 4px 14px color-mix(in srgb, var(--nc-primary) 30%, transparent)' : 'none',
+            }}
+          >
+            <span>{feat.icon}</span>
+            {feat.label}
+          </button>
+        ))}
       </div>
-      {/* Screenshot(s) */}
-      {screenshots.length > 0 && (
-        <div className="flex-1 min-w-0 w-full">
-          <ScreenshotArea screenshots={screenshots} screenshotCols={screenshotCols} />
+
+      {/* Active panel */}
+      <div key={active} className="flex flex-col lg:flex-row gap-12 lg:gap-16 items-center">
+        <div className={f.screenshots.length > 0 ? 'flex-1 min-w-0' : 'w-full max-w-2xl mx-auto'}>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest mb-4" style={{ background: T.tealDim, color: T.tealDeep }}>
+            <span>{f.icon}</span>{f.label}
+          </div>
+          <h3 style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 'clamp(1.4rem,3vw,2rem)', color: T.textPrimary, marginBottom: 16, lineHeight: 1.2 }}>{f.h3}</h3>
+          <p style={{ fontSize: '0.95rem', color: T.textSec, lineHeight: 1.75, marginBottom: 24, fontWeight: 300 }}>{f.body}</p>
+          <ul className={f.screenshots.length > 0 ? 'space-y-3' : 'grid sm:grid-cols-2 gap-3'}>
+            {f.bullets.map(b => (
+              <li key={b} className="flex items-start gap-3">
+                <Check />
+                <span style={{ fontSize: '0.88rem', color: T.textPrimary, lineHeight: 1.5 }}>{b}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-      )}
+        {f.screenshots.length > 0 && (
+          <div className="flex-1 min-w-0 w-full">
+            <ScreenshotArea screenshots={f.screenshots} screenshotCols={f.screenshotCols} />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -401,228 +619,7 @@ export default function LandingPage({
             </p>
           </div>
 
-          {/* 1 — Coach Dashboard */}
-          <Showcase
-            label="Coach Dashboard"
-            h3="Every client. Every metric. Always up to date."
-            body="Your coach dashboard updates automatically as clients log food, complete check-ins, submit forms, and finish workouts. Lapsed clients surface to the top. Unread submissions are flagged. You see everything without chasing anyone."
-            bullets={[
-              'Automatic client activity feed — updated in real time as clients engage',
-              'Lapsed client alerts — nobody falls through the cracks',
-              'Unread check-ins and form submissions flagged immediately',
-              '13-tab client profile: overview, nutrition, training, meal plan, check-ins, habits, notes, files, autoflows, resources, calendar, app preview, serve guide',
-              'App preview tab — see your client\'s exact dashboard before making changes',
-            ]}
-            screenshots={[{ file: '/public/screenshots/client-overview.png', dims: '1280×800px', desc: 'Client file overview — goals, progress photos, weight, check-in history, and client activity visible' }]}
-          />
-
-          {/* 2 — Client Onboarding */}
-          <Showcase
-            flip
-            label="Client Onboarding"
-            h3="Send a link. They do the rest."
-            body="Send your client an invite link. They create their account, complete payment, and land directly on a personalised onboarding form — which saves automatically into their client file. Files they upload during onboarding are stored instantly. No chasing, no manual setup, no data entry on your end."
-            bullets={[
-              'Invite via link or email — client handles signup and payment in one flow',
-              'Onboarding form saves directly to client file automatically',
-              'Files uploaded during onboarding stored in client file instantly',
-              'Inbuilt TDEE calculator using MET-based activity levels to get the most accurate breakdown',
-              'Choose to set these targets or build a meal plan to override these targets',
-            ]}
-            screenshots={[{ file: '/public/screenshots/onboarding.png', dims: '1280×800px', desc: 'Client-facing onboarding — service card, payment step, welcome screen' }]}
-          />
-
-          {/* 3 — Nutrition */}
-          <Showcase
-            label="Nutrition"
-            h3="Coach nutrition your way — meal plans, portions, or both."
-            body="Not every client tracks macros. Prokol gives you multiple ways to coach nutrition depending on what your client actually needs. Build a structured meal plan with food-level detail and food swaps. Or use the built-in food cheat sheet to set visual serve targets — so clients understand portions using cups, tablespoons, and hand guides rather than weighing every gram. Both approaches work side by side."
-            bullets={[
-              'Full food-level meal plan editor — build and assign reusable templates',
-              'Multi-plan support — assign more than one active plan simultaneously',
-              'Clients can suggest food swaps inline — you see every change',
-              'Client-visible notes and hidden coach-only notes kept separate',
-              'Clone templates across different clients in one click',
-              'Save a client\'s edited plan back as a new template',
-              'Built-in food cheat sheet — set visual serve targets per client (protein, carbs, fat)',
-              'Household measures included for every food (cups, tbsp, palms) — no scales needed',
-              'Add a note and product URL to any meal item — clients know exactly what you are referring to',
-              'Barcode scanner built in — scan or upload a photo of any product to get the most accurate nutritional data',
-              'Choose to hide calories and macros from client meal plans — provide clean food guides without the overwhelm',
-              'Client food photo uploads + meal notes — coach portion sizes without requiring gram tracking',
-            ]}
-            screenshots={[
-              { file: '/public/screenshots/meal-plan-builder.png', dims: '1280×800px', desc: 'Coach meal plan editor — meals, food items, macros, assign button visible' },
-              { file: '/public/screenshots/client-meal-plan.png', dims: '390×844px (portrait)', desc: 'Client app view — meal plan with food items, swap button, and coach notes visible' },
-              { file: '/public/screenshots/cheat-sheet-client.png', dims: '390×844px (portrait)', desc: 'Client app cheat sheet — serve targets panel (rose/teal/green bars), food list with household measures visible' },
-            ]}
-          />
-
-          {/* 4 — Check-ins & Automation */}
-          <Showcase
-            flip
-            label="Check-ins & Automation"
-            h3="Personalised check-ins. Zero admin."
-            body="No two clients are the same — so their check-in questions shouldn't be identical either. Start from a template, then add, remove, or change questions per individual client without rebuilding the form from scratch. Schedule check-ins, automate reminders, and let Prokol handle the follow-up while you focus on coaching."
-            bullets={[
-              'Edit check-in questions per individual client — no remake required',
-              'Scheduled automated check-ins with push notification reminders',
-              'Autoflow sequences — automated multi-step task and form delivery',
-              'Coach feedback written and sent back to clients on each submission',
-              'Central check-in feed — all clients in one view, colour-coded by status',
-              'Clients can upload training videos for form assessment and review',
-              'Form builder with pre-built templates + JotForm import',
-            ]}
-            screenshots={[
-              { file: '/public/screenshots/client-checkin-due..png', dims: '390×844px (portrait)', desc: 'Client app home screen — check-in due card showing form title, schedule, and Fill in button' },
-            ]}
-          />
-
-          {/* 5 — Training */}
-          <Showcase
-            label="Training"
-            h3="Programs that train the client, not the coach."
-            body="Build multi-week training programs from your exercise library and assign them directly to clients. Clients log their workouts session by session, tracking sets, reps, and weight. They can upload form-check videos so you can review technique. You see their full workout history inside their client file."
-            bullets={[
-              'Multi-week training program builder with exercises, sets, reps, and rest timers',
-              'Assign programs to clients directly from their client file',
-              'Clients log workouts from their program — sets, reps, weight, and rest timer built in',
-              'Exercise video upload — clients record their form, you review it in the app',
-              'Full exercise history per movement — track progression over time',
-              'Custom exercise library — add your own exercises with video demonstrations',
-            ]}
-            screenshots={[
-              { file: '/public/screenshots/client-workout.png', dims: '390×844px (portrait)', desc: 'Client app — active workout session showing current exercise, sets/reps input, rest timer, and progress' },
-            ]}
-          />
-
-          {/* 6 — Supplements & Protocol */}
-          <Showcase
-            flip
-            label="Supplements & Protocol"
-            h3="The clinical layer other platforms don't have."
-            body="Prokol goes beyond food and training. Assign supplement stacks with dosage, benefits, and brand links. Write structured coaching protocols that clients read in their app. Set daily habits, weekly mini-goals, and grand goals — everything a high-touch practice needs to deliver a clinical-grade experience."
-            bullets={[
-              'Supplement management — assign name, dosage, benefits, brand URL, and private coach notes',
-              'Protocol builder — structured written protocols clients see in their app',
-              'Daily habits — set trackable habits per client with targets and units',
-              'Weekly mini-goals and grand goals — visible to the client in their dashboard',
-            ]}
-            screenshots={[
-              { file: '/public/screenshots/client-file-supplements.png', dims: '1280×800px', desc: 'Client file — Supplements tab showing assigned supplement stack with dosage, benefits, and brand links' },
-              { file: '/public/screenshots/client-file-protocol.png', dims: '1280×800px', desc: 'Client file — Protocol tab showing structured coaching protocol sections visible to the client' },
-            ]}
-          />
-
-          {/* 7 — Weekly Changes */}
-          <Showcase
-            label="Weekly Changes"
-            h3="Plan every phase. Every week. In advance."
-            body="Most coaches plan phases in their head or a spreadsheet. Prokol gives you a proper phase and periodisation builder — right inside the client file. Map out a full protocol of deficit, surplus, diet breaks, reverse diet, or peak week phases. Set calorie targets, macros, and notes per individual week. Share the plan with your client so they always know what phase they're in and what's coming."
-            bullets={[
-              'Drag-and-drop phase builder — deficit, surplus, maintenance, diet break, reverse diet, recomp, peak week, or custom',
-              'Set calorie targets per week — absolute kcal or % from TDEE adjustment',
-              'Set macros per week — protein, carbs, and fat targets with one-click calculator',
-              'Timeline bar with current week highlighted — coach and client always know where they are',
-              'Per-week notes visible to client + private coach-only notes on every week',
-              'Copy any week\'s settings to following weeks or the whole phase in one click',
-              'Apply a week\'s targets to the client\'s live dashboard instantly',
-              'Share the plan with the client — they see their weekly schedule in the app',
-              'Save plans as reusable templates — apply your go-to protocols to new clients instantly',
-              'TDEE calculator built in — calculate and push targets to any week without switching tabs',
-            ]}
-            screenshots={[
-              { file: '/public/screenshots/weekly-changes.png', dims: '1280×800px', desc: 'Weekly Changes tab in client file — phase timeline, phase cards, and weekly schedule with dates, phase labels, and calorie targets' },
-            ]}
-          />
-
-          {/* 8 — Cycle Tracking */}
-          <Showcase
-            label="Cycle Tracking"
-            h3="The tool that turns hormonal health into coaching intel."
-            body="For female clients, the menstrual cycle is one of the most powerful data points a coach can track — and almost no platform touches it. Prokol includes full cycle phase tracking built into the client app. Coaches with nutritionist access can view the data directly inside the client file, giving them context that changes how they program, plan, and coach."
-            bullets={[
-              'Full cycle phase tracking — menstrual, follicular, ovulation, and luteal',
-              'Symptom logging — cramps, headaches, fatigue, acne, breast tenderness, and more',
-              'Basal body temperature (BBT), cervical mucus, libido, digestion, and sleep tracking',
-              'Mood and energy tracking tied to cycle phase',
-              'Cycle intelligence — predicted period, ovulation window, and fertile window',
-              'Personalised insights based on the client\'s logged history',
-              'Coaches with nutritionist access can view all cycle data inside the client file',
-            ]}
-            screenshots={[
-              { file: '/public/screenshots/cycle-coach-view.png', dims: '1280×800px', desc: 'Cycle tab inside client file (coach view) — monthly calendar with period days, predictions, hover tooltip showing mood/symptoms/BBT for a specific date' },
-              { file: '/public/screenshots/cycle-logging-client.png', dims: '390×844px (portrait)', desc: 'Client app — cycle logging modal open for a specific day, showing symptom chips selected (e.g. cramps, fatigue), mood picker, energy selector, BBT input, and cervical mucus options' },
-              { file: '/public/screenshots/cycle-intelligence-client.png', dims: '390×844px (portrait)', desc: 'Client app — cycle intelligence view showing the prediction strip (next period in Xd, ovulation est., avg cycle length), the phase bar at the top, and personalised insight text below' },
-            ]}
-          />
-
-          {/* 8 — Client Notes + Note Templates */}
-          <Showcase
-            flip
-            label="Client Notes & Note Templates"
-            h3="Every insight captured. Ready to use again."
-            body="Great coaching requires context. Prokol gives you a private notes system per client — write observations, track progress, flag concerns, and reference past sessions. Build note templates for things you write repeatedly — onboarding notes, program review summaries, check-in responses — and apply them in one click."
-            bullets={[
-              'Private per-client notes — visible only to the coach, never to the client',
-              'Rich text notes with timestamps — build a full coaching history per client',
-              'Note templates — create reusable templates for common note types',
-              'Apply a template to any client in one click and customise from there',
-              'Notes visible inside the client file alongside check-ins, goals, and data',
-            ]}
-            screenshots={[
-              { file: '/public/screenshots/client-notes.png', dims: '1280×800px', desc: 'Notes tab inside a client file — showing a list of dated coach notes with text content and a "New note" button' },
-              { file: '/public/screenshots/note-templates.png', dims: '1280×800px', desc: 'Note templates page — list of saved templates with names, preview text, and apply/edit options' },
-            ]}
-          />
-
-          {/* 9 — Client Calendar */}
-          <Showcase
-            label="Client Calendar & Life Events"
-            h3="Coach the whole person. Not just the workout."
-            body="Clients can add events — social dinners, holidays, travel, extra workouts — directly in their app. You see their calendar inside the client file and can help them prepare for occasions rather than react to them. This is what separates clinical coaching from generic programming."
-            bullets={[
-              'Client calendar with events, travel, social occasions, and extra activity',
-              'Coaches see the full client calendar inside their client file',
-              'Pre-plan meals and training around upcoming life events',
-              'Adjust targets or plans around holidays and occasions proactively',
-              'Clients add events, social occasions, and extra activity so you can pre-plan with them in advance',
-            ]}
-            screenshots={[
-              { file: '/public/screenshots/client-calendar.png', dims: '1280×800px', desc: 'Calendar tab in client file — events, travel dates, and social occasions on calendar grid' },
-            ]}
-          />
-
-          {/* 10 — Bookings & Coach Calendar (full-row, no screenshot yet) */}
-          <div className="mb-24 max-w-5xl mx-auto">
-            <div className="text-center mb-10">
-              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: T.teal }}>Bookings & Calendar</p>
-              <h3 style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 'clamp(1.4rem,3vw,2rem)', color: T.textPrimary, marginBottom: 16, lineHeight: 1.2 }}>
-                Schedule sessions, count pack credits, and get paid — without leaving the platform.
-              </h3>
-              <p style={{ fontSize: '0.95rem', color: T.textSec, lineHeight: 1.75, fontWeight: 300, maxWidth: 720, margin: '0 auto' }}>
-                Most coaching platforms make you bolt on a separate scheduler and a separate payment tool. Prokol bakes it in. Build a service like &lsquo;PT Session — 12 pack&rsquo; once, then book sessions against it from the coach calendar. The platform tracks the count, charges the right amount, reminds the client, and respects their time zone — automatically.
-              </p>
-            </div>
-            <ul className="grid sm:grid-cols-2 gap-x-8 gap-y-4">
-              {[
-                'Session packs that count themselves — every booking shows "Session 3 of 12" on the calendar',
-                'Anything booked beyond a pack is flagged as billed separately, never silently included',
-                'Attach a payment link per service (Stripe or any URL) — unpaid sessions surface the link to the client',
-                'Override the payment link or duration on any individual booking when a session is unique',
-                'Time-zone aware — book in yours, client always sees the session in theirs, with a warning if you\'re in different zones',
-                'Automatic 24-hour push reminder to the client, formatted in their local time, with a nudge to let you know of changes',
-                'Reschedule without renumbering — booking keeps its slot in the pack so "Session 3 of 12" stays Session 3',
-                'No-show and late-cancel statuses still consume a pack credit — only genuine cancels free the slot for the next booking',
-                'Recurring bookings — create a whole 12-week series in one go and edit individual sessions later',
-              ].map(b => (
-                <li key={b} className="flex items-start gap-3">
-                  <Check />
-                  <span style={{ fontSize: '0.88rem', color: T.textPrimary, lineHeight: 1.5 }}>{b}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <FeatureTabs />
         </div>
       </section>
 
