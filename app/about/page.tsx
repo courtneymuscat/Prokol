@@ -65,6 +65,7 @@ const JOURNEY = [
   {
     year: '2018 – 2024',
     title: 'Where it started: Greater Western Allied Health',
+    href: 'https://greaterwesternhealth.com.au/',
     desc: 'I spent six years as Receptionist & Practice Manager at Greater Western Allied Health, a multi-disciplinary clinic — working alongside podiatrists, chiropractors, and physiotherapists, and running the operations behind their client care. It’s where I learned how a real health practice is actually run, long before I was coaching one myself.',
   },
   {
@@ -80,6 +81,7 @@ const JOURNEY = [
   {
     year: '2024 – 2026',
     title: 'Two years at Bambu Fitness, Bali',
+    href: 'https://www.bambufitnessbali.com/',
     desc: 'Coaching full-time across six modalities for classes of 200+, with 1:1 nutrition support alongside it. I held webinars on women’s health and women in training, and was a guest speaker at retreats across sport performance, body recomposition, healthy periods, and pre and post-menopause. I also helped build Fuel by Bambu, the gym’s in-house meal prep business, establishing its systems from the ground up.',
   },
   {
@@ -234,7 +236,22 @@ export default function AboutPage() {
                   {i < JOURNEY.length - 1 && <span className="w-px flex-1 mt-3" style={{ background: 'rgba(33,26,23,0.12)' }} />}
                 </div>
                 <div className="pb-2">
-                  <p className="font-bold mb-2" style={{ fontFamily: HEAD, fontSize: '1.1rem' }}>{j.title}</p>
+                  {j.href ? (
+                    <a
+                      href={j.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-bold mb-2 inline-flex items-center gap-1.5 hover:underline"
+                      style={{ fontFamily: HEAD, fontSize: '1.1rem', color: INK }}
+                    >
+                      {j.title}
+                      <svg className="w-3.5 h-3.5 flex-shrink-0" style={{ color: BERRY }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  ) : (
+                    <p className="font-bold mb-2" style={{ fontFamily: HEAD, fontSize: '1.1rem' }}>{j.title}</p>
+                  )}
                   <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>{j.desc}</p>
                 </div>
               </div>
