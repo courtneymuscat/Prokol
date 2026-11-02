@@ -87,6 +87,7 @@ const JOURNEY = [
   {
     year: 'Jul 2024 – Apr 2026',
     title: 'Built Fuel by Bambu, a meal prep business',
+    href: 'https://www.bambufitnessbali.com/fuel-by-bambu',
     desc: 'Alongside coaching, I helped build Fuel by Bambu from the ground up — a macro-balanced meal prep business based in Bali. I established the operational systems, worked directly with the chefs to turn recipes into balanced macros, ran the trials, and onboarded the first members. It’s still running today.',
   },
   {
