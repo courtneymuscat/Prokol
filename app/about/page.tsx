@@ -7,7 +7,7 @@ import { PersonalNav, PersonalFooter } from '@/app/components/PersonalSiteShell'
 export const metadata: Metadata = {
   title: 'About Courtney Muscat — Coach, Nutritionist & Founder',
   description:
-    'Accredited Sports Nutritionist, coach, competitor, and founder of Prokol, Better U, and Fuel by Bambu. Coaching full-time at Bambu Fitness, Bali.',
+    'Accredited Sports Nutritionist, coach, competitor, and founder of Prokol. Two years coaching at Bambu Fitness, Bali, and the brand behind Better U.',
 }
 
 const dmSans = DM_Sans({
@@ -25,26 +25,21 @@ const HEAD = 'var(--font-sans, Geist, system-ui, sans-serif)'
 
 const STATS = [
   { v: '200+', l: 'Coached per class' },
-  { v: '2', l: 'Businesses built from scratch' },
+  { v: '5+', l: 'Years coaching' },
   { v: '6', l: 'Coaching & nutrition qualifications' },
   { v: "'24", l: 'CrossFit Open Quarterfinalist' },
 ]
 
 const CURRENT_ROLES = [
   {
-    tag: 'Full-Time',
-    title: 'Coach, Bambu Fitness — Bali',
-    desc: 'I lead CrossFit, Shred, Hyrox, Booty, Gymnastics, and Reformer Pilates classes — up to 200+ people at a time — plus 1:1 nutrition support within my accredited scope, with a focus on female health. I also host hormonal-health seminars for the gym’s retreats and wider community.',
+    tag: 'Founder & Builder',
+    title: 'Prokol',
+    desc: 'After years coaching across gyms, group classes, and my own clients, I brought everything I’d learned into Prokol — the coaching platform I built and now run, used by coaches and their clients for nutrition, training, and cycle tracking in one place.',
   },
   {
     tag: 'Since 2023',
-    title: 'Founder, Better U',
-    desc: 'My own online coaching brand. Personalised training and nutrition programs built around female hormonal health, including blood panel review and hormonal health education — plus every bit of the content, communication, and program design behind it.',
-  },
-  {
-    tag: 'Built & Launched',
-    title: 'Fuel by Bambu',
-    desc: 'I designed and launched Bambu Fitness’s in-house meal prep service from nothing — built the operational systems, worked with the chefs to turn recipes into balanced macros, ran the trials, and onboarded the first members. It’s still running today.',
+    title: 'Better U',
+    desc: 'The brand I built, where I started coaching clients in nutrition and training. Personalised programs built around female hormonal health, including blood panel review and hormonal health education — still running today.',
   },
 ]
 
@@ -74,18 +69,23 @@ const JOURNEY = [
   },
   {
     year: '2021 – 2024',
-    title: 'Into coaching',
-    desc: 'I moved into group fitness coaching at an all-women’s gym, including pre and post-natal clients — and picked up the social content and gym administration alongside it.',
+    title: 'Into coaching, at Women’s Fitness Collective',
+    desc: 'I moved into group fitness coaching at Women’s Fitness Collective, an all-women’s gym — running strength & conditioning classes including pre and post-natal clients, alongside the social content and gym administration for the space.',
   },
   {
-    year: '2023 – Present',
-    title: 'Going out on my own',
-    desc: 'I founded Better U, and started casual CrossFit coaching and 1:1 personal training — building program design, technique coaching, and client accountability into a full practice.',
+    year: '2023 onward',
+    title: 'Coaching on every front, at once',
+    desc: 'While still coaching on the gym floor — casual CrossFit coaching and 1:1 personal training — I started taking on my own nutrition clients at the same time, under a brand I built called Better U. Program design, technique coaching, and nutrition coaching, side by side rather than one after the other.',
   },
   {
     year: '2024 – 2026',
-    title: 'Bambu Fitness, Bali',
-    desc: 'Now coaching full-time across six modalities for classes of 200+, while building and launching Fuel by Bambu alongside it.',
+    title: 'Two years at Bambu Fitness, Bali',
+    desc: 'Coaching full-time across six modalities for classes of 200+, with 1:1 nutrition support alongside it. I held webinars on women’s health and women in training, and was a guest speaker at retreats across sport performance, body recomposition, healthy periods, and pre and post-menopause. I also helped build Fuel by Bambu, the gym’s in-house meal prep business, establishing its systems from the ground up.',
+  },
+  {
+    year: 'Now',
+    title: 'Everything, together',
+    desc: 'After Bambu, I brought every piece of it — coaching, nutrition, competing, and the systems I’d built — into Prokol, the platform I build and run today, alongside Better U and the next chapter of my own practice.',
   },
 ]
 
@@ -114,10 +114,10 @@ export default function AboutPage() {
               I&apos;m Court — coach, nutritionist, competitor, founder.
             </h1>
             <p className="text-lg leading-relaxed mb-5" style={{ color: INK_SOFT, fontWeight: 300 }}>
-              I&apos;m an Accredited Sports Nutritionist, qualified Personal Trainer, and Pilates instructor, currently coaching full-time at Bambu Fitness in Bali. I also run Better U, my own coaching brand, and I built Fuel by Bambu — a macro-balanced meal prep service — from the ground up.
+              I&apos;m an Accredited Sports Nutritionist, qualified Personal Trainer, and Pilates instructor. I built a brand named Better U, where I started coaching clients in nutrition and training — and spent the past two years coaching full-time at Bambu Fitness in Bali, where I also helped build Fuel by Bambu, a Bali-based meal prep business, by establishing its systems from the ground up.
             </p>
             <p className="text-lg leading-relaxed mb-8" style={{ color: INK_SOFT, fontWeight: 300 }}>
-              Nutrition, movement, and competing aren&apos;t separate things for me — it&apos;s one practice, and I bring all of it into every client and every gym I work with.
+              Nutrition, movement, and competing have never been separate things for me — it&apos;s one practice, and everything I&apos;ve learned along the way now lives inside Prokol, the coaching platform I build and run today.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Link href="/work-with-me" className="px-6 py-3 rounded-full text-sm font-bold text-white hover:opacity-90 transition-opacity" style={{ background: BERRY }}>
@@ -154,10 +154,10 @@ export default function AboutPage() {
               What I do today
             </h2>
             <p style={{ color: INK_SOFT, fontWeight: 300, maxWidth: 560, margin: '0 auto' }}>
-              Three things running at once, all feeding each other.
+              Two things running at once, each feeding the other.
             </p>
           </div>
-          <div className="grid md:grid-cols-3 gap-5">
+          <div className="grid md:grid-cols-2 gap-5">
             {CURRENT_ROLES.map((r) => (
               <div key={r.title} className="rounded-2xl p-7 bg-white" style={{ border: '1px solid rgba(33,26,23,0.08)' }}>
                 <span className="inline-block text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full mb-4" style={{ background: 'rgba(140,59,82,0.1)', color: BERRY }}>
@@ -251,7 +251,7 @@ export default function AboutPage() {
             I built the system I needed as a coach — then opened it up.
           </h2>
           <p className="leading-relaxed mb-8" style={{ color: INK_SOFT, fontWeight: 300 }}>
-            Between coaching 200+ people a week across six modalities, running Better U&apos;s client programs, and having built a meal prep service from scratch, I was juggling more apps than any one coach should have to. So I built the system I actually needed — nutrition, training, cycle tracking, and client management, all in one place — and opened it up for other coaches to run on too.
+            Across group classes, 1:1 coaching with Better U, and having helped build a meal prep business from scratch, I was juggling more apps than any one coach should have to. So I built the system I actually needed — nutrition, training, cycle tracking, and client management, all in one place — and opened it up for other coaches to run on too.
           </p>
           <Link href="/" className="inline-block px-6 py-3 rounded-full text-sm font-bold hover:opacity-90 transition-opacity" style={{ background: 'var(--nc-primary)', color: '#fff' }}>
             See the Prokol platform →
