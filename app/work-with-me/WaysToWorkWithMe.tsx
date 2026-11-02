@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { InquiryButton } from '@/app/components/InquiryForm'
 
 const INK = '#211A17'
 const INK_SOFT = 'rgba(33,26,23,0.62)'
@@ -169,9 +170,9 @@ export default function WaysToWorkWithMe() {
 
               <div className="text-center mt-14">
                 <p className="text-sm mb-4" style={{ color: INK_SOFT }}>Not sure which fits? Every journey starts with a conversation, not a sign-up form.</p>
-                <a href="mailto:info@prokol.io" className="inline-block px-7 py-3.5 rounded-full text-sm font-bold text-white hover:opacity-90 transition-opacity" style={{ background: BERRY }}>
+                <InquiryButton defaultService="1:1 Nutrition Coaching" className="inline-block px-7 py-3.5 rounded-full text-sm font-bold text-white hover:opacity-90 transition-opacity" style={{ background: BERRY }}>
                   Book a discovery call
-                </a>
+                </InquiryButton>
               </div>
             </div>
           ) : (
@@ -206,9 +207,9 @@ export default function WaysToWorkWithMe() {
               )}
 
               <div className="text-center mt-12">
-                <a href="mailto:info@prokol.io" className="inline-block px-7 py-3.5 rounded-full text-sm font-bold text-white hover:opacity-90 transition-opacity" style={{ background: BERRY }}>
+                <InquiryButton defaultService={activeLabel} className="inline-block px-7 py-3.5 rounded-full text-sm font-bold text-white hover:opacity-90 transition-opacity" style={{ background: BERRY }}>
                   Get in touch
-                </a>
+                </InquiryButton>
               </div>
             </div>
           )}

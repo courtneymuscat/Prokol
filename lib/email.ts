@@ -8,6 +8,7 @@ export async function sendEmail({
   subject,
   html,
   fromName,
+  replyTo,
 }: {
   to: string
   subject: string
@@ -18,11 +19,14 @@ export async function sendEmail({
   // real infrastructure this doesn't build; the display name is what most
   // people actually notice in their inbox anyway.
   fromName?: string
+  // Lets the recipient hit "reply" and land in the actual sender's inbox
+  // (e.g. a public enquiry form) instead of the noreply address.
+  replyTo?: string
 }): Promise<void> {
   try {
     const resend = new Resend(process.env.RESEND_API_KEY)
     const from = fromName ? `${fromName} <${FROM_ADDRESS}>` : FROM
-    const { error } = await resend.emails.send({ from, to, subject, html })
+    const { error } = await resend.emails.send({ from, to, subject, html, ...(replyTo ? { reply_to: replyTo } : {}) })
     if (error) {
       console.error('Resend error:', error)
     }

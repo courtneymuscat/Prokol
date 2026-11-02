@@ -3,6 +3,7 @@ import { DM_Sans } from 'next/font/google'
 import Image from 'next/image'
 import Link from 'next/link'
 import { PersonalNav, PersonalFooter } from '@/app/components/PersonalSiteShell'
+import { InquiryButton } from '@/app/components/InquiryForm'
 
 export const metadata: Metadata = {
   title: 'About Courtney Muscat — Coach, Nutritionist & Founder',
@@ -124,9 +125,9 @@ export default function AboutPage() {
               <Link href="/work-with-me" className="px-6 py-3 rounded-full text-sm font-bold text-white hover:opacity-90 transition-opacity" style={{ background: BERRY }}>
                 See how we can work together →
               </Link>
-              <a href="mailto:info@prokol.io" className="px-6 py-3 rounded-full text-sm font-semibold hover:bg-black/5 transition-colors" style={{ border: '1px solid rgba(33,26,23,0.15)', color: INK }}>
-                Email me
-              </a>
+              <InquiryButton className="px-6 py-3 rounded-full text-sm font-semibold hover:bg-black/5 transition-colors" style={{ border: '1px solid rgba(33,26,23,0.15)', color: INK }}>
+                Get in touch
+              </InquiryButton>
               <a href="https://instagram.com/courtneymuscat" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold" style={{ color: INK_SOFT }}>
                 @courtneymuscat
               </a>
@@ -272,9 +273,9 @@ export default function AboutPage() {
           <p className="leading-relaxed mb-8" style={{ color: INK_SOFT, fontWeight: 300 }}>
             Whether that&apos;s 1:1 coaching, bringing me into your gym as your in-house nutritionist, booking a seminar, or something else entirely — I&apos;d like to hear about it.
           </p>
-          <a href="mailto:info@prokol.io" className="inline-block px-8 py-4 rounded-full text-base font-bold text-white hover:opacity-90 transition-opacity" style={{ background: BERRY }}>
-            Email me — info@prokol.io
-          </a>
+          <InquiryButton className="inline-block px-8 py-4 rounded-full text-base font-bold text-white hover:opacity-90 transition-opacity" style={{ background: BERRY }}>
+            Get in touch
+          </InquiryButton>
         </div>
       </section>
 

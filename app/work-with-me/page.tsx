@@ -3,6 +3,7 @@ import { DM_Sans } from 'next/font/google'
 import Image from 'next/image'
 import Link from 'next/link'
 import { PersonalNav, PersonalFooter } from '@/app/components/PersonalSiteShell'
+import { InquiryButton } from '@/app/components/InquiryForm'
 import WaysToWorkWithMe from './WaysToWorkWithMe'
 
 export const metadata: Metadata = {
@@ -93,9 +94,9 @@ export default function WorkWithMePage() {
           <p className="leading-relaxed mb-8" style={{ color: 'rgba(255,255,255,0.75)', fontWeight: 300 }}>
             Tell me a bit about what you&apos;re after and I&apos;ll get back to you directly.
           </p>
-          <a href="mailto:info@prokol.io" className="inline-block px-8 py-4 rounded-full text-base font-bold hover:opacity-90 transition-opacity" style={{ background: '#fff', color: BERRY_DEEP }}>
-            Email me — info@prokol.io
-          </a>
+          <InquiryButton className="inline-block px-8 py-4 rounded-full text-base font-bold hover:opacity-90 transition-opacity" style={{ background: '#fff', color: BERRY_DEEP }}>
+            Get in touch
+          </InquiryButton>
         </div>
       </section>
 
