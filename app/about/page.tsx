@@ -7,7 +7,7 @@ import { PersonalNav, PersonalFooter } from '@/app/components/PersonalSiteShell'
 export const metadata: Metadata = {
   title: 'About Courtney Muscat — Coach, Nutritionist & Founder',
   description:
-    'Accredited Sports Nutritionist, coach, competitor, and founder of Prokol. Two years coaching at Bambu Fitness, Bali, and 1:1 coaching clients in nutrition and training.',
+    'Accredited Sports Nutritionist, coach, competitor, and founder of Prokol. Two years coaching at Bambu Fitness, Bali, and nutrition coaching and educating clients directly.',
 }
 
 const dmSans = DM_Sans({
@@ -37,9 +37,9 @@ const CURRENT_ROLES = [
     desc: 'After years coaching across gyms, group classes, and my own clients, I brought everything I’d learned into Prokol — the coaching platform I built and now run, used by coaches and their clients for nutrition, training, and cycle tracking in one place.',
   },
   {
-    tag: 'Since 2023',
-    title: '1:1 Coaching',
-    desc: 'Just me and one client at a time — no class, no crowd. Personalised nutrition and training built around female hormonal health and blood panel review, run through Prokol like everything else I coach. One goal: education that actually changes how someone lives, not just what they eat for a few weeks.',
+    tag: 'Ongoing',
+    title: 'Nutrition Coaching & Educating',
+    desc: 'Everything that isn’t behind a screen — 1:1 clients, group classes, seminars, workshops, and nutrition consulting, wherever it’s needed. Personalised programs built around hormonal health and blood panel review, and education that actually sticks, not just another plan to follow for a few weeks.',
   },
 ]
 
@@ -74,6 +74,11 @@ const JOURNEY = [
     desc: 'I moved into group fitness coaching at Women’s Fitness Collective, an all-women’s gym — running strength & conditioning classes including pre and post-natal clients, alongside the social content and gym administration for the space.',
   },
   {
+    year: '2022',
+    title: 'Why I started competing',
+    desc: 'I dove into competing — bikini and physique — to get a real, lived understanding of nutrition, not just a theoretical one. I wanted to know what it actually feels like to be on the receiving end of coaching before I asked anyone else to trust me with it.',
+  },
+  {
     year: '2023 onward',
     title: 'Coaching on every front, at once',
     desc: 'While still coaching on the gym floor, I started taking on my own nutrition clients at the same time. Program design, technique coaching, and nutrition coaching, side by side rather than one after the other.',
@@ -93,7 +98,7 @@ const JOURNEY = [
   {
     year: 'Now',
     title: 'Everything, together',
-    desc: 'After Bambu, I brought every piece of it — coaching, nutrition, competing, and the systems I’d built — into Prokol, the platform I build and run today, alongside my own 1:1 coaching and the next chapter of my practice.',
+    desc: 'After Bambu, I brought every piece of it — coaching, nutrition, competing, and the systems I’d built — into Prokol, the platform I build and run today, alongside my own nutrition coaching and educating, and whatever comes next.',
   },
 ]
 
@@ -119,13 +124,13 @@ export default function AboutPage() {
           <div>
             <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: BERRY }}>About Me</p>
             <h1 style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 'clamp(2rem,4.5vw,3rem)', lineHeight: 1.1, letterSpacing: '-0.02em', marginBottom: 20 }}>
-              I&apos;m Court — coach, nutritionist, competitor, founder.
+              I&apos;m Court — and I just want to help as many people as I can.
             </h1>
             <p className="text-lg leading-relaxed mb-5" style={{ color: INK_SOFT, fontWeight: 300 }}>
-              I&apos;m an Accredited Sports Nutritionist, qualified Personal Trainer, and Pilates instructor. I started coaching clients in nutrition and training myself — and spent the past two years coaching full-time at Bambu Fitness in Bali, where I also helped build Fuel by Bambu, a Bali-based meal prep business, by establishing its systems from the ground up.
+              That&apos;s genuinely it. Nutrition and training get made way more complicated than they need to be, and most people end up with more noise in their head than actual understanding of their own body. So I&apos;ve built things to fix that — I coach and educate people directly, and I built Prokol so other coaches can cut through the same noise for their clients too.
             </p>
             <p className="text-lg leading-relaxed mb-8" style={{ color: INK_SOFT, fontWeight: 300 }}>
-              Nutrition, movement, and competing have never been separate things for me — it&apos;s one practice, and everything I&apos;ve learned along the way now lives inside Prokol, the coaching platform I build and run today.
+              On paper: I&apos;m an Accredited Sports Nutritionist, qualified Personal Trainer, and Pilates instructor. I coach nutrition and training directly, spent two years coaching full-time at Bambu Fitness in Bali — where I also helped build Fuel by Bambu, a meal prep business, from the ground up — and I built Prokol, the platform behind basically everything else here.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Link href="/work-with-me" className="px-6 py-3 rounded-full text-sm font-bold text-white hover:opacity-90 transition-opacity" style={{ background: BERRY }}>
