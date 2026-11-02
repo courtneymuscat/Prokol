@@ -32,11 +32,9 @@ export default function WorkWithMePage() {
       {/* ── Hero ────────────────────────────────────────────────────────── */}
       <section className="px-6 pt-16 pb-16">
         <div className="max-w-5xl mx-auto grid md:grid-cols-[280px_1fr] gap-12 items-center">
-          {/* TODO: swap for the laptop photo once the file is available —
-              placeholder reuses the About page headshot for now. */}
           <div className="relative w-full max-w-xs mx-auto md:max-w-none rounded-3xl overflow-hidden shadow-xl" style={{ aspectRatio: '2 / 3' }}>
             <Image
-              src="/about/courtney-muscat.jpg"
+              src="/work-with-me/courtney-laptop.jpg"
               alt="Courtney Muscat"
               fill
               sizes="(min-width: 768px) 280px, 280px"
@@ -55,7 +53,7 @@ export default function WorkWithMePage() {
             </p>
             <div className="rounded-xl px-5 py-4" style={{ background: '#fff', borderLeft: `3px solid ${BERRY}` }}>
               <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>
-                Every service on this page comes back to the same thing: real education, not more rules — so people can live symptom-free, eat without fear, and fuel properly for how they want to perform. Long-term, I want to take this into schools too.
+                I see too many young people — especially young women — pushed to ignore their period symptoms, chase how they look over how they feel, and never learn what&apos;s actually happening in their body. Every service here exists to close that gap: real education, not more rules — so people can live symptom-free, eat without fear, and fuel properly for how they want to perform.
               </p>
             </div>
           </div>
