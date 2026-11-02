@@ -772,7 +772,18 @@ export default function OnboardingPage() {
               )}
 
               <button
-                onClick={() => router.push(nextUrl ?? '/dashboard')}
+                onClick={() => {
+                  // router.push alone leaves the root layout's nav context
+                  // (sex/coach-tier, used for the bottom tab set) stale —
+                  // it was computed before this onboarding step set sex and
+                  // upgraded the tier to 'coached', and the shared layout
+                  // doesn't re-render on a same-layout client-side nav.
+                  // refresh() invalidates it so the dashboard lands with
+                  // the correct tabs immediately instead of showing the
+                  // individual-tier set until the app is reopened.
+                  router.refresh()
+                  router.push(nextUrl ?? '/dashboard')
+                }}
                 className="w-full py-3 rounded-2xl text-sm font-semibold transition-colors text-gray-900"
                 style={{ backgroundColor: 'var(--nc-primary)' }}
               >

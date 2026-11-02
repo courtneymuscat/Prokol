@@ -95,6 +95,22 @@ export default function ClientBottomNav({
   // mid-session tier changes (upgrade, coach assignment) get picked up.
   const [tabs, setTabs] = useState<Tab[]>(() => buildTabs(initialSex, initialTier))
 
+  // This component lives in the root layout, so it mounts once per app
+  // session and never remounts on client-side navigation (e.g. the
+  // onboarding flow's router.push('/dashboard') on completion) — only on a
+  // full reload. Without this, a brand-new client who just finished
+  // onboarding (where sex/coach-tier weren't set yet) kept seeing the
+  // individual-tier tab set computed from that earlier, incomplete state
+  // until the app was backgrounded and reopened (AppRefresh's
+  // router.refresh() on visibility-return delivers fresh initialSex/
+  // initialTier props, but useState's lazy initializer ignores prop
+  // changes on an already-mounted component — so without re-deriving here,
+  // even that refresh didn't help). Re-deriving whenever these props
+  // change keeps it in sync without needing a remount.
+  useEffect(() => {
+    setTabs(buildTabs(initialSex, initialTier))
+  }, [initialSex, initialTier])
+
   useEffect(() => {
     fetch('/api/settings')
       .then((r) => r.json())
