@@ -15,7 +15,7 @@ export default async function SettingsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('first_name, email, subscription_tier, target_calories, target_protein, target_carbs, target_fat, tdee, goal, weight_kg, timezone, full_name, date_of_birth, phone, sex, cycle_reminders')
+    .select('first_name, email, target_calories, target_protein, target_carbs, target_fat, tdee, goal, weight_kg, timezone, full_name, date_of_birth, phone, sex, cycle_reminders')
     .eq('id', session.user.id)
     .single()
 
@@ -111,10 +111,10 @@ export default async function SettingsPage() {
                 <p className="text-xs text-blue-400">fat</p>
               </div>
             </div>
-            {profile.tdee && profile.subscription_tier !== 'coached' && (
+            {profile.tdee && !isCoached && (
               <p className="text-xs text-gray-400">TDEE estimate: {profile.tdee} kcal/day</p>
             )}
-            {profile.subscription_tier === 'coached' ? (
+            {isCoached ? (
               <p className="text-xs text-gray-400 italic">Your targets are managed by your coach.</p>
             ) : (
               <a
@@ -136,7 +136,7 @@ export default async function SettingsPage() {
         {!hasMacros && (
           <div className="bg-white rounded-2xl border border-dashed p-5 text-center space-y-3">
             <p className="text-sm font-semibold text-gray-700">No targets set yet</p>
-            {profile?.subscription_tier === 'coached' ? (
+            {isCoached ? (
               <p className="text-xs text-gray-400">Your coach will set your nutrition targets for you.</p>
             ) : (
               <>
@@ -169,7 +169,7 @@ export default async function SettingsPage() {
         )}
 
         {/* Resources — only for coached clients */}
-        {profile?.subscription_tier === 'coached' && (
+        {isCoached && (
           <a
             href="/resources"
             className="bg-white rounded-2xl border p-5 flex items-center justify-between hover:bg-gray-50 transition-colors group"
