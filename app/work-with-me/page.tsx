@@ -49,7 +49,7 @@ export default function WorkWithMePage() {
               Understanding your body shouldn&apos;t be optional.
             </h1>
             <p className="text-lg leading-relaxed mb-6" style={{ color: INK_SOFT, fontWeight: 300 }}>
-              I coach, consult, and teach so people — especially young women — stop pushing through symptoms they&apos;ve been told are normal, and start understanding what their body is actually telling them.
+              I coach, consult, and teach so people stop pushing through symptoms they&apos;ve been told are normal, and start understanding what their body is actually telling them.
             </p>
             <div className="rounded-xl px-5 py-4" style={{ background: '#fff', borderLeft: `3px solid ${BERRY}` }}>
               <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>
