@@ -44,6 +44,15 @@ function isBinary(habit: Habit): boolean {
   return habit.unit === 'times' && habit.target === 1
 }
 
+// The browser's Web Locks API (used internally by supabase-js to coordinate
+// session refreshes) can throw a transient "Lock was stolen by another
+// request" error when several components call the auth client around the
+// same moment — worst right after dashboard load, when many panels mount
+// together. It's not a real failure, so retry once before giving up.
+function isLockContentionError(err: unknown): boolean {
+  return err instanceof Error && /lock/i.test(err.message)
+}
+
 // ─── Progress Bar ─────────────────────────────────────────────────────────────
 
 function ProgressBar({ value, target, completed }: { value: number; target: number; completed: boolean }) {
@@ -198,56 +207,69 @@ export default function HabitsPanel() {
 
   const today = todayStr()
 
+  const loadOnce = useCallback(async () => {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const [habitsResult, logsResult] = await Promise.all([
+      supabase
+        .from('habits')
+        .select('id, name, type, target, unit, icon, active')
+        .eq('client_id', user.id)
+        .eq('active', true)
+        .order('name'),
+      supabase
+        .from('habit_logs')
+        .select(`
+          habit_id,
+          log_date,
+          value,
+          completed,
+          habits ( name, unit, target, icon )
+        `)
+        .eq('user_id', user.id)
+        .eq('log_date', today),
+    ])
+
+    setHabits(habitsResult.data ?? [])
+
+    const mappedLogs: HabitLog[] = (logsResult.data ?? []).map((row) => {
+      const habit = row.habits as unknown as { name: string; unit: string; target: number; icon: string } | null
+      return {
+        habit_id: row.habit_id,
+        log_date: row.log_date,
+        value: row.value,
+        completed: row.completed,
+        habit_name: habit?.name ?? '',
+        habit_unit: habit?.unit ?? '',
+        habit_target: habit?.target ?? 0,
+        habit_icon: habit?.icon ?? '',
+      }
+    })
+    setLogs(mappedLogs)
+  }, [today])
+
   const fetchData = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
-
-      const [habitsResult, logsResult] = await Promise.all([
-        supabase
-          .from('habits')
-          .select('id, name, type, target, unit, icon, active')
-          .eq('client_id', user.id)
-          .eq('active', true)
-          .order('name'),
-        supabase
-          .from('habit_logs')
-          .select(`
-            habit_id,
-            log_date,
-            value,
-            completed,
-            habits ( name, unit, target, icon )
-          `)
-          .eq('user_id', user.id)
-          .eq('log_date', today),
-      ])
-
-      setHabits(habitsResult.data ?? [])
-
-      const mappedLogs: HabitLog[] = (logsResult.data ?? []).map((row) => {
-        const habit = row.habits as unknown as { name: string; unit: string; target: number; icon: string } | null
-        return {
-          habit_id: row.habit_id,
-          log_date: row.log_date,
-          value: row.value,
-          completed: row.completed,
-          habit_name: habit?.name ?? '',
-          habit_unit: habit?.unit ?? '',
-          habit_target: habit?.target ?? 0,
-          habit_icon: habit?.icon ?? '',
-        }
-      })
-      setLogs(mappedLogs)
+      await loadOnce()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load habits')
+      if (isLockContentionError(err)) {
+        try {
+          await new Promise((resolve) => setTimeout(resolve, 400))
+          await loadOnce()
+        } catch (retryErr) {
+          setError(isLockContentionError(retryErr) ? 'Having trouble loading your habits — try refreshing.' : 'Failed to load habits')
+        }
+      } else {
+        setError('Failed to load habits')
+      }
     } finally {
       setLoading(false)
     }
-  }, [today])
+  }, [loadOnce])
 
   useEffect(() => { fetchData() }, [fetchData])
 
