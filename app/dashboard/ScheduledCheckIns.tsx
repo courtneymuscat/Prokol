@@ -52,15 +52,21 @@ function lookbackMs(repeatType: string): number {
   return 7 * day
 }
 
-function isDue(schedule: Schedule, submissions: Submission[], todayDow: number, todayStr: string): boolean {
-  const { day_of_week, repeat_type, start_date, form_id } = schedule
+function isDue(schedule: Schedule, submissions: Submission[], today: Date): boolean {
+  const { repeat_type, start_date, form_id } = schedule
   const subs = submissions.filter((s) => s.form_id === form_id).map((s) => new Date(s.submitted_at).getTime())
   const now = Date.now()
 
   if (repeat_type === 'once') {
-    return todayStr === start_date && subs.length === 0
+    return today.toISOString().split('T')[0] === start_date && subs.length === 0
   }
-  if (todayDow !== day_of_week) return false
+
+  // Stays due every day from the scheduled weekday through to the next
+  // one — not just on the exact day — so a client who misses it doesn't
+  // lose the chance to fill it in until it's genuinely time for the next
+  // check-in. Only gated by start_date so a brand-new schedule doesn't
+  // show as due before its first occurrence.
+  if (today.getTime() < new Date(start_date + 'T00:00:00').getTime()) return false
   return !subs.find((t) => now - t < lookbackMs(repeat_type))
 }
 
@@ -177,15 +183,13 @@ export default function ScheduledCheckIns({ onEmpty }: Props) {
 
         const submissions: Submission[] = subs ?? []
         const today = new Date()
-        const todayDow = today.getDay()
-        const todayStr = today.toISOString().split('T')[0]
 
         const dueSet = new Set<string>()
         const completedMap: Record<string, Submission> = {}
         const nextMap: Record<string, Date | null> = {}
 
         for (const s of allSchedules) {
-          if (isDue(s, submissions, todayDow, todayStr)) {
+          if (isDue(s, submissions, today)) {
             dueSet.add(s.id)
           } else {
             const recent = getRecentSubmission(s, submissions)
@@ -299,7 +303,7 @@ export default function ScheduledCheckIns({ onEmpty }: Props) {
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-gray-900">{s.title}</p>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--nc-primary)' }}>{repeatLabel(s.repeat_type)} · Due today</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--nc-primary)' }}>{repeatLabel(s.repeat_type)} · Due</p>
                 </div>
               </div>
               <span className="text-xs font-semibold text-white px-3 py-1.5 rounded-lg flex-shrink-0" style={{ backgroundColor: 'var(--nc-primary)' }}>Fill in →</span>
