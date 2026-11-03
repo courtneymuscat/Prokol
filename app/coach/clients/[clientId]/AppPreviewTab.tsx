@@ -461,7 +461,7 @@ export default function AppPreviewTab({
               >
                 <span className="text-base">📅</span>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-xs font-semibold ${targetsSource === 'weekly_plan' ? 'text-purple-700' : 'text-gray-700'}`}>From Weekly Plan</p>
+                  <p className={`text-xs font-semibold ${targetsSource === 'weekly_plan' ? 'text-purple-700' : 'text-gray-700'}`}>From Weekly Changes</p>
                   <p className="text-[11px] text-gray-400">
                     {visiblePlanFull === false ? 'No Weekly Changes plan visible to client' : 'Auto-updates to the current week as time passes'}
                   </p>
