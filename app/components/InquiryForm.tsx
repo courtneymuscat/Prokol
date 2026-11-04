@@ -10,6 +10,8 @@ const SERVICES = [
   '1:1 Nutrition Coaching',
   'The Prokol Method — Self-guided',
   'The Prokol Method — Guided',
+  'The Prokol Method — Self-guided + Training',
+  'The Prokol Method — Guided + Training',
   'Gym & Studio Partnerships',
   'Seminars, Workshops & Webinars',
   'Food Business Consulting',

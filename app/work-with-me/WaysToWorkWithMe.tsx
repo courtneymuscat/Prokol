@@ -106,6 +106,43 @@ const EDUCATION_CARDS = [
     service: 'The Prokol Method — Guided',
     highlight: true,
   },
+  {
+    tag: 'Add training alongside it',
+    title: 'Self-guided + Training',
+    subtitle: '13 weeks nutrition + 12 weeks training',
+    priceLabel: '13 weeks · one payment',
+    price: '$349',
+    priceNote: 'for the full program',
+    priceWeekly: 'That’s about $27 a week',
+    desc: 'Everything in Self-guided, plus a structured training program to work alongside it, delivered the same way — in the app, at your own pace.',
+    points: [
+      'Everything in Self-guided',
+      '2 x 6-week training blocks, delivered in the Prokol app',
+      'Progressive programming that builds across both blocks',
+      'Train and eat from the same plan, with nothing to coordinate yourself',
+    ],
+    button: 'Start Self-guided + Training',
+    service: 'The Prokol Method — Self-guided + Training',
+  },
+  {
+    tag: 'Most complete',
+    title: 'Guided + Training',
+    subtitle: 'with weekly check-in replies',
+    priceLabel: '13 weeks · one payment',
+    price: '$599',
+    priceNote: 'for the full program, with weekly check-in replies',
+    priceWeekly: 'That’s about $46 a week',
+    desc: 'Everything in Guided, plus a structured training program and weekly replies that cover both.',
+    points: [
+      'Everything in Guided',
+      '2 x 6-week training blocks, delivered in the Prokol app',
+      'Weekly check-in replies cover your training as well as your nutrition',
+      'Progressive programming that builds across both blocks',
+    ],
+    button: 'Start Guided + Training',
+    service: 'The Prokol Method — Guided + Training',
+    highlight: true,
+  },
 ]
 
 const WHATS_INCLUDED = [
