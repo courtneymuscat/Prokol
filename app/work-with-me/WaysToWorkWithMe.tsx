@@ -47,7 +47,8 @@ const COACHING_TIERS = [
     title: 'Accountability Continuation',
     price: '$180 / month',
     desc: 'For clients who’ve already done the groundwork and want to stay accountable without paying for a full strategy rebuild every month.',
-    points: ['Weekly async check-in — no live call', 'Light-touch review of adherence & symptoms', 'Available after a consult or coaching program'],
+    points: ['Weekly async check-in — no live call', 'Light-touch review of adherence & symptoms'],
+    requires: 'Only available as a continuation — you’ll need to complete one of the tiers above first',
   },
 ]
 
@@ -76,7 +77,7 @@ const EDUCATION_CARDS = [
     points: [
       '13 weeks of short video lessons: Week 0 to get set up, then one new lesson every week',
       'One simple habit each week, matched to the path you choose',
-      'Your personalised plan, daily serves and targets in the Prokol app',
+      'Your plan, daily serves and targets in the Prokol app, built from your onboarding answers',
       '24 downloadable guides you keep, from protein and carbs to eating out and sleep',
       'The women’s health bonus library: your cycle, iron, energy, menopause and bloodwork',
       'Weekly progress check-ins with photos, so you can see how far you’ve come',
@@ -98,7 +99,7 @@ const EDUCATION_CARDS = [
       'Everything in Self-guided',
       'A personal reply from me to your weekly in-app check-in, every week for 13 weeks',
       'Feedback on your progress photos, habits, energy, sleep and hunger',
-      'Tweaks to your plan when life, training or your goals change',
+      'Answers to your questions, so you’re never stuck figuring it out alone',
       'Course-correct early, so small slips don’t turn into big ones',
     ],
     button: 'Start Guided',
@@ -206,6 +207,21 @@ export default function WaysToWorkWithMe() {
                       <p className="font-bold text-lg" style={{ fontFamily: HEAD }}>{t.title}</p>
                       <p className="font-bold text-sm flex-shrink-0" style={{ color: t.highlight ? '#fff' : BERRY }}>{t.price}</p>
                     </div>
+                    {'requires' in t && t.requires && (
+                      <p
+                        className="text-xs font-semibold rounded-lg px-3 py-2 mb-4 flex items-start gap-1.5"
+                        style={{
+                          background: t.highlight ? 'rgba(255,255,255,0.1)' : 'rgba(29,158,117,0.08)',
+                          color: t.highlight ? '#fff' : BERRY,
+                          border: `1px solid ${t.highlight ? 'rgba(255,255,255,0.25)' : 'rgba(29,158,117,0.25)'}`,
+                        }}
+                      >
+                        <svg className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {t.requires}
+                      </p>
+                    )}
                     <p className="text-sm leading-relaxed mb-4" style={{ color: t.highlight ? 'rgba(255,255,255,0.8)' : INK_SOFT }}>{t.desc}</p>
                     <ul className="space-y-1.5">
                       {t.points.map((p) => (
