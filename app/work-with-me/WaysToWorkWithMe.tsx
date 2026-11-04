@@ -5,8 +5,8 @@ import { InquiryButton } from '@/app/components/InquiryForm'
 
 const INK = '#211A17'
 const INK_SOFT = 'rgba(33,26,23,0.62)'
-const BERRY = '#8C3B52'
-const BERRY_DEEP = '#5E2537'
+const BERRY = '#1D9E75'
+const BERRY_DEEP = '#0F6E56'
 const HEAD = 'var(--font-sans, Geist, system-ui, sans-serif)'
 
 type ServiceKey = 'coaching' | 'education' | 'gyms' | 'seminars' | 'consulting'
@@ -137,7 +137,7 @@ export default function WaysToWorkWithMe() {
                   >
                     <span
                       className="inline-block text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full mb-4"
-                      style={t.highlight ? { background: 'rgba(255,255,255,0.15)', color: '#fff' } : { background: 'rgba(140,59,82,0.1)', color: BERRY }}
+                      style={t.highlight ? { background: 'rgba(255,255,255,0.15)', color: '#fff' } : { background: 'rgba(29,158,117,0.1)', color: BERRY }}
                     >
                       {t.tag}
                     </span>

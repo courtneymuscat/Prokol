@@ -20,7 +20,7 @@ const dmSans = DM_Sans({
 
 const INK = '#211A17'
 const INK_SOFT = 'rgba(33,26,23,0.62)'
-const BERRY = '#8C3B52'
+const BERRY = '#1D9E75'
 const HEAD = 'var(--font-sans, Geist, system-ui, sans-serif)'
 
 const STATS = [
@@ -163,7 +163,7 @@ export default function AboutPage() {
             {CURRENT_ROLES.map((r) => {
               const cardInner = (
                 <>
-                  <span className="inline-block text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full mb-4" style={{ background: 'rgba(140,59,82,0.1)', color: BERRY }}>
+                  <span className="inline-block text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full mb-4" style={{ background: 'rgba(29,158,117,0.1)', color: BERRY }}>
                     {r.tag}
                   </span>
                   <div className="flex items-center justify-between gap-3 mb-2">
@@ -171,7 +171,7 @@ export default function AboutPage() {
                     {r.href && (
                       <span
                         className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
-                        style={{ background: 'rgba(140,59,82,0.1)', color: BERRY }}
+                        style={{ background: 'rgba(29,158,117,0.1)', color: BERRY }}
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />

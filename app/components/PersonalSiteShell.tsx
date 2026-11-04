@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { InquiryButton } from '@/app/components/InquiryForm'
 
 // Shared nav + footer for Courtney's personal pages (/about, /work-with-me).
 // Deliberately NOT the same component as LandingPage's nav/footer — those
@@ -23,10 +24,11 @@ export function PersonalNav({ active }: { active: 'about' | 'work' }) {
         </Link>
         <div className="flex items-center gap-6 text-sm font-medium">
           <Link href="/about" style={{ color: active === 'about' ? INK : INK_SOFT, textDecoration: 'none' }}>About</Link>
+          <Link href="/dashboard" style={{ color: INK_SOFT, textDecoration: 'none' }}>The Platform</Link>
           <Link href="/work-with-me" style={{ color: active === 'work' ? INK : INK_SOFT, textDecoration: 'none' }}>Work With Me</Link>
-          <a href="mailto:info@prokol.io" className="px-4 py-2 rounded-full text-sm font-semibold text-white hover:opacity-90 transition-opacity" style={{ background: '#8C3B52' }}>
+          <InquiryButton className="px-4 py-2 rounded-full text-sm font-semibold text-white hover:opacity-90 transition-opacity" style={{ background: '#1D9E75' }}>
             Get in touch
-          </a>
+          </InquiryButton>
         </div>
       </div>
     </nav>

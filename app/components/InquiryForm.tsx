@@ -4,7 +4,7 @@ import { useState, type CSSProperties, type ReactNode } from 'react'
 
 const INK = '#211A17'
 const INK_SOFT = 'rgba(33,26,23,0.62)'
-const BERRY = '#8C3B52'
+const BERRY = '#1D9E75'
 
 const SERVICES = [
   '1:1 Nutrition Coaching',

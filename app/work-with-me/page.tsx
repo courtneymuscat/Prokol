@@ -21,8 +21,8 @@ const dmSans = DM_Sans({
 
 const INK = '#211A17'
 const INK_SOFT = 'rgba(33,26,23,0.62)'
-const BERRY = '#8C3B52'
-const BERRY_DEEP = '#5E2537'
+const BERRY = '#1D9E75'
+const BERRY_DEEP = '#0F6E56'
 const HEAD = 'var(--font-sans, Geist, system-ui, sans-serif)'
 
 export default function WorkWithMePage() {
