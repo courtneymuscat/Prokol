@@ -23,8 +23,8 @@ export function PersonalNav({ active }: { active: 'about' | 'work' }) {
           <span className="text-sm font-bold" style={{ color: INK }}>Prokol<span style={{ color: 'var(--nc-primary)' }}>.</span></span>
         </Link>
         <div className="flex items-center gap-6 text-sm font-medium">
-          <Link href="/about" style={{ color: active === 'about' ? INK : INK_SOFT, textDecoration: 'none' }}>About</Link>
           <Link href="/dashboard" style={{ color: INK_SOFT, textDecoration: 'none' }}>The Platform</Link>
+          <Link href="/about" style={{ color: active === 'about' ? INK : INK_SOFT, textDecoration: 'none' }}>About</Link>
           <Link href="/work-with-me" style={{ color: active === 'work' ? INK : INK_SOFT, textDecoration: 'none' }}>Work With Me</Link>
           <InquiryButton className="px-4 py-2 rounded-full text-sm font-semibold text-white hover:opacity-90 transition-opacity" style={{ background: '#1D9E75' }}>
             Get in touch

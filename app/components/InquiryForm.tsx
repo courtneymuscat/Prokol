@@ -69,12 +69,13 @@ function InquiryModal({ defaultService, onClose }: { defaultService?: string; on
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 overflow-y-auto"
       style={{ background: 'rgba(33,26,23,0.5)' }}
       onClick={onClose}
     >
+      <div className="min-h-full flex items-center justify-center p-4">
       <div
-        className="w-full max-w-md rounded-2xl bg-white p-7 max-h-[90vh] overflow-y-auto"
+        className="w-full max-w-md rounded-2xl bg-white p-7"
         onClick={(e) => e.stopPropagation()}
       >
         {status === 'sent' ? (
@@ -180,6 +181,7 @@ function InquiryModal({ defaultService, onClose }: { defaultService?: string; on
             </button>
           </form>
         )}
+      </div>
       </div>
     </div>
   )
