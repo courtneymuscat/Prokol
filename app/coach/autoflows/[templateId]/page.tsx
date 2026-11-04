@@ -582,6 +582,12 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
   const [programs, setPrograms] = useState<CoachProgram[]>([])
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
 
+  // Snapshot of `template` as last loaded/saved, so isDirty can be derived
+  // by comparison rather than hand-threading setIsDirty(true) through every
+  // single edit path (step edits, question edits, reorder, duplicate,
+  // etc.) — too easy for a future edit function to forget that.
+  const savedSnapshotRef = useRef<string | null>(null)
+
   // New template state
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState('weekly_checkin')
@@ -593,20 +599,24 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
       fetch(`/api/coach/autoflows/${templateId}`)
         .then(r => r.json())
         .then(d => {
-        if (!d.error) setTemplate({
-          ...d,
-          steps: (d.steps ?? []).map((s: Step) => ({
-            ...s,
-            resource_ids: s.resource_ids ?? [],
-            form_id: s.form_id ?? null,
-            form_save_to_file: s.form_save_to_file ?? false,
-            tasks: s.tasks ?? [],
-            automated_message: s.automated_message ?? '',
-            protocol_section: s.protocol_section ?? null,
-            habit: s.habit ?? null,
-            program_link: s.program_link ?? null,
-          })),
-        })
+        if (!d.error) {
+          const loaded = {
+            ...d,
+            steps: (d.steps ?? []).map((s: Step) => ({
+              ...s,
+              resource_ids: s.resource_ids ?? [],
+              form_id: s.form_id ?? null,
+              form_save_to_file: s.form_save_to_file ?? false,
+              tasks: s.tasks ?? [],
+              automated_message: s.automated_message ?? '',
+              protocol_section: s.protocol_section ?? null,
+              habit: s.habit ?? null,
+              program_link: s.program_link ?? null,
+            })),
+          }
+          setTemplate(loaded)
+          savedSnapshotRef.current = JSON.stringify(loaded)
+        }
       })
         .finally(() => setLoading(false))
     }
@@ -664,9 +674,29 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
         push_to_clients: pushToClients,
       }),
     })
+    savedSnapshotRef.current = JSON.stringify(template)
     setSaving(false)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  const isDirty = template != null && savedSnapshotRef.current != null && JSON.stringify(template) !== savedSnapshotRef.current
+
+  // Warn on tab close / refresh when there are unsaved changes
+  useEffect(() => {
+    if (!isDirty) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [isDirty])
+
+  function confirmLeave(href: string) {
+    if (!isDirty || confirm('You have unsaved changes. Leave without saving?')) {
+      window.location.href = href
+    }
   }
 
   async function duplicateTemplate() {
@@ -926,9 +956,9 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
       {/* Header */}
       <div className="bg-white border-b px-6 py-4 flex items-center justify-between gap-4">
         <div className="flex items-start gap-3 flex-1 min-w-0">
-          <a href="/coach/autoflows" className="text-gray-400 hover:text-gray-700 transition-colors mt-1">
+          <button onClick={() => confirmLeave('/coach/autoflows')} className="text-gray-400 hover:text-gray-700 transition-colors mt-1">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
-          </a>
+          </button>
           <div className="flex flex-col min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <input
@@ -978,6 +1008,11 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
             </button>
             <span className="text-xs text-gray-500 hidden sm:block">Push to clients</span>
           </label>
+          {isDirty && !saving && (
+            <span className="text-xs text-amber-600 font-medium hidden sm:block" title="You have unsaved changes">
+              Unsaved changes
+            </span>
+          )}
           <button
             onClick={save}
             disabled={saving}
