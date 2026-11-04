@@ -23,6 +23,7 @@ type Resource = {
   coach_resource_folders: Folder | null
   created_at: string
   is_org_template?: boolean
+  is_global?: boolean
 }
 
 // ── Template presets coaches can import ───────────────────────────────────────
@@ -505,11 +506,12 @@ export default function ResourcesManager() {
     setTimeout(() => setImportedPresets(false), 3000)
   }
 
-  // Org-shared resources are surfaced in their own section above the
-  // coach's own list. They're filtered out of the per-folder views since
-  // they don't belong to any of the coach's folders.
+  // Org-shared and platform-wide (is_global) resources are surfaced in their
+  // own sections above the coach's own list. They're filtered out of the
+  // per-folder views since they don't belong to any of the coach's folders.
   const orgResources = resources.filter(r => r.is_org_template)
-  const ownResources = resources.filter(r => !r.is_org_template)
+  const globalResources = resources.filter(r => r.is_global)
+  const ownResources = resources.filter(r => !r.is_org_template && !r.is_global)
 
   const visibleResources = selectedFolder === null
     ? ownResources
@@ -639,6 +641,39 @@ export default function ResourcesManager() {
             </div>
           )}
 
+          {globalResources.length > 0 && selectedFolder === null && (
+            <div className="space-y-3 mb-6">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-gray-900">From Prokol</h2>
+                <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-teal-50 text-teal-700 border border-teal-100">Read-only</span>
+              </div>
+              <p className="text-xs text-gray-500 -mt-1">Shared with every coach on Prokol. Use directly with your clients.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {globalResources.map(resource => (
+                  <div key={resource.id} className="bg-white rounded-2xl border border-teal-100 p-4 flex flex-col gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{resource.name}</p>
+                      {resource.description && (
+                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">{resource.description}</p>
+                      )}
+                      <p className="text-[11px] text-gray-400 mt-1 capitalize">{resource.type}</p>
+                    </div>
+                    {resource.url && (
+                      <a
+                        href={resource.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-center text-xs font-medium text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        Open
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {orgResources.length > 0 && selectedFolder === null && (
             <div className="space-y-3 mb-6">
               <div className="flex items-center gap-2">
@@ -680,7 +715,7 @@ export default function ResourcesManager() {
             </div>
           )}
 
-          {visibleResources.length === 0 && orgResources.length === 0 ? (
+          {visibleResources.length === 0 && orgResources.length === 0 && globalResources.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="text-4xl mb-3">📚</div>
               <p className="text-base font-semibold text-gray-700 mb-1">No resources yet</p>

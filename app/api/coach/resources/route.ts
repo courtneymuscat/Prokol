@@ -18,7 +18,7 @@ export async function GET() {
   const coachId = await requireCoach()
   if (!coachId) return Response.json({ error: 'Unauthorized' }, { status: 401 })
   const supabase = await createClient()
-  const [{ data: own }, orgItems] = await Promise.all([
+  const [{ data: own }, orgItems, { data: globalItems }] = await Promise.all([
     supabase
       .from('coach_resources')
       .select('*, coach_resource_folders(id, name, color, icon)')
@@ -30,6 +30,16 @@ export async function GET() {
       'coach_resources',
       'id, coach_id, folder_id, name, description, type, url, created_at',
     ),
+    // Platform-wide resources (e.g. the Prokol app-overview video) — visible
+    // to every coach regardless of org membership, via the is_global RLS
+    // widening. Excludes the coach's own rows so Court herself doesn't see
+    // her global resources listed twice.
+    supabase
+      .from('coach_resources')
+      .select('id, coach_id, folder_id, name, description, type, url, created_at')
+      .eq('is_global', true)
+      .neq('coach_id', coachId)
+      .order('created_at', { ascending: false }),
   ])
 
   // Org resources don't have the coach's folder relation — flatten and tag
@@ -37,12 +47,15 @@ export async function GET() {
   // id so the coach-publisher case (where the same row exists in both
   // 'own' and orgItems) doesn't render twice. Prefer the org-template
   // entry to preserve the badge.
-  const byId = new Map<string, Record<string, unknown> & { id: string; is_org_template: boolean }>()
+  const byId = new Map<string, Record<string, unknown> & { id: string; is_org_template: boolean; is_global?: boolean }>()
   for (const r of (own as ResourceRow[] | null) ?? []) {
     byId.set(r.id, { ...r, is_org_template: false })
   }
   for (const r of orgItems) {
     byId.set(r.id, { ...r, is_org_template: true, coach_resource_folders: null })
+  }
+  for (const r of (globalItems as ResourceRow[] | null) ?? []) {
+    byId.set(r.id, { ...r, is_org_template: false, is_global: true, coach_resource_folders: null })
   }
   return Response.json(Array.from(byId.values()))
 }

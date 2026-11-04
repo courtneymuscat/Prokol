@@ -26,12 +26,13 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!resource_id) return Response.json({ error: 'resource_id required' }, { status: 400 })
   const supabase = await createClient()
 
-  // Verify the resource belongs to this coach
+  // Verify the resource belongs to this coach, or is a platform-wide
+  // resource (is_global) every coach is allowed to hand to their clients.
   const { data: resource } = await supabase
     .from('coach_resources')
     .select('id')
     .eq('id', resource_id)
-    .eq('coach_id', coachId)
+    .or(`coach_id.eq.${coachId},is_global.eq.true`)
     .single()
   if (!resource) return Response.json({ error: 'Resource not found' }, { status: 404 })
 
