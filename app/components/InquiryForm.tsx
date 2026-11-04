@@ -8,7 +8,8 @@ const BERRY = '#1D9E75'
 
 const SERVICES = [
   '1:1 Nutrition Coaching',
-  'Accessible Education Program',
+  'The Prokol Method — Self-guided',
+  'The Prokol Method — Guided',
   'Gym & Studio Partnerships',
   'Seminars, Workshops & Webinars',
   'Food Business Consulting',
