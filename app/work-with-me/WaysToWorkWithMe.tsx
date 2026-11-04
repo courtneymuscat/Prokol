@@ -67,27 +67,39 @@ const EDUCATION_CARDS = [
   {
     tag: 'Learn at your own pace',
     title: 'Self-guided',
-    price: '$249 one-off',
-    desc: 'For people who want to understand nutrition and put it into practice themselves.',
+    subtitle: '13 weeks for just $249',
+    priceLabel: '13 weeks · one payment',
+    price: '$249',
+    priceNote: 'for the full 13 weeks',
+    priceWeekly: 'That’s about $19 a week',
+    desc: 'Everything you need to understand nutrition and put it into practice yourself, one small step at a time.',
     points: [
-      '13-week program: Week 0 to get set up, then one short lesson and one habit each week',
+      '13 weeks of short video lessons: Week 0 to get set up, then one new lesson every week',
+      'One simple habit each week, matched to the path you choose',
       'Your personalised plan, daily serves and targets in the Prokol app',
-      'Every resource, plus the women’s health bonus library',
+      '24 downloadable guides you keep, from protein and carbs to eating out and sleep',
+      'The women’s health bonus library: your cycle, iron, energy, menopause and bloodwork',
+      'Weekly progress check-ins with photos, so you can see how far you’ve come',
       'Choose your path: Plan and Swap, Track Serves, or Protein + Calories',
     ],
     button: 'Start Self-guided',
     service: 'The Prokol Method — Self-guided',
   },
   {
-    tag: 'Most popular',
+    tag: 'Most support',
     title: 'Guided',
-    price: '$449 one-off',
-    desc: 'Everything in Self-guided, plus me in your corner each week.',
+    subtitle: 'with weekly check-in replies',
+    priceLabel: '13 weeks · one payment',
+    price: '$449',
+    priceNote: 'for the full 13 weeks, with weekly check-in replies',
+    priceWeekly: 'That’s about $35 a week',
+    desc: 'Everything in Self-guided, plus me reading your check-in and replying every week, so you’re never doing it alone.',
     points: [
-      'A personal reply to your weekly in-app check-in',
-      'Feedback on your progress photos, habits and how you’re feeling',
-      'Tweaks to your plan when you need them',
-      'Course-correct early, so small slips don’t become big ones',
+      'Everything in Self-guided',
+      'A personal reply from me to your weekly in-app check-in, every week for 13 weeks',
+      'Feedback on your progress photos, habits, energy, sleep and hunger',
+      'Tweaks to your plan when life, training or your goals change',
+      'Course-correct early, so small slips don’t turn into big ones',
     ],
     button: 'Start Guided',
     service: 'The Prokol Method — Guided',
@@ -227,7 +239,7 @@ export default function WaysToWorkWithMe() {
           ) : active === 'education' ? (
             <div>
               <p className="text-center mb-10" style={{ color: INK_SOFT, fontWeight: 300, maxWidth: 580, marginLeft: 'auto', marginRight: 'auto' }}>
-                Learn how to eat for your goals, at your own pace. The same education-first framework behind my 1:1 coaching, in a 13-week program you follow in the Prokol app. One payment, no ongoing commitment.
+                13 weeks of nutrition coaching for one simple payment, from just $249. Learn how to eat for your goals at your own pace, with the same education-first framework behind my 1:1 coaching, all inside the Prokol app. No subscriptions, no lock-in, and you keep access to every lesson and resource after you finish.
               </p>
 
               <div className="grid md:grid-cols-2 gap-5">
@@ -243,10 +255,20 @@ export default function WaysToWorkWithMe() {
                     >
                       {t.tag}
                     </span>
-                    <div className="flex items-baseline justify-between gap-3 mb-2">
-                      <p className="font-bold text-lg" style={{ fontFamily: HEAD }}>{t.title}</p>
-                      <p className="font-bold text-sm flex-shrink-0" style={{ color: t.highlight ? '#fff' : BERRY }}>{t.price}</p>
+                    <p className="font-bold text-lg" style={{ fontFamily: HEAD }}>{t.title}</p>
+                    <p className="text-sm font-normal mb-4" style={{ color: t.highlight ? 'rgba(255,255,255,0.8)' : INK_SOFT }}>{t.subtitle}</p>
+
+                    <div className="mb-4">
+                      <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: t.highlight ? 'rgba(255,255,255,0.85)' : BERRY }}>
+                        {t.priceLabel}
+                      </p>
+                      <div className="flex items-baseline gap-2 flex-wrap">
+                        <span className="font-black" style={{ fontFamily: HEAD, fontSize: '2rem', lineHeight: 1, color: t.highlight ? '#fff' : INK }}>{t.price}</span>
+                        <span className="text-xs" style={{ color: t.highlight ? 'rgba(255,255,255,0.75)' : INK_SOFT }}>{t.priceNote}</span>
+                      </div>
+                      <p className="text-xs mt-1.5" style={{ color: t.highlight ? 'rgba(255,255,255,0.55)' : 'rgba(33,26,23,0.4)' }}>{t.priceWeekly}</p>
                     </div>
+
                     <p className="text-sm leading-relaxed mb-4" style={{ color: t.highlight ? 'rgba(255,255,255,0.8)' : INK_SOFT }}>{t.desc}</p>
                     <ul className="space-y-1.5 mb-5 flex-1">
                       {t.points.map((p) => (
