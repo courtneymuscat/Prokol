@@ -130,7 +130,7 @@ export async function GET() {
         allResourceIds.length > 0
           ? admin
               .from('coach_resources')
-              .select('id, name, description, type, url, coach_id, org_id, is_org_template')
+              .select('id, name, description, type, url, coach_id, org_id, is_org_template, is_global')
               .in('id', allResourceIds)
           : Promise.resolve({ data: [] }),
         allFormIds.length > 0
@@ -147,11 +147,13 @@ export async function GET() {
         coach_id: string
         org_id: string | null
         is_org_template: boolean
+        is_global: boolean
       }
 
       const resourceMap: Record<string, { id: string; name: string; type: string; url: string | null }> = Object.fromEntries(
         ((resourcesResult.data as ResourceCandidate[] | null) ?? [])
           .filter((r) => {
+            if (r.is_global) return true
             if (!flowCoachId) return false
             if (r.coach_id === flowCoachId) return true
             if (r.is_org_template && r.org_id && assigningCoachOrgId && r.org_id === assigningCoachOrgId) return true

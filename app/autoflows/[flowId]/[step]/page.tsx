@@ -64,6 +64,15 @@ const RESOURCE_TYPE_META: Record<string, { icon: string; label: string; color: s
   image:    { icon: '🖼️', label: 'Image',    color: 'bg-gray-50 border-gray-200 text-gray-800' },
 }
 
+// Converts a Loom share link to its embeddable form; returns null for any
+// other video URL (an uploaded file), which renders as a plain <video> tag.
+function loomEmbedUrl(url: string): string | null {
+  const match = url.match(/loom\.com\/share\/([a-zA-Z0-9]+)/)
+  if (match) return `https://www.loom.com/embed/${match[1]}`
+  if (url.includes('loom.com/embed/')) return url
+  return null
+}
+
 function ScaleInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
@@ -411,6 +420,11 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
         <div className="mt-2 flex items-start justify-between gap-2">
           <div>
             <p className="text-xs text-gray-500">{data.flow_name}</p>
+            {data.title?.startsWith('Bonus') && (
+              <span className="inline-block text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-pink-50 text-pink-700 border border-pink-200 mb-1">
+                🎁 Bonus
+              </span>
+            )}
             <h1 className="text-lg font-bold text-gray-900">{data.title || `Step ${data.step_number}`}</h1>
           </div>
           {data.selected_path && (
@@ -474,6 +488,11 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
               <p className="text-xs text-emerald-800 mt-1 leading-relaxed">
                 Added to your Habits tab for as long as this step is active — track it there day to day.
               </p>
+              {data.selected_path === 'ps' && (
+                <p className="text-xs text-emerald-800 mt-2 leading-relaxed bg-emerald-100/60 rounded-lg px-2.5 py-2">
+                  Feeling overwhelmed? Keep eating as you are. Change only one thing this week: {data.habit.name}. Keep last week&apos;s habit going. That&apos;s it.
+                </p>
+              )}
               <a href="/dashboard" className="inline-block mt-2 text-xs font-semibold text-emerald-800 underline hover:text-emerald-900">
                 Go to Habits →
               </a>
@@ -481,8 +500,38 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
           </div>
         )}
 
+        {/* Video slot(s) — embedded player when a video is attached and has a
+            URL; a slot with no URL yet simply renders nothing rather than a
+            broken player or an error. Loom share links are converted to
+            their embeddable form. */}
+        {data.resources && data.resources.some(r => r.type === 'video' && r.url) && (
+          <div className="space-y-3">
+            {data.resources.filter(r => r.type === 'video' && r.url).map(r => {
+              const loomSrc = loomEmbedUrl(r.url!)
+              const label = /walkthrough/i.test(r.name) ? 'App walkthrough' : 'Lesson video'
+              return (
+                <div key={r.id} className="space-y-1">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1">{label}</p>
+                  <div className="rounded-xl overflow-hidden border border-gray-200 bg-black">
+                    {loomSrc ? (
+                      <iframe
+                        src={loomSrc}
+                        className="w-full aspect-video"
+                        allow="fullscreen; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <video src={r.url!} controls className="w-full aspect-video bg-black" />
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
         {/* Resources — direct client to the resources section */}
-        {data.resources && data.resources.length > 0 && (
+        {data.resources && data.resources.some(r => r.type !== 'video') && (
           <div className="space-y-2">
             <div className="flex items-center justify-between px-1">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Resources</p>
@@ -490,7 +539,7 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
                 View all →
               </a>
             </div>
-            {data.resources.map(r => {
+            {data.resources.filter(r => r.type !== 'video').map(r => {
               const meta = RESOURCE_TYPE_META[r.type] ?? RESOURCE_TYPE_META.document
               if (r.type === 'image' && r.url) {
                 return (

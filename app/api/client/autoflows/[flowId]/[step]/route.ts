@@ -4,6 +4,7 @@ import { sendPushToUser } from '@/lib/push'
 import { effectiveQuestions } from '@/lib/autoflow-fork'
 import { resolveForPath, taskAppliesToPath, pathFromChoiceLabel, PATH_CHOICE_QUESTION_ID, type PathKey } from '@/lib/autoflowPaths'
 import { syncAutoflowStepPrograms } from '@/lib/autoflowStepPrograms'
+import { dayOffsetAvailableDate, isDayOffsetUnlocked } from '@/lib/autoflowUnlock'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ flowId: string; step: string }> }
@@ -63,14 +64,9 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     const triggerStepNum: number | null = (templateStep as unknown as Record<string, unknown>).trigger_step_number as number | null
 
     if (triggerType === 'day_offset') {
-      const [y, m, d] = flow.start_date.split('-').map(Number)
       const dayOffset: number = (templateStep as unknown as Record<string, unknown>).day_offset as number ?? 0
-      const availableMs = Date.UTC(y, m - 1, d + dayOffset)
-      const now = new Date()
-      const todayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-      if (todayMs < availableMs) {
-        const availableFrom = new Date(availableMs).toISOString().split('T')[0]
-        return Response.json({ locked: true, reason: 'not_yet', available_from: availableFrom }, { status: 403 })
+      if (!isDayOffsetUnlocked(flow.start_date, dayOffset, new Date())) {
+        return Response.json({ locked: true, reason: 'not_yet', available_from: dayOffsetAvailableDate(flow.start_date, dayOffset) }, { status: 403 })
       }
     } else if (triggerType === 'on_step_complete' && triggerStepNum) {
       const { data: triggerResp } = await admin
@@ -99,12 +95,8 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     if (nextTemplateStep) {
       const nextTrigger: string = (nextTemplateStep as unknown as Record<string, unknown>).trigger_type as string ?? 'day_offset'
       if (nextTrigger === 'day_offset') {
-        const [y, m, d] = flow.start_date.split('-').map(Number)
         const nextOffset: number = (nextTemplateStep as unknown as Record<string, unknown>).day_offset as number ?? 0
-        const availableMs = Date.UTC(y, m - 1, d + nextOffset)
-        const now = new Date()
-        const todayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-        next_step_available = todayMs >= availableMs
+        next_step_available = isDayOffsetUnlocked(flow.start_date, nextOffset, new Date())
       } else if (nextTrigger === 'on_step_complete') {
         const requiredStep: number = (nextTemplateStep as unknown as Record<string, unknown>).trigger_step_number as number ?? stepNum
         if (requiredStep === stepNum) {
@@ -145,7 +137,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   if (resourceIds.length > 0 && coachId) {
     const { data: candidates } = await admin
       .from('coach_resources')
-      .select('id, name, description, type, url, coach_id, org_id, is_org_template')
+      .select('id, name, description, type, url, coach_id, org_id, is_org_template, is_global')
       .in('id', resourceIds)
 
     let assigningCoachOrgId: string | null = null
@@ -167,10 +159,12 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       coach_id: string
       org_id: string | null
       is_org_template: boolean
+      is_global: boolean
     }
 
     resources = ((candidates as ResourceRow[] | null) ?? [])
       .filter((r) => {
+        if (r.is_global) return true
         if (r.coach_id === coachId) return true
         if (r.is_org_template && r.org_id && assigningCoachOrgId && r.org_id === assigningCoachOrgId) return true
         return false
