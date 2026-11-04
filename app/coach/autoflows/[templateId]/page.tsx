@@ -219,7 +219,7 @@ function QuestionCard({
             placeholder="Description (optional) — shown below the question…"
             className="w-full text-xs border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none text-gray-500"
           />
-          {q.type === 'choice' && (
+          {(q.type === 'choice' || q.type === 'radio' || q.type === 'dropdown') && (
             <div className="space-y-1.5 pl-1">
               {(q.options ?? []).map((opt, i) => (
                 <div key={i} className="flex items-center gap-2">
