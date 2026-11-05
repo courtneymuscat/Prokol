@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useSearchParams } from 'next/navigation'
 import SignupLinkPanel from './SignupLinkPanel'
+import AnnouncementsPanel from './AnnouncementsPanel'
 import {
   actionSetOrgTenantType,
   actionPublishTemplate,
@@ -20,10 +21,12 @@ import AdminOrgLeadsPanel from './AdminOrgLeadsPanel'
 
 type PublishableTemplate = { id: string; name: string }
 type ExistingLink = { id: string; code: string; name: string | null; isActive: boolean; autoflowNames: string[] }
+type Announcement = { id: string; title: string; url: string | null; note: string | null; created_at: string; archived_at: string | null }
 
 const ALL_TABS = [
   { id: 'org', label: 'Organisation' },
   { id: 'links', label: 'Signup Links' },
+  { id: 'announcements', label: 'Announcements' },
   { id: 'leads', label: 'Leads' },
   { id: 'archived', label: 'Archived' },
   { id: 'analytics', label: 'Analytics' },
@@ -47,6 +50,7 @@ export default function OrgDetailClient({
   frontDoorUrl,
   existingLinks,
   canManageSignupLinks,
+  initialAnnouncements,
 }: {
   org: OrgDetail
   members: OrgMemberRow[]
@@ -59,12 +63,13 @@ export default function OrgDetailClient({
   frontDoorUrl: string
   existingLinks: ExistingLink[]
   canManageSignupLinks: boolean
+  initialAnnouncements: Announcement[]
 }) {
   const searchParams = useSearchParams()
   const requestedTab = searchParams.get('tab')
   const [activeTab, setActiveTab] = useState<TabId>(isTabId(requestedTab) ? requestedTab : 'org')
   const [tenantType, setTenantType] = useState(org.tenant_type)
-  const tabs = ALL_TABS.filter((t) => t.id !== 'links' || canManageSignupLinks)
+  const tabs = ALL_TABS.filter((t) => (t.id !== 'links' && t.id !== 'announcements') || canManageSignupLinks)
   const [tenantTypeSaving, startTenantTypeTransition] = useTransition()
   const [tenantTypeMsg, setTenantTypeMsg] = useState<string | null>(null)
 
@@ -458,6 +463,10 @@ export default function OrgDetailClient({
 
       {activeTab === 'links' && canManageSignupLinks && (
         <SignupLinkPanel orgId={org.id} frontDoorUrl={frontDoorUrl} existingLinks={existingLinks} />
+      )}
+
+      {activeTab === 'announcements' && canManageSignupLinks && (
+        <AnnouncementsPanel orgId={org.id} initialAnnouncements={initialAnnouncements} />
       )}
 
       {activeTab === 'leads' && (

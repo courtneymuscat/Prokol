@@ -12,7 +12,7 @@ export default async function MorePage() {
 
   const admin = createAdminClient()
 
-  const [coachRelRes, planRes] = await Promise.all([
+  const [coachRelRes, planRes, profileRes] = await Promise.all([
     supabase
       .from('coach_clients')
       .select('coach_id')
@@ -24,6 +24,11 @@ export default async function MorePage() {
       .select('is_visible_to_client')
       .eq('client_id', session.user.id)
       .eq('is_visible_to_client', true)
+      .maybeSingle(),
+    admin
+      .from('profiles')
+      .select('org_id')
+      .eq('id', session.user.id)
       .maybeSingle(),
   ])
 
@@ -40,6 +45,17 @@ export default async function MorePage() {
       .select('*', { count: 'exact', head: true })
       .eq('client_id', session.user.id)
     hasResources = (count ?? 0) > 0
+  }
+
+  // Check if the client's gym org has any live announcements
+  let hasAnnouncements = false
+  if (profileRes.data?.org_id) {
+    const { count } = await admin
+      .from('org_announcements')
+      .select('*', { count: 'exact', head: true })
+      .eq('org_id', profileRes.data.org_id)
+      .is('archived_at', null)
+    hasAnnouncements = (count ?? 0) > 0
   }
 
   type GridItem = {
@@ -97,6 +113,16 @@ export default async function MorePage() {
       icon: (
         <svg className="w-7 h-7 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      ),
+    },
+    {
+      href: '/more/announcements',
+      label: 'Announcements',
+      show: hasAnnouncements,
+      icon: (
+        <svg className="w-7 h-7 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.6} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13.5c1.5-1.5 1.5-5.5 0-7M6 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h2.5l6.5-4.5v15L6.5 15H6z" />
         </svg>
       ),
     },

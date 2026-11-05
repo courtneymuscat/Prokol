@@ -25,6 +25,13 @@ export default async function AdminOrgDetailPage({
 
   if (!org) notFound()
 
+  const { data: announcementRows } = await createAdminClient()
+    .from('org_announcements')
+    .select('id, title, url, note, created_at, archived_at')
+    .eq('org_id', orgId)
+    .order('created_at', { ascending: false })
+  const initialAnnouncements = announcementRows ?? []
+
   // Same "gym" definition app/admin/gyms/page.tsx uses — "just any
   // organisation this platform admin owns, not a special tenant_type".
   // Gates both the Enter gym dashboard shortcut below and signup links:
@@ -101,6 +108,7 @@ export default async function AdminOrgDetailPage({
         frontDoorUrl={frontDoorUrl}
         existingLinks={existingLinks}
         canManageSignupLinks={isOwnedByAdmin}
+        initialAnnouncements={initialAnnouncements}
       />
     </div>
   )
