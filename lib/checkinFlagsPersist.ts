@@ -1,14 +1,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { computeCheckinFlags, requiredHistoryLength, type CheckinAnswers, type CheckinQuestion } from '@/lib/checkinFlags'
+import { computeCheckinFlags, pickAutomatedMessages, requiredHistoryLength, type CheckinAnswers, type CheckinQuestion, type FlagCategory } from '@/lib/checkinFlags'
+import { getOrCreateMessageTemplates, renderTemplate, combineCategorySnippets, sendAutomatedCheckinMessage } from '@/lib/checkinMessages'
 import { sendEmail } from '@/lib/email'
 
 /**
- * Scores a just-submitted Prokol Method check-in response against this
- * step's questions (core + step-specific, respecting include_core_questions)
- * and persists any resulting flags. Called right after the response upsert
- * succeeds in app/api/client/autoflows/[flowId]/[step]/route.ts — scoped
- * to the check-in autoflow only (callers check template_id first). Sends
- * an email to the coach for any 'urgent' severity flag.
+ * Scores a just-submitted autoflow step's answers against that step's
+ * questions (core + step-specific, respecting include_core_questions) and
+ * persists any resulting flags — platform-wide, any coach's autoflow, not
+ * scoped to one template. Called right after the response upsert succeeds
+ * in app/api/client/autoflows/[flowId]/[step]/route.ts.
+ *
+ * On top of the flag rows themselves: emails the coach for any 'urgent'
+ * flag, and sends at most one automated in-app message (plus push) from
+ * the coach's own account to the client — see pickAutomatedMessages for
+ * the priority/suppression rules and lib/checkinMessages.ts for the
+ * actual templates.
  */
 export async function computeAndStoreCheckinFlags(params: {
   admin: SupabaseClient
@@ -79,28 +85,61 @@ export async function computeAndStoreCheckinFlags(params: {
     })),
   )
 
+  const [{ data: coachProfile }, { data: clientProfile }] = await Promise.all([
+    admin.from('profiles').select('email, full_name, first_name').eq('id', coachId).maybeSingle(),
+    admin.from('profiles').select('full_name, first_name, email').eq('id', clientId).maybeSingle(),
+  ])
+  const clientDisplayName = clientProfile?.full_name ?? clientProfile?.first_name ?? clientProfile?.email ?? 'A client'
+  const clientFirstName = clientProfile?.first_name ?? clientProfile?.full_name?.split(' ')[0] ?? 'there'
+  const coachDisplayName = coachProfile?.first_name ?? coachProfile?.full_name ?? 'your coach'
+
+  // Email the coach for any urgent flag — unchanged from before, always
+  // on regardless of the automated client-message toggle below.
   const urgent = flags.filter((f) => f.severity === 'urgent')
-  if (urgent.length > 0) {
-    const [{ data: coachProfile }, { data: clientProfile }] = await Promise.all([
-      admin.from('profiles').select('email').eq('id', coachId).maybeSingle(),
-      admin.from('profiles').select('full_name, first_name, email').eq('id', clientId).maybeSingle(),
-    ])
-    if (coachProfile?.email) {
-      const clientName = clientProfile?.full_name ?? clientProfile?.first_name ?? clientProfile?.email ?? 'A client'
-      await sendEmail({
-        to: coachProfile.email,
-        subject: `Urgent flag on ${clientName}'s check-in`,
-        html: `
-          <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;padding:40px 24px;background:#fff;">
-            <p style="font-size:20px;font-weight:700;color:#B3261E;margin:0 0 16px;">Urgent check-in flag</p>
-            <p style="font-size:15px;color:#333;line-height:1.6;margin:0 0 16px;"><strong>${clientName}</strong> just submitted a check-in that needs your direct attention:</p>
-            <ul style="font-size:14px;color:#333;line-height:1.6;">
-              ${urgent.map((f) => `<li>${f.reason}</li>`).join('')}
-            </ul>
-            <p style="font-size:13px;color:#888;margin-top:24px;">Open their Check-ins tab in Prokol to review the full submission.</p>
-          </div>
-        `,
-      })
+  if (urgent.length > 0 && coachProfile?.email) {
+    await sendEmail({
+      to: coachProfile.email,
+      subject: `Urgent flag on ${clientDisplayName}'s check-in`,
+      html: `
+        <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:480px;margin:0 auto;padding:40px 24px;background:#fff;">
+          <p style="font-size:20px;font-weight:700;color:#B3261E;margin:0 0 16px;">Urgent check-in flag</p>
+          <p style="font-size:15px;color:#333;line-height:1.6;margin:0 0 16px;"><strong>${clientDisplayName}</strong> just submitted a check-in that needs your direct attention:</p>
+          <ul style="font-size:14px;color:#333;line-height:1.6;">
+            ${urgent.map((f) => `<li>${f.reason}</li>`).join('')}
+          </ul>
+          <p style="font-size:13px;color:#888;margin-top:24px;">Open their Check-ins tab in Prokol to review the full submission.</p>
+        </div>
+      `,
+    })
+  }
+
+  // Automated client-facing message — at most one, per pickAutomatedMessages'
+  // priority rules (Urgent > Normal; Urgent suppresses Lead; Lead can send
+  // alongside Normal otherwise).
+  const picked = pickAutomatedMessages(flags)
+  if (!picked.urgent && !picked.normal && !picked.lead) return
+
+  const templates = await getOrCreateMessageTemplates(admin, coachId)
+  const vars = { first_name: clientFirstName, coach_name: coachDisplayName }
+
+  if (picked.urgent) {
+    if (templates.urgent_enabled) {
+      await sendAutomatedCheckinMessage(admin, { coachId, clientId, body: renderTemplate(templates.urgent_template, vars) })
     }
+    return
+  }
+
+  if (picked.normal) {
+    const categories = picked.normal.flags.map((f) => f.category as FlagCategory)
+    const flagReason = combineCategorySnippets(categories, templates.category_snippets)
+    await sendAutomatedCheckinMessage(admin, {
+      coachId,
+      clientId,
+      body: renderTemplate(templates.normal_template, { ...vars, flag_reason: flagReason }),
+    })
+  }
+
+  if (picked.lead) {
+    await sendAutomatedCheckinMessage(admin, { coachId, clientId, body: renderTemplate(templates.lead_template, vars) })
   }
 }

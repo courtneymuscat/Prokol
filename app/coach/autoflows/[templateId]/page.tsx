@@ -7,8 +7,7 @@ import type { OrgTemplateContext } from '@/lib/org'
 import DeleteTemplateDialog from '@/app/components/DeleteTemplateDialog'
 import ProgramLinkPanel from './ProgramLinkPanel'
 import { type PathKey, PATH_KEYS, PATH_LABELS, isPerPathObject } from '@/lib/autoflowPaths'
-import { PROKOL_METHOD_CHECKIN_TEMPLATE_ID } from '@/lib/prokolMethodIds'
-import { DISORDERED_EATING_KEYWORDS, type QuestionFlag, type FlagCondition, type FlagSeverity, type FlagOperator } from '@/lib/checkinFlags'
+import { URGENT_KEYWORDS, NORMAL_KEYWORDS, FLAG_CATEGORY_LABELS, type QuestionFlag, type FlagCondition, type FlagSeverity, type FlagOperator } from '@/lib/checkinFlags'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -133,23 +132,25 @@ const DragHandle = () => (
   </div>
 )
 
-// Read-only reference for the one flag rule that stays hardcoded — see
-// DISORDERED_EATING_KEYWORDS in lib/checkinFlags.ts. Shown so a coach
-// always knows it's running, even though there's nothing to configure.
+// Read-only reference for the two rules that stay hardcoded — see
+// URGENT_KEYWORDS/NORMAL_KEYWORDS in lib/checkinFlags.ts. Shown so a coach
+// always knows they're running, even though there's nothing to configure.
 function KeywordWatchlistNote() {
   const [open, setOpen] = useState(false)
   return (
     <div className="border border-amber-200 bg-amber-50 rounded-xl px-3 py-2.5">
       <button type="button" onClick={() => setOpen(v => !v)} className="w-full flex items-center justify-between text-left">
         <p className="text-xs font-medium text-amber-800">
-          Written answers are always scanned for self-harm / disordered-eating language — flags urgent automatically
+          Written answers are always scanned for safety / wellbeing language — flags automatically, platform-wide
         </p>
         <svg className={`w-3.5 h-3.5 text-amber-600 flex-shrink-0 ml-2 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
       </button>
       {open && (
-        <p className="text-[11px] text-amber-700 mt-2 leading-relaxed">
-          This runs on every short/long text answer, not just a specific question, and isn't editable here. Current watchlist: {DISORDERED_EATING_KEYWORDS.join(', ')}.
-        </p>
+        <div className="text-[11px] text-amber-700 mt-2 leading-relaxed space-y-1.5">
+          <p>This runs on every short/long text answer, not just a specific question, and isn't editable here.</p>
+          <p><span className="font-semibold">Urgent</span> (self-harm, disordered eating, acute distress, relationship/domestic safety — triggers the automated Urgent message): {URGENT_KEYWORDS.join(', ')}.</p>
+          <p><span className="font-semibold">Normal</span> (compulsive exercise, burnout, bereavement — flags for you only, no automated message): {NORMAL_KEYWORDS.join(', ')}.</p>
+        </div>
       )}
     </div>
   )
@@ -162,9 +163,9 @@ function defaultConditionFor(type: QuestionType): FlagCondition {
   return { kind: 'match', values: [], consecutive: 1 }
 }
 
-// Flag rule editor for one question — only rendered for The Prokol Method
-// Check-ins template (see isCheckinFlagsTemplate) and only for question
-// types a rule can actually be evaluated against (FLAG_ELIGIBLE_TYPES).
+// Flag rule editor for one question — available on every autoflow, for
+// any question type a rule can actually be evaluated against
+// (FLAG_ELIGIBLE_TYPES).
 function FlagEditor({ q, onChange }: { q: Question; onChange: (flag: QuestionFlag | null) => void }) {
   const flag = q.flag ?? null
 
@@ -329,6 +330,41 @@ function FlagEditor({ q, onChange }: { q: Question; onChange: (flag: QuestionFla
         placeholder="Custom reason shown to you when this fires (optional — otherwise auto-written)"
         className="w-full text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none text-gray-600"
       />
+
+      <div className="pt-2 border-t border-red-100 space-y-2">
+        <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={activeFlag.sendAutomatedMessage ?? false}
+            onChange={e => onChange({ ...activeFlag, sendAutomatedMessage: e.target.checked })}
+            className="rounded mt-0.5"
+          />
+          <span>Send an automated message to the client when this fires</span>
+        </label>
+        {activeFlag.sendAutomatedMessage && (
+          <div className="pl-5 space-y-2">
+            <p className="text-[11px] text-gray-400 leading-relaxed">
+              At most one automated message sends per check-in. Urgent always wins and suppresses Lead (Lead still gets recorded for you to follow up).
+              {activeFlag.severity === 'normal' && ' If more than one Normal flag fires at once, up to 2 combine into a single message, by priority order (under-fuelling → mood/energy → stress → weight change → habit → missed check-ins).'}
+              {' '}Wording lives in Check-ins → Message templates.
+            </p>
+            {activeFlag.severity === 'normal' && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">Category</span>
+                <select
+                  value={activeFlag.category ?? ''}
+                  onChange={e => onChange({ ...activeFlag, category: (e.target.value || null) as QuestionFlag['category'] })}
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none"
+                >
+                  <option value="">— Select a category —</option>
+                  {Object.entries(FLAG_CATEGORY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+                {!activeFlag.category && <span className="text-[11px] text-amber-600">Pick one or this won&apos;t send.</span>}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -870,10 +906,6 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
   }
 
   const readOnly = template?.read_only ?? false
-  // Flag rules only ever get evaluated for this one template (see
-  // lib/checkinFlagsPersist.ts) — hide the editor everywhere else so it
-  // doesn't promise behaviour that doesn't exist.
-  const isCheckinFlagsTemplate = template?.id === PROKOL_METHOD_CHECKIN_TEMPLATE_ID
 
   async function handleMakeCopy() {
     if (!template) return
@@ -1376,12 +1408,12 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                 <h2 className="text-sm font-semibold text-gray-900">Core questions</h2>
                 <p className="text-xs text-gray-500 mt-0.5">These appear on every step of this flow that has "Include core questions" switched on, before that step's own questions.</p>
               </div>
-              {isCheckinFlagsTemplate && <KeywordWatchlistNote />}
+              <KeywordWatchlistNote />
               <QuestionList
                 questions={template.core_questions}
                 onChange={qs => setTemplate({ ...template, core_questions: qs })}
                 emptyText="No core questions yet. Add questions that apply to every check-in."
-                showFlagEditor={isCheckinFlagsTemplate}
+                showFlagEditor
               />
             </div>
           )}
@@ -1489,7 +1521,7 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                   questions={currentStep.questions}
                   onChange={qs => updateStep(activeStep, { questions: qs })}
                   emptyText={currentStep.include_core_questions ? 'No step-specific questions. Core questions will still appear.' : 'No questions on this step yet.'}
-                  showFlagEditor={isCheckinFlagsTemplate}
+                  showFlagEditor
                 />
               </div>
 

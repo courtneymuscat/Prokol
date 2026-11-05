@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeCheckinFlags, computeMissedCheckinFlag, requiredHistoryLength, DISORDERED_EATING_KEYWORDS, type CheckinQuestion } from '@/lib/checkinFlags'
+import { computeCheckinFlags, computeMissedCheckinFlag, requiredHistoryLength, pickAutomatedMessages, URGENT_KEYWORDS, NORMAL_KEYWORDS, type CheckinQuestion, type FlagResult } from '@/lib/checkinFlags'
 
 function run(questions: CheckinQuestion[], recentAnswers: Record<string, string>[]) {
   return computeCheckinFlags({ questions, recentAnswers })
@@ -106,11 +106,12 @@ describe('trend flag — weigh-in swing', () => {
 })
 
 describe('keyword scan rule (hardcoded, not coach-configurable)', () => {
-  it('flags as urgent when a text answer contains a listed keyword', () => {
+  it('flags as urgent when a text answer contains a listed urgent keyword', () => {
     const flags = run(PLAIN_TEXT_QUESTIONS, [{ biggest_obstacle: 'I have been purging after meals' }])
     const flag = flags.find((f) => f.ruleKey === 'keyword_match')
     expect(flag).toBeTruthy()
     expect(flag?.severity).toBe('urgent')
+    expect(flag?.sendAutomatedMessage).toBe(true)
   })
 
   it('is case-insensitive', () => {
@@ -128,8 +129,73 @@ describe('keyword scan rule (hardcoded, not coach-configurable)', () => {
     expect(flags.find((f) => f.ruleKey === 'keyword_match')).toBeFalsy()
   })
 
-  it('keyword list is non-empty', () => {
-    expect(DISORDERED_EATING_KEYWORDS.length).toBeGreaterThan(0)
+  it('flags as normal (no automated message) for a normal-tier keyword like burnout', () => {
+    const flags = run(PLAIN_TEXT_QUESTIONS, [{ biggest_win: 'Feeling completely burnt out this week' }])
+    const flag = flags.find((f) => f.ruleKey === 'keyword_match_normal')
+    expect(flag).toBeTruthy()
+    expect(flag?.severity).toBe('normal')
+    expect(flag?.sendAutomatedMessage).toBe(false)
+  })
+
+  it('prioritises an urgent match over a normal match in the same answer', () => {
+    const flags = run(PLAIN_TEXT_QUESTIONS, [{ biggest_win: 'burnt out and feeling suicidal' }])
+    expect(flags.find((f) => f.ruleKey === 'keyword_match')).toBeTruthy()
+    expect(flags.find((f) => f.ruleKey === 'keyword_match_normal')).toBeFalsy()
+  })
+
+  it('urgent keyword list is non-empty', () => {
+    expect(URGENT_KEYWORDS.length).toBeGreaterThan(0)
+  })
+
+  it('normal keyword list is non-empty', () => {
+    expect(NORMAL_KEYWORDS.length).toBeGreaterThan(0)
+  })
+})
+
+describe('pickAutomatedMessages', () => {
+  const urgentFlag: FlagResult = { ruleKey: 'keyword_match', severity: 'urgent', reason: 'x', sendAutomatedMessage: true }
+  const leadFlag: FlagResult = { ruleKey: 'question:what_next', severity: 'lead', reason: 'x', sendAutomatedMessage: true }
+  const normalA: FlagResult = { ruleKey: 'question:a', severity: 'normal', reason: 'x', sendAutomatedMessage: true, category: 'high_stress' }
+  const normalB: FlagResult = { ruleKey: 'question:b', severity: 'normal', reason: 'x', sendAutomatedMessage: true, category: 'low_habit' }
+  const normalC: FlagResult = { ruleKey: 'question:c', severity: 'normal', reason: 'x', sendAutomatedMessage: true, category: 'under_fuelling' }
+  const normalNoCategory: FlagResult = { ruleKey: 'question:d', severity: 'normal', reason: 'x', sendAutomatedMessage: true, category: null }
+  const normalNoSend: FlagResult = { ruleKey: 'question:e', severity: 'normal', reason: 'x', sendAutomatedMessage: false, category: 'high_stress' }
+
+  it('sends nothing when no flag opts into automated messaging', () => {
+    const picked = pickAutomatedMessages([normalNoSend])
+    expect(picked.urgent).toBeNull()
+    expect(picked.normal).toBeNull()
+    expect(picked.lead).toBeNull()
+  })
+
+  it('urgent wins over everything and suppresses lead', () => {
+    const picked = pickAutomatedMessages([urgentFlag, normalA, leadFlag])
+    expect(picked.urgent).toBe(urgentFlag)
+    expect(picked.normal).toBeNull()
+    expect(picked.lead).toBeNull()
+  })
+
+  it('normal and lead can both send when urgent did not fire', () => {
+    const picked = pickAutomatedMessages([normalA, leadFlag])
+    expect(picked.urgent).toBeNull()
+    expect(picked.normal?.flags).toEqual([normalA])
+    expect(picked.lead).toBe(leadFlag)
+  })
+
+  it('combines up to 2 normal flags by category priority order', () => {
+    const picked = pickAutomatedMessages([normalB, normalA, normalC])
+    // under_fuelling > high_stress > low_habit in FLAG_CATEGORY_PRIORITY
+    expect(picked.normal?.flags.map((f) => f.category)).toEqual(['under_fuelling', 'high_stress'])
+  })
+
+  it('ignores a normal flag with no category', () => {
+    const picked = pickAutomatedMessages([normalNoCategory])
+    expect(picked.normal).toBeNull()
+  })
+
+  it('ignores a flag that opted out of automated messaging', () => {
+    const picked = pickAutomatedMessages([normalNoSend])
+    expect(picked.normal).toBeNull()
   })
 })
 

@@ -6,7 +6,6 @@ import { resolveForPath, taskAppliesToPath, pathFromChoiceLabel, PATH_CHOICE_QUE
 import { syncAutoflowStepPrograms } from '@/lib/autoflowStepPrograms'
 import { dayOffsetAvailableDate, isDayOffsetUnlocked } from '@/lib/autoflowUnlock'
 import { computeAndStoreCheckinFlags } from '@/lib/checkinFlagsPersist'
-import { PROKOL_METHOD_CHECKIN_TEMPLATE_ID } from '@/lib/prokolMethodIds'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ flowId: string; step: string }> }
@@ -238,7 +237,11 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   // this user), so using the admin client for the writes below is safe.
   const adminForHabit = createAdminClient()
 
-  if (flow.template_id === PROKOL_METHOD_CHECKIN_TEMPLATE_ID && upserted) {
+  // Runs for every autoflow submission, any coach — computeCheckinFlags is
+  // a no-op unless this step's questions actually carry a `flag` config
+  // (or the hardcoded keyword scan matches), so there's no behaviour
+  // change for autoflows nobody has flagged.
+  if (upserted) {
     await computeAndStoreCheckinFlags({
       admin: adminForHabit,
       flowId,

@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { sendPushToUser } from '@/lib/push'
 import { sendEmail } from '@/lib/email'
 import { computeMissedCheckinFlag } from '@/lib/checkinFlags'
+import { getOrCreateMessageTemplates, renderTemplate, combineCategorySnippets, sendAutomatedCheckinMessage } from '@/lib/checkinMessages'
 import { isDayOffsetUnlocked } from '@/lib/autoflowUnlock'
 import { PROKOL_METHOD_CHECKIN_TEMPLATE_ID } from '@/lib/prokolMethodIds'
 
@@ -1168,6 +1169,7 @@ export async function GET(req: NextRequest) {
       const alreadyOpenFlagged = new Set((openMissedFlags ?? []).map((f) => `${f.client_autoflow_id}:${f.step_number}`))
 
       const newFlagRows: Record<string, unknown>[] = []
+      const newlyFlaggedFlows: { clientId: string; coachId: string }[] = []
       for (const flow of checkinFlows) {
         const dueStepNumbers = new Set(
           scheduledStepNumbers.filter((n) => isDayOffsetUnlocked(flow.start_date, dayOffsetByStep.get(n) ?? 0, now)),
@@ -1190,10 +1192,34 @@ export async function GET(req: NextRequest) {
           severity: 'normal',
           reason: result.reason,
         })
+        newlyFlaggedFlows.push({ clientId: flow.client_id, coachId: flow.coach_id })
       }
 
       if (newFlagRows.length > 0) {
         await supabase.from('autoflow_response_flags').insert(newFlagRows)
+
+        // Automated "missed_checkins" Normal message — no submission to
+        // hang this off, so it's sent directly here rather than through
+        // computeAndStoreCheckinFlags/pickAutomatedMessages, which both
+        // assume a just-submitted check-in. Never combines with other
+        // categories since nothing else fires on the same pass.
+        for (const { clientId, coachId } of newlyFlaggedFlows) {
+          try {
+            const [{ data: coachProfile }, { data: clientProfile }, templates] = await Promise.all([
+              supabase.from('profiles').select('first_name, full_name').eq('id', coachId).maybeSingle(),
+              supabase.from('profiles').select('first_name, full_name').eq('id', clientId).maybeSingle(),
+              getOrCreateMessageTemplates(supabase, coachId),
+            ])
+            const vars = {
+              first_name: clientProfile?.first_name ?? clientProfile?.full_name?.split(' ')[0] ?? 'there',
+              coach_name: coachProfile?.first_name ?? coachProfile?.full_name ?? 'your coach',
+              flag_reason: combineCategorySnippets(['missed_checkins'], templates.category_snippets),
+            }
+            await sendAutomatedCheckinMessage(supabase, { coachId, clientId, body: renderTemplate(templates.normal_template, vars) })
+          } catch (err) {
+            console.error('[cron] missed-checkin automated message failed:', err)
+          }
+        }
       }
     }
   } catch (err) {

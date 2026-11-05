@@ -344,12 +344,20 @@ export default async function CoachCheckInsPage() {
 
   return (
     <main className="flex-1 p-6 space-y-6 w-full">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Check-ins</h1>
-        <p className="text-sm text-gray-500 mt-1">{entries.length} entries from your clients</p>
-        <p className="text-xs text-gray-400 mt-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 inline-block">
-          The sidebar badge shows direct check-ins not yet marked as reviewed. Open a client&apos;s file → Check-ins tab and tick &quot;Mark as reviewed&quot; to clear it.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Check-ins</h1>
+          <p className="text-sm text-gray-500 mt-1">{entries.length} entries from your clients</p>
+          <p className="text-xs text-gray-400 mt-1.5 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 inline-block">
+            The sidebar badge shows direct check-ins not yet marked as reviewed. Open a client&apos;s file → Check-ins tab and tick &quot;Mark as reviewed&quot; to clear it.
+          </p>
+        </div>
+        <a
+          href="/coach/check-ins/message-templates"
+          className="text-sm text-gray-500 border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors flex-shrink-0 whitespace-nowrap"
+        >
+          Message templates
+        </a>
       </div>
 
       <ScheduleSection days={days7} noCheckInClients={noCheckInClients} />

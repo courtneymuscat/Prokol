@@ -1,19 +1,45 @@
-// Flag-computation for The Prokol Method check-in autoflow — kept
-// dependency-free (no DB/network) so every rule is unit-testable in
-// isolation. Two entry points:
+// Flag-computation for autoflow check-ins (platform-wide — any coach, any
+// autoflow, not just one template). Kept dependency-free (no DB/network) so
+// every rule is unit-testable in isolation. Two entry points:
 //   - computeCheckinFlags: run against a single submission plus its recent
-//     history, called right when a check-in is submitted. Evaluates the
-//     per-question `flag` config a coach set up in the autoflow builder,
-//     plus one rule that stays hardcoded on purpose (see below).
+//     history, called right when any autoflow step is submitted. Evaluates
+//     the per-question `flag` config a coach set up in the autoflow
+//     builder, plus one rule that stays hardcoded on purpose (see below).
 //   - computeMissedCheckinFlag: run by a cron sweep, since "no check-in for
 //     2 scheduled weeks in a row" has no submission to trigger off.
+//
+// See lib/checkinFlagsPersist.ts for what happens after a flag fires —
+// including the automated client-facing message system, which reads
+// `sendAutomatedMessage`/`category` off each flag.
 
 export type FlagSeverity = 'normal' | 'urgent' | 'lead'
+
+// Only meaningful for 'normal' severity flags — when more than one Normal
+// flag fires on the same submission, the automated message combines the
+// top 2 by this priority order (see pickAutomatedMessages below).
+export type FlagCategory = 'under_fuelling' | 'low_mood_energy' | 'high_stress' | 'fast_weight_change' | 'low_habit' | 'missed_checkins'
+
+export const FLAG_CATEGORY_PRIORITY: FlagCategory[] = [
+  'under_fuelling', 'low_mood_energy', 'high_stress', 'fast_weight_change', 'low_habit', 'missed_checkins',
+]
+
+export const FLAG_CATEGORY_LABELS: Record<FlagCategory, string> = {
+  under_fuelling: 'Under-fuelling',
+  low_mood_energy: 'Low mood / energy',
+  high_stress: 'High stress',
+  fast_weight_change: 'Fast weight change',
+  low_habit: 'Low habit adherence',
+  missed_checkins: 'Missed check-ins',
+}
 
 export type FlagResult = {
   ruleKey: string
   severity: FlagSeverity
   reason: string
+  // Whether this specific flag firing should feed the automated
+  // client-facing message (as opposed to just notifying the coach).
+  sendAutomatedMessage: boolean
+  category?: FlagCategory | null
 }
 
 export type CheckinAnswers = Record<string, string>
@@ -40,14 +66,20 @@ export type QuestionFlag = {
   // Optional coach-written reason shown on the flag instead of the
   // auto-generated one.
   reason?: string | null
+  // Opt this flag into the automated client-facing message (off by
+  // default — a coach has to deliberately turn it on per question). For
+  // 'normal' severity, `category` must also be set for the message to
+  // actually combine in — see FLAG_CATEGORY_PRIORITY.
+  sendAutomatedMessage?: boolean
+  category?: FlagCategory | null
 }
 
 export type CheckinQuestion = { id: string; type: string; label?: string; flag?: QuestionFlag | null }
 
-// Edit this list directly to add/remove trigger words — kept as one plain
-// array, deliberately not spread across the file, so it's easy to find and
-// change. Matches are case-insensitive substrings against every text/
-// textarea answer on the submission being scored.
+// Edit these lists directly to add/remove trigger words — kept as plain
+// arrays, deliberately not spread across the file, so they're easy to
+// find and change. Matches are case-insensitive substrings against every
+// text/textarea answer on the submission being scored.
 //
 // This is the one rule that stays hardcoded rather than being a
 // per-question `flag` a coach configures — it has to run identically
@@ -55,14 +87,43 @@ export type CheckinQuestion = { id: string; type: string; label?: string; flag?:
 // question, so there's nowhere sensible to attach it as a per-question
 // setting. Shown read-only in the autoflow builder so a coach always
 // knows it's active.
-export const DISORDERED_EATING_KEYWORDS: string[] = [
+//
+// Two tiers: URGENT_KEYWORDS covers genuine safety concerns (self-harm,
+// disordered eating, acute mental-health distress, relationship/domestic
+// safety) and triggers the Urgent automated message. NORMAL_KEYWORDS
+// covers things worth a coach's attention but not a crisis response
+// (compulsive exercise, burnout, bereavement) — these only ever surface
+// as a plain flag for the coach, never an automated message to the
+// client, since there's no single clean category to write client-facing
+// text for a grief mention vs. an overtraining mention.
+export const URGENT_KEYWORDS: string[] = [
+  // Disordered eating
   'purge', 'purging', 'binge', 'bingeing', 'binging',
   'starve', 'starving', 'not eating', 'stopped eating',
   'restrict', 'restricting', 'restriction',
-  'self-harm', 'self harm', 'hurt myself', 'hurting myself',
-  'suicide', 'suicidal', 'kill myself', 'end it all',
-  'unsafe', 'laxative', 'laxatives', 'make myself sick', 'making myself sick',
+  'laxative', 'laxatives', 'make myself sick', 'making myself sick',
   'throw up', 'throwing up', 'vomit', 'vomiting',
+  // Self-harm / suicide
+  'self-harm', 'self harm', 'hurt myself', 'hurting myself',
+  'suicide', 'suicidal', 'kill myself', 'end it all', 'unsafe',
+  // Acute mental-health distress
+  'depressed', 'depression', 'anxiety attack', 'panic attack',
+  "can't cope", 'cant cope', 'breaking down', 'worthless', 'hopeless',
+  'no point in anything', 'give up on everything',
+  // Relationship / domestic safety
+  'abusive', 'abused', 'scared of him', 'scared of her', 'hit me', 'unsafe at home',
+]
+
+export const NORMAL_KEYWORDS: string[] = [
+  // Compulsive exercise / burnout
+  'overtraining', "can't stop exercising", 'cant stop exercising',
+  'exercising to punish myself', 'exercise addiction',
+  "haven't slept in days", 'havent slept in days',
+  "can't get out of bed", 'cant get out of bed',
+  'completely burnt out', 'burnt out', 'burnout',
+  // Bereavement / loss
+  'passed away', 'death in the family', 'funeral', 'grieving', 'bereavement',
+  'lost a family member', 'lost my dad', 'lost my mum', 'lost my mother', 'lost my father', 'lost my parent',
 ]
 
 function toNumber(value: string | undefined): number | null {
@@ -71,15 +132,22 @@ function toNumber(value: string | undefined): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-function scanForKeyword(answers: CheckinAnswers, questions: CheckinQuestion[]): string | null {
+function scanForKeyword(answers: CheckinAnswers, questions: CheckinQuestion[]): { severity: 'urgent' | 'normal'; keyword: string } | null {
   const textTypes = new Set(['text', 'textarea'])
   const textQuestionIds = new Set(questions.filter((q) => textTypes.has(q.type)).map((q) => q.id))
-  for (const [id, raw] of Object.entries(answers)) {
-    if (!textQuestionIds.has(id)) continue
-    const val = (raw ?? '').toLowerCase()
-    if (!val) continue
-    for (const kw of DISORDERED_EATING_KEYWORDS) {
-      if (val.includes(kw)) return kw
+  const values = Object.entries(answers)
+    .filter(([id]) => textQuestionIds.has(id))
+    .map(([, raw]) => (raw ?? '').toLowerCase())
+    .filter(Boolean)
+
+  for (const val of values) {
+    for (const kw of URGENT_KEYWORDS) {
+      if (val.includes(kw)) return { severity: 'urgent', keyword: kw }
+    }
+  }
+  for (const val of values) {
+    for (const kw of NORMAL_KEYWORDS) {
+      if (val.includes(kw)) return { severity: 'normal', keyword: kw }
     }
   }
   return null
@@ -189,21 +257,77 @@ export function computeCheckinFlags(params: {
       ruleKey: `question:${q.id}`,
       severity: q.flag.severity,
       reason: q.flag.reason?.trim() || autoReason(q, q.flag.condition, matched),
+      sendAutomatedMessage: q.flag.sendAutomatedMessage ?? false,
+      category: q.flag.severity === 'normal' ? (q.flag.category ?? null) : null,
     })
   }
 
   // Keyword scan — any text/textarea answer on THIS submission. Hardcoded,
-  // see DISORDERED_EATING_KEYWORDS above.
-  const matchedKeyword = scanForKeyword(current, questions)
-  if (matchedKeyword) {
+  // see URGENT_KEYWORDS/NORMAL_KEYWORDS above. Whether an urgent match
+  // actually sends the automated Urgent message is controlled by the
+  // coach's own urgent_enabled setting (see lib/checkinFlagsPersist.ts),
+  // not here — this function stays DB-free. A normal-tier match never
+  // sends an automated message (just flags for the coach) — there's no
+  // single clean client-facing line that fits bereavement and
+  // overtraining equally well.
+  const keywordMatch = scanForKeyword(current, questions)
+  if (keywordMatch?.severity === 'urgent') {
     flags.push({
       ruleKey: 'keyword_match',
       severity: 'urgent',
-      reason: `A written answer contained a word on the review list ("${matchedKeyword}"). Please read this check-in directly.`,
+      reason: `A written answer contained a word on the review list ("${keywordMatch.keyword}"). Please read this check-in directly.`,
+      sendAutomatedMessage: true,
+    })
+  } else if (keywordMatch?.severity === 'normal') {
+    flags.push({
+      ruleKey: 'keyword_match_normal',
+      severity: 'normal',
+      reason: `A written answer mentioned "${keywordMatch.keyword}" — worth a read, not urgent.`,
+      sendAutomatedMessage: false,
     })
   }
 
   return flags
+}
+
+/**
+ * Decides which automated client-facing message(s), if any, a submission's
+ * flags should trigger. Priority: Urgent > Normal; Urgent suppresses Lead
+ * (the Lead flag still gets recorded for the coach, just no message sent
+ * for it). Lead sends as a separate message alongside Normal when both
+ * fire and Urgent didn't. At most one Normal message — when several
+ * Normal flags with a category fire, the top 2 by FLAG_CATEGORY_PRIORITY
+ * combine into one message.
+ */
+export function pickAutomatedMessages(flags: FlagResult[]): {
+  urgent: FlagResult | null
+  normal: { flags: FlagResult[] } | null
+  lead: FlagResult | null
+} {
+  const sendable = flags.filter((f) => f.sendAutomatedMessage)
+  const urgent = sendable.find((f) => f.severity === 'urgent') ?? null
+  if (urgent) return { urgent, normal: null, lead: null }
+
+  const lead = sendable.find((f) => f.severity === 'lead') ?? null
+
+  const normalWithCategory = sendable.filter((f) => f.severity === 'normal' && f.category)
+  let normal: { flags: FlagResult[] } | null = null
+  if (normalWithCategory.length > 0) {
+    // Dedupe by category (first occurrence wins), then take the top 2 by
+    // priority order.
+    const byCategory = new Map<FlagCategory, FlagResult>()
+    for (const f of normalWithCategory) {
+      const cat = f.category as FlagCategory
+      if (!byCategory.has(cat)) byCategory.set(cat, f)
+    }
+    const ordered = FLAG_CATEGORY_PRIORITY
+      .map((cat) => byCategory.get(cat))
+      .filter((f): f is FlagResult => !!f)
+      .slice(0, 2)
+    if (ordered.length > 0) normal = { flags: ordered }
+  }
+
+  return { urgent: null, normal, lead }
 }
 
 /**
