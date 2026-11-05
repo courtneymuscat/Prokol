@@ -29,11 +29,19 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+// Urgent = red, Normal = amber, Lead = blue — same scheme as the flag
+// editor in the autoflow builder.
 function SeverityBadge({ severity }: { severity: 'urgent' | 'lead' | 'normal' | null }) {
   if (severity === 'urgent') return <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-600 text-white">Urgent</span>
-  if (severity === 'lead') return <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Lead</span>
-  if (severity === 'normal') return <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200">Flagged</span>
+  if (severity === 'lead') return <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">Lead</span>
+  if (severity === 'normal') return <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Normal</span>
   return null
+}
+
+const SEVERITY_BORDER: Record<'urgent' | 'lead' | 'normal', string> = {
+  urgent: 'border-l-red-500',
+  normal: 'border-l-amber-400',
+  lead: 'border-l-blue-400',
 }
 
 export default function ProkolMethodCheckins() {
@@ -206,7 +214,7 @@ export default function ProkolMethodCheckins() {
           filtered.map((r) => (
             <div
               key={r.id}
-              className={`flex items-center gap-3 px-4 py-3 border-b last:border-0 hover:bg-gray-50 transition-colors ${r.is_flagged ? 'border-l-4 border-l-red-500' : ''}`}
+              className={`flex items-center gap-3 px-4 py-3 border-b last:border-0 hover:bg-gray-50 transition-colors ${r.is_flagged && r.flag_severity ? `border-l-4 ${SEVERITY_BORDER[r.flag_severity]}` : ''}`}
             >
               <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleRow(r.id)} className="rounded flex-shrink-0" />
               <a href={`/coach/clients/${r.client_id}?tab=checkins`} className="flex-1 min-w-0">

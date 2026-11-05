@@ -29,9 +29,11 @@ export default async function CoachCheckInsPage() {
 
   const clientIds = (clientRows ?? []).map((r) => r.client_id)
 
+  type FlagSeverity = 'urgent' | 'lead' | 'normal'
+
   type Entry =
     | { kind: 'checkin'; id: string; client_id: string; date: string; reviewed: boolean; sleep_hours: number | null; sleep_quality: string | null; energy_level: string | null; rhr: number | null; hrv: number | null; notes: string | null }
-    | { kind: 'autoflow'; id: string; client_id: string; date: string; flow_name: string; step_number: number; reviewed: boolean }
+    | { kind: 'autoflow'; id: string; client_id: string; date: string; flow_name: string; step_number: number; reviewed: boolean; flagSeverity: FlagSeverity | null }
     | { kind: 'form'; id: string; client_id: string; date: string; form_id: string; title: string; reviewed: boolean }
 
   let entries: Entry[] = []
@@ -185,6 +187,29 @@ export default async function CoachCheckInsPage() {
           .or(`reviewed_by_coach.is.null,reviewed_by_coach.eq.false,submitted_at.gte.${sevenDaysAgo}`)
           .order('submitted_at', { ascending: false })
           .limit(100)
+
+        // Flags now evaluate on every autoflow (not just The Prokol Method
+        // Check-ins, which gets its own richer severity-coded view above)
+        // — without this, a flagged check-in from any other autoflow would
+        // show up here with no indication it was flagged at all.
+        const respIds = (resps ?? []).map((r) => r.id)
+        const severityByResponse: Record<string, FlagSeverity> = {}
+        if (respIds.length) {
+          const { data: openFlags } = await admin
+            .from('autoflow_response_flags')
+            .select('response_id, severity')
+            .in('response_id', respIds)
+            .is('cleared_at', null)
+          for (const f of openFlags ?? []) {
+            const rid = f.response_id as string
+            const sev = f.severity as FlagSeverity
+            const existing = severityByResponse[rid]
+            if (!existing || sev === 'urgent' || (sev === 'lead' && existing !== 'urgent')) {
+              severityByResponse[rid] = sev
+            }
+          }
+        }
+
         for (const r of resps ?? []) {
           entries.push({
             kind: 'autoflow',
@@ -194,6 +219,7 @@ export default async function CoachCheckInsPage() {
             flow_name: flowMeta[r.client_autoflow_id]?.name ?? 'Check-in',
             step_number: r.step_number,
             reviewed: (r as Record<string, unknown>).reviewed_by_coach as boolean ?? false,
+            flagSeverity: severityByResponse[r.id] ?? null,
           })
         }
       }
@@ -342,6 +368,15 @@ export default async function CoachCheckInsPage() {
     return p?.name ?? p?.email ?? 'Unknown'
   }
 
+  // Urgent = red, Normal = amber, Lead = blue — same scheme as the flag
+  // editor in the autoflow builder and the Prokol Method check-ins tab.
+  function FlagBadge({ severity }: { severity: 'urgent' | 'lead' | 'normal' | null }) {
+    if (severity === 'urgent') return <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-600 text-white">Urgent</span>
+    if (severity === 'lead') return <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">Lead</span>
+    if (severity === 'normal') return <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Normal</span>
+    return null
+  }
+
   return (
     <main className="flex-1 p-6 space-y-6 w-full">
       <div className="flex items-start justify-between gap-4">
@@ -375,11 +410,12 @@ export default async function CoachCheckInsPage() {
       <div className="space-y-3">
         {entries.map((entry) => {
           if (entry.kind === 'autoflow') {
+            const borderBySeverity: Record<string, string> = { urgent: 'border-l-4 border-l-red-500', normal: 'border-l-4 border-l-amber-400', lead: 'border-l-4 border-l-blue-400' }
             return (
               <a
                 key={`af-${entry.id}`}
                 href={`/coach/clients/${entry.client_id}?tab=checkins`}
-                className="flex items-center justify-between bg-white rounded-2xl border p-5 hover:bg-gray-50 transition-colors"
+                className={`flex items-center justify-between bg-white rounded-2xl border p-5 hover:bg-gray-50 transition-colors ${entry.flagSeverity ? borderBySeverity[entry.flagSeverity] : ''}`}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
@@ -392,6 +428,7 @@ export default async function CoachCheckInsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
+                  <FlagBadge severity={entry.flagSeverity} />
                   {entry.reviewed ? (
                     <span className="text-xs bg-green-50 text-green-600 font-semibold px-2 py-0.5 rounded-full flex items-center gap-1">
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>

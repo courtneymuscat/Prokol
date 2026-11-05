@@ -7,7 +7,8 @@ import type { OrgTemplateContext } from '@/lib/org'
 import DeleteTemplateDialog from '@/app/components/DeleteTemplateDialog'
 import ProgramLinkPanel from './ProgramLinkPanel'
 import { type PathKey, PATH_KEYS, PATH_LABELS, isPerPathObject } from '@/lib/autoflowPaths'
-import { URGENT_KEYWORDS, NORMAL_KEYWORDS, FLAG_CATEGORY_LABELS, type QuestionFlag, type FlagCondition, type FlagSeverity, type FlagOperator } from '@/lib/checkinFlags'
+import { URGENT_KEYWORDS, NORMAL_KEYWORDS, FLAG_CATEGORY_LABELS, type QuestionFlag, type FlagCondition, type FlagSeverity, type FlagOperator, type FlagCategory } from '@/lib/checkinFlags'
+import { renderTemplate, combineCategorySnippets, type CoachMessageTemplates as MessageTemplates } from '@/lib/checkinMessageTemplates'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -158,15 +159,36 @@ function KeywordWatchlistNote() {
 
 const SEVERITY_LABELS: Record<FlagSeverity, string> = { normal: 'Normal', urgent: 'Urgent', lead: 'Lead' }
 
+// Urgent = red, Normal = amber, Lead = blue — consistent everywhere a
+// severity shows: this editor, the check-ins queue, the client-facing
+// message's own tier.
+const SEVERITY_THEME: Record<FlagSeverity, { border: string; bg: string; text: string; divider: string; chipBorder: string; chipBg: string; chipText: string }> = {
+  urgent: { border: 'border-red-200', bg: 'bg-red-50/60', text: 'text-red-700', divider: 'border-red-100', chipBorder: 'border-red-400', chipBg: 'bg-red-100', chipText: 'text-red-700' },
+  normal: { border: 'border-amber-200', bg: 'bg-amber-50/60', text: 'text-amber-700', divider: 'border-amber-100', chipBorder: 'border-amber-400', chipBg: 'bg-amber-100', chipText: 'text-amber-700' },
+  lead: { border: 'border-blue-200', bg: 'bg-blue-50/60', text: 'text-blue-700', divider: 'border-blue-100', chipBorder: 'border-blue-400', chipBg: 'bg-blue-100', chipText: 'text-blue-700' },
+}
+
 function defaultConditionFor(type: QuestionType): FlagCondition {
   if (type === 'number' || type === 'scale') return { kind: 'threshold', operator: '<=', value: 3, consecutive: 1 }
   return { kind: 'match', values: [], consecutive: 1 }
 }
 
+// Sample values so a coach can see roughly what the client will read
+// without needing their own profile loaded here.
+function previewMessage(flag: QuestionFlag, templates: MessageTemplates | null | undefined): string | null {
+  if (!templates) return null
+  const vars = { first_name: 'Sam', coach_name: 'you' }
+  if (flag.severity === 'urgent') return renderTemplate(templates.urgent_template, vars)
+  if (flag.severity === 'lead') return renderTemplate(templates.lead_template, vars)
+  if (!flag.category) return null
+  const flag_reason = combineCategorySnippets([flag.category as FlagCategory], templates.category_snippets)
+  return renderTemplate(templates.normal_template, { ...vars, flag_reason })
+}
+
 // Flag rule editor for one question — available on every autoflow, for
 // any question type a rule can actually be evaluated against
 // (FLAG_ELIGIBLE_TYPES).
-function FlagEditor({ q, onChange }: { q: Question; onChange: (flag: QuestionFlag | null) => void }) {
+function FlagEditor({ q, onChange, messageTemplates }: { q: Question; onChange: (flag: QuestionFlag | null) => void; messageTemplates?: MessageTemplates | null }) {
   const flag = q.flag ?? null
 
   if (!flag) {
@@ -185,19 +207,33 @@ function FlagEditor({ q, onChange }: { q: Question; onChange: (flag: QuestionFla
   const activeFlag: QuestionFlag = flag
   const condition = activeFlag.condition
   const isNumeric = q.type === 'number' || q.type === 'scale'
+  const theme = SEVERITY_THEME[activeFlag.severity]
 
   function updateCondition(patch: Record<string, unknown>) {
     onChange({ ...activeFlag, condition: { ...condition, ...patch } as FlagCondition })
   }
 
+  const preview = previewMessage(activeFlag, messageTemplates)
+
   return (
-    <div className="border border-red-100 bg-red-50/40 rounded-xl p-3 space-y-2.5">
+    <div className={`border ${theme.border} ${theme.bg} rounded-xl p-3 space-y-2.5`}>
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-red-700 flex items-center gap-1.5">
+        <p className={`text-xs font-semibold ${theme.text} flex items-center gap-1.5`}>
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
           Flag this question
         </p>
         <button type="button" onClick={() => onChange(null)} className="text-xs text-gray-400 hover:text-red-500">Remove</button>
+      </div>
+
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-gray-500 font-medium">Severity</span>
+        <select
+          value={activeFlag.severity}
+          onChange={e => onChange({ ...activeFlag, severity: e.target.value as FlagSeverity })}
+          className="border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none font-medium"
+        >
+          {Object.entries(SEVERITY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
       </div>
 
       {isNumeric && (
@@ -290,7 +326,7 @@ function FlagEditor({ q, onChange }: { q: Question; onChange: (flag: QuestionFla
                   onClick={() => updateCondition({
                     values: active ? condition.values.filter(v => v !== opt) : [...condition.values, opt],
                   })}
-                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${active ? 'border-red-400 bg-red-100 text-red-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${active ? `${theme.chipBorder} ${theme.chipBg} ${theme.chipText}` : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
                 >
                   {opt}
                 </button>
@@ -314,24 +350,19 @@ function FlagEditor({ q, onChange }: { q: Question; onChange: (flag: QuestionFla
         </div>
       )}
 
-      <div className="flex items-center gap-2 text-xs pt-1 border-t border-red-100">
-        <span className="text-gray-500 pt-2">Severity</span>
-        <select
-          value={activeFlag.severity}
-          onChange={e => onChange({ ...activeFlag, severity: e.target.value as FlagSeverity })}
-          className="mt-1 border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none"
-        >
-          {Object.entries(SEVERITY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
+      <div className={`pt-2 border-t ${theme.divider}`}>
+        <label className="block text-[11px] font-medium text-gray-500 mb-1">
+          Note for you — shown in your check-ins queue when this fires, never sent to the client
+        </label>
+        <input
+          value={activeFlag.reason ?? ''}
+          onChange={e => onChange({ ...activeFlag, reason: e.target.value || null })}
+          placeholder="Leave blank to auto-write one from the question and answer"
+          className="w-full text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none text-gray-600"
+        />
       </div>
-      <input
-        value={activeFlag.reason ?? ''}
-        onChange={e => onChange({ ...activeFlag, reason: e.target.value || null })}
-        placeholder="Custom reason shown to you when this fires (optional — otherwise auto-written)"
-        className="w-full text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none text-gray-600"
-      />
 
-      <div className="pt-2 border-t border-red-100 space-y-2">
+      <div className={`pt-2 border-t ${theme.divider} space-y-2`}>
         <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
           <input
             type="checkbox"
@@ -346,7 +377,10 @@ function FlagEditor({ q, onChange }: { q: Question; onChange: (flag: QuestionFla
             <p className="text-[11px] text-gray-400 leading-relaxed">
               At most one automated message sends per check-in. Urgent always wins and suppresses Lead (Lead still gets recorded for you to follow up).
               {activeFlag.severity === 'normal' && ' If more than one Normal flag fires at once, up to 2 combine into a single message, by priority order (under-fuelling → mood/energy → stress → weight change → habit → missed check-ins).'}
-              {' '}Wording lives in Check-ins → Message templates.
+              {' '}Editable at{' '}
+              <a href="/coach/check-ins/message-templates" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">
+                Check-ins → Message templates
+              </a>.
             </p>
             {activeFlag.severity === 'normal' && (
               <div className="flex items-center gap-2">
@@ -362,6 +396,12 @@ function FlagEditor({ q, onChange }: { q: Question; onChange: (flag: QuestionFla
                 {!activeFlag.category && <span className="text-[11px] text-amber-600">Pick one or this won&apos;t send.</span>}
               </div>
             )}
+            {preview && (
+              <div className="bg-white border border-gray-200 rounded-lg px-3 py-2">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Message preview (sample client)</p>
+                <p className="text-xs text-gray-700 italic whitespace-pre-line">&quot;{preview}&quot;</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -374,11 +414,13 @@ function QuestionCard({
   onChange,
   onDelete,
   showFlagEditor,
+  messageTemplates,
 }: {
   q: Question
   onChange: (q: Question) => void
   onDelete: () => void
   showFlagEditor?: boolean
+  messageTemplates?: MessageTemplates | null
 }) {
   const isNote = q.type === 'note'
 
@@ -503,7 +545,7 @@ function QuestionCard({
           )}
 
           {showFlagEditor && FLAG_ELIGIBLE_TYPES.has(q.type) && (
-            <FlagEditor q={q} onChange={flag => onChange({ ...q, flag })} />
+            <FlagEditor q={q} onChange={flag => onChange({ ...q, flag })} messageTemplates={messageTemplates} />
           )}
         </div>
         <button onClick={onDelete} className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5">
@@ -519,11 +561,13 @@ function QuestionList({
   onChange,
   emptyText,
   showFlagEditor,
+  messageTemplates,
 }: {
   questions: Question[]
   onChange: (qs: Question[]) => void
   emptyText: string
   showFlagEditor?: boolean
+  messageTemplates?: MessageTemplates | null
 }) {
   const dragIndex = useRef<number | null>(null)
   const [dropTarget, setDropTarget] = useState<number | null>(null)
@@ -587,6 +631,7 @@ function QuestionList({
             }}
             onDelete={() => onChange(questions.filter((_, j) => j !== i))}
             showFlagEditor={showFlagEditor}
+            messageTemplates={messageTemplates}
           />
         </div>
       ))}
@@ -839,6 +884,7 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
   const [resources, setResources] = useState<CoachResource[]>([])
   const [forms, setForms] = useState<CoachForm[]>([])
   const [programs, setPrograms] = useState<CoachProgram[]>([])
+  const [messageTemplates, setMessageTemplates] = useState<MessageTemplates | null>(null)
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
 
   // Snapshot of `template` as last loaded/saved, so isDirty can be derived
@@ -880,15 +926,18 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
       })
         .finally(() => setLoading(false))
     }
-    // Load resources + forms + programs for step linking
+    // Load resources + forms + programs for step linking, plus the coach's
+    // own automated-message wording (for the flag editor's live preview).
     Promise.all([
       fetch('/api/coach/resources').then(r => r.json()),
       fetch('/api/forms').then(r => r.json()),
       fetch('/api/coach/programs').then(r => r.json()),
-    ]).then(([res, frm, progRes]) => {
+      fetch('/api/coach/message-templates').then(r => r.json()),
+    ]).then(([res, frm, progRes, tpl]) => {
       setResources(Array.isArray(res) ? res : [])
       setForms(Array.isArray(frm) ? frm : [])
       setPrograms(Array.isArray(progRes) ? progRes : [])
+      if (!tpl?.error) setMessageTemplates(tpl)
     })
   }, [templateId, isNew])
 
@@ -1414,6 +1463,7 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                 onChange={qs => setTemplate({ ...template, core_questions: qs })}
                 emptyText="No core questions yet. Add questions that apply to every check-in."
                 showFlagEditor
+                messageTemplates={messageTemplates}
               />
             </div>
           )}
@@ -1522,6 +1572,7 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                   onChange={qs => updateStep(activeStep, { questions: qs })}
                   emptyText={currentStep.include_core_questions ? 'No step-specific questions. Core questions will still appear.' : 'No questions on this step yet.'}
                   showFlagEditor
+                  messageTemplates={messageTemplates}
                 />
               </div>
 
