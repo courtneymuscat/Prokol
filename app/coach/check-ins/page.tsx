@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import ScheduleSection from './ScheduleSection'
 import ProkolMethodCheckins from './ProkolMethodCheckins'
 import { PROKOL_METHOD_CHECKIN_TEMPLATE_ID } from '@/lib/prokolMethodIds'
+import ClientTagBadges from '../ClientTagBadges'
 
 export default async function CoachCheckInsPage() {
   const coachId = await requireCoach()
@@ -378,6 +379,7 @@ export default async function CoachCheckInsPage() {
                   </div>
                   <div>
                     <span className="text-sm font-semibold text-gray-900">{displayName(entry.client_id)}</span>
+                  <ClientTagBadges clientId={entry.client_id} />
                     <p className="text-xs text-gray-400 mt-0.5">{entry.flow_name} — Step {entry.step_number}</p>
                   </div>
                 </div>
@@ -409,6 +411,7 @@ export default async function CoachCheckInsPage() {
                   </div>
                   <div>
                     <span className="text-sm font-semibold text-gray-900">{displayName(entry.client_id)}</span>
+                  <ClientTagBadges clientId={entry.client_id} />
                     <p className="text-xs text-gray-400 mt-0.5">{entry.title}</p>
                   </div>
                 </div>
@@ -440,6 +443,7 @@ export default async function CoachCheckInsPage() {
                     <span className="text-xs font-bold text-blue-600">{initials(entry.client_id)}</span>
                   </div>
                   <span className="text-sm font-semibold text-gray-900">{displayName(entry.client_id)}</span>
+                  <ClientTagBadges clientId={entry.client_id} />
                 </div>
                 <div className="flex items-center gap-3">
                   {entry.reviewed ? (

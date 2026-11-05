@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import ClientTagBadges from '../ClientTagBadges'
 
 type ClientSummaryProps = {
   coachId: string
@@ -116,9 +117,12 @@ export default async function ClientSummaries({ coachId, clients }: ClientSummar
               </div>
 
               {/* Name */}
-              <p className="text-sm font-semibold text-gray-900 truncate w-28 flex-shrink-0">
-                {client.name ?? client.email.split('@')[0]}
-              </p>
+              <span className="flex items-center gap-1.5 flex-shrink-0">
+                <p className="text-sm font-semibold text-gray-900 truncate max-w-[6.5rem]">
+                  {client.name ?? client.email.split('@')[0]}
+                </p>
+                <ClientTagBadges clientId={client.id} size="xs" />
+              </span>
 
               {/* Main goal — fills available space */}
               {mainGoal ? (

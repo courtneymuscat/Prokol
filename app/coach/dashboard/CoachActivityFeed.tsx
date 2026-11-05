@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import ClientTagBadges from '../ClientTagBadges'
 
 type ActivityItem = {
   type: 'checkin' | 'form_submission' | 'workout' | 'autoflow_response'
@@ -86,9 +87,10 @@ export default function CoachActivityFeed() {
               <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${TYPE_COLOR[item.type]}`}>
                 {TYPE_ICON[item.type]}
               </div>
-              <p className="flex-1 text-sm text-gray-700 min-w-0 truncate">
-                <span className="font-medium text-gray-900">{item.clientName ?? item.clientEmail.split('@')[0]}</span>
-                {' '}{item.label}
+              <p className="flex-1 text-sm text-gray-700 min-w-0 truncate flex items-center gap-1.5">
+                <span className="font-medium text-gray-900 flex-shrink-0">{item.clientName ?? item.clientEmail.split('@')[0]}</span>
+                <ClientTagBadges clientId={item.clientId} size="xs" />
+                <span className="truncate">{item.label}</span>
               </p>
               <span className="text-xs text-gray-400 flex-shrink-0">{timeAgo(item.timestamp)}</span>
               {item.unread && (

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
+import ClientTagBadges from '../ClientTagBadges'
 
 type Convo = { id: string; client_id: string; last_message_at: string }
 type LatestMsg = { body: string; sender_id: string; attachment_type?: string | null }
@@ -132,7 +133,10 @@ export default function CoachMessagesLayout({ children }: { children: React.Reac
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className={`text-sm truncate ${unread ? 'font-bold text-gray-900' : 'font-medium text-gray-800'}`}>{name}</p>
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <p className={`text-sm truncate ${unread ? 'font-bold text-gray-900' : 'font-medium text-gray-800'}`}>{name}</p>
+                        <ClientTagBadges clientId={c.client_id} size="xs" />
+                      </span>
                       <span className="text-xs text-gray-400 flex-shrink-0 ml-2">{timeAgo(c.last_message_at)}</span>
                     </div>
                     <div className="flex items-center justify-between mt-0.5">
@@ -186,7 +190,10 @@ export default function CoachMessagesLayout({ children }: { children: React.Reac
                       <span className="text-sm font-bold text-blue-600">{label[0].toUpperCase()}</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{label}</p>
+                      <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
+                        <span className="truncate">{label}</span>
+                        <ClientTagBadges clientId={c.id} size="xs" />
+                      </p>
                       {c.full_name && <p className="text-xs text-gray-400 truncate">{c.email}</p>}
                     </div>
                   </button>

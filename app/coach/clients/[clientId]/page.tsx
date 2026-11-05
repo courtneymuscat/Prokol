@@ -7,6 +7,8 @@ import MessageButton from './MessageButton'
 import RemoveClientButton from './RemoveClientButton'
 import CopyInviteLink from './CopyInviteLink'
 import RevokeInviteButton from './RevokeInviteButton'
+import ClientTagBadges from '../../ClientTagBadges'
+import ClientTagButton from '../../ClientTagButton'
 
 export default async function ClientProfilePage({
   params,
@@ -129,6 +131,8 @@ export default async function ClientProfilePage({
                         Invite pending
                       </span>
                     )}
+                    <ClientTagBadges clientId={clientId} />
+                    <ClientTagButton clientId={clientId} />
                   </div>
                   <div className="flex items-center gap-3 flex-wrap mt-0.5">
                     <p className="text-xs text-gray-400">{profile?.email}</p>

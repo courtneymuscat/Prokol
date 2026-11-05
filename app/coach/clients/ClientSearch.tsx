@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import ClientTagBadges from '../ClientTagBadges'
+import ClientTagButton from '../ClientTagButton'
 
 type Client = {
   id: string
@@ -93,6 +95,8 @@ function ClientCard({ client, muted = false, onRevoke }: { client: Client; muted
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-semibold text-gray-900 truncate">{client.name ?? client.email}</p>
             {client.name && <p className="text-xs text-gray-400 truncate">{client.email}</p>}
+            <ClientTagBadges clientId={client.id} />
+            {!client.pendingInvite && <ClientTagButton clientId={client.id} />}
             {client.pendingInvite && (
               <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 font-medium">Invite pending</span>
             )}

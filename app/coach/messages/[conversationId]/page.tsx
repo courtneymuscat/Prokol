@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getOrgForUser } from '@/lib/org'
 import { redirect } from 'next/navigation'
 import ChatView from '@/app/components/ChatView'
+import ClientTagBadges from '../../ClientTagBadges'
 
 export default async function CoachChatPage({
   params,
@@ -57,6 +58,7 @@ export default async function CoachChatPage({
         otherName={otherName}
         backHref="/coach/messages"
         showBackOnDesktop={false}
+        headerBadge={<ClientTagBadges clientId={convo.client_id} />}
       />
     </div>
   )

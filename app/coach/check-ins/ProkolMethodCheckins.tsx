@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import ClientTagBadges from '../ClientTagBadges'
 
 type Row = {
   id: string
@@ -210,7 +211,10 @@ export default function ProkolMethodCheckins() {
             >
               <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleRow(r.id)} className="rounded flex-shrink-0" />
               <a href={`/coach/clients/${r.client_id}?tab=checkins`} className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">{r.client_name}</p>
+                <p className="text-sm font-semibold text-gray-900 truncate flex items-center gap-2">
+                  <span className="truncate">{r.client_name}</span>
+                  <ClientTagBadges clientId={r.client_id} />
+                </p>
                 <p className="text-xs text-gray-400">{r.reviewed ? 'Reviewed' : 'New'}{r.has_feedback ? ' · replied' : ''}</p>
               </a>
               <span className="w-24 text-xs text-gray-600 flex-shrink-0">{TYPE_LABELS[r.type]}{r.type === 'weekly' ? ` ${r.step_number - 1}` : ''}</span>

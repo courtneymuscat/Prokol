@@ -115,6 +115,7 @@ export default function ChatView({
   backHref,
   showBackOnDesktop = true,
   hasBottomNav = false,
+  headerBadge,
 }: {
   conversationId: string
   currentUserId: string
@@ -122,6 +123,7 @@ export default function ChatView({
   backHref: string
   showBackOnDesktop?: boolean
   hasBottomNav?: boolean
+  headerBadge?: React.ReactNode
 }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -363,8 +365,9 @@ export default function ChatView({
         <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
           <span className="text-sm font-bold text-blue-600">{otherName[0].toUpperCase()}</span>
         </div>
-        <div>
-          <p className="text-sm font-semibold text-gray-900">{otherName}</p>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <p className="text-sm font-semibold text-gray-900 truncate">{otherName}</p>
+          {headerBadge}
         </div>
       </div>
 

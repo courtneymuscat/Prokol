@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getOrgForUser } from '@/lib/org'
 import CoachSidebar from './CoachSidebar'
+import { ClientTagsProvider } from './ClientTagsContext'
 import { Suspense } from 'react'
 
 export default async function CoachLayout({ children }: { children: React.ReactNode }) {
@@ -192,24 +193,26 @@ export default async function CoachLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Suspense required because CoachSidebar uses useSearchParams */}
-      <Suspense fallback={<aside className="hidden md:block w-56 shrink-0" />}>
-        <CoachSidebar
-          unreadCount={unread}
-          unreadMessages={unreadMessages}
-          unreadCheckIns={unreadCheckIns}
-          isBusinessTier={isBusinessTier}
-          tier={tier}
-          isPlatformAdmin={isPlatformAdmin}
-          actingAsGymName={actingAsGymName}
-        />
-      </Suspense>
-      <div
-        className="flex-1 min-w-0 flex flex-col md:pt-0 md:pb-0 pt-[calc(72px+env(safe-area-inset-top,0px))] pb-[calc(80px+env(safe-area-inset-bottom,0px))] print:pt-0 print:pb-0"
-      >
-        {children}
+    <ClientTagsProvider>
+      <div className="min-h-screen bg-gray-50 flex">
+        {/* Suspense required because CoachSidebar uses useSearchParams */}
+        <Suspense fallback={<aside className="hidden md:block w-56 shrink-0" />}>
+          <CoachSidebar
+            unreadCount={unread}
+            unreadMessages={unreadMessages}
+            unreadCheckIns={unreadCheckIns}
+            isBusinessTier={isBusinessTier}
+            tier={tier}
+            isPlatformAdmin={isPlatformAdmin}
+            actingAsGymName={actingAsGymName}
+          />
+        </Suspense>
+        <div
+          className="flex-1 min-w-0 flex flex-col md:pt-0 md:pb-0 pt-[calc(72px+env(safe-area-inset-top,0px))] pb-[calc(80px+env(safe-area-inset-bottom,0px))] print:pt-0 print:pb-0"
+        >
+          {children}
+        </div>
       </div>
-    </div>
+    </ClientTagsProvider>
   )
 }

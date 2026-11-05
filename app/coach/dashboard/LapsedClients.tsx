@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import ClientTagBadges from '../ClientTagBadges'
 
 type Lapsed = { clientId: string; clientEmail: string; clientName?: string }
 type RemindState = 'idle' | 'sending' | 'sent'
@@ -75,7 +76,10 @@ export default function LapsedClients() {
                 </div>
                 <a href={`/coach/clients/${c.clientId}`}
                   className="flex-1 min-w-0 hover:opacity-70 transition-opacity">
-                  <p className="text-sm text-gray-800 truncate">{c.clientName ?? display.split('@')[0]}</p>
+                  <p className="text-sm text-gray-800 truncate flex items-center gap-1.5">
+                    <span className="truncate">{c.clientName ?? display.split('@')[0]}</span>
+                    <ClientTagBadges clientId={c.clientId} size="xs" />
+                  </p>
                   <p className="text-[10px] text-gray-400">No check-in in 7+ days</p>
                 </a>
                 <RemindButton clientId={c.clientId} />
