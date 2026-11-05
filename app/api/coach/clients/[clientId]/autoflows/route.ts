@@ -2,7 +2,64 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
 import { sendPushToUser } from '@/lib/push'
+import { PROKOL_METHOD_LESSON_TEMPLATE_ID, PROKOL_METHOD_CHECKIN_TEMPLATE_ID } from '@/lib/prokolMethodIds'
 import type { NextRequest } from 'next/server'
+
+// Assigning the Prokol Method lesson autoflow also enrols the client in its
+// check-in autoflow, same start_date — the two run fully independently
+// after that (no shared state), this just saves the coach a second manual
+// assign step. Intentionally minimal: no org/master-template lookup (the
+// check-in template is Court's own), no immediate automated_message (its
+// first step is day_offset=6, never due on assignment day), no second push
+// notification (the primary assign below already sent one).
+async function enrollCompanionCheckinAutoflow(
+  admin: ReturnType<typeof createAdminClient>,
+  { coachId, clientId, startDate }: { coachId: string; clientId: string; startDate: string },
+) {
+  const { data: existing } = await admin
+    .from('client_autoflows')
+    .select('id')
+    .eq('client_id', clientId)
+    .eq('template_id', PROKOL_METHOD_CHECKIN_TEMPLATE_ID)
+    .eq('status', 'active')
+    .maybeSingle()
+  if (existing) return // already enrolled — don't duplicate
+
+  const { data: tpl } = await admin
+    .from('autoflow_templates')
+    .select('id, name')
+    .eq('id', PROKOL_METHOD_CHECKIN_TEMPLATE_ID)
+    .maybeSingle()
+  if (!tpl) return
+
+  const { data: flow } = await admin
+    .from('client_autoflows')
+    .insert({ coach_id: coachId, client_id: clientId, template_id: tpl.id, name: tpl.name, start_date: startDate, status: 'active' })
+    .select('id')
+    .single()
+  if (!flow) return
+
+  const { data: steps } = await admin
+    .from('autoflow_template_steps')
+    .select('step_number, title, day_offset, trigger_type')
+    .eq('template_id', tpl.id)
+    .order('step_number')
+
+  if (steps && steps.length > 0) {
+    const [y, m, d] = startDate.split('-').map(Number)
+    const events = steps
+      .filter((s) => (s as Record<string, unknown>).trigger_type !== 'on_step_complete')
+      .map((s) => ({
+        coach_id: coachId,
+        client_id: clientId,
+        event_date: new Date(Date.UTC(y, m - 1, d + s.day_offset)).toISOString().split('T')[0],
+        type: 'autoflow',
+        title: `${tpl.name} — Step ${s.step_number}${s.title ? `: ${s.title}` : ''}`,
+        content: { flow_id: flow.id, step_number: s.step_number, link: `/autoflows/${flow.id}/${s.step_number}` },
+      }))
+    if (events.length > 0) await admin.from('calendar_events').insert(events)
+  }
+}
 
 type Ctx = { params: Promise<{ clientId: string }> }
 
@@ -98,6 +155,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     .select('id')
     .single()
   if (error) return Response.json({ error: error.message }, { status: 500 })
+
+  if (template_id === PROKOL_METHOD_LESSON_TEMPLATE_ID) {
+    await enrollCompanionCheckinAutoflow(admin, { coachId, clientId, startDate: start_date })
+  }
 
   // Create calendar events for date-based steps only
   if (steps && steps.length > 0) {

@@ -2,6 +2,9 @@ import { NextRequest } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { sendPushToUser } from '@/lib/push'
 import { sendEmail } from '@/lib/email'
+import { computeMissedCheckinFlag } from '@/lib/checkinFlags'
+import { isDayOffsetUnlocked } from '@/lib/autoflowUnlock'
+import { PROKOL_METHOD_CHECKIN_TEMPLATE_ID } from '@/lib/prokolMethodIds'
 
 /**
  * Runs once a day via Vercel Cron, at a single fixed UTC time (Vercel's
@@ -1118,6 +1121,83 @@ export async function GET(req: NextRequest) {
     } catch (err) {
       console.error('[cron] coach email digest section failed:', err)
     }
+  }
+
+  // ── 11. Prokol Method check-ins — missed-2-weeks-in-a-row flag sweep ──────────
+  // The only flag rule with no submission to trigger off — everything else
+  // in lib/checkinFlags.ts runs at submit time
+  // (lib/checkinFlagsPersist.ts, called from
+  // app/api/client/autoflows/[flowId]/[step]/route.ts). Dedup is a plain
+  // existence check per (flow, step_number) rather than a unique
+  // constraint, since a cleared flag should never silently re-fire deduped
+  // against its own now-cleared row — checking only *open* flags here means
+  // a coach who clears one can get a fresh one later if it's still missed.
+  try {
+    const { data: checkinFlows } = await supabase
+      .from('client_autoflows')
+      .select('id, client_id, coach_id, start_date')
+      .eq('template_id', PROKOL_METHOD_CHECKIN_TEMPLATE_ID)
+      .eq('status', 'active')
+
+    if (checkinFlows?.length) {
+      const { data: templateSteps } = await supabase
+        .from('autoflow_template_steps')
+        .select('step_number, day_offset')
+        .eq('template_id', PROKOL_METHOD_CHECKIN_TEMPLATE_ID)
+        .order('step_number')
+      const scheduledStepNumbers = (templateSteps ?? []).map((s) => s.step_number)
+      const dayOffsetByStep = new Map((templateSteps ?? []).map((s) => [s.step_number, s.day_offset as number]))
+
+      const flowIds = checkinFlows.map((f) => f.id)
+      const [{ data: allResponses }, { data: openMissedFlags }] = await Promise.all([
+        supabase.from('autoflow_responses').select('client_autoflow_id, step_number').in('client_autoflow_id', flowIds),
+        supabase
+          .from('autoflow_response_flags')
+          .select('client_autoflow_id, step_number')
+          .in('client_autoflow_id', flowIds)
+          .eq('rule_key', 'missed_checkin_two_weeks')
+          .is('cleared_at', null),
+      ])
+
+      const respondedByFlow = new Map<string, Set<number>>()
+      for (const r of allResponses ?? []) {
+        const set = respondedByFlow.get(r.client_autoflow_id) ?? new Set<number>()
+        set.add(r.step_number)
+        respondedByFlow.set(r.client_autoflow_id, set)
+      }
+      const alreadyOpenFlagged = new Set((openMissedFlags ?? []).map((f) => `${f.client_autoflow_id}:${f.step_number}`))
+
+      const newFlagRows: Record<string, unknown>[] = []
+      for (const flow of checkinFlows) {
+        const dueStepNumbers = new Set(
+          scheduledStepNumbers.filter((n) => isDayOffsetUnlocked(flow.start_date, dayOffsetByStep.get(n) ?? 0, now)),
+        )
+        const result = computeMissedCheckinFlag({
+          scheduledStepNumbers,
+          respondedStepNumbers: respondedByFlow.get(flow.id) ?? new Set(),
+          dueStepNumbers,
+        })
+        if (!result) continue
+        if (alreadyOpenFlagged.has(`${flow.id}:${result.stepNumber}`)) continue
+
+        newFlagRows.push({
+          response_id: null,
+          client_autoflow_id: flow.id,
+          step_number: result.stepNumber,
+          client_id: flow.client_id,
+          coach_id: flow.coach_id,
+          rule_key: 'missed_checkin_two_weeks',
+          severity: 'normal',
+          reason: result.reason,
+        })
+      }
+
+      if (newFlagRows.length > 0) {
+        await supabase.from('autoflow_response_flags').insert(newFlagRows)
+      }
+    }
+  } catch (err) {
+    console.error('[cron] missed-checkin flag sweep failed:', err)
   }
 
   return Response.json({ ok: true, pushed, digestsSent, checkedAt: now.toISOString() })

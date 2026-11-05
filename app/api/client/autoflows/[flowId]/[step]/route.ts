@@ -5,6 +5,8 @@ import { effectiveQuestions } from '@/lib/autoflow-fork'
 import { resolveForPath, taskAppliesToPath, pathFromChoiceLabel, PATH_CHOICE_QUESTION_ID, type PathKey } from '@/lib/autoflowPaths'
 import { syncAutoflowStepPrograms } from '@/lib/autoflowStepPrograms'
 import { dayOffsetAvailableDate, isDayOffsetUnlocked } from '@/lib/autoflowUnlock'
+import { computeAndStoreCheckinFlags } from '@/lib/checkinFlagsPersist'
+import { PROKOL_METHOD_CHECKIN_TEMPLATE_ID } from '@/lib/prokolMethodIds'
 import type { NextRequest } from 'next/server'
 
 type Ctx = { params: Promise<{ flowId: string; step: string }> }
@@ -221,18 +223,32 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!flow) return Response.json({ error: 'Not found' }, { status: 404 })
 
   const { answers } = await req.json()
-  const { error } = await supabase
+  const { data: upserted, error } = await supabase
     .from('autoflow_responses')
     .upsert(
       { client_autoflow_id: flowId, step_number: stepNum, client_id: user.id, answers, submitted_at: new Date().toISOString() },
       { onConflict: 'client_autoflow_id,step_number' }
     )
+    .select('id')
+    .single()
 
   if (error) return Response.json({ error: error.message }, { status: 500 })
 
   // flow's ownership is already confirmed above (fetched filtered to
   // this user), so using the admin client for the writes below is safe.
   const adminForHabit = createAdminClient()
+
+  if (flow.template_id === PROKOL_METHOD_CHECKIN_TEMPLATE_ID && upserted) {
+    await computeAndStoreCheckinFlags({
+      admin: adminForHabit,
+      flowId,
+      coachId: flow.coach_id as string,
+      clientId: user.id,
+      stepNumber: stepNum,
+      responseId: upserted.id,
+      answers,
+    }).catch((err) => console.error('computeAndStoreCheckinFlags error:', err))
+  }
 
   // If this step's answers include the reserved "choose your path"
   // question, set it on the flow — no separate picker screen needed.

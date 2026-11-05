@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { noteBodyToHtml } from '@/lib/noteUtils'
 const CheckInFeedback = lazy(() => import('./CheckInFeedback'))
+const ProkolMethodTrends = lazy(() => import('./ProkolMethodTrends'))
 const FlowsTab = lazy(() => import('./FlowsTab'))
 const AppPreviewTab = lazy(() => import('./AppPreviewTab'))
 const PlanBuilderTab = lazy(() => import('./PlanBuilderTab'))
@@ -2955,6 +2956,12 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
           <AssignAutoflowButton clientId={clientId} onAssigned={() => setAutoflowRefreshKey(k => k + 1)} />
           <AutoflowCheckinsLinked clientId={clientId} onViewFlows={() => setTab('flows')} refreshKey={autoflowRefreshKey} />
           <CheckinSchedulesPanel clientId={clientId} />
+          {data && (data.autoflowCheckIns ?? []).some((c) => c.flow_name === 'The Prokol Method - Check-ins') && (
+            <Suspense fallback={null}>
+              <ProkolMethodTrends checkIns={data.autoflowCheckIns ?? []} />
+            </Suspense>
+          )}
+
           {data && (
             <div className="space-y-3">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Submitted Check-ins</p>

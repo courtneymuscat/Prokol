@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getOrgForUser } from '@/lib/org'
 import { redirect } from 'next/navigation'
 import ScheduleSection from './ScheduleSection'
+import ProkolMethodCheckins from './ProkolMethodCheckins'
+import { PROKOL_METHOD_CHECKIN_TEMPLATE_ID } from '@/lib/prokolMethodIds'
 
 export default async function CoachCheckInsPage() {
   const coachId = await requireCoach()
@@ -165,7 +167,10 @@ export default async function CoachCheckInsPage() {
           .filter((t) => RESPONSE_TEMPLATE_TYPES.has((t as Record<string, unknown>).type as string))
           .map((t) => t.id),
       )
-      const weeklyFlows = allFlows.filter((f) => weeklyTplIds.has(f.template_id))
+      // Prokol Method check-ins get their own rich bulk-review section
+      // (ProkolMethodCheckins) above this list — excluded here so they
+      // don't also show up duplicated in the plain feed below.
+      const weeklyFlows = allFlows.filter((f) => weeklyTplIds.has(f.template_id) && f.template_id !== PROKOL_METHOD_CHECKIN_TEMPLATE_ID)
       const weeklyFlowIds = weeklyFlows.map((f) => f.id)
       const flowMeta: Record<string, { name: string; client_id: string }> = Object.fromEntries(
         weeklyFlows.map((f) => [f.id, { name: f.name, client_id: f.client_id }])
@@ -347,6 +352,8 @@ export default async function CoachCheckInsPage() {
       </div>
 
       <ScheduleSection days={days7} noCheckInClients={noCheckInClients} />
+
+      <ProkolMethodCheckins />
 
       {entries.length === 0 && (
         <div className="bg-white rounded-2xl border p-12 text-center">
