@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeCheckinFlags, computeMissedCheckinFlag, requiredHistoryLength, pickAutomatedMessages, URGENT_KEYWORDS, NORMAL_KEYWORDS, type CheckinQuestion, type FlagResult } from '@/lib/checkinFlags'
+import { computeCheckinFlags, requiredHistoryLength, pickAutomatedMessages, URGENT_KEYWORDS, NORMAL_KEYWORDS, type CheckinQuestion, type FlagResult } from '@/lib/checkinFlags'
 
 function run(questions: CheckinQuestion[], recentAnswers: Record<string, string>[]) {
   return computeCheckinFlags({ questions, recentAnswers })
@@ -221,41 +221,3 @@ describe('requiredHistoryLength', () => {
   })
 })
 
-describe('computeMissedCheckinFlag', () => {
-  it('flags when the last two due steps both have no response', () => {
-    const result = computeMissedCheckinFlag({
-      scheduledStepNumbers: [1, 2, 3, 4],
-      respondedStepNumbers: new Set([1]),
-      dueStepNumbers: new Set([1, 2, 3]),
-    })
-    expect(result).toBeTruthy()
-    expect(result?.stepNumber).toBe(3)
-  })
-
-  it('does not flag when only the most recent due step is missing', () => {
-    const result = computeMissedCheckinFlag({
-      scheduledStepNumbers: [1, 2, 3],
-      respondedStepNumbers: new Set([1, 2]),
-      dueStepNumbers: new Set([1, 2, 3]),
-    })
-    expect(result).toBeNull()
-  })
-
-  it('does not flag when both are submitted', () => {
-    const result = computeMissedCheckinFlag({
-      scheduledStepNumbers: [1, 2, 3],
-      respondedStepNumbers: new Set([1, 2, 3]),
-      dueStepNumbers: new Set([1, 2, 3]),
-    })
-    expect(result).toBeNull()
-  })
-
-  it('does not flag before at least 2 steps are due', () => {
-    const result = computeMissedCheckinFlag({
-      scheduledStepNumbers: [1, 2, 3],
-      respondedStepNumbers: new Set(),
-      dueStepNumbers: new Set([1]),
-    })
-    expect(result).toBeNull()
-  })
-})

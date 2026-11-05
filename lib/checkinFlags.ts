@@ -1,12 +1,10 @@
 // Flag-computation for autoflow check-ins (platform-wide — any coach, any
 // autoflow, not just one template). Kept dependency-free (no DB/network) so
-// every rule is unit-testable in isolation. Two entry points:
-//   - computeCheckinFlags: run against a single submission plus its recent
-//     history, called right when any autoflow step is submitted. Evaluates
-//     the per-question `flag` config a coach set up in the autoflow
-//     builder, plus one rule that stays hardcoded on purpose (see below).
-//   - computeMissedCheckinFlag: run by a cron sweep, since "no check-in for
-//     2 scheduled weeks in a row" has no submission to trigger off.
+// every rule is unit-testable in isolation. computeCheckinFlags runs
+// against a single submission plus its recent history, called right when
+// any autoflow step is submitted. Evaluates the per-question `flag`
+// config a coach set up in the autoflow builder, plus one rule that stays
+// hardcoded on purpose (see below).
 //
 // See lib/checkinFlagsPersist.ts for what happens after a flag fires —
 // including the automated client-facing message system, which reads
@@ -328,33 +326,4 @@ export function pickAutomatedMessages(flags: FlagResult[]): {
   }
 
   return { urgent: null, normal, lead }
-}
-
-/**
- * Run by a cron sweep (no submission to trigger off). `scheduledStepNumbers`
- * must be the flow's weekly/final step numbers in schedule order (Week 0,
- * Week 1, ... Final), `respondedStepNumbers` the set that already has a
- * submission, and `dueStepNumbers` the set that's actually due as of today
- * (so we don't flag a week that hasn't arrived yet). Returns the missed
- * step number to flag, or null if fewer than 2 consecutive scheduled steps
- * in a row have been missed.
- */
-export function computeMissedCheckinFlag(params: {
-  scheduledStepNumbers: number[]
-  respondedStepNumbers: Set<number>
-  dueStepNumbers: Set<number>
-}): { stepNumber: number; reason: string } | null {
-  const { scheduledStepNumbers, respondedStepNumbers, dueStepNumbers } = params
-  const dueSorted = scheduledStepNumbers.filter((n) => dueStepNumbers.has(n)).sort((a, b) => a - b)
-  if (dueSorted.length < 2) return null
-
-  const lastTwo = dueSorted.slice(-2)
-  const bothMissed = lastTwo.every((n) => !respondedStepNumbers.has(n))
-  if (!bothMissed) return null
-
-  const latest = lastTwo[1]
-  return {
-    stepNumber: latest,
-    reason: 'No check-in submitted for 2 scheduled weeks in a row.',
-  }
 }

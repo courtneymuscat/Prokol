@@ -12,42 +12,14 @@ export async function POST(req: NextRequest) {
   const coachId = await requireCoach()
   if (!coachId) return Response.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { responseIds: rawIds, confirmFlagged } = (await req.json()) as { responseIds?: string[]; confirmFlagged?: boolean }
-  if (!Array.isArray(rawIds) || rawIds.length === 0) {
+  const { responseIds, confirmFlagged } = (await req.json()) as { responseIds?: string[]; confirmFlagged?: boolean }
+  if (!Array.isArray(responseIds) || responseIds.length === 0) {
     return Response.json({ error: 'responseIds required' }, { status: 400 })
   }
 
   const admin = createAdminClient()
   const reviewed: string[] = []
   const skippedFlagged: string[] = []
-
-  // Rows for a "missed check-in" (no submission exists) are prefixed
-  // missed-<flagId> by the list endpoint — there's no autoflow_responses
-  // row to mark reviewed, just the flag itself to clear, gated by the same
-  // confirmFlagged rule as any other flagged row.
-  const missedFlagIds = rawIds.filter((id) => id.startsWith('missed-')).map((id) => id.slice('missed-'.length))
-  const responseIds = rawIds.filter((id) => !id.startsWith('missed-'))
-
-  if (missedFlagIds.length > 0) {
-    if (!confirmFlagged) {
-      skippedFlagged.push(...missedFlagIds.map((id) => `missed-${id}`))
-    } else {
-      const { data: ownedMissed } = await admin
-        .from('autoflow_response_flags')
-        .select('id')
-        .in('id', missedFlagIds)
-        .eq('coach_id', coachId)
-        .is('cleared_at', null)
-      const ownedMissedIds = (ownedMissed ?? []).map((f) => f.id as string)
-      if (ownedMissedIds.length > 0) {
-        await admin
-          .from('autoflow_response_flags')
-          .update({ cleared_at: new Date().toISOString(), cleared_by: coachId, cleared_note: "I've looked into this" })
-          .in('id', ownedMissedIds)
-        reviewed.push(...ownedMissedIds.map((id) => `missed-${id}`))
-      }
-    }
-  }
 
   if (responseIds.length > 0) {
     // Ownership check — only responses belonging to this coach's own clients.

@@ -10,7 +10,7 @@ type Row = {
   flow_id: string
   step_number: number
   title: string
-  type: 'week0' | 'weekly' | 'final' | 'missed'
+  type: 'week0' | 'weekly' | 'final'
   path: 'ps' | 'ts' | 'pc' | null
   submitted_at: string
   overall_score: string | null
@@ -23,7 +23,7 @@ type Row = {
 }
 
 const PATH_LABELS: Record<string, string> = { ps: 'Plan & Swap', ts: 'Track Serves', pc: 'Protein + Calories' }
-const TYPE_LABELS: Record<string, string> = { week0: 'Week 0', weekly: 'Weekly', final: 'Final', missed: 'Missed' }
+const TYPE_LABELS: Record<string, string> = { week0: 'Week 0', weekly: 'Weekly', final: 'Final' }
 
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -155,7 +155,6 @@ export default function ProkolMethodCheckins() {
           <option value="week0">Week 0</option>
           <option value="weekly">Weekly</option>
           <option value="final">Final</option>
-          <option value="missed">Missed</option>
         </select>
         <select value={pathFilter} onChange={(e) => setPathFilter(e.target.value)} className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
           <option value="all">All paths</option>

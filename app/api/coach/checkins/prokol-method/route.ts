@@ -92,33 +92,5 @@ export async function GET() {
     }
   })
 
-  // Also surface any missed-check-in flags (no response row to attach to)
-  const { data: missedFlags } = await admin
-    .from('autoflow_response_flags')
-    .select('id, client_autoflow_id, step_number, client_id, reason, created_at, cleared_at')
-    .in('client_autoflow_id', flowIds)
-    .is('response_id', null)
-    .is('cleared_at', null)
-
-  const missedRows = (missedFlags ?? []).map((f) => ({
-    id: `missed-${f.id}`,
-    flag_id: f.id,
-    client_id: f.client_id,
-    client_name: profileById[f.client_id] ?? 'Unknown',
-    flow_id: f.client_autoflow_id,
-    step_number: f.step_number,
-    title: stepMeta[f.step_number] ?? `Step ${f.step_number}`,
-    type: 'missed' as const,
-    path: flowById[f.client_autoflow_id]?.selected_path ?? null,
-    submitted_at: f.created_at,
-    overall_score: null,
-    reviewed: false,
-    reviewed_at: null,
-    has_feedback: false,
-    flags: [{ rule_key: 'missed_checkin_two_weeks', severity: 'normal', reason: f.reason, cleared_at: null }],
-    is_flagged: true,
-    flag_severity: 'normal' as const,
-  }))
-
-  return Response.json([...rows, ...missedRows])
+  return Response.json(rows)
 }

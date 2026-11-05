@@ -108,26 +108,6 @@ describe('bulk-review: flagged responses', () => {
   })
 })
 
-describe('bulk-review: missed check-in rows (no underlying response)', () => {
-  it('skips a missed-checkin flag without confirmFlagged', async () => {
-    const res = await POST(req({ responseIds: ['missed-f1'] }))
-    const body = await res.json()
-    expect(body.skippedFlagged).toEqual(['missed-f1'])
-    expect(body.reviewed).toEqual([])
-  })
-
-  it('clears a missed-checkin flag when confirmFlagged is true', async () => {
-    data.autoflow_response_flags = [{ id: 'f1' }]
-
-    const res = await POST(req({ responseIds: ['missed-f1'], confirmFlagged: true }))
-    const body = await res.json()
-
-    expect(body.reviewed).toEqual(['missed-f1'])
-    const clearUpdate = updateCalls.find((c) => c.table === 'autoflow_response_flags')
-    expect(clearUpdate?.patch.cleared_at).toBeTruthy()
-  })
-})
-
 describe('bulk-review: input validation', () => {
   it('rejects an empty responseIds array', async () => {
     const res = await POST(req({ responseIds: [] }))
