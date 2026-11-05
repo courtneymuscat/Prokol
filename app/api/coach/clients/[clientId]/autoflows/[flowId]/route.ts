@@ -61,7 +61,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     // already applies for the same reason.
     admin
       .from('autoflow_template_steps')
-      .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, tasks, resource_ids, form_id, program_link')
+      .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, tasks, resource_ids, form_id, program_link, include_core_questions')
       .eq('template_id', flow.template_id)
       .order('step_number'),
     supabase

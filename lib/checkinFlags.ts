@@ -1,8 +1,10 @@
-// Pure flag-computation for The Prokol Method check-in autoflow — kept
+// Flag-computation for The Prokol Method check-in autoflow — kept
 // dependency-free (no DB/network) so every rule is unit-testable in
 // isolation. Two entry points:
 //   - computeCheckinFlags: run against a single submission plus its recent
-//     history, called right when a check-in is submitted.
+//     history, called right when a check-in is submitted. Evaluates the
+//     per-question `flag` config a coach set up in the autoflow builder,
+//     plus one rule that stays hardcoded on purpose (see below).
 //   - computeMissedCheckinFlag: run by a cron sweep, since "no check-in for
 //     2 scheduled weeks in a row" has no submission to trigger off.
 
@@ -16,12 +18,43 @@ export type FlagResult = {
 
 export type CheckinAnswers = Record<string, string>
 
-export type CheckinQuestion = { id: string; type: string }
+export type FlagOperator = '<=' | '>=' | '='
+
+export type FlagCondition =
+  // Fires when this question's own answer satisfies the operator/value,
+  // for `consecutive` check-ins in a row ending at the one just submitted
+  // (consecutive defaults to 1 — "just this check-in").
+  | { kind: 'threshold'; operator: FlagOperator; value: number; consecutive?: number }
+  // Fires when the answer exactly matches one of `values`, for
+  // `consecutive` check-ins in a row (default 1). Intended for
+  // yesno/radio/choice/dropdown questions.
+  | { kind: 'match'; values: string[]; consecutive?: number }
+  // Fires when the value has moved by more than `amount` between each of
+  // `consecutive` back-to-back check-ins (so `consecutive` deltas need
+  // `consecutive + 1` data points). `direction` filters which way counts.
+  | { kind: 'trend'; direction: 'increase' | 'decrease' | 'either'; amount: number; consecutive: number }
+
+export type QuestionFlag = {
+  severity: FlagSeverity
+  condition: FlagCondition
+  // Optional coach-written reason shown on the flag instead of the
+  // auto-generated one.
+  reason?: string | null
+}
+
+export type CheckinQuestion = { id: string; type: string; label?: string; flag?: QuestionFlag | null }
 
 // Edit this list directly to add/remove trigger words — kept as one plain
 // array, deliberately not spread across the file, so it's easy to find and
 // change. Matches are case-insensitive substrings against every text/
 // textarea answer on the submission being scored.
+//
+// This is the one rule that stays hardcoded rather than being a
+// per-question `flag` a coach configures — it has to run identically
+// across every text/textarea answer on every autoflow, not just one
+// question, so there's nowhere sensible to attach it as a per-question
+// setting. Shown read-only in the autoflow builder so a coach always
+// knows it's active.
 export const DISORDERED_EATING_KEYWORDS: string[] = [
   'purge', 'purging', 'binge', 'bingeing', 'binging',
   'starve', 'starving', 'not eating', 'stopped eating',
@@ -52,113 +85,115 @@ function scanForKeyword(answers: CheckinAnswers, questions: CheckinQuestion[]): 
   return null
 }
 
-const LOW_MOOD_METRICS: { key: string; label: string }[] = [
-  { key: 'overall_1_10', label: 'Overall' },
-  { key: 'energy_1_10', label: 'Energy' },
-  { key: 'sleep_quality_1_10', label: 'Sleep' },
-]
+function operatorWord(op: FlagOperator): string {
+  return op === '<=' ? 'at or below' : op === '>=' ? 'at or above' : 'equal to'
+}
+
+/** How many total data points (current + history) a question's flag needs. */
+function pointsNeeded(flag: QuestionFlag): number {
+  if (flag.condition.kind === 'trend') return flag.condition.consecutive + 1
+  return flag.condition.consecutive ?? 1
+}
+
+/**
+ * The longest history any flag-configured question on this step needs —
+ * use this to decide how many prior submissions to fetch before calling
+ * computeCheckinFlags (see lib/checkinFlagsPersist.ts).
+ */
+export function requiredHistoryLength(questions: CheckinQuestion[]): number {
+  let max = 1
+  for (const q of questions) {
+    if (q.flag) max = Math.max(max, pointsNeeded(q.flag))
+  }
+  return max
+}
+
+function evaluateCondition(
+  condition: FlagCondition,
+  questionId: string,
+  recentAnswers: CheckinAnswers[],
+): string | null {
+  const points = condition.kind === 'trend' ? condition.consecutive + 1 : (condition.consecutive ?? 1)
+  if (recentAnswers.length < points) return null
+  const window = recentAnswers.slice(recentAnswers.length - points)
+
+  if (condition.kind === 'threshold') {
+    const values = window.map((a) => toNumber(a[questionId]))
+    if (values.some((v) => v == null)) return null
+    const ok = values.every((v) => {
+      if (condition.operator === '<=') return (v as number) <= condition.value
+      if (condition.operator === '>=') return (v as number) >= condition.value
+      return v === condition.value
+    })
+    return ok ? String(values[values.length - 1]) : null
+  }
+
+  if (condition.kind === 'match') {
+    const values = window.map((a) => a[questionId])
+    if (values.some((v) => v == null || v === '')) return null
+    const ok = values.every((v) => condition.values.includes(v))
+    return ok ? values[values.length - 1] : null
+  }
+
+  // trend
+  const numbers = window.map((a) => toNumber(a[questionId]))
+  if (numbers.some((n) => n == null)) return null
+  const deltas: number[] = []
+  for (let i = 1; i < numbers.length; i++) deltas.push((numbers[i] as number) - (numbers[i - 1] as number))
+  const ok = deltas.every((d) => {
+    const magnitude = Math.abs(d)
+    if (magnitude <= condition.amount) return false
+    if (condition.direction === 'increase') return d > 0
+    if (condition.direction === 'decrease') return d < 0
+    return true
+  })
+  return ok ? numbers.map((n) => String(n)).join(' → ') : null
+}
+
+function autoReason(question: CheckinQuestion, condition: FlagCondition, matchedValue: string): string {
+  const label = question.label ?? question.id
+  if (condition.kind === 'threshold') {
+    const streak = (condition.consecutive ?? 1) > 1 ? ` for ${condition.consecutive} check-ins in a row` : ' this check-in'
+    return `"${label}" was ${operatorWord(condition.operator)} ${condition.value}${streak} (${matchedValue}).`
+  }
+  if (condition.kind === 'match') {
+    const streak = (condition.consecutive ?? 1) > 1 ? ` for ${condition.consecutive} check-ins in a row` : ''
+    return `"${label}" was answered "${matchedValue}"${streak}.`
+  }
+  return `"${label}" has moved by more than ${condition.amount} for ${condition.consecutive} check-ins running (${matchedValue}).`
+}
 
 /**
  * Scores one weekly/final check-in submission. `recentAnswers` is
  * chronological (oldest first) and must end with the submission being
- * scored — pass up to the last 3 so the weigh-in-swing rule (which needs
- * two week-over-week deltas) has enough history. A single-entry array is
- * fine for rules that only look at the current submission.
+ * scored — pass enough history to cover the longest `consecutive` window
+ * any flag-configured question on this step needs (see
+ * requiredHistoryLength). A single-entry array is fine if nothing needs
+ * more.
  */
 export function computeCheckinFlags(params: {
-  isFinalStep: boolean
-  isWeek5BonusStep: boolean
   questions: CheckinQuestion[]
   recentAnswers: CheckinAnswers[]
 }): FlagResult[] {
-  const { isFinalStep, isWeek5BonusStep, questions, recentAnswers } = params
+  const { questions, recentAnswers } = params
   if (recentAnswers.length === 0) return []
 
   const current = recentAnswers[recentAnswers.length - 1]
-  const previous = recentAnswers.length >= 2 ? recentAnswers[recentAnswers.length - 2] : null
-  const previousPrevious = recentAnswers.length >= 3 ? recentAnswers[recentAnswers.length - 3] : null
-
   const flags: FlagResult[] = []
 
-  // Rule: overall/energy/sleep <= 3 in two consecutive check-ins
-  if (previous) {
-    const lowTwiceIn: string[] = []
-    for (const m of LOW_MOOD_METRICS) {
-      const c = toNumber(current[m.key])
-      const p = toNumber(previous[m.key])
-      if (c != null && p != null && c <= 3 && p <= 3) lowTwiceIn.push(m.label)
-    }
-    if (lowTwiceIn.length > 0) {
-      flags.push({
-        ruleKey: 'low_mood_two_weeks',
-        severity: 'normal',
-        reason: `${lowTwiceIn.join(', ')} ${lowTwiceIn.length > 1 ? 'were' : 'was'} 3/10 or below two check-ins in a row.`,
-      })
-    }
-  }
-
-  // Rule: habit days 0-1 in two consecutive check-ins
-  if (previous) {
-    const c = toNumber(current.habit_days)
-    const p = toNumber(previous.habit_days)
-    if (c != null && p != null && c <= 1 && p <= 1) {
-      flags.push({
-        ruleKey: 'habit_days_two_weeks',
-        severity: 'normal',
-        reason: 'Habit days were 0-1 two check-ins in a row.',
-      })
-    }
-  }
-
-  // Rule: stress 8+ (this check-in alone)
-  const stress = toNumber(current.stress_1_10)
-  if (stress != null && stress >= 8) {
+  for (const q of questions) {
+    if (!q.flag) continue
+    const matched = evaluateCondition(q.flag.condition, q.id, recentAnswers)
+    if (matched == null) continue
     flags.push({
-      ruleKey: 'high_stress',
-      severity: 'normal',
-      reason: `Stress was ${stress}/10 this week.`,
+      ruleKey: `question:${q.id}`,
+      severity: q.flag.severity,
+      reason: q.flag.reason?.trim() || autoReason(q, q.flag.condition, matched),
     })
   }
 
-  // Rule: Week 5 bonus — period not regular, or often run-down/cold/sick/injured
-  if (isWeek5BonusStep) {
-    const periodRegular = current.bonus_w5_period_regular
-    const rundown = current.bonus_w5_rundown
-    const reasons: string[] = []
-    if (periodRegular && periodRegular !== 'Yes' && periodRegular !== 'Not applicable') {
-      reasons.push(`period regularity: ${periodRegular.toLowerCase()}`)
-    }
-    if (rundown === 'Often') {
-      reasons.push('often run-down, cold, sick or injured')
-    }
-    if (reasons.length > 0) {
-      flags.push({
-        ruleKey: 'week5_energy_availability',
-        severity: 'normal',
-        reason: `Energy Availability bonus answers flagged: ${reasons.join('; ')}.`,
-      })
-    }
-  }
-
-  // Rule: weigh-in average changes by more than 1kg a week, 2+ weeks running
-  if (previous && previousPrevious) {
-    const w0 = toNumber(previousPrevious.weight_avg_kg)
-    const w1 = toNumber(previous.weight_avg_kg)
-    const w2 = toNumber(current.weight_avg_kg)
-    if (w0 != null && w1 != null && w2 != null) {
-      const delta1 = Math.abs(w1 - w0)
-      const delta2 = Math.abs(w2 - w1)
-      if (delta1 > 1 && delta2 > 1) {
-        flags.push({
-          ruleKey: 'weight_swing_two_weeks',
-          severity: 'normal',
-          reason: `Weigh-in average has moved more than 1 kg a week for two weeks running (${w0}kg → ${w1}kg → ${w2}kg).`,
-        })
-      }
-    }
-  }
-
-  // Rule: keyword scan — any text/textarea answer on THIS submission
+  // Keyword scan — any text/textarea answer on THIS submission. Hardcoded,
+  // see DISORDERED_EATING_KEYWORDS above.
   const matchedKeyword = scanForKeyword(current, questions)
   if (matchedKeyword) {
     flags.push({
@@ -166,18 +201,6 @@ export function computeCheckinFlags(params: {
       severity: 'urgent',
       reason: `A written answer contained a word on the review list ("${matchedKeyword}"). Please read this check-in directly.`,
     })
-  }
-
-  // Rule: final check-in "what next" = a sales lead
-  if (isFinalStep) {
-    const whatNext = current.what_next
-    if (whatNext === 'Accountability Continuation' || whatNext === '1:1 coaching') {
-      flags.push({
-        ruleKey: 'final_lead',
-        severity: 'lead',
-        reason: `Interested in what's next: ${whatNext}.`,
-      })
-    }
   }
 
   return flags

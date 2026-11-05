@@ -33,7 +33,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const [{ data: templateStep }, { data: override }, { data: existing }] = await Promise.all([
     admin
       .from('autoflow_template_steps')
-      .select('title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, tasks, protocol_section, habit')
+      .select('title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, tasks, protocol_section, habit, include_core_questions')
       .eq('template_id', flow.template_id)
       .eq('step_number', stepNum)
       .single(),
@@ -194,7 +194,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     type: tpl?.type ?? 'weekly_checkin',
     title: override?.title ?? templateStep?.title ?? `Step ${stepNum}`,
     description: override?.description ?? templateStep?.description ?? null,
-    core_questions: tpl?.core_questions ?? [],
+    core_questions: (templateStep as unknown as Record<string, unknown>)?.include_core_questions === false ? [] : (tpl?.core_questions ?? []),
     questions: effectiveQuestions(override?.questions, templateStep?.questions),
     resources,
     tasks: (Array.isArray(templateStep?.tasks) ? templateStep.tasks : [])

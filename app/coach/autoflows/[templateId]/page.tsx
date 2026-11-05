@@ -7,6 +7,8 @@ import type { OrgTemplateContext } from '@/lib/org'
 import DeleteTemplateDialog from '@/app/components/DeleteTemplateDialog'
 import ProgramLinkPanel from './ProgramLinkPanel'
 import { type PathKey, PATH_KEYS, PATH_LABELS, isPerPathObject } from '@/lib/autoflowPaths'
+import { PROKOL_METHOD_CHECKIN_TEMPLATE_ID } from '@/lib/prokolMethodIds'
+import { DISORDERED_EATING_KEYWORDS, type QuestionFlag, type FlagCondition, type FlagSeverity, type FlagOperator } from '@/lib/checkinFlags'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -19,7 +21,14 @@ type Question = {
   required: boolean
   description?: string
   options?: string[]
+  // Only read/written for The Prokol Method - Check-ins template — see
+  // lib/checkinFlags.ts. Harmless metadata on any other autoflow (never
+  // evaluated there), so the builder only shows the editor for that one
+  // template to avoid promising behaviour that doesn't exist elsewhere.
+  flag?: QuestionFlag | null
 }
+
+const FLAG_ELIGIBLE_TYPES = new Set<QuestionType>(['number', 'scale', 'yesno', 'radio', 'choice', 'dropdown'])
 
 type Task = {
   id: string
@@ -60,6 +69,11 @@ type Step = {
   // step is due (once per client, never re-fires or ends it) — see
   // lib/autoflowStepPrograms.ts.
   program_link: { program_id: string } | null
+  // Whether this step shows the template's core questions (see the "Core
+  // questions" tab) ahead of its own step-specific ones. Defaults to true
+  // — turn it off for a step that shouldn't ask the repeated questions
+  // (e.g. a baseline/onboarding step or a wrap-up step with its own set).
+  include_core_questions: boolean
 }
 
 type Template = {
@@ -119,14 +133,216 @@ const DragHandle = () => (
   </div>
 )
 
+// Read-only reference for the one flag rule that stays hardcoded — see
+// DISORDERED_EATING_KEYWORDS in lib/checkinFlags.ts. Shown so a coach
+// always knows it's running, even though there's nothing to configure.
+function KeywordWatchlistNote() {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="border border-amber-200 bg-amber-50 rounded-xl px-3 py-2.5">
+      <button type="button" onClick={() => setOpen(v => !v)} className="w-full flex items-center justify-between text-left">
+        <p className="text-xs font-medium text-amber-800">
+          Written answers are always scanned for self-harm / disordered-eating language — flags urgent automatically
+        </p>
+        <svg className={`w-3.5 h-3.5 text-amber-600 flex-shrink-0 ml-2 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+      </button>
+      {open && (
+        <p className="text-[11px] text-amber-700 mt-2 leading-relaxed">
+          This runs on every short/long text answer, not just a specific question, and isn't editable here. Current watchlist: {DISORDERED_EATING_KEYWORDS.join(', ')}.
+        </p>
+      )}
+    </div>
+  )
+}
+
+const SEVERITY_LABELS: Record<FlagSeverity, string> = { normal: 'Normal', urgent: 'Urgent', lead: 'Lead' }
+
+function defaultConditionFor(type: QuestionType): FlagCondition {
+  if (type === 'number' || type === 'scale') return { kind: 'threshold', operator: '<=', value: 3, consecutive: 1 }
+  return { kind: 'match', values: [], consecutive: 1 }
+}
+
+// Flag rule editor for one question — only rendered for The Prokol Method
+// Check-ins template (see isCheckinFlagsTemplate) and only for question
+// types a rule can actually be evaluated against (FLAG_ELIGIBLE_TYPES).
+function FlagEditor({ q, onChange }: { q: Question; onChange: (flag: QuestionFlag | null) => void }) {
+  const flag = q.flag ?? null
+
+  if (!flag) {
+    return (
+      <button
+        type="button"
+        onClick={() => onChange({ severity: 'normal', condition: defaultConditionFor(q.type) })}
+        className="text-xs text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
+        + Flag this question
+      </button>
+    )
+  }
+
+  const activeFlag: QuestionFlag = flag
+  const condition = activeFlag.condition
+  const isNumeric = q.type === 'number' || q.type === 'scale'
+
+  function updateCondition(patch: Record<string, unknown>) {
+    onChange({ ...activeFlag, condition: { ...condition, ...patch } as FlagCondition })
+  }
+
+  return (
+    <div className="border border-red-100 bg-red-50/40 rounded-xl p-3 space-y-2.5">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-semibold text-red-700 flex items-center gap-1.5">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
+          Flag this question
+        </p>
+        <button type="button" onClick={() => onChange(null)} className="text-xs text-gray-400 hover:text-red-500">Remove</button>
+      </div>
+
+      {isNumeric && (
+        <div className="flex items-center gap-2">
+          <select
+            value={condition.kind}
+            onChange={e => updateCondition(e.target.value === 'trend'
+              ? { kind: 'trend', direction: 'either', amount: 1, consecutive: 2 }
+              : { kind: 'threshold', operator: '<=', value: 3, consecutive: 1 })}
+            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none"
+          >
+            <option value="threshold">Answer crosses a value</option>
+            <option value="trend">Answer changes by an amount</option>
+          </select>
+        </div>
+      )}
+
+      {condition.kind === 'threshold' && (
+        <div className="flex items-center gap-2 flex-wrap text-xs">
+          <span className="text-gray-500">Flag when the answer is</span>
+          <select
+            value={condition.operator}
+            onChange={e => updateCondition({ operator: e.target.value as FlagOperator })}
+            className="border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none"
+          >
+            <option value="<=">at or below</option>
+            <option value=">=">at or above</option>
+            <option value="=">equal to</option>
+          </select>
+          <input
+            type="number"
+            value={condition.value}
+            onChange={e => updateCondition({ value: parseFloat(e.target.value) || 0 })}
+            className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none"
+          />
+          <span className="text-gray-500">for</span>
+          <input
+            type="number"
+            min={1}
+            value={condition.consecutive ?? 1}
+            onChange={e => updateCondition({ consecutive: Math.max(1, parseInt(e.target.value) || 1) })}
+            className="w-12 border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none"
+          />
+          <span className="text-gray-500">check-in{(condition.consecutive ?? 1) > 1 ? 's' : ''} in a row</span>
+        </div>
+      )}
+
+      {condition.kind === 'trend' && (
+        <div className="flex items-center gap-2 flex-wrap text-xs">
+          <span className="text-gray-500">Flag when it moves</span>
+          <select
+            value={condition.direction}
+            onChange={e => updateCondition({ direction: e.target.value as 'increase' | 'decrease' | 'either' })}
+            className="border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none"
+          >
+            <option value="either">up or down</option>
+            <option value="increase">up</option>
+            <option value="decrease">down</option>
+          </select>
+          <span className="text-gray-500">by more than</span>
+          <input
+            type="number"
+            step="0.1"
+            value={condition.amount}
+            onChange={e => updateCondition({ amount: parseFloat(e.target.value) || 0 })}
+            className="w-16 border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none"
+          />
+          <span className="text-gray-500">per check-in, for</span>
+          <input
+            type="number"
+            min={2}
+            value={condition.consecutive}
+            onChange={e => updateCondition({ consecutive: Math.max(2, parseInt(e.target.value) || 2) })}
+            className="w-12 border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none"
+          />
+          <span className="text-gray-500">check-ins running</span>
+        </div>
+      )}
+
+      {condition.kind === 'match' && (
+        <div className="space-y-1.5">
+          <p className="text-xs text-gray-500">Flag when the answer is any of:</p>
+          <div className="flex flex-wrap gap-1.5">
+            {(q.options ?? (q.type === 'yesno' ? ['Yes', 'No'] : [])).map(opt => {
+              const active = condition.values.includes(opt)
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => updateCondition({
+                    values: active ? condition.values.filter(v => v !== opt) : [...condition.values, opt],
+                  })}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${active ? 'border-red-400 bg-red-100 text-red-700' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                >
+                  {opt}
+                </button>
+              )
+            })}
+            {(q.options ?? []).length === 0 && q.type !== 'yesno' && (
+              <p className="text-[11px] text-gray-400">Add options to this question first.</p>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-xs pt-0.5">
+            <span className="text-gray-500">for</span>
+            <input
+              type="number"
+              min={1}
+              value={condition.consecutive ?? 1}
+              onChange={e => updateCondition({ consecutive: Math.max(1, parseInt(e.target.value) || 1) })}
+              className="w-12 border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none"
+            />
+            <span className="text-gray-500">check-in{(condition.consecutive ?? 1) > 1 ? 's' : ''} in a row</span>
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2 text-xs pt-1 border-t border-red-100">
+        <span className="text-gray-500 pt-2">Severity</span>
+        <select
+          value={activeFlag.severity}
+          onChange={e => onChange({ ...activeFlag, severity: e.target.value as FlagSeverity })}
+          className="mt-1 border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none"
+        >
+          {Object.entries(SEVERITY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+      </div>
+      <input
+        value={activeFlag.reason ?? ''}
+        onChange={e => onChange({ ...activeFlag, reason: e.target.value || null })}
+        placeholder="Custom reason shown to you when this fires (optional — otherwise auto-written)"
+        className="w-full text-xs border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none text-gray-600"
+      />
+    </div>
+  )
+}
+
 function QuestionCard({
   q,
   onChange,
   onDelete,
+  showFlagEditor,
 }: {
   q: Question
   onChange: (q: Question) => void
   onDelete: () => void
+  showFlagEditor?: boolean
 }) {
   const isNote = q.type === 'note'
 
@@ -249,6 +465,10 @@ function QuestionCard({
               </button>
             </div>
           )}
+
+          {showFlagEditor && FLAG_ELIGIBLE_TYPES.has(q.type) && (
+            <FlagEditor q={q} onChange={flag => onChange({ ...q, flag })} />
+          )}
         </div>
         <button onClick={onDelete} className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0 mt-0.5">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -262,10 +482,12 @@ function QuestionList({
   questions,
   onChange,
   emptyText,
+  showFlagEditor,
 }: {
   questions: Question[]
   onChange: (qs: Question[]) => void
   emptyText: string
+  showFlagEditor?: boolean
 }) {
   const dragIndex = useRef<number | null>(null)
   const [dropTarget, setDropTarget] = useState<number | null>(null)
@@ -328,6 +550,7 @@ function QuestionList({
               onChange(qs)
             }}
             onDelete={() => onChange(questions.filter((_, j) => j !== i))}
+            showFlagEditor={showFlagEditor}
           />
         </div>
       ))}
@@ -612,6 +835,7 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
               protocol_section: s.protocol_section ?? null,
               habit: s.habit ?? null,
               program_link: s.program_link ?? null,
+              include_core_questions: s.include_core_questions ?? true,
             })),
           }
           setTemplate(loaded)
@@ -646,6 +870,10 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
   }
 
   const readOnly = template?.read_only ?? false
+  // Flag rules only ever get evaluated for this one template (see
+  // lib/checkinFlagsPersist.ts) — hide the editor everywhere else so it
+  // doesn't promise behaviour that doesn't exist.
+  const isCheckinFlagsTemplate = template?.id === PROKOL_METHOD_CHECKIN_TEMPLATE_ID
 
   async function handleMakeCopy() {
     if (!template) return
@@ -1123,6 +1351,7 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                 protocol_section: null,
                 habit: null,
                 program_link: null,
+                include_core_questions: true,
               }
               setTemplate({
                 ...template,
@@ -1145,12 +1374,14 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
             <div className="max-w-2xl space-y-4">
               <div>
                 <h2 className="text-sm font-semibold text-gray-900">Core questions</h2>
-                <p className="text-xs text-gray-500 mt-0.5">These appear on every step of this flow, before the step-specific questions.</p>
+                <p className="text-xs text-gray-500 mt-0.5">These appear on every step of this flow that has "Include core questions" switched on, before that step's own questions.</p>
               </div>
+              {isCheckinFlagsTemplate && <KeywordWatchlistNote />}
               <QuestionList
                 questions={template.core_questions}
                 onChange={qs => setTemplate({ ...template, core_questions: qs })}
                 emptyText="No core questions yet. Add questions that apply to every check-in."
+                showFlagEditor={isCheckinFlagsTemplate}
               />
             </div>
           )}
@@ -1233,13 +1464,32 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                 </div>
               </div>
 
+              {template.core_questions.length > 0 && (
+                <label className="flex items-start gap-2.5 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={currentStep.include_core_questions}
+                    onChange={e => updateStep(activeStep, { include_core_questions: e.target.checked })}
+                    className="rounded mt-0.5"
+                  />
+                  <span>
+                    <span className="font-medium text-gray-800">Include core questions on this step</span>
+                    <span className="block text-gray-400 mt-0.5">When off, this step only asks the step-specific questions below — useful for a baseline or wrap-up step that shouldn't repeat the weekly questions.</span>
+                  </span>
+                </label>
+              )}
+
               <div>
                 <h3 className="text-sm font-semibold text-gray-900 mb-1">Step-specific questions</h3>
-                <p className="text-xs text-gray-500 mb-3">These are unique to this step. Core questions always appear above these.</p>
+                <p className="text-xs text-gray-500 mb-3">
+                  These are unique to this step.{' '}
+                  {currentStep.include_core_questions ? 'Core questions always appear above these.' : 'Core questions are turned off for this step.'}
+                </p>
                 <QuestionList
                   questions={currentStep.questions}
                   onChange={qs => updateStep(activeStep, { questions: qs })}
-                  emptyText="No step-specific questions. Core questions will still appear."
+                  emptyText={currentStep.include_core_questions ? 'No step-specific questions. Core questions will still appear.' : 'No questions on this step yet.'}
+                  showFlagEditor={isCheckinFlagsTemplate}
                 />
               </div>
 

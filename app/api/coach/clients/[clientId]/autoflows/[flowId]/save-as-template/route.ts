@@ -46,7 +46,7 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
   const [{ data: baseSteps }, { data: overrides }] = await Promise.all([
     supabase
       .from('autoflow_template_steps')
-      .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, form_save_to_file, tasks, automated_message')
+      .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, form_save_to_file, tasks, automated_message, include_core_questions')
       .eq('template_id', flow.template_id)
       .order('step_number'),
     supabase
@@ -95,6 +95,7 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
         form_save_to_file: (s as Record<string, unknown>).form_save_to_file ?? false,
         tasks: s.tasks ?? [],
         automated_message: (s as Record<string, unknown>).automated_message ?? null,
+        include_core_questions: (s as Record<string, unknown>).include_core_questions ?? true,
       }
     })
     await supabase.from('autoflow_template_steps').insert(stepRows)

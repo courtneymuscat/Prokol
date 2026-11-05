@@ -1,13 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { computeCheckinFlags, type CheckinAnswers } from '@/lib/checkinFlags'
+import { computeCheckinFlags, requiredHistoryLength, type CheckinAnswers, type CheckinQuestion } from '@/lib/checkinFlags'
 import { sendEmail } from '@/lib/email'
 
 /**
- * Scores a just-submitted Prokol Method check-in response against the 8
- * rules and persists any resulting flags. Called right after the response
- * upsert succeeds in app/api/client/autoflows/[flowId]/[step]/route.ts —
- * scoped to the check-in autoflow only (callers check template_id first).
- * Sends an email to the coach for any 'urgent' severity flag.
+ * Scores a just-submitted Prokol Method check-in response against this
+ * step's questions (core + step-specific, respecting include_core_questions)
+ * and persists any resulting flags. Called right after the response upsert
+ * succeeds in app/api/client/autoflows/[flowId]/[step]/route.ts — scoped
+ * to the check-in autoflow only (callers check template_id first). Sends
+ * an email to the coach for any 'urgent' severity flag.
  */
 export async function computeAndStoreCheckinFlags(params: {
   admin: SupabaseClient
@@ -22,39 +23,47 @@ export async function computeAndStoreCheckinFlags(params: {
 
   const { data: flow } = await admin
     .from('client_autoflows')
-    .select('template_id')
+    .select('template_id, autoflow_templates(core_questions)')
     .eq('id', flowId)
     .single()
   if (!flow) return
 
   const { data: step } = await admin
     .from('autoflow_template_steps')
-    .select('title, questions')
+    .select('questions, include_core_questions')
     .eq('template_id', flow.template_id)
     .eq('step_number', stepNumber)
     .maybeSingle()
   if (!step) return
 
-  const isFinalStep = step.title === 'Final Check-in'
-  const isWeek5BonusStep = step.title === 'Week 5 Check-in'
-  const questions = Array.isArray(step.questions) ? (step.questions as { id: string; type: string }[]) : []
+  const tpl = flow.autoflow_templates as unknown as { core_questions: CheckinQuestion[] } | null
+  const coreQuestions = step.include_core_questions === false ? [] : (tpl?.core_questions ?? [])
+  const stepQuestions = Array.isArray(step.questions) ? (step.questions as CheckinQuestion[]) : []
+  const questions: CheckinQuestion[] = [...coreQuestions, ...stepQuestions]
 
-  const { data: history } = await admin
-    .from('autoflow_responses')
-    .select('step_number, answers')
-    .eq('client_autoflow_id', flowId)
-    .lt('step_number', stepNumber)
-    .order('step_number', { ascending: true })
+  // Fetch exactly as much prior history as the longest flag condition on
+  // this step's questions needs, rather than a fixed window — a coach
+  // might configure a flag that needs more than the old hardcoded 2 prior
+  // submissions.
+  const historyNeeded = requiredHistoryLength(questions) - 1
+  const { data: history } = historyNeeded > 0
+    ? await admin
+        .from('autoflow_responses')
+        .select('step_number, answers')
+        .eq('client_autoflow_id', flowId)
+        .lt('step_number', stepNumber)
+        .order('step_number', { ascending: true })
+    : { data: [] }
 
-  // Build history from the last up-to-2 PRIOR submissions, then append the
+  // Build history from the last N PRIOR submissions, then append the
   // just-submitted answers directly (rather than trusting a read-back of
   // the row we just upserted, which could race under eventual consistency).
   const priorAnswers: CheckinAnswers[] = ((history ?? []) as { step_number: number; answers: CheckinAnswers }[])
-    .slice(-2)
+    .slice(-historyNeeded)
     .map((h) => h.answers ?? {})
   const recentAnswers: CheckinAnswers[] = [...priorAnswers, answers]
 
-  const flags = computeCheckinFlags({ isFinalStep, isWeek5BonusStep, questions, recentAnswers })
+  const flags = computeCheckinFlags({ questions, recentAnswers })
   if (flags.length === 0) return
 
   await admin.from('autoflow_response_flags').insert(

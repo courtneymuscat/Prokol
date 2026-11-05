@@ -607,7 +607,7 @@ export default function CalendarTab({ clientId }: { clientId: string }) {
       const step = (d.steps ?? []).find((s: { step_number: number }) => s.step_number === stepNumber)
       const tpl = d.autoflow_templates as { core_questions: { id: string; label: string; type: string }[] } | null
       setAutoflowStepData({
-        core_questions: tpl?.core_questions ?? [],
+        core_questions: step?.include_core_questions === false ? [] : (tpl?.core_questions ?? []),
         questions: step?.questions ?? [],
         response: step?.response ?? null,
       })

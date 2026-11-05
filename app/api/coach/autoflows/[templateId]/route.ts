@@ -45,7 +45,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const stepsClient = isOrgTemplate ? createAdminClient() : supabase
   const { data: steps } = await stepsClient
     .from('autoflow_template_steps')
-    .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, form_save_to_file, tasks, automated_message, protocol_section, habit, program_link')
+    .select('step_number, title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, form_save_to_file, tasks, automated_message, protocol_section, habit, program_link, include_core_questions')
     .eq('template_id', templateId)
     .order('step_number')
 
@@ -96,7 +96,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
     .eq('id', templateId)
 
   if (Array.isArray(steps)) {
-    const stepRows = steps.map((s: { step_number: number; title: string; description?: string; questions: unknown[]; day_offset: number; trigger_type?: string; trigger_step_number?: number | null; resource_ids?: unknown[]; form_id?: string | null; form_save_to_file?: boolean; tasks?: unknown[]; automated_message?: string; protocol_section?: unknown; habit?: unknown; program_link?: unknown }) => ({
+    const stepRows = steps.map((s: { step_number: number; title: string; description?: string; questions: unknown[]; day_offset: number; trigger_type?: string; trigger_step_number?: number | null; resource_ids?: unknown[]; form_id?: string | null; form_save_to_file?: boolean; tasks?: unknown[]; automated_message?: string; protocol_section?: unknown; habit?: unknown; program_link?: unknown; include_core_questions?: boolean }) => ({
       template_id: templateId,
       step_number: s.step_number,
       title: s.title ?? '',
@@ -113,6 +113,7 @@ export async function PUT(req: NextRequest, { params }: Ctx) {
       protocol_section: s.protocol_section ?? null,
       habit: s.habit ?? null,
       program_link: s.program_link ?? null,
+      include_core_questions: s.include_core_questions ?? true,
     }))
     await supabase
       .from('autoflow_template_steps')

@@ -1,180 +1,157 @@
 import { describe, it, expect } from 'vitest'
-import { computeCheckinFlags, computeMissedCheckinFlag, DISORDERED_EATING_KEYWORDS } from '@/lib/checkinFlags'
+import { computeCheckinFlags, computeMissedCheckinFlag, requiredHistoryLength, DISORDERED_EATING_KEYWORDS, type CheckinQuestion } from '@/lib/checkinFlags'
 
-const BASE_QUESTIONS = [
-  { id: 'overall_1_10', type: 'scale' },
-  { id: 'energy_1_10', type: 'scale' },
-  { id: 'sleep_quality_1_10', type: 'scale' },
-  { id: 'stress_1_10', type: 'scale' },
-  { id: 'habit_days', type: 'number' },
-  { id: 'weight_avg_kg', type: 'number' },
+function run(questions: CheckinQuestion[], recentAnswers: Record<string, string>[]) {
+  return computeCheckinFlags({ questions, recentAnswers })
+}
+
+const PLAIN_TEXT_QUESTIONS: CheckinQuestion[] = [
   { id: 'biggest_win', type: 'textarea' },
   { id: 'biggest_obstacle', type: 'textarea' },
 ]
 
-function run(recentAnswers: Record<string, string>[], opts: Partial<{ isFinalStep: boolean; isWeek5BonusStep: boolean }> = {}) {
-  return computeCheckinFlags({
-    isFinalStep: opts.isFinalStep ?? false,
-    isWeek5BonusStep: opts.isWeek5BonusStep ?? false,
-    questions: BASE_QUESTIONS,
-    recentAnswers,
-  })
-}
+describe('threshold flag — two-in-a-row', () => {
+  const q: CheckinQuestion = { id: 'energy_1_10', type: 'scale', label: 'Energy', flag: { severity: 'normal', condition: { kind: 'threshold', operator: '<=', value: 3, consecutive: 2 } } }
 
-describe('low mood two-weeks-in-a-row rule', () => {
-  it('flags when energy is <=3 two check-ins running', () => {
-    const flags = run([{ energy_1_10: '3' }, { energy_1_10: '2' }])
-    expect(flags.find((f) => f.ruleKey === 'low_mood_two_weeks')).toBeTruthy()
+  it('flags when the value is <=3 two check-ins running', () => {
+    const flags = run([q], [{ energy_1_10: '3' }, { energy_1_10: '2' }])
+    expect(flags.find((f) => f.ruleKey === 'question:energy_1_10')).toBeTruthy()
   })
 
   it('does not flag a single low week', () => {
-    const flags = run([{ energy_1_10: '9' }, { energy_1_10: '2' }])
-    expect(flags.find((f) => f.ruleKey === 'low_mood_two_weeks')).toBeFalsy()
+    const flags = run([q], [{ energy_1_10: '9' }, { energy_1_10: '2' }])
+    expect(flags.find((f) => f.ruleKey === 'question:energy_1_10')).toBeFalsy()
   })
 
   it('does not flag when there is no previous check-in to compare against', () => {
-    const flags = run([{ energy_1_10: '1' }])
-    expect(flags.find((f) => f.ruleKey === 'low_mood_two_weeks')).toBeFalsy()
-  })
-
-  it('flags on overall or sleep too, not just energy', () => {
-    expect(run([{ overall_1_10: '3' }, { overall_1_10: '1' }]).find((f) => f.ruleKey === 'low_mood_two_weeks')).toBeTruthy()
-    expect(run([{ sleep_quality_1_10: '3' }, { sleep_quality_1_10: '3' }]).find((f) => f.ruleKey === 'low_mood_two_weeks')).toBeTruthy()
+    const flags = run([q], [{ energy_1_10: '1' }])
+    expect(flags.find((f) => f.ruleKey === 'question:energy_1_10')).toBeFalsy()
   })
 })
 
-describe('habit days two-weeks-in-a-row rule', () => {
-  it('flags 0-1 habit days twice running', () => {
-    const flags = run([{ habit_days: '1' }, { habit_days: '0' }])
-    expect(flags.find((f) => f.ruleKey === 'habit_days_two_weeks')).toBeTruthy()
-  })
+describe('threshold flag — single check-in', () => {
+  const q: CheckinQuestion = { id: 'stress_1_10', type: 'scale', label: 'Stress', flag: { severity: 'normal', condition: { kind: 'threshold', operator: '>=', value: 8 } } }
 
-  it('does not flag when one of the two weeks was fine', () => {
-    const flags = run([{ habit_days: '5' }, { habit_days: '0' }])
-    expect(flags.find((f) => f.ruleKey === 'habit_days_two_weeks')).toBeFalsy()
-  })
-})
-
-describe('high stress rule', () => {
   it('flags stress 8+', () => {
-    const flags = run([{ stress_1_10: '8' }])
-    expect(flags.find((f) => f.ruleKey === 'high_stress')).toBeTruthy()
+    expect(run([q], [{ stress_1_10: '8' }]).find((f) => f.ruleKey === 'question:stress_1_10')).toBeTruthy()
   })
 
   it('does not flag stress below 8', () => {
-    const flags = run([{ stress_1_10: '7' }])
-    expect(flags.find((f) => f.ruleKey === 'high_stress')).toBeFalsy()
+    expect(run([q], [{ stress_1_10: '7' }]).find((f) => f.ruleKey === 'question:stress_1_10')).toBeFalsy()
   })
 
-  it('fires every time stress is high, not just the first time', () => {
-    const flags = run([{ stress_1_10: '9' }, { stress_1_10: '9' }])
-    expect(flags.find((f) => f.ruleKey === 'high_stress')).toBeTruthy()
-  })
-})
-
-describe('Week 5 energy availability bonus rule', () => {
-  it('flags when period is not regular', () => {
-    const flags = computeCheckinFlags({
-      isFinalStep: false,
-      isWeek5BonusStep: true,
-      questions: BASE_QUESTIONS,
-      recentAnswers: [{ bonus_w5_period_regular: 'No' }],
-    })
-    expect(flags.find((f) => f.ruleKey === 'week5_energy_availability')).toBeTruthy()
-  })
-
-  it('flags when often run-down/cold/sick/injured', () => {
-    const flags = computeCheckinFlags({
-      isFinalStep: false,
-      isWeek5BonusStep: true,
-      questions: BASE_QUESTIONS,
-      recentAnswers: [{ bonus_w5_rundown: 'Often' }],
-    })
-    expect(flags.find((f) => f.ruleKey === 'week5_energy_availability')).toBeTruthy()
-  })
-
-  it('does not flag Not applicable or regular/rarely', () => {
-    const flags = computeCheckinFlags({
-      isFinalStep: false,
-      isWeek5BonusStep: true,
-      questions: BASE_QUESTIONS,
-      recentAnswers: [{ bonus_w5_period_regular: 'Not applicable', bonus_w5_rundown: 'Rarely' }],
-    })
-    expect(flags.find((f) => f.ruleKey === 'week5_energy_availability')).toBeFalsy()
-  })
-
-  it('does not evaluate this rule outside the Week 5 bonus step', () => {
-    const flags = run([{ bonus_w5_period_regular: 'No' }], { isWeek5BonusStep: false })
-    expect(flags.find((f) => f.ruleKey === 'week5_energy_availability')).toBeFalsy()
+  it('fires every time, not just the first time', () => {
+    const flags = run([q], [{ stress_1_10: '9' }, { stress_1_10: '9' }])
+    expect(flags.find((f) => f.ruleKey === 'question:stress_1_10')).toBeTruthy()
   })
 })
 
-describe('weigh-in swing rule', () => {
-  it('flags when two consecutive week-over-week deltas both exceed 1kg', () => {
-    const flags = run([{ weight_avg_kg: '70' }, { weight_avg_kg: '71.5' }, { weight_avg_kg: '73' }])
-    expect(flags.find((f) => f.ruleKey === 'weight_swing_two_weeks')).toBeTruthy()
+describe('match flag', () => {
+  const q: CheckinQuestion = { id: 'bonus_w5_rundown', type: 'radio', label: 'Run-down?', flag: { severity: 'normal', condition: { kind: 'match', values: ['Often'] } } }
+
+  it('flags when the answer is in the trigger list', () => {
+    expect(run([q], [{ bonus_w5_rundown: 'Often' }]).find((f) => f.ruleKey === 'question:bonus_w5_rundown')).toBeTruthy()
   })
 
-  it('does not flag when only one delta exceeds 1kg', () => {
-    const flags = run([{ weight_avg_kg: '70' }, { weight_avg_kg: '71.5' }, { weight_avg_kg: '71.8' }])
-    expect(flags.find((f) => f.ruleKey === 'weight_swing_two_weeks')).toBeFalsy()
+  it('does not flag other values', () => {
+    expect(run([q], [{ bonus_w5_rundown: 'Rarely' }]).find((f) => f.ruleKey === 'question:bonus_w5_rundown')).toBeFalsy()
   })
 
-  it('does not flag with fewer than 3 weeks of weigh-ins', () => {
-    const flags = run([{ weight_avg_kg: '70' }, { weight_avg_kg: '73' }])
-    expect(flags.find((f) => f.ruleKey === 'weight_swing_two_weeks')).toBeFalsy()
+  it('does not flag when unanswered', () => {
+    expect(run([q], [{}]).find((f) => f.ruleKey === 'question:bonus_w5_rundown')).toBeFalsy()
   })
 })
 
-describe('keyword scan rule', () => {
+describe('match flag — lead severity', () => {
+  const q: CheckinQuestion = { id: 'what_next', type: 'radio', label: 'What next?', flag: { severity: 'lead', condition: { kind: 'match', values: ['Accountability Continuation', '1:1 coaching'] } } }
+
+  it('flags Accountability Continuation as a lead', () => {
+    const flag = run([q], [{ what_next: 'Accountability Continuation' }]).find((f) => f.ruleKey === 'question:what_next')
+    expect(flag).toBeTruthy()
+    expect(flag?.severity).toBe('lead')
+  })
+
+  it('flags 1:1 coaching as a lead', () => {
+    expect(run([q], [{ what_next: '1:1 coaching' }]).find((f) => f.ruleKey === 'question:what_next')?.severity).toBe('lead')
+  })
+
+  it('does not flag "Keep going on my own"', () => {
+    expect(run([q], [{ what_next: 'Keep going on my own' }]).find((f) => f.ruleKey === 'question:what_next')).toBeFalsy()
+  })
+})
+
+describe('trend flag — weigh-in swing', () => {
+  const q: CheckinQuestion = { id: 'weight_avg_kg', type: 'number', label: 'Weight', flag: { severity: 'normal', condition: { kind: 'trend', direction: 'either', amount: 1, consecutive: 2 } } }
+
+  it('flags when two consecutive week-over-week deltas both exceed the amount', () => {
+    const flags = run([q], [{ weight_avg_kg: '70' }, { weight_avg_kg: '71.5' }, { weight_avg_kg: '73' }])
+    expect(flags.find((f) => f.ruleKey === 'question:weight_avg_kg')).toBeTruthy()
+  })
+
+  it('does not flag when only one delta exceeds the amount', () => {
+    const flags = run([q], [{ weight_avg_kg: '70' }, { weight_avg_kg: '71.5' }, { weight_avg_kg: '71.8' }])
+    expect(flags.find((f) => f.ruleKey === 'question:weight_avg_kg')).toBeFalsy()
+  })
+
+  it('does not flag with fewer data points than consecutive+1 requires', () => {
+    const flags = run([q], [{ weight_avg_kg: '70' }, { weight_avg_kg: '73' }])
+    expect(flags.find((f) => f.ruleKey === 'question:weight_avg_kg')).toBeFalsy()
+  })
+
+  it('respects direction filtering', () => {
+    const increaseOnly: CheckinQuestion = { id: 'weight_avg_kg', type: 'number', flag: { severity: 'normal', condition: { kind: 'trend', direction: 'increase', amount: 1, consecutive: 2 } } }
+    const flags = run([increaseOnly], [{ weight_avg_kg: '75' }, { weight_avg_kg: '73' }, { weight_avg_kg: '71' }])
+    expect(flags.find((f) => f.ruleKey === 'question:weight_avg_kg')).toBeFalsy()
+  })
+})
+
+describe('keyword scan rule (hardcoded, not coach-configurable)', () => {
   it('flags as urgent when a text answer contains a listed keyword', () => {
-    const flags = run([{ biggest_obstacle: 'I have been purging after meals' }])
+    const flags = run(PLAIN_TEXT_QUESTIONS, [{ biggest_obstacle: 'I have been purging after meals' }])
     const flag = flags.find((f) => f.ruleKey === 'keyword_match')
     expect(flag).toBeTruthy()
     expect(flag?.severity).toBe('urgent')
   })
 
   it('is case-insensitive', () => {
-    const flags = run([{ biggest_win: 'Finally stopped PURGING this week' }])
+    const flags = run(PLAIN_TEXT_QUESTIONS, [{ biggest_win: 'Finally stopped PURGING this week' }])
     expect(flags.find((f) => f.ruleKey === 'keyword_match')).toBeTruthy()
   })
 
   it('does not scan non-text question types', () => {
-    const flags = run([{ habit_days: 'purge' }]) // habit_days is type 'number', not scannable
+    const flags = run([{ id: 'habit_days', type: 'number' }], [{ habit_days: 'purge' }])
     expect(flags.find((f) => f.ruleKey === 'keyword_match')).toBeFalsy()
   })
 
   it('does not flag clean text', () => {
-    const flags = run([{ biggest_win: 'Felt strong in the gym this week' }])
+    const flags = run(PLAIN_TEXT_QUESTIONS, [{ biggest_win: 'Felt strong in the gym this week' }])
     expect(flags.find((f) => f.ruleKey === 'keyword_match')).toBeFalsy()
   })
 
-  it('keyword list is non-empty and editable (exported array)', () => {
+  it('keyword list is non-empty', () => {
     expect(DISORDERED_EATING_KEYWORDS.length).toBeGreaterThan(0)
   })
 })
 
-describe('final check-in lead rule', () => {
-  it('flags Accountability Continuation as a lead', () => {
-    const flags = run([{ what_next: 'Accountability Continuation' }], { isFinalStep: true })
-    const flag = flags.find((f) => f.ruleKey === 'final_lead')
-    expect(flag).toBeTruthy()
-    expect(flag?.severity).toBe('lead')
+describe('requiredHistoryLength', () => {
+  it('defaults to 1 when nothing has a flag', () => {
+    expect(requiredHistoryLength(PLAIN_TEXT_QUESTIONS)).toBe(1)
   })
 
-  it('flags 1:1 coaching as a lead', () => {
-    const flags = run([{ what_next: '1:1 coaching' }], { isFinalStep: true })
-    expect(flags.find((f) => f.ruleKey === 'final_lead')?.severity).toBe('lead')
+  it('returns the consecutive count for a threshold/match flag', () => {
+    const q: CheckinQuestion = { id: 'x', type: 'scale', flag: { severity: 'normal', condition: { kind: 'threshold', operator: '<=', value: 3, consecutive: 2 } } }
+    expect(requiredHistoryLength([q])).toBe(2)
   })
 
-  it('does not flag "Keep going on my own"', () => {
-    const flags = run([{ what_next: 'Keep going on my own' }], { isFinalStep: true })
-    expect(flags.find((f) => f.ruleKey === 'final_lead')).toBeFalsy()
+  it('returns consecutive+1 for a trend flag', () => {
+    const q: CheckinQuestion = { id: 'x', type: 'number', flag: { severity: 'normal', condition: { kind: 'trend', direction: 'either', amount: 1, consecutive: 2 } } }
+    expect(requiredHistoryLength([q])).toBe(3)
   })
 
-  it('does not evaluate this rule outside the final step', () => {
-    const flags = run([{ what_next: '1:1 coaching' }], { isFinalStep: false })
-    expect(flags.find((f) => f.ruleKey === 'final_lead')).toBeFalsy()
+  it('takes the max across every flagged question', () => {
+    const a: CheckinQuestion = { id: 'a', type: 'scale', flag: { severity: 'normal', condition: { kind: 'threshold', operator: '<=', value: 3, consecutive: 2 } } }
+    const b: CheckinQuestion = { id: 'b', type: 'number', flag: { severity: 'normal', condition: { kind: 'trend', direction: 'either', amount: 1, consecutive: 3 } } }
+    expect(requiredHistoryLength([a, b])).toBe(4)
   })
 })
 
