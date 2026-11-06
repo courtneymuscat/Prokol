@@ -21,14 +21,17 @@ type Question = {
   required: boolean
   description?: string
   options?: string[]
-  // Only read/written for The Prokol Method - Check-ins template — see
-  // lib/checkinFlags.ts. Harmless metadata on any other autoflow (never
-  // evaluated there), so the builder only shows the editor for that one
-  // template to avoid promising behaviour that doesn't exist elsewhere.
+  // Coach-configured check-in flag rule — see lib/checkinFlags.ts.
   flag?: QuestionFlag | null
+  // Marks this question for the Reports page (Check-ins > Reports) —
+  // lets a coach pull every client's answer to this one question across
+  // a date range, regardless of which autoflow/step it lives on. Purely
+  // a display/query concern, no engine behaviour attached.
+  reportable?: boolean
 }
 
 const FLAG_ELIGIBLE_TYPES = new Set<QuestionType>(['number', 'scale', 'yesno', 'radio', 'choice', 'dropdown'])
+const REPORT_ELIGIBLE_TYPES = new Set<QuestionType>(['text', 'textarea', 'number', 'scale', 'yesno', 'radio', 'choice', 'dropdown'])
 
 type Task = {
   id: string
@@ -506,6 +509,20 @@ function QuestionCard({
               />
               Required
             </label>
+            {REPORT_ELIGIBLE_TYPES.has(q.type) && (
+              <label
+                className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer"
+                title="Lets you pull every client's answer to this question across a date range later, from Check-ins > Reports — e.g. 'What's your main goal?' or a monthly reflection question."
+              >
+                <input
+                  type="checkbox"
+                  checked={q.reportable ?? false}
+                  onChange={e => onChange({ ...q, reportable: e.target.checked })}
+                  className="rounded"
+                />
+                Include in reports
+              </label>
+            )}
           </div>
           {/* Optional description / helper text */}
           <input

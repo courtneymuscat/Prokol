@@ -387,12 +387,20 @@ export default async function CoachCheckInsPage() {
             The sidebar badge shows direct check-ins not yet marked as reviewed. Open a client&apos;s file → Check-ins tab and tick &quot;Mark as reviewed&quot; to clear it.
           </p>
         </div>
-        <a
-          href="/coach/check-ins/message-templates"
-          className="text-sm text-gray-500 border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors flex-shrink-0 whitespace-nowrap"
-        >
-          Message templates
-        </a>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <a
+            href="/coach/check-ins/reports"
+            className="text-sm text-gray-500 border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap"
+          >
+            Reports
+          </a>
+          <a
+            href="/coach/check-ins/message-templates"
+            className="text-sm text-gray-500 border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap"
+          >
+            Message templates
+          </a>
+        </div>
       </div>
 
       <ScheduleSection days={days7} noCheckInClients={noCheckInClients} />
