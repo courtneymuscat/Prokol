@@ -23,6 +23,7 @@ export async function PUT(req: NextRequest) {
     normal_template?: string
     lead_template?: string
     category_snippets?: Record<string, string>
+    custom_categories?: { id?: string; label?: string }[]
   }
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
@@ -30,10 +31,23 @@ export async function PUT(req: NextRequest) {
   if (typeof body.urgent_enabled === 'boolean') patch.urgent_enabled = body.urgent_enabled
   if (typeof body.normal_template === 'string') patch.normal_template = body.normal_template
   if (typeof body.lead_template === 'string') patch.lead_template = body.lead_template
+
+  // Custom categories — ids must look like the slug this route generates
+  // client-side (lowercase, alnum + underscore) so a tampered request
+  // can't smuggle arbitrary jsonb keys in.
+  let customCategories: { id: string; label: string }[] = []
+  if (Array.isArray(body.custom_categories)) {
+    customCategories = body.custom_categories
+      .filter((c): c is { id: string; label: string } => typeof c?.id === 'string' && typeof c?.label === 'string' && /^[a-z0-9_]+$/.test(c.id) && c.label.trim().length > 0)
+      .map((c) => ({ id: c.id, label: c.label.trim() }))
+    patch.custom_categories = customCategories
+  }
+
   if (body.category_snippets && typeof body.category_snippets === 'object') {
+    const allowedIds = new Set([...FLAG_CATEGORY_PRIORITY, ...customCategories.map((c) => c.id)])
     const clean: Record<string, string> = {}
-    for (const cat of FLAG_CATEGORY_PRIORITY) {
-      if (typeof body.category_snippets[cat] === 'string') clean[cat] = body.category_snippets[cat]
+    for (const id of allowedIds) {
+      if (typeof body.category_snippets[id] === 'string') clean[id] = body.category_snippets[id]
     }
     patch.category_snippets = clean
   }

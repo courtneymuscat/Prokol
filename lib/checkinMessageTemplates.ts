@@ -37,12 +37,19 @@ export const DEFAULT_CATEGORY_SNIPPETS: Record<FlagCategory, string> = {
   missed_checkins: "it's been a little while since your last check-in — no pressure, just jump back in whenever you're ready",
 }
 
+export type CustomFlagCategory = { id: string; label: string }
+
 export type CoachMessageTemplates = {
   urgent_template: string
   urgent_enabled: boolean
   normal_template: string
   lead_template: string
   category_snippets: Record<string, string>
+  // Coach-added categories on top of the 6 built-in ones in
+  // lib/checkinFlags.ts — their snippet text lives in category_snippets
+  // too, keyed by this id. Always lowest priority when combining (see
+  // pickAutomatedMessages in lib/checkinFlags.ts).
+  custom_categories: CustomFlagCategory[]
 }
 
 export const DEFAULT_MESSAGE_TEMPLATES: CoachMessageTemplates = {
@@ -51,6 +58,7 @@ export const DEFAULT_MESSAGE_TEMPLATES: CoachMessageTemplates = {
   normal_template: DEFAULT_NORMAL_TEMPLATE,
   lead_template: DEFAULT_LEAD_TEMPLATE,
   category_snippets: DEFAULT_CATEGORY_SNIPPETS,
+  custom_categories: [],
 }
 
 /** Simple {merge_field} substitution — no escaping/looping, just plain text swaps. */

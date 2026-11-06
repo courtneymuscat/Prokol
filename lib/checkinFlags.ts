@@ -14,14 +14,18 @@ export type FlagSeverity = 'normal' | 'urgent' | 'lead'
 
 // Only meaningful for 'normal' severity flags — when more than one Normal
 // flag fires on the same submission, the automated message combines the
-// top 2 by this priority order (see pickAutomatedMessages below).
-export type FlagCategory = 'under_fuelling' | 'low_mood_energy' | 'high_stress' | 'fast_weight_change' | 'low_habit' | 'missed_checkins'
+// top 2 by priority order (see pickAutomatedMessages below). A plain
+// string rather than a fixed union: coaches can add their own custom
+// categories (with their own snippet text) from Check-ins > Message
+// templates, on top of the built-in ones below. Built-ins always sort
+// ahead of customs when combining — see pickAutomatedMessages.
+export type FlagCategory = string
 
 export const FLAG_CATEGORY_PRIORITY: FlagCategory[] = [
   'under_fuelling', 'low_mood_energy', 'high_stress', 'fast_weight_change', 'low_habit', 'missed_checkins',
 ]
 
-export const FLAG_CATEGORY_LABELS: Record<FlagCategory, string> = {
+export const FLAG_CATEGORY_LABELS: Record<string, string> = {
   under_fuelling: 'Under-fuelling',
   low_mood_energy: 'Low mood / energy',
   high_stress: 'High stress',
@@ -318,9 +322,16 @@ export function pickAutomatedMessages(flags: FlagResult[]): {
       const cat = f.category as FlagCategory
       if (!byCategory.has(cat)) byCategory.set(cat, f)
     }
-    const ordered = FLAG_CATEGORY_PRIORITY
-      .map((cat) => byCategory.get(cat))
-      .filter((f): f is FlagResult => !!f)
+    // Built-ins sort by their fixed priority order; any custom category a
+    // coach added sorts after every built-in (in whatever order it was
+    // encountered) rather than being dropped.
+    const priorityIndex = (cat: FlagCategory) => {
+      const idx = FLAG_CATEGORY_PRIORITY.indexOf(cat)
+      return idx === -1 ? FLAG_CATEGORY_PRIORITY.length : idx
+    }
+    const ordered = [...byCategory.entries()]
+      .sort((a, b) => priorityIndex(a[0]) - priorityIndex(b[0]))
+      .map(([, f]) => f)
       .slice(0, 2)
     if (ordered.length > 0) normal = { flags: ordered }
   }

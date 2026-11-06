@@ -392,6 +392,7 @@ function FlagEditor({ q, onChange, messageTemplates }: { q: Question; onChange: 
                 >
                   <option value="">— Select a category —</option>
                   {Object.entries(FLAG_CATEGORY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  {(messageTemplates?.custom_categories ?? []).map((c) => <option key={c.id} value={c.id}>{c.label} (custom)</option>)}
                 </select>
                 {!activeFlag.category && <span className="text-[11px] text-amber-600">Pick one or this won&apos;t send.</span>}
               </div>
@@ -1292,6 +1293,16 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
         </div>
         <div className="flex items-center gap-2">
           {!isNew && <ProgramLinkPanel autoflowId={templateId} />}
+          <a
+            href="/coach/check-ins/message-templates"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-gray-400 hover:text-gray-700 transition-colors px-2 flex items-center gap-1"
+            title="Edit the wording for automated flag messages"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>
+            Message templates
+          </a>
           <button
             onClick={duplicateTemplate}
             className="text-xs text-gray-400 hover:text-gray-700 transition-colors px-2 flex items-center gap-1"

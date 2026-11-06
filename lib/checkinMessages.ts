@@ -24,7 +24,7 @@ export { renderTemplate, combineCategorySnippets, type CoachMessageTemplates } f
 export async function getOrCreateMessageTemplates(admin: SupabaseClient, coachId: string): Promise<CoachMessageTemplates> {
   const { data: existing } = await admin
     .from('coach_message_templates')
-    .select('urgent_template, urgent_enabled, normal_template, lead_template, category_snippets')
+    .select('urgent_template, urgent_enabled, normal_template, lead_template, category_snippets, custom_categories')
     .eq('coach_id', coachId)
     .maybeSingle()
   if (existing) return existing as CoachMessageTemplates
@@ -36,11 +36,12 @@ export async function getOrCreateMessageTemplates(admin: SupabaseClient, coachId
     normal_template: DEFAULT_NORMAL_TEMPLATE,
     lead_template: DEFAULT_LEAD_TEMPLATE,
     category_snippets: DEFAULT_CATEGORY_SNIPPETS,
+    custom_categories: [],
   }
   const { data: inserted } = await admin
     .from('coach_message_templates')
     .upsert(seeded, { onConflict: 'coach_id' })
-    .select('urgent_template, urgent_enabled, normal_template, lead_template, category_snippets')
+    .select('urgent_template, urgent_enabled, normal_template, lead_template, category_snippets, custom_categories')
     .single()
   return (inserted as CoachMessageTemplates | null) ?? DEFAULT_MESSAGE_TEMPLATES
 }

@@ -197,6 +197,19 @@ describe('pickAutomatedMessages', () => {
     const picked = pickAutomatedMessages([normalNoSend])
     expect(picked.normal).toBeNull()
   })
+
+  it('a coach-added custom category combines rather than being dropped, after built-ins', () => {
+    const custom: FlagResult = { ruleKey: 'question:f', severity: 'normal', reason: 'x', sendAutomatedMessage: true, category: 'sleep_debt' }
+    const picked = pickAutomatedMessages([custom, normalA])
+    expect(picked.normal?.flags.map((f) => f.category)).toEqual(['high_stress', 'sleep_debt'])
+  })
+
+  it('two custom categories alone still combine (both unknown to the priority list)', () => {
+    const custom1: FlagResult = { ruleKey: 'question:f', severity: 'normal', reason: 'x', sendAutomatedMessage: true, category: 'sleep_debt' }
+    const custom2: FlagResult = { ruleKey: 'question:g', severity: 'normal', reason: 'x', sendAutomatedMessage: true, category: 'injury' }
+    const picked = pickAutomatedMessages([custom1, custom2])
+    expect(picked.normal?.flags.map((f) => f.category)).toEqual(['sleep_debt', 'injury'])
+  })
 })
 
 describe('requiredHistoryLength', () => {
