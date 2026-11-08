@@ -58,6 +58,13 @@ const HOW_IT_WORKS = [
   { n: '03', t: 'Ongoing support, your way', d: 'Weekly, monthly, or async — whatever level of contact matches the tier you’re on.' },
 ]
 
+const GYM_STATS = [
+  { n: '13', label: 'weeks' },
+  { n: '25', label: 'video lessons' },
+  { n: '24', label: 'downloadable guides' },
+  { n: '41', label: 'flagged messages' },
+]
+
 const GYM_TIERS = [
   {
     tag: 'Every member, automated',
@@ -485,9 +492,23 @@ export default function WaysToWorkWithMe() {
             </div>
           ) : active === 'gyms' ? (
             <div>
-              <p className="text-center mb-10" style={{ color: INK_SOFT, fontWeight: 300, maxWidth: 640, marginLeft: 'auto', marginRight: 'auto' }}>
-                A 13-week nutrition lessons program that runs inside your gym’s own branded app — 25 video lessons, 24 downloadable guides, and a women’s health library, built and run personally by me as an Accredited Sports Nutritionist. Give your members as much or as little personal guidance as you like: one flat monthly fee covers everyone, every flag is seen, and it takes zero extra time from your trainers.
-              </p>
+              <div
+                className="text-center mb-10 mx-auto rounded-[2rem] px-8 py-8 md:px-12 md:py-9"
+                style={{ background: 'rgba(29,158,117,0.08)', border: '1px solid rgba(29,158,117,0.18)', maxWidth: 700 }}
+              >
+                <p style={{ color: INK, fontWeight: 300, fontSize: '1.05rem', lineHeight: 1.6 }}>
+                  A 13-week nutrition lessons program that runs inside your gym’s own branded app — 25 video lessons, 24 downloadable guides, and a women’s health library, built and run personally by me as an Accredited Sports Nutritionist. Give your members as much or as little personal guidance as you like: one flat monthly fee covers everyone, every flag is seen, and it takes zero extra time from your trainers.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-14 max-w-3xl mx-auto">
+                {GYM_STATS.map((s) => (
+                  <div key={s.label} className="rounded-2xl text-center py-7 px-3" style={{ background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}>
+                    <p className="font-black" style={{ fontFamily: HEAD, fontSize: '2.25rem', lineHeight: 1, color: BERRY }}>{s.n}</p>
+                    <p className="text-sm mt-2" style={{ color: INK_SOFT }}>{s.label}</p>
+                  </div>
+                ))}
+              </div>
 
               <div className="grid md:grid-cols-2 gap-5">
                 {GYM_TIERS.map((t) => (
