@@ -42,7 +42,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   const body = await req.json()
   const {
-    age, sex, height_cm, weight_kg, steps_per_day, activities, goal, adjustment_pct,
+    age, sex, height_cm, weight_kg, steps_per_day, activities, goal, adjustment_pct, dietary_preference,
     tdee, target_calories, target_protein, target_carbs, target_fat,
   } = body
 
@@ -61,6 +61,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       activities: activities ?? [],
       goal: goal ?? null,
       adjustment_pct: adjustment_pct ?? null,
+      dietary_preference: dietary_preference ?? null,
       tdee: tdee ?? null,
       target_calories,
       target_protein,
@@ -103,12 +104,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       .maybeSingle()
 
     if (!existingActivePlan) {
-      const { data: profile } = await admin
-        .from('profiles')
-        .select('dietary_preference')
-        .eq('id', user.id)
-        .single()
-      const dietGoal = mapDietaryPreferenceToMealPlanGoal(profile?.dietary_preference as string | null)
+      const dietGoal = mapDietaryPreferenceToMealPlanGoal(dietary_preference ?? null)
 
       const { data: candidates } = await admin
         .from('meal_plans')

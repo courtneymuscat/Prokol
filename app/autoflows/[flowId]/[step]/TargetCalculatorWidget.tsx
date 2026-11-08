@@ -7,6 +7,16 @@ import {
   type TDEESex, type TDEEGoal, type TDEEActivity, type TDEEActivityType,
 } from '@/lib/tdee'
 
+// Same type/options/labels as app/onboarding/page.tsx's dietary preference
+// picker — a fresh copy rather than a shared import, same precedent as
+// lib/tdee.ts itself (see that file's own comment).
+type DietaryPreference = 'none' | 'vegan' | 'dairy_free'
+const DIETARY_PREFS: { value: DietaryPreference; label: string }[] = [
+  { value: 'none',       label: 'Omnivore (no preference)' },
+  { value: 'vegan',      label: 'Vegan' },
+  { value: 'dairy_free', label: 'Dairy-free' },
+]
+
 type ExistingProfile = {
   age?: number | null
   sex?: TDEESex | null
@@ -16,6 +26,7 @@ type ExistingProfile = {
   activities?: Array<{ type: TDEEActivityType; duration_minutes: string; sessions_per_week: string }> | null
   goal?: TDEEGoal | null
   adjustment_pct?: number | null
+  dietary_preference?: DietaryPreference | null
 }
 
 type Result = {
@@ -97,6 +108,7 @@ export default function TargetCalculatorWidget({
   )
   const [goal, setGoal] = useState<TDEEGoal | ''>(p.goal ?? '')
   const [adjustmentPct, setAdjustmentPct] = useState(p.adjustment_pct ?? defaultAdjPct(p.goal ?? null))
+  const [dietaryPreference, setDietaryPreference] = useState<DietaryPreference>(p.dietary_preference ?? 'none')
 
   function addActivity() {
     setActivities(prev => [...prev, { id: crypto.randomUUID(), type: 'strength', duration_minutes: '45', sessions_per_week: '3' }])
@@ -132,6 +144,7 @@ export default function TargetCalculatorWidget({
         activities: activities.map(({ id: _id, ...a }) => a),
         goal,
         adjustment_pct: adjustmentPct,
+        dietary_preference: dietaryPreference,
         tdee: tdeeResult.tdee,
         target_calories: macros.targetCals,
         target_protein: macros.proteinG,
@@ -223,6 +236,25 @@ export default function TargetCalculatorWidget({
           />
         </div>
       )}
+
+      <div>
+        <label className="block text-[11px] text-gray-500 mb-1">Dietary preference</label>
+        <div className="flex flex-wrap gap-2">
+          {DIETARY_PREFS.map(d => (
+            <button
+              key={d.value}
+              onClick={() => setDietaryPreference(d.value)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                dietaryPreference === d.value
+                  ? 'bg-gray-900 text-white border-gray-900'
+                  : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400'
+              }`}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
