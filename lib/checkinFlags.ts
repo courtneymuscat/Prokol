@@ -319,8 +319,6 @@ export function pickAutomatedMessages(
   const urgent = sendable.find((f) => f.severity === 'urgent') ?? null
   if (urgent) return { urgent, normal: null, lead: null }
 
-  const lead = sendable.find((f) => f.severity === 'lead') ?? null
-
   const normalWithCategory = sendable.filter((f) => f.severity === 'normal' && f.category)
   let normal: { flags: FlagResult[] } | null = null
   if (normalWithCategory.length > 0) {
@@ -344,6 +342,12 @@ export function pickAutomatedMessages(
       .slice(0, 2)
     if (ordered.length > 0) normal = { flags: ordered }
   }
+
+  // True single-message-per-check-in cap: Urgent > Normal > Lead. A Lead
+  // flag that fires alongside a sendable Normal flag still gets its DB
+  // row (the coach still sees it in their queue) but doesn't also send
+  // its own automated message that same check-in.
+  const lead = normal ? null : (sendable.find((f) => f.severity === 'lead') ?? null)
 
   return { urgent: null, normal, lead }
 }

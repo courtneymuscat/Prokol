@@ -175,10 +175,17 @@ describe('pickAutomatedMessages', () => {
     expect(picked.lead).toBeNull()
   })
 
-  it('normal and lead can both send when urgent did not fire', () => {
+  it('normal beats lead when both fire and urgent did not', () => {
     const picked = pickAutomatedMessages([normalA, leadFlag])
     expect(picked.urgent).toBeNull()
     expect(picked.normal?.flags).toEqual([normalA])
+    expect(picked.lead).toBeNull()
+  })
+
+  it('lead sends when it fires alone, with no urgent or normal', () => {
+    const picked = pickAutomatedMessages([leadFlag])
+    expect(picked.urgent).toBeNull()
+    expect(picked.normal).toBeNull()
     expect(picked.lead).toBe(leadFlag)
   })
 

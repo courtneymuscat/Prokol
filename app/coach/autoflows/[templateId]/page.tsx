@@ -384,7 +384,7 @@ function FlagEditor({ q, onChange, messageTemplates }: { q: Question; onChange: 
         {activeFlag.sendAutomatedMessage && (
           <div className="pl-5 space-y-2">
             <p className="text-[11px] text-gray-400 leading-relaxed">
-              At most one automated message sends per check-in. Urgent always wins and suppresses Lead (Lead still gets recorded for you to follow up).
+              At most one automated message sends per check-in — Urgent beats Normal beats Lead. Whichever doesn't send still gets recorded in your flagged queue for you to follow up.
               {activeFlag.severity === 'normal' && ' If more than one Normal flag fires at once, up to 2 combine into a single message, by priority order (under-fuelling → mood/energy → stress → weight change → habit → missed check-ins).'}
               {' '}Editable at{' '}
               <a href="/coach/check-ins/message-templates" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">
