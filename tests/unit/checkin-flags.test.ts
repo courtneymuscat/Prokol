@@ -217,6 +217,22 @@ describe('pickAutomatedMessages', () => {
     const picked = pickAutomatedMessages([custom1, custom2])
     expect(picked.normal?.flags.map((f) => f.category)).toEqual(['sleep_debt', 'injury'])
   })
+
+  it('a step-specific flag outranks a core flag even with worse category priority', () => {
+    // low_habit is lower priority than high_stress in FLAG_CATEGORY_PRIORITY,
+    // but step-specific beats core regardless of category order.
+    const coreHighStress: FlagResult = { ...normalA, isCore: true }
+    const stepLowHabit: FlagResult = { ...normalB, isCore: false }
+    const picked = pickAutomatedMessages([coreHighStress, stepLowHabit])
+    expect(picked.normal?.flags.map((f) => f.category)).toEqual(['low_habit', 'high_stress'])
+  })
+
+  it('when a core and a step flag share a category, the step-specific one is kept', () => {
+    const coreVersion: FlagResult = { ruleKey: 'question:core_x', severity: 'normal', reason: 'core reason', sendAutomatedMessage: true, category: 'high_stress', isCore: true }
+    const stepVersion: FlagResult = { ruleKey: 'question:step_x', severity: 'normal', reason: 'step reason', sendAutomatedMessage: true, category: 'high_stress', isCore: false }
+    const picked = pickAutomatedMessages([coreVersion, stepVersion])
+    expect(picked.normal?.flags).toEqual([stepVersion])
+  })
 })
 
 describe('requiredHistoryLength', () => {

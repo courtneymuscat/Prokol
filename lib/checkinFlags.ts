@@ -42,6 +42,14 @@ export type FlagResult = {
   // client-facing message (as opposed to just notifying the coach).
   sendAutomatedMessage: boolean
   category?: FlagCategory | null
+  // Whether the question this flag came from is one of the template's
+  // repeated core questions, as opposed to a question specific to this
+  // one step. Only meaningful for 'normal' severity — see
+  // pickAutomatedMessages, which prioritises step-specific flags over
+  // core ones when combining. Undefined for the hardcoded keyword-scan
+  // flags, which aren't tied to a single question either way (and never
+  // reach that code path regardless, since they carry no category).
+  isCore?: boolean
 }
 
 export type CheckinAnswers = Record<string, string>
@@ -76,7 +84,7 @@ export type QuestionFlag = {
   category?: FlagCategory | null
 }
 
-export type CheckinQuestion = { id: string; type: string; label?: string; flag?: QuestionFlag | null }
+export type CheckinQuestion = { id: string; type: string; label?: string; flag?: QuestionFlag | null; isCore?: boolean }
 
 // Edit these lists directly to add/remove trigger words — kept as plain
 // arrays, deliberately not spread across the file, so they're easy to
@@ -261,6 +269,7 @@ export function computeCheckinFlags(params: {
       reason: q.flag.reason?.trim() || autoReason(q, q.flag.condition, matched),
       sendAutomatedMessage: q.flag.sendAutomatedMessage ?? false,
       category: q.flag.severity === 'normal' ? (q.flag.category ?? null) : null,
+      isCore: q.isCore ?? false,
     })
   }
 
@@ -298,8 +307,9 @@ export function computeCheckinFlags(params: {
  * (the Lead flag still gets recorded for the coach, just no message sent
  * for it). Lead sends as a separate message alongside Normal when both
  * fire and Urgent didn't. At most one Normal message — when several
- * Normal flags with a category fire, the top 2 by priority order combine
- * into one message.
+ * Normal flags with a category fire, the top 2 combine into one message:
+ * step-specific questions' flags always rank ahead of the template's
+ * repeated core questions, and within each group, by priority order.
  *
  * `categoryPriority` is the coach's own ordered category list (ids, top =
  * highest priority) — each coach can rename/reorder/delete categories
@@ -322,10 +332,17 @@ export function pickAutomatedMessages(
   const normalWithCategory = sendable.filter((f) => f.severity === 'normal' && f.category)
   let normal: { flags: FlagResult[] } | null = null
   if (normalWithCategory.length > 0) {
-    // Dedupe by category (first occurrence wins), then take the top 2 by
-    // priority order.
+    // Step-specific questions take priority over the template's repeated
+    // core questions — sorted to the front before deduping, so if a core
+    // and a step-specific flag fire with the SAME category this check-in,
+    // the step-specific one's flag (reason/tip) is the one that's kept.
+    const byPriority = [...normalWithCategory].sort((a, b) => (a.isCore ? 1 : 0) - (b.isCore ? 1 : 0))
+
+    // Dedupe by category (first occurrence wins, per the sort above), then
+    // take the top 2 — step-specific categories before core ones, and
+    // within each group, by the coach's own category priority order.
     const byCategory = new Map<FlagCategory, FlagResult>()
-    for (const f of normalWithCategory) {
+    for (const f of byPriority) {
       const cat = f.category as FlagCategory
       if (!byCategory.has(cat)) byCategory.set(cat, f)
     }
@@ -337,7 +354,11 @@ export function pickAutomatedMessages(
       return idx === -1 ? categoryPriority.length : idx
     }
     const ordered = [...byCategory.entries()]
-      .sort((a, b) => priorityIndex(a[0]) - priorityIndex(b[0]))
+      .sort((a, b) => {
+        const coreDelta = (a[1].isCore ? 1 : 0) - (b[1].isCore ? 1 : 0)
+        if (coreDelta !== 0) return coreDelta
+        return priorityIndex(a[0]) - priorityIndex(b[0])
+      })
       .map(([, f]) => f)
       .slice(0, 2)
     if (ordered.length > 0) normal = { flags: ordered }

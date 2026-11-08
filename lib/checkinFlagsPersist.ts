@@ -43,8 +43,13 @@ export async function computeAndStoreCheckinFlags(params: {
   if (!step) return
 
   const tpl = flow.autoflow_templates as unknown as { core_questions: CheckinQuestion[] } | null
-  const coreQuestions = step.include_core_questions === false ? [] : (tpl?.core_questions ?? [])
-  const stepQuestions = Array.isArray(step.questions) ? (step.questions as CheckinQuestion[]) : []
+  // Tagged isCore/not so pickAutomatedMessages can prioritise a
+  // step-specific question's Normal flag over a core question's when
+  // both fire on the same check-in — see that function's own comment.
+  const coreQuestions = (step.include_core_questions === false ? [] : (tpl?.core_questions ?? []))
+    .map((q) => ({ ...q, isCore: true }))
+  const stepQuestions = (Array.isArray(step.questions) ? (step.questions as CheckinQuestion[]) : [])
+    .map((q) => ({ ...q, isCore: false }))
   const questions: CheckinQuestion[] = [...coreQuestions, ...stepQuestions]
 
   // Fetch exactly as much prior history as the longest flag condition on
