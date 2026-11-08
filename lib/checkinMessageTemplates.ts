@@ -14,12 +14,13 @@ import type { FlagCategory } from '@/lib/checkinFlags'
 // changes here once a coach has their own row; edit it there instead.
 
 export const DEFAULT_URGENT_TEMPLATE =
-`Hi {first_name}, this is an automated message — something in your check-in today stood out, so we wanted to check in just in case. No pressure at all, but if things feel tough right now, support is there:
-- Lifeline: 13 11 14 (24/7)
-- Butterfly Foundation: 1800 33 4673 (support for eating and body image concerns)
-- Your GP is a great first step if you'd like to talk it through with someone
-- If you're ever in immediate danger, please call 000
-You're always welcome to message {coach_name} directly here in the app too. You're not alone in this.`
+`Hi {first_name}, just a quick note — nothing alarming, but something in your check-in stood out, so we wanted to check in personally. There's no pressure here at all.
+
+If it's ever helpful: your GP is a great first step, and Lifeline (13 11 14) or the Butterfly Foundation (1800 33 4673) are there any time, day or night. And of course, {coach_name} is just a message away here in the app whenever you want to talk.
+
+If you're ever in immediate danger, please call 000.
+
+Take care of yourself today.`
 
 export const DEFAULT_NORMAL_TEMPLATE =
 `Hi {first_name}, thanks for checking in. It looks like this week was a bit harder: {flag_reason}. That's okay, as progress is never a straight line.

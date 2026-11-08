@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { FLAG_CATEGORY_PRIORITY, FLAG_CATEGORY_LABELS } from '@/lib/checkinFlags'
 import {
   DEFAULT_URGENT_TEMPLATE,
   DEFAULT_NORMAL_TEMPLATE,
@@ -6,6 +7,7 @@ import {
   DEFAULT_CATEGORY_SNIPPETS,
   DEFAULT_MESSAGE_TEMPLATES,
   type CoachMessageTemplates,
+  type CustomFlagCategory,
 } from '@/lib/checkinMessageTemplates'
 
 // Server-only pieces of the automated check-in message system (DB reads/
@@ -15,11 +17,26 @@ import {
 // (web-push, etc.) that break the browser bundle.
 export { renderTemplate, combineCategorySnippets, type CoachMessageTemplates } from '@/lib/checkinMessageTemplates'
 
+// The 6 built-in categories now live in each coach's own editable list
+// (renamable, deletable, reorderable later if ever needed) rather than
+// being a fixed global set — this fills in any that are missing so an
+// older row (saved before this became editable) still shows them.
+function withBuiltinsMerged(categories: CustomFlagCategory[]): CustomFlagCategory[] {
+  const existingIds = new Set(categories.map((c) => c.id))
+  const missingBuiltins = FLAG_CATEGORY_PRIORITY
+    .filter((id) => !existingIds.has(id))
+    .map((id) => ({ id, label: FLAG_CATEGORY_LABELS[id] ?? id }))
+  return [...missingBuiltins, ...categories]
+}
+
 /**
  * Fetches a coach's message-template row, creating it seeded with the
  * defaults on first access (every coach gets their own editable copy —
  * see lib/checkinFlags.ts for why the behaviour this drives is platform-
- * wide even though the wording itself is per-coach).
+ * wide even though the wording itself is per-coach). Write-through: if an
+ * existing row is missing a built-in category (saved before it became
+ * editable), the merged list is persisted back so every reader sees the
+ * same thing from here on, not just this call.
  */
 export async function getOrCreateMessageTemplates(admin: SupabaseClient, coachId: string): Promise<CoachMessageTemplates> {
   const { data: existing } = await admin
@@ -27,7 +44,13 @@ export async function getOrCreateMessageTemplates(admin: SupabaseClient, coachId
     .select('urgent_template, urgent_enabled, normal_template, lead_template, category_snippets, custom_categories')
     .eq('coach_id', coachId)
     .maybeSingle()
-  if (existing) return existing as CoachMessageTemplates
+  if (existing) {
+    const merged = withBuiltinsMerged((existing.custom_categories as CustomFlagCategory[]) ?? [])
+    if (merged.length !== (existing.custom_categories as CustomFlagCategory[] ?? []).length) {
+      await admin.from('coach_message_templates').update({ custom_categories: merged }).eq('coach_id', coachId)
+    }
+    return { ...existing, custom_categories: merged } as CoachMessageTemplates
+  }
 
   const seeded = {
     coach_id: coachId,
@@ -36,7 +59,7 @@ export async function getOrCreateMessageTemplates(admin: SupabaseClient, coachId
     normal_template: DEFAULT_NORMAL_TEMPLATE,
     lead_template: DEFAULT_LEAD_TEMPLATE,
     category_snippets: DEFAULT_CATEGORY_SNIPPETS,
-    custom_categories: [],
+    custom_categories: withBuiltinsMerged([]),
   }
   const { data: inserted } = await admin
     .from('coach_message_templates')

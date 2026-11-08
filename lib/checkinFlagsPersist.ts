@@ -115,11 +115,15 @@ export async function computeAndStoreCheckinFlags(params: {
 
   // Automated client-facing message — at most one, per pickAutomatedMessages'
   // priority rules (Urgent > Normal; Urgent suppresses Lead; Lead can send
-  // alongside Normal otherwise).
-  const picked = pickAutomatedMessages(flags)
-  if (!picked.urgent && !picked.normal && !picked.lead) return
+  // alongside Normal otherwise). Category priority comes from the coach's
+  // own list (renamable/deletable from Check-ins > Message templates),
+  // not a fixed global order.
+  if (!flags.some((f) => f.sendAutomatedMessage)) return
 
   const templates = await getOrCreateMessageTemplates(admin, coachId)
+  const picked = pickAutomatedMessages(flags, templates.custom_categories.map((c) => c.id))
+  if (!picked.urgent && !picked.normal && !picked.lead) return
+
   const vars = { first_name: clientFirstName, coach_name: coachDisplayName }
 
   if (picked.urgent) {

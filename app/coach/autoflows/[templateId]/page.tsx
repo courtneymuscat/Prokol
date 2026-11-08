@@ -394,8 +394,13 @@ function FlagEditor({ q, onChange, messageTemplates }: { q: Question; onChange: 
                   className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none"
                 >
                   <option value="">— Select a category —</option>
-                  {Object.entries(FLAG_CATEGORY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                  {(messageTemplates?.custom_categories ?? []).map((c) => <option key={c.id} value={c.id}>{c.label} (custom)</option>)}
+                  {/* messageTemplates.custom_categories is the coach's full editable
+                      category list (built-ins + their own, merged server-side) — see
+                      lib/checkinMessages.ts. Falls back to the built-in labels only
+                      while that hasn't loaded yet, to avoid an empty dropdown flash. */}
+                  {messageTemplates
+                    ? messageTemplates.custom_categories.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)
+                    : Object.entries(FLAG_CATEGORY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
                 {!activeFlag.category && <span className="text-[11px] text-amber-600">Pick one or this won&apos;t send.</span>}
               </div>

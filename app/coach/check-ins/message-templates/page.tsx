@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { FLAG_CATEGORY_PRIORITY, FLAG_CATEGORY_LABELS, URGENT_KEYWORDS } from '@/lib/checkinFlags'
+import { URGENT_KEYWORDS } from '@/lib/checkinFlags'
 
 type CustomCategory = { id: string; label: string }
 
@@ -164,25 +164,19 @@ export default function MessageTemplatesPage() {
           className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none resize-y"
         />
         <div className="pt-2 border-t border-gray-100 space-y-2.5">
-          <p className="text-xs font-medium text-gray-600">Category snippets — fill in {'{flag_reason}'}, highest priority first</p>
-          {FLAG_CATEGORY_PRIORITY.map((cat, i) => (
-            <div key={cat} className="flex items-start gap-2.5">
-              <span className="text-xs text-gray-400 w-5 flex-shrink-0 pt-2">{i + 1}.</span>
-              <div className="flex-1 space-y-1">
-                <p className="text-xs font-medium text-gray-700">{FLAG_CATEGORY_LABELS[cat]}</p>
-                <input
-                  value={templates.category_snippets[cat] ?? ''}
-                  onChange={e => setTemplates({ ...templates, category_snippets: { ...templates.category_snippets, [cat]: e.target.value } })}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none"
-                />
-              </div>
-            </div>
-          ))}
+          <p className="text-xs font-medium text-gray-600">Category snippets — fill in {'{flag_reason}'}, highest priority first. Rename or delete any of these, or add your own below.</p>
           {templates.custom_categories.map((cat, i) => (
             <div key={cat.id} className="flex items-start gap-2.5">
-              <span className="text-xs text-gray-400 w-5 flex-shrink-0 pt-2">{FLAG_CATEGORY_PRIORITY.length + i + 1}.</span>
+              <span className="text-xs text-gray-400 w-5 flex-shrink-0 pt-2">{i + 1}.</span>
               <div className="flex-1 space-y-1">
-                <p className="text-xs font-medium text-gray-700">{cat.label} <span className="text-gray-400 font-normal">(custom)</span></p>
+                <input
+                  value={cat.label}
+                  onChange={e => setTemplates({
+                    ...templates,
+                    custom_categories: templates.custom_categories.map((c) => c.id === cat.id ? { ...c, label: e.target.value } : c),
+                  })}
+                  className="w-full text-xs font-medium text-gray-700 border border-transparent hover:border-gray-200 focus:border-gray-300 rounded-lg px-2 py-1 -mx-2 focus:outline-none"
+                />
                 <input
                   value={templates.category_snippets[cat.id] ?? ''}
                   onChange={e => setTemplates({ ...templates, category_snippets: { ...templates.category_snippets, [cat.id]: e.target.value } })}
@@ -200,10 +194,10 @@ export default function MessageTemplatesPage() {
             </div>
           ))}
           <AddCustomCategory
-            existingIds={[...FLAG_CATEGORY_PRIORITY, ...templates.custom_categories.map((c) => c.id)]}
+            existingIds={templates.custom_categories.map((c) => c.id)}
             onAdd={(cat) => setTemplates({ ...templates, custom_categories: [...templates.custom_categories, cat] })}
           />
-          <p className="text-[11px] text-gray-400">Custom categories always combine last — after the 6 built-in ones above, lowest priority.</p>
+          <p className="text-[11px] text-gray-400">New categories you add go to the bottom of this list — lowest priority.</p>
         </div>
       </div>
 

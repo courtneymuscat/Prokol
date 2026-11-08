@@ -298,10 +298,19 @@ export function computeCheckinFlags(params: {
  * (the Lead flag still gets recorded for the coach, just no message sent
  * for it). Lead sends as a separate message alongside Normal when both
  * fire and Urgent didn't. At most one Normal message — when several
- * Normal flags with a category fire, the top 2 by FLAG_CATEGORY_PRIORITY
- * combine into one message.
+ * Normal flags with a category fire, the top 2 by priority order combine
+ * into one message.
+ *
+ * `categoryPriority` is the coach's own ordered category list (ids, top =
+ * highest priority) — each coach can rename/reorder/delete categories
+ * from Check-ins > Message templates, so this isn't a fixed global list
+ * anymore. Defaults to FLAG_CATEGORY_PRIORITY (the seed order) when not
+ * supplied, which keeps this function usable without DB access in tests.
  */
-export function pickAutomatedMessages(flags: FlagResult[]): {
+export function pickAutomatedMessages(
+  flags: FlagResult[],
+  categoryPriority: FlagCategory[] = FLAG_CATEGORY_PRIORITY,
+): {
   urgent: FlagResult | null
   normal: { flags: FlagResult[] } | null
   lead: FlagResult | null
@@ -322,12 +331,12 @@ export function pickAutomatedMessages(flags: FlagResult[]): {
       const cat = f.category as FlagCategory
       if (!byCategory.has(cat)) byCategory.set(cat, f)
     }
-    // Built-ins sort by their fixed priority order; any custom category a
-    // coach added sorts after every built-in (in whatever order it was
-    // encountered) rather than being dropped.
+    // Any category not in the priority list (e.g. the coach deleted it
+    // after a flag was already set to use it) sorts after everything
+    // recognized, rather than being dropped.
     const priorityIndex = (cat: FlagCategory) => {
-      const idx = FLAG_CATEGORY_PRIORITY.indexOf(cat)
-      return idx === -1 ? FLAG_CATEGORY_PRIORITY.length : idx
+      const idx = categoryPriority.indexOf(cat)
+      return idx === -1 ? categoryPriority.length : idx
     }
     const ordered = [...byCategory.entries()]
       .sort((a, b) => priorityIndex(a[0]) - priorityIndex(b[0]))
