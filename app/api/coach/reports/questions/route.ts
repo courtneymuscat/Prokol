@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireCoach } from '@/lib/coach'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getOrgForUser } from '@/lib/org'
 
 type Question = { id: string; type: string; label: string; reportable?: boolean }
 
@@ -15,14 +14,18 @@ export async function GET() {
   if (!coachId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const admin = createAdminClient()
-  const membership = await getOrgForUser(coachId)
 
-  let flowsQuery = admin
+  // coach_id already fully scopes to this coach's own clients regardless
+  // of org/gym membership — a gym member's client_autoflows.coach_id is
+  // set to the org owner's id at enrollment (see acceptOrgSignupLink), so
+  // there's no separate org_id to additionally filter by here.
+  // client_autoflows has no org_id column; a previous version of this
+  // query tried to filter on one and silently returned [] for any coach
+  // who is an active org member.
+  const { data: flows } = await admin
     .from('client_autoflows')
     .select('template_id')
     .eq('coach_id', coachId)
-  if (membership) flowsQuery = flowsQuery.eq('org_id', membership.org_id)
-  const { data: flows } = await flowsQuery
 
   const templateIds = [...new Set((flows ?? []).map((f) => f.template_id as string))]
   if (templateIds.length === 0) return NextResponse.json([])

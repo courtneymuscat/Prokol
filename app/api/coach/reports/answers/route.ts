@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireCoach } from '@/lib/coach'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getOrgForUser } from '@/lib/org'
 
 // Every answer any of the coach's own clients gave to one specific
 // question, across every autoflow/step it appears on (a core question
@@ -18,14 +17,13 @@ export async function GET(req: NextRequest) {
   if (!questionId) return NextResponse.json({ error: 'questionId required' }, { status: 400 })
 
   const admin = createAdminClient()
-  const membership = await getOrgForUser(coachId)
 
-  let flowsQuery = admin
+  // coach_id already fully scopes to this coach's own clients regardless
+  // of org/gym membership — see questions/route.ts's identical comment.
+  const { data: flows } = await admin
     .from('client_autoflows')
     .select('id, client_id, name')
     .eq('coach_id', coachId)
-  if (membership) flowsQuery = flowsQuery.eq('org_id', membership.org_id)
-  const { data: flows } = await flowsQuery
 
   const flowIds = (flows ?? []).map((f) => f.id as string)
   if (flowIds.length === 0) return NextResponse.json([])
