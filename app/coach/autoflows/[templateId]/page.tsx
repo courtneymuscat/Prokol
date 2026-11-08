@@ -184,8 +184,8 @@ function previewMessage(flag: QuestionFlag, templates: MessageTemplates | null |
   if (flag.severity === 'urgent') return renderTemplate(templates.urgent_template, vars)
   if (flag.severity === 'lead') return renderTemplate(templates.lead_template, vars)
   if (!flag.category) return null
-  const flag_reason = combineCategorySnippets([flag.category as FlagCategory], templates.category_snippets)
-  return renderTemplate(templates.normal_template, { ...vars, flag_reason })
+  const { reason, tip } = combineCategorySnippets([flag.category as FlagCategory], templates.category_snippets)
+  return renderTemplate(templates.normal_template, { ...vars, flag_reason: reason, flag_tip: tip })
 }
 
 // Flag rule editor for one question — available on every autoflow, for

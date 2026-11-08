@@ -4,13 +4,14 @@ import { useEffect, useState } from 'react'
 import { URGENT_KEYWORDS } from '@/lib/checkinFlags'
 
 type CustomCategory = { id: string; label: string }
+type CategorySnippet = { reason: string; tip: string }
 
 type Templates = {
   urgent_template: string
   urgent_enabled: boolean
   normal_template: string
   lead_template: string
-  category_snippets: Record<string, string>
+  category_snippets: Record<string, CategorySnippet>
   custom_categories: CustomCategory[]
 }
 
@@ -117,7 +118,8 @@ export default function MessageTemplatesPage() {
             Wording for the automated messages sent when a check-in is flagged — see "+ Flag this question" on any autoflow question.
             Merge fields: <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{'{first_name}'}</code>{' '}
             <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{'{coach_name}'}</code>{' '}
-            <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{'{flag_reason}'}</code> (Normal only).
+            <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{'{flag_reason}'}</code>{' '}
+            <code className="bg-gray-100 rounded px-1 py-0.5 text-xs">{'{flag_tip}'}</code> (Normal only — filled in from the category snippets below).
           </p>
         </div>
         <button
@@ -156,43 +158,69 @@ export default function MessageTemplatesPage() {
       {/* Normal */}
       <div className="bg-white rounded-2xl border p-5 space-y-3">
         <h2 className="text-sm font-semibold text-gray-900">Normal</h2>
-        <p className="text-xs text-gray-400">Sent when one or more questions flagged Normal with "send an automated message" on and a category selected fire. Up to 2 categories combine into {'{flag_reason}'}, by priority order below.</p>
+        <p className="text-xs text-gray-400">
+          Sent when one or more questions flagged Normal with "send an automated message" on and a category selected fire.
+          Up to 2 categories combine, by priority order below — their Reasons join into {'{flag_reason}'}, their Tips into {'{flag_tip}'}.
+          Put both merge fields wherever you want them to read naturally — they don't have to sit next to each other.
+        </p>
         <textarea
           value={templates.normal_template}
           onChange={e => setTemplates({ ...templates, normal_template: e.target.value })}
-          rows={4}
+          rows={6}
           className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2.5 focus:outline-none resize-y"
         />
-        <div className="pt-2 border-t border-gray-100 space-y-2.5">
-          <p className="text-xs font-medium text-gray-600">Category snippets — fill in {'{flag_reason}'}, highest priority first. Rename or delete any of these, or add your own below.</p>
-          {templates.custom_categories.map((cat, i) => (
-            <div key={cat.id} className="flex items-start gap-2.5">
-              <span className="text-xs text-gray-400 w-5 flex-shrink-0 pt-2">{i + 1}.</span>
-              <div className="flex-1 space-y-1">
-                <input
-                  value={cat.label}
-                  onChange={e => setTemplates({
-                    ...templates,
-                    custom_categories: templates.custom_categories.map((c) => c.id === cat.id ? { ...c, label: e.target.value } : c),
-                  })}
-                  className="w-full text-xs font-medium text-gray-700 border border-transparent hover:border-gray-200 focus:border-gray-300 rounded-lg px-2 py-1 -mx-2 focus:outline-none"
-                />
-                <input
-                  value={templates.category_snippets[cat.id] ?? ''}
-                  onChange={e => setTemplates({ ...templates, category_snippets: { ...templates.category_snippets, [cat.id]: e.target.value } })}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none"
-                />
+        <div className="pt-2 border-t border-gray-100 space-y-3">
+          <p className="text-xs font-medium text-gray-600">Category snippets, highest priority first. Rename or delete any of these, or add your own below.</p>
+          {templates.custom_categories.map((cat, i) => {
+            const snippet = templates.category_snippets[cat.id] ?? { reason: '', tip: '' }
+            function updateSnippet(patch: Partial<CategorySnippet>) {
+              setTemplates((prev) => prev && {
+                ...prev,
+                category_snippets: { ...prev.category_snippets, [cat.id]: { ...snippet, ...patch } },
+              })
+            }
+            return (
+              <div key={cat.id} className="flex items-start gap-2.5">
+                <span className="text-xs text-gray-400 w-5 flex-shrink-0 pt-2">{i + 1}.</span>
+                <div className="flex-1 space-y-1.5">
+                  <input
+                    value={cat.label}
+                    onChange={e => setTemplates({
+                      ...templates,
+                      custom_categories: templates.custom_categories.map((c) => c.id === cat.id ? { ...c, label: e.target.value } : c),
+                    })}
+                    className="w-full text-xs font-medium text-gray-700 border border-transparent hover:border-gray-200 focus:border-gray-300 rounded-lg px-2 py-1 -mx-2 focus:outline-none"
+                  />
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-gray-400 w-9 flex-shrink-0 uppercase tracking-wide">Reason</span>
+                    <input
+                      value={snippet.reason}
+                      onChange={e => updateSnippet({ reason: e.target.value })}
+                      placeholder="What stood out — fills {flag_reason}"
+                      className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-gray-400 w-9 flex-shrink-0 uppercase tracking-wide">Tip</span>
+                    <input
+                      value={snippet.tip}
+                      onChange={e => updateSnippet({ tip: e.target.value })}
+                      placeholder="What to do about it — fills {flag_tip}"
+                      className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTemplates({ ...templates, custom_categories: templates.custom_categories.filter((c) => c.id !== cat.id) })}
+                  className="text-gray-300 hover:text-red-400 transition-colors mt-1.5 flex-shrink-0"
+                  title="Remove this category"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setTemplates({ ...templates, custom_categories: templates.custom_categories.filter((c) => c.id !== cat.id) })}
-                className="text-gray-300 hover:text-red-400 transition-colors mt-1.5 flex-shrink-0"
-                title="Remove this category"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-          ))}
+            )
+          })}
           <AddCustomCategory
             existingIds={templates.custom_categories.map((c) => c.id)}
             onAdd={(cat) => setTemplates({ ...templates, custom_categories: [...templates.custom_categories, cat] })}

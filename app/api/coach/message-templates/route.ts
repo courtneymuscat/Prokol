@@ -22,7 +22,7 @@ export async function PUT(req: NextRequest) {
     urgent_enabled?: boolean
     normal_template?: string
     lead_template?: string
-    category_snippets?: Record<string, string>
+    category_snippets?: Record<string, { reason?: string; tip?: string }>
     custom_categories?: { id?: string; label?: string }[]
   }
 
@@ -45,9 +45,12 @@ export async function PUT(req: NextRequest) {
 
   if (body.category_snippets && typeof body.category_snippets === 'object') {
     const allowedIds = new Set([...FLAG_CATEGORY_PRIORITY, ...customCategories.map((c) => c.id)])
-    const clean: Record<string, string> = {}
+    const clean: Record<string, { reason: string; tip: string }> = {}
     for (const id of allowedIds) {
-      if (typeof body.category_snippets[id] === 'string') clean[id] = body.category_snippets[id]
+      const snippet = body.category_snippets[id]
+      if (snippet && (typeof snippet.reason === 'string' || typeof snippet.tip === 'string')) {
+        clean[id] = { reason: snippet.reason ?? '', tip: snippet.tip ?? '' }
+      }
     }
     patch.category_snippets = clean
   }

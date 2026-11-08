@@ -6,6 +6,7 @@ import {
   DEFAULT_LEAD_TEMPLATE,
   DEFAULT_CATEGORY_SNIPPETS,
   DEFAULT_MESSAGE_TEMPLATES,
+  migrateSnippetsToReasonTip,
   type CoachMessageTemplates,
   type CustomFlagCategory,
 } from '@/lib/checkinMessageTemplates'
@@ -29,14 +30,24 @@ function withBuiltinsMerged(categories: CustomFlagCategory[]): CustomFlagCategor
   return [...missingBuiltins, ...categories]
 }
 
+// The Normal template before {flag_tip} existed — only auto-upgraded when
+// a coach's saved text matches this exactly (never touched it), so a
+// coach who customized their own wording never gets silently overwritten.
+// They'd need to add {flag_tip} themselves in that case.
+const LEGACY_NORMAL_TEMPLATE =
+`Hi {first_name}, thanks for checking in. It looks like this week was a bit harder: {flag_reason}. That's okay, as progress is never a straight line.
+If you'd like more support, message {coach_name} here in the app. And if something about your health is worrying you, please check in with your GP.`
+
 /**
  * Fetches a coach's message-template row, creating it seeded with the
  * defaults on first access (every coach gets their own editable copy —
  * see lib/checkinFlags.ts for why the behaviour this drives is platform-
- * wide even though the wording itself is per-coach). Write-through: if an
- * existing row is missing a built-in category (saved before it became
- * editable), the merged list is persisted back so every reader sees the
- * same thing from here on, not just this call.
+ * wide even though the wording itself is per-coach). Write-through: an
+ * older row gets its missing built-in categories filled in, its
+ * single-string category snippets split into {reason, tip}, and its
+ * untouched legacy Normal template upgraded to include {flag_tip} — all
+ * persisted back so every reader sees the same thing from here on, not
+ * just this call.
  */
 export async function getOrCreateMessageTemplates(admin: SupabaseClient, coachId: string): Promise<CoachMessageTemplates> {
   const { data: existing } = await admin
@@ -45,11 +56,24 @@ export async function getOrCreateMessageTemplates(admin: SupabaseClient, coachId
     .eq('coach_id', coachId)
     .maybeSingle()
   if (existing) {
-    const merged = withBuiltinsMerged((existing.custom_categories as CustomFlagCategory[]) ?? [])
-    if (merged.length !== (existing.custom_categories as CustomFlagCategory[] ?? []).length) {
-      await admin.from('coach_message_templates').update({ custom_categories: merged }).eq('coach_id', coachId)
+    const mergedCategories = withBuiltinsMerged((existing.custom_categories as CustomFlagCategory[]) ?? [])
+    const migratedSnippets = migrateSnippetsToReasonTip((existing.category_snippets as Record<string, unknown>) ?? {})
+    const upgradedNormalTemplate = existing.normal_template === LEGACY_NORMAL_TEMPLATE ? DEFAULT_NORMAL_TEMPLATE : existing.normal_template
+
+    const patch: Record<string, unknown> = {}
+    if (mergedCategories.length !== (existing.custom_categories as CustomFlagCategory[] ?? []).length) patch.custom_categories = mergedCategories
+    if (JSON.stringify(migratedSnippets) !== JSON.stringify(existing.category_snippets ?? {})) patch.category_snippets = migratedSnippets
+    if (upgradedNormalTemplate !== existing.normal_template) patch.normal_template = upgradedNormalTemplate
+    if (Object.keys(patch).length > 0) {
+      await admin.from('coach_message_templates').update(patch).eq('coach_id', coachId)
     }
-    return { ...existing, custom_categories: merged } as CoachMessageTemplates
+
+    return {
+      ...existing,
+      custom_categories: mergedCategories,
+      category_snippets: migratedSnippets,
+      normal_template: upgradedNormalTemplate,
+    } as CoachMessageTemplates
   }
 
   const seeded = {

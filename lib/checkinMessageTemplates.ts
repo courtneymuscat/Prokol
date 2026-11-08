@@ -24,18 +24,28 @@ Take care of yourself today.`
 
 export const DEFAULT_NORMAL_TEMPLATE =
 `Hi {first_name}, thanks for checking in. It looks like this week was a bit harder: {flag_reason}. That's okay, as progress is never a straight line.
+
+{flag_tip}
+
 If you'd like more support, message {coach_name} here in the app. And if something about your health is worrying you, please check in with your GP.`
 
 export const DEFAULT_LEAD_TEMPLATE =
 `Hi {first_name}, love that you want to keep going! {coach_name} will be in touch soon to chat about what suits you best.`
 
-export const DEFAULT_CATEGORY_SNIPPETS: Record<FlagCategory, string> = {
-  under_fuelling: "it looks like you might not be eating enough to support what you're doing — try adding an extra serve at your next main meal",
-  low_mood_energy: 'your mood, energy or sleep dipped — try an earlier night and a short walk outside this week',
-  high_stress: 'stress has been running high — even 5 minutes of downtime a day can take the edge off',
-  fast_weight_change: 'your weigh-ins have moved more than usual — this is often just water or life stuff, worth keeping an eye on',
-  low_habit: "this week's habit was tough to stick to — try picking just one small win to focus on",
-  missed_checkins: "it's been a little while since your last check-in — no pressure, just jump back in whenever you're ready",
+// Each category snippet is a reason (what stood out) and a tip (what to
+// do about it) — kept as two fields rather than one free-text line so
+// {flag_reason} and {flag_tip} in the Normal template always get
+// something sensible to insert into their own spot, instead of a coach
+// having to remember to write both halves into a single box.
+export type CategorySnippet = { reason: string; tip: string }
+
+export const DEFAULT_CATEGORY_SNIPPETS: Record<FlagCategory, CategorySnippet> = {
+  under_fuelling: { reason: "it looks like you might not be eating enough to support what you're doing", tip: 'try adding an extra serve at your next main meal' },
+  low_mood_energy: { reason: 'your mood, energy or sleep dipped', tip: 'try an earlier night and a short walk outside this week' },
+  high_stress: { reason: 'stress has been running high', tip: 'even 5 minutes of downtime a day can take the edge off' },
+  fast_weight_change: { reason: 'your weigh-ins have moved more than usual', tip: 'this is often just water or life stuff, worth keeping an eye on' },
+  low_habit: { reason: "this week's habit was tough to stick to", tip: 'try picking just one small win to focus on' },
+  missed_checkins: { reason: "it's been a little while since your last check-in", tip: "no pressure, just jump back in whenever you're ready" },
 }
 
 export type CustomFlagCategory = { id: string; label: string }
@@ -45,7 +55,7 @@ export type CoachMessageTemplates = {
   urgent_enabled: boolean
   normal_template: string
   lead_template: string
-  category_snippets: Record<string, string>
+  category_snippets: Record<string, CategorySnippet>
   // Coach-added categories on top of the 6 built-in ones in
   // lib/checkinFlags.ts — their snippet text lives in category_snippets
   // too, keyed by this id. Always lowest priority when combining (see
@@ -67,9 +77,36 @@ export function renderTemplate(template: string, vars: Record<string, string>): 
   return template.replace(/\{(\w+)\}/g, (match, key) => (key in vars ? vars[key] : match))
 }
 
-/** Joins up to 2 category snippets into one "X; Y" clause for {flag_reason}. */
-export function combineCategorySnippets(categories: FlagCategory[], snippets: Record<string, string>): string {
-  return categories
-    .map((cat) => snippets[cat] ?? DEFAULT_CATEGORY_SNIPPETS[cat])
-    .join('; ')
+/**
+ * Combines up to 2 categories' reasons into one "X; Y" clause for
+ * {flag_reason}, and their tips into one "X Y" clause for {flag_tip} —
+ * same category selection for both, so the two merge fields always
+ * describe the same thing.
+ */
+export function combineCategorySnippets(categories: FlagCategory[], snippets: Record<string, CategorySnippet>): { reason: string; tip: string } {
+  const picked = categories.map((cat) => snippets[cat] ?? DEFAULT_CATEGORY_SNIPPETS[cat] ?? { reason: '', tip: '' })
+  return {
+    reason: picked.map((s) => s.reason).filter(Boolean).join('; '),
+    tip: picked.map((s) => s.tip).filter(Boolean).join(' '),
+  }
+}
+
+/**
+ * Migrates a coach's old single-string snippets ("reason — tip", the
+ * only format that existed before the Reason/Tip split) into the new
+ * {reason, tip} shape. A string with no em-dash becomes the whole
+ * reason with an empty tip, rather than guessing or dropping data.
+ */
+export function migrateSnippetsToReasonTip(raw: Record<string, unknown>): Record<string, CategorySnippet> {
+  const result: Record<string, CategorySnippet> = {}
+  for (const [id, value] of Object.entries(raw ?? {})) {
+    if (value && typeof value === 'object' && 'reason' in (value as object)) {
+      const v = value as Partial<CategorySnippet>
+      result[id] = { reason: v.reason ?? '', tip: v.tip ?? '' }
+    } else if (typeof value === 'string') {
+      const [reason, ...rest] = value.split(/\s*—\s*/)
+      result[id] = { reason: reason ?? '', tip: rest.join(' — ') }
+    }
+  }
+  return result
 }

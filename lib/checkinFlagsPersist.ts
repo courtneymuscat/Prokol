@@ -135,11 +135,11 @@ export async function computeAndStoreCheckinFlags(params: {
 
   if (picked.normal) {
     const categories = picked.normal.flags.map((f) => f.category as FlagCategory)
-    const flagReason = combineCategorySnippets(categories, templates.category_snippets)
+    const { reason, tip } = combineCategorySnippets(categories, templates.category_snippets)
     await sendAutomatedCheckinMessage(admin, {
       coachId,
       clientId,
-      body: renderTemplate(templates.normal_template, { ...vars, flag_reason: flagReason }),
+      body: renderTemplate(templates.normal_template, { ...vars, flag_reason: reason, flag_tip: tip }),
     })
   }
 
