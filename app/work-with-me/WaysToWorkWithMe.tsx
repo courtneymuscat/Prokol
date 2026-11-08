@@ -170,7 +170,7 @@ const EDUCATION_FAQS = [
 const SIMPLE_PANELS: Record<Exclude<ServiceKey, 'coaching' | 'education'>, { icon: string; badge?: string; desc: string }> = {
   gyms: {
     icon: '🏋️',
-    desc: 'I work inside gyms and studios as an Accredited Sports Nutritionist and coach — member consults, group nutrition offerings, and a nutrition specialist your trainers can lean on without a full-time hire. At Bambu Fitness I coached classes of 200+ across six modalities with nutrition support built in — I know what this looks like at real scale.',
+    desc: 'The Prokol Method — my 13-week nutrition program — runs inside your gym’s own branded app, Self-guided or Guided, with every member getting a personalised plan and every flagged check-in seen, and zero extra time from your trainers. At Bambu Fitness I coached classes of 200+ across six modalities with nutrition support built in — I know what this looks like at real scale.',
   },
   seminars: {
     icon: '🎤',
