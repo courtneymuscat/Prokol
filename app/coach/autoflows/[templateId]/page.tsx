@@ -72,6 +72,12 @@ type Step = {
   // step is due (once per client, never re-fires or ends it) — see
   // lib/autoflowStepPrograms.ts.
   program_link: { program_id: string } | null
+  // Shows a client-facing TDEE/macro calculator on this step. On submit,
+  // the result is saved as the client's real daily target and — if they
+  // don't already have an active meal plan — the closest-matching plan
+  // from the coach's library is auto-assigned as a starting point. See
+  // app/api/client/autoflows/[flowId]/[step]/calculate-targets/route.ts.
+  target_calc: { note: string | null } | null
   // Whether this step shows the template's core questions (see the "Core
   // questions" tab) ahead of its own step-specific ones. Defaults to true
   // — turn it off for a step that shouldn't ask the repeated questions
@@ -940,6 +946,7 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
               protocol_section: s.protocol_section ?? null,
               habit: s.habit ?? null,
               program_link: s.program_link ?? null,
+              target_calc: s.target_calc ?? null,
               include_core_questions: s.include_core_questions ?? true,
             })),
           }
@@ -1079,6 +1086,9 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
       // also goes due. The coach re-links it deliberately if that's
       // actually what they want.
       program_link: null,
+      // Same reasoning as program_link — don't silently duplicate a
+      // "calculate my targets" step.
+      target_calc: null,
     }
     setTemplate({
       ...template,
@@ -1465,6 +1475,7 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                 protocol_section: null,
                 habit: null,
                 program_link: null,
+                target_calc: null,
                 include_core_questions: true,
               }
               setTemplate({
@@ -1850,6 +1861,40 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                       ))}
                     </select>
                   )
+                )}
+              </div>
+
+              {/* Calculate targets + assign a meal plan */}
+              <div className="border border-gray-200 rounded-2xl p-4 space-y-3 bg-white">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">Calculate targets</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Shows the client a TDEE/macro calculator on this step. On submit, their result becomes
+                      their real daily target, and — if they don&apos;t already have an active meal plan — the
+                      closest-matching plan from your library is auto-assigned as a starting point.
+                    </p>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer select-none flex-shrink-0">
+                    <div
+                      onClick={() => updateStep(activeStep, { target_calc: currentStep.target_calc ? null : { note: '' } })}
+                      className={`relative w-9 h-5 rounded-full transition-colors ${currentStep.target_calc ? 'bg-blue-600' : 'bg-gray-200'}`}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${currentStep.target_calc ? 'translate-x-4' : ''}`} />
+                    </div>
+                  </label>
+                </div>
+                {currentStep.target_calc && (
+                  <div>
+                    <label className="block text-[11px] text-gray-500 mb-1">Note shown under the result (optional)</label>
+                    <textarea
+                      value={currentStep.target_calc.note ?? ''}
+                      onChange={e => updateStep(activeStep, { target_calc: { note: e.target.value } })}
+                      placeholder="e.g. This is a guide based on your data and goals — your coach can fine-tune it anytime."
+                      rows={2}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 )}
               </div>
 

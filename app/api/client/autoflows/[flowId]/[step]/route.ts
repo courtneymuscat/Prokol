@@ -32,7 +32,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const [{ data: templateStep }, { data: override }, { data: existing }] = await Promise.all([
     admin
       .from('autoflow_template_steps')
-      .select('title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, tasks, protocol_section, habit, include_core_questions')
+      .select('title, description, questions, day_offset, trigger_type, trigger_step_number, resource_ids, form_id, tasks, protocol_section, habit, target_calc, include_core_questions')
       .eq('template_id', flow.template_id)
       .eq('step_number', stepNum)
       .single(),
@@ -184,6 +184,55 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     linkedForm = form ?? null
   }
 
+  // Target calculator — pre-fill from whatever's already on the client's
+  // profile (e.g. from onboarding), and surface a prior result for this
+  // step so the widget can show a "done" summary instead of the form
+  // again on repeat visits.
+  let targetCalcData: {
+    note: string | null
+    existing_profile: Record<string, unknown>
+    result: { target_calories: number; target_protein: number; target_carbs: number; target_fat: number; assigned_plan_name: string | null } | null
+  } | null = null
+  if (templateStep?.target_calc) {
+    const [{ data: profile }, { data: instance }] = await Promise.all([
+      admin
+        .from('profiles')
+        .select('age, sex, height_cm, weight_kg, steps_per_day, activities, goal, adjustment_pct, dietary_preference')
+        .eq('id', user.id)
+        .single(),
+      admin
+        .from('autoflow_step_nutrition_instances')
+        .select('target_calories, target_protein, target_carbs, target_fat, client_meal_plan_id')
+        .eq('client_autoflow_id', flowId)
+        .eq('step_number', stepNum)
+        .maybeSingle(),
+    ])
+
+    let assignedPlanName: string | null = null
+    if (instance?.client_meal_plan_id) {
+      const { data: plan } = await admin
+        .from('client_meal_plans')
+        .select('name')
+        .eq('id', instance.client_meal_plan_id)
+        .maybeSingle()
+      assignedPlanName = plan?.name ?? null
+    }
+
+    targetCalcData = {
+      note: (templateStep.target_calc as { note: string | null }).note ?? null,
+      existing_profile: profile ?? {},
+      result: instance
+        ? {
+            target_calories: instance.target_calories,
+            target_protein: instance.target_protein,
+            target_carbs: instance.target_carbs,
+            target_fat: instance.target_fat,
+            assigned_plan_name: assignedPlanName,
+          }
+        : null,
+    }
+  }
+
   return Response.json({
     flow_id: flowId,
     flow_name: flow.name,
@@ -201,6 +250,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     linked_form: linkedForm,
     protocol_section: resolveForPath(templateStep?.protocol_section as { title: string; content: string } | null, clientPath),
     habit: resolveForPath(templateStep?.habit as { name: string; icon: string; unit: string; target: number } | null, clientPath),
+    target_calc: targetCalcData,
     existing_submission: existing ?? null,
     next_step_available,
   })

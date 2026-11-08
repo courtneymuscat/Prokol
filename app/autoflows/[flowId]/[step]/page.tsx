@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, use } from 'react'
+import TargetCalculatorWidget, { type TargetCalcData } from './TargetCalculatorWidget'
 
 type QuestionType = 'text' | 'textarea' | 'number' | 'scale' | 'yesno' | 'radio' | 'choice' | 'dropdown' | 'file_upload' | 'signature' | 'note' | 'section'
 
@@ -45,6 +46,7 @@ type StepData = {
   linked_form: { id: string; title: string } | null
   protocol_section: { title: string; content: string } | null
   habit: { name: string; icon: string; unit: string; target: number } | null
+  target_calc: TargetCalcData | null
   existing_submission: { id: string; answers: Record<string, string>; submitted_at: string } | null
   next_step_available: boolean
 }
@@ -500,6 +502,17 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
           </div>
         )}
 
+        {/* Target calculator — a TDEE/macro calculator, optionally assigning
+            a matching meal plan on submit. See TargetCalculatorWidget. */}
+        {data.target_calc && (
+          <TargetCalculatorWidget
+            flowId={flowId}
+            step={step}
+            data={data.target_calc}
+            onResult={result => setData(d => d ? { ...d, target_calc: d.target_calc ? { ...d.target_calc, result } : null } : d)}
+          />
+        )}
+
         {/* Video slot(s) — embedded player when a video is attached and has a
             URL; a slot with no URL yet simply renders nothing rather than a
             broken player or an error. Loom share links are converted to
@@ -674,7 +687,7 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
           })
         })()}
 
-        {allQuestions.length === 0 && !data.tasks?.length && !data.resources?.length && !data.linked_form && !data.protocol_section && !data.habit && (
+        {allQuestions.length === 0 && !data.tasks?.length && !data.resources?.length && !data.linked_form && !data.protocol_section && !data.habit && !data.target_calc && (
           <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
             <p className="text-sm text-gray-400">No content for this step yet.</p>
           </div>
