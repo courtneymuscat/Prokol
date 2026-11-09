@@ -390,8 +390,19 @@ export async function getAllOrgs(page = 1, limit = 50) {
 
   const [ownersRes, membersRes, coachClientsRes] = await Promise.all([
     admin.from('profiles').select('id, full_name, email').in('id', ownerIds),
-    admin.from('org_members').select('org_id, user_id').in('org_id', orgIds).eq('is_active', true),
-    admin.from('coach_clients').select('coach_id').eq('status', 'active'),
+    // is_active here means "this is the org the user currently has entered/
+    // selected" (see enterGymOrg's comment — exactly one org_members row per
+    // user stays is_active at a time), NOT "still a member of this org". A
+    // coach who owns two orgs and has one of them currently entered would
+    // otherwise disappear from the other org's coach count entirely. Real
+    // membership is membership, regardless of which org is "active" right now.
+    admin.from('org_members').select('org_id, user_id').in('org_id', orgIds),
+    // coach_clients already carries its own org_id (the org the relationship
+    // was actually created under) — filter directly on that instead of
+    // inferring org via the coach's org_members rows, which misattributes a
+    // coach's clients to whichever org they currently have "active" rather
+    // than the org each client relationship actually belongs to.
+    admin.from('coach_clients').select('org_id').eq('status', 'active').in('org_id', orgIds),
   ])
 
   const ownerMap: Record<string, { full_name: string | null; email: string | null }> = {}
@@ -401,21 +412,15 @@ export async function getAllOrgs(page = 1, limit = 50) {
 
   // Count coaches per org
   const coachCountMap: Record<string, number> = {}
-  const orgCoachIds: Record<string, string[]> = {}
   for (const member of membersRes.data ?? []) {
     coachCountMap[member.org_id] = (coachCountMap[member.org_id] ?? 0) + 1
-    if (!orgCoachIds[member.org_id]) orgCoachIds[member.org_id] = []
-    orgCoachIds[member.org_id].push(member.user_id)
   }
 
-  // Count clients per org (sum across all coaches in org)
-  const coachClientCountMap: Record<string, number> = {}
-  for (const row of coachClientsRes.data ?? []) {
-    coachClientCountMap[row.coach_id] = (coachClientCountMap[row.coach_id] ?? 0) + 1
-  }
+  // Count clients per org, scoped by each relationship's own org_id
   const orgClientCountMap: Record<string, number> = {}
-  for (const [orgId, coachIds] of Object.entries(orgCoachIds)) {
-    orgClientCountMap[orgId] = coachIds.reduce((sum, cid) => sum + (coachClientCountMap[cid] ?? 0), 0)
+  for (const row of coachClientsRes.data ?? []) {
+    if (!row.org_id) continue
+    orgClientCountMap[row.org_id] = (orgClientCountMap[row.org_id] ?? 0) + 1
   }
 
   return {
