@@ -54,7 +54,7 @@ export default function WorkWithMePage() {
             </p>
             <div className="rounded-xl px-5 py-4 mb-4" style={{ background: '#fff', borderLeft: `3px solid ${BERRY}` }}>
               <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>
-                I see too many people pushed to chase how they look over how they feel, follow rules without understanding why they work, and never learn what&apos;s actually happening in their own body. Every service here exists to close that gap: real education, not more rules — so people can live symptom-free, eat without fear, and fuel properly for how they want to perform.
+                I see too many people chasing a goal they never quite reach, or reach and can&apos;t hold onto — following rules without understanding why they work, and pushing through symptoms instead of listening to them. My point of difference is education, not more rules: if you don&apos;t understand the why behind what you&apos;re doing, you&apos;re not learning, you&apos;re just doing — and that&apos;s exactly how people end up giving up. Every service here exists to close that gap, so people can actually sustain their results, live symptom-free, eat without fear, and fuel properly for how they want to perform.
               </p>
             </div>
             <div className="rounded-xl px-5 py-4" style={{ background: '#fff', borderLeft: `3px solid ${BERRY}` }}>
