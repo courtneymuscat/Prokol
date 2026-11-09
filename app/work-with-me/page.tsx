@@ -49,12 +49,9 @@ export default function WorkWithMePage() {
             <h1 style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 'clamp(2rem,5vw,3rem)', lineHeight: 1.15, letterSpacing: '-0.02em', marginBottom: 20 }}>
               Understanding your body shouldn&apos;t be optional.
             </h1>
-            <p className="text-lg leading-relaxed mb-6" style={{ color: INK_SOFT, fontWeight: 300 }}>
-              I coach, consult, teach, and partner with gyms and studios so people stop pushing through symptoms they&apos;ve been told are normal, and start understanding what their body is actually telling them — whether that&apos;s one person, a whole gym membership, or a room full of people at once.
-            </p>
             <div className="rounded-xl px-5 py-4 mb-4" style={{ background: '#fff', borderLeft: `3px solid ${BERRY}` }}>
               <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>
-                I see too many people chasing a goal they never quite reach, or reach and can&apos;t hold onto — following rules without understanding why they work, and pushing through symptoms instead of listening to them. My point of difference is education, not more rules: if you don&apos;t understand the why behind what you&apos;re doing, you&apos;re not learning, you&apos;re just doing — and that&apos;s exactly how people end up giving up. Every service here exists to close that gap, so people can actually sustain their results, live symptom-free, eat without fear, and fuel properly for how they want to perform.
+                I coach, consult, teach, and partner with gyms and studios so people stop pushing through symptoms they&apos;ve been told are normal, and start understanding what their body is actually telling them — whether that&apos;s one person, a whole gym membership, or a room full of people at once.
               </p>
             </div>
             <div className="rounded-xl px-5 py-4" style={{ background: '#fff', borderLeft: `3px solid ${BERRY}` }}>
