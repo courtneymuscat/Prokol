@@ -232,7 +232,7 @@ export default function ProkolMethodCheckins() {
               className={`flex items-center gap-3 px-4 py-3 border-b last:border-0 hover:bg-gray-50 transition-colors ${r.is_flagged && r.flag_severity ? `border-l-4 ${SEVERITY_BORDER[r.flag_severity]}` : ''}`}
             >
               <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleRow(r.id)} className="rounded flex-shrink-0" />
-              <a href={`/coach/clients/${r.client_id}?tab=checkins`} className="flex-1 min-w-0">
+              <a href={`/coach/clients/${r.client_id}?tab=checkins&checkin=${r.id}`} className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-gray-900 truncate flex items-center gap-2">
                   <span className="truncate">{r.client_name}</span>
                   <ClientTagBadges clientId={r.client_id} />

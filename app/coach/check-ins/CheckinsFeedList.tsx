@@ -226,7 +226,7 @@ export default function CheckinsFeedList({ entries: initialEntries, profileMap }
             return (
               <a
                 key={key}
-                href={`/coach/clients/${entry.client_id}?tab=checkins`}
+                href={`/coach/clients/${entry.client_id}?tab=checkins&checkin=${entry.id}`}
                 className={`flex items-center justify-between bg-white rounded-2xl border p-5 hover:bg-gray-50 transition-colors ${entry.flagSeverity ? borderBySeverity[entry.flagSeverity] : ''} ${isSelected ? 'ring-2 ring-gray-900' : ''}`}
               >
                 <div className="flex items-center gap-3">
@@ -253,7 +253,7 @@ export default function CheckinsFeedList({ entries: initialEntries, profileMap }
             return (
               <a
                 key={key}
-                href={`/coach/clients/${entry.client_id}?tab=checkins`}
+                href={`/coach/clients/${entry.client_id}?tab=checkins&checkin=${entry.id}`}
                 className={`flex items-center justify-between bg-white rounded-2xl border p-5 hover:bg-gray-50 transition-colors ${isSelected ? 'ring-2 ring-gray-900' : ''}`}
               >
                 <div className="flex items-center gap-3">
@@ -279,7 +279,7 @@ export default function CheckinsFeedList({ entries: initialEntries, profileMap }
           return (
             <a
               key={key}
-              href={`/coach/clients/${entry.client_id}?tab=checkins`}
+              href={`/coach/clients/${entry.client_id}?tab=checkins&checkin=${entry.id}`}
               className={`block bg-white rounded-2xl border p-5 hover:bg-gray-50 transition-colors ${isSelected ? 'ring-2 ring-gray-900' : ''}`}
             >
               <div className="flex items-start justify-between mb-3">

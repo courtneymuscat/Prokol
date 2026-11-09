@@ -20,6 +20,7 @@ export default async function ClientProfilePage({
   const { clientId } = await params
   const sp = await searchParams
   const initialTab = (typeof sp.tab === 'string' ? sp.tab : 'overview') as string
+  const highlightCheckinId = typeof sp.checkin === 'string' ? sp.checkin : undefined
   const coachId = await requireCoach()
   if (!coachId) redirect('/dashboard')
 
@@ -172,7 +173,7 @@ export default async function ClientProfilePage({
       )}
 
       <div className="flex-1 p-6 w-full">
-        <ClientTabs clientId={clientId} initialTab={initialTab} coachTier={coachTier} />
+        <ClientTabs clientId={clientId} initialTab={initialTab} coachTier={coachTier} highlightCheckinId={highlightCheckinId} />
       </div>
     </main>
   )

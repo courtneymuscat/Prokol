@@ -1785,14 +1785,13 @@ function CheckinFeedbackViaMessages({ clientId, checkinDate, checkinLabel, respo
   )
 }
 
-function ExpandableAutoflowCheckIn({ item, clientId, onDelete }: { item: AutoflowCheckIn; clientId: string; onDelete: (id: string) => void }) {
-  const [open, setOpen] = useState(false)
+function ExpandableAutoflowCheckIn({ item, clientId, onDelete, highlight }: { item: AutoflowCheckIn; clientId: string; onDelete: (id: string) => void; highlight?: boolean }) {
+  const [open, setOpen] = useState(!!highlight)
   const [deleting, setDeleting] = useState(false)
   const hasAnswers = item.questions.length > 0 && Object.keys(item.answers).length > 0
   const answeredQuestions = item.questions.filter((q) => q.id in item.answers)
   const previewCount = answeredQuestions.length
   const previewItems = answeredQuestions.slice(0, 3)
-
   async function handleDelete() {
     if (!confirm('Delete this check-in response?')) return
     setDeleting(true)
@@ -1802,7 +1801,7 @@ function ExpandableAutoflowCheckIn({ item, clientId, onDelete }: { item: Autoflo
   }
 
   return (
-    <div className="bg-white rounded-2xl border overflow-hidden">
+    <div id={`checkin-${item.id}`} className={`bg-white rounded-2xl border overflow-hidden ${highlight ? 'ring-2 ring-blue-500' : ''}`}>
       <div className="flex items-center justify-between px-5 py-4">
         <div className="flex-1 min-w-0">
           <p className="text-xs font-medium text-gray-400">{fmt(item.submitted_at)}</p>
@@ -1993,7 +1992,7 @@ function ExpandableAutoflowCheckIn({ item, clientId, onDelete }: { item: Autoflo
   )
 }
 
-function ExpandableFormCheckIn({ item, clientId, onDelete }: { item: FormCheckIn; clientId: string; onDelete: (id: string) => void }) {
+function ExpandableFormCheckIn({ item, clientId, onDelete, highlight }: { item: FormCheckIn; clientId: string; onDelete: (id: string) => void; highlight?: boolean }) {
   const [open, setOpen] = useState(false)
   const [answers, setAnswers] = useState<{ label: string; type: string; value: string | null; answered: boolean }[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -2018,6 +2017,11 @@ function ExpandableFormCheckIn({ item, clientId, onDelete }: { item: FormCheckIn
     }
   }
 
+  useEffect(() => {
+    if (highlight) handleExpand()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlight])
+
   async function handleDelete() {
     if (!confirm('Delete this check-in response?')) return
     setDeleting(true)
@@ -2027,7 +2031,7 @@ function ExpandableFormCheckIn({ item, clientId, onDelete }: { item: FormCheckIn
   }
 
   return (
-    <div className="bg-white rounded-2xl border overflow-hidden">
+    <div id={`checkin-${item.id}`} className={`bg-white rounded-2xl border overflow-hidden ${highlight ? 'ring-2 ring-blue-500' : ''}`}>
       <div className="flex items-center justify-between px-5 py-4">
         <div>
           <p className="text-xs font-medium text-gray-400">{fmt(item.submitted_at)}</p>
@@ -2608,7 +2612,7 @@ const TRAINING_TIERS = new Set(['coach_solo', 'coach_pt_solo', 'coach_pro', 'coa
 // without the Meal Plan / Serve Guide sub-tabs.
 const NUTRITION_TIERS = new Set(['coach_solo', 'coach_nutritionist_solo', 'coach_pro', 'coach_business', 'wl_starter', 'wl_pro'])
 
-export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pro' }: { clientId: string; initialTab?: string; coachTier?: string }) {
+export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pro', highlightCheckinId }: { clientId: string; initialTab?: string; coachTier?: string; highlightCheckinId?: string }) {
   const hasTraining = TRAINING_TIERS.has(coachTier)
   const hasNutrition = NUTRITION_TIERS.has(coachTier)
   const visibleTabs = TABS.filter((t) => {
@@ -2644,6 +2648,19 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
   const [data, setData] = useState<ClientData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Deep-link from the Check-ins feed/Prokol Method table straight to one
+  // specific submission — scroll it into view once its card has actually
+  // rendered (it's wrapped in display:none while another tab is active,
+  // which scrollIntoView can't act on, so this waits for data to be in
+  // and the DOM to paint rather than firing on mount).
+  useEffect(() => {
+    if (!highlightCheckinId || !data) return
+    const t = setTimeout(() => {
+      document.getElementById(`checkin-${highlightCheckinId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 150)
+    return () => clearTimeout(t)
+  }, [data, highlightCheckinId])
   const [showDailyTargets, setShowDailyTargets] = useState(true)
   const [savingTargets, setSavingTargets] = useState(false)
   const [foodLogAccess, setFoodLogAccess] = useState<'full' | 'note_only' | 'off'>('full')
@@ -3048,6 +3065,7 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
                       item={entry.item}
                       clientId={clientId}
                       onDelete={(id) => setData((d) => d ? { ...d, autoflowCheckIns: d.autoflowCheckIns.filter((x) => x.id !== id) } : d)}
+                      highlight={entry.item.id === highlightCheckinId}
                     />
                   )
                   if (entry.kind === 'form') return (
@@ -3056,12 +3074,13 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
                       item={entry.item}
                       clientId={clientId}
                       onDelete={(id) => setData((d) => d ? { ...d, formCheckIns: d.formCheckIns.filter((x) => x.id !== id) } : d)}
+                      highlight={entry.item.id === highlightCheckinId}
                     />
                   )
                   // Direct daily check-in
                   const c = entry.item
                   return (
-                    <div key={c.id} className="bg-white rounded-2xl border p-5 space-y-3">
+                    <div key={c.id} id={`checkin-${c.id}`} className={`bg-white rounded-2xl border p-5 space-y-3 ${c.id === highlightCheckinId ? 'ring-2 ring-blue-500' : ''}`}>
                       <div className="flex items-center justify-between">
                         <p className="text-xs font-medium text-gray-400">{fmt(c.created_at)}</p>
                         <div className="flex items-center gap-2">
