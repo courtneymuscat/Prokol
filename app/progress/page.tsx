@@ -5,6 +5,7 @@ import { FEATURES } from '@/lib/features'
 import { logout } from '@/app/actions/auth'
 import ProgressPhotos from '@/app/dashboard/ProgressPhotos'
 import UpgradePrompt from '@/components/UpgradePrompt'
+import ProgressTourStep from './ProgressTourStep'
 
 export default async function ProgressPage() {
   const supabase = await createClient()
@@ -17,6 +18,7 @@ export default async function ProgressPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ProgressTourStep />
       <nav className="bg-white border-b px-6 py-3.5 flex justify-between items-center sticky top-0 z-20">
         <span className="text-[15px] font-bold tracking-tight text-gray-900">Prokol</span>
         <div className="flex items-center gap-1">
@@ -33,10 +35,12 @@ export default async function ProgressPage() {
 
       <main className="max-w-4xl mx-auto p-6">
         <h1 className="text-2xl font-semibold text-gray-900 mb-6">Progress Photos</h1>
-        {canProgressPhotos
-          ? <ProgressPhotos canCompare={canProgressCompare} />
-          : <UpgradePrompt plan="Optimiser" feature="Progress photos & comparison" />
-        }
+        <div id="tour-progress-photos">
+          {canProgressPhotos
+            ? <ProgressPhotos canCompare={canProgressCompare} />
+            : <UpgradePrompt plan="Optimiser" feature="Progress photos & comparison" />
+          }
+        </div>
       </main>
     </div>
   )
