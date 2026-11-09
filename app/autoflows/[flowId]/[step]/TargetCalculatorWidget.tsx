@@ -18,6 +18,7 @@ const DIETARY_PREFS: { value: DietaryPreference; label: string }[] = [
 ]
 
 type ExistingProfile = {
+  first_name?: string | null
   age?: number | null
   sex?: TDEESex | null
   height_cm?: number | null
@@ -98,6 +99,7 @@ export default function TargetCalculatorWidget({
   const [result, setResult] = useState<Result | null>(data.result)
 
   const p = data.existing_profile
+  const [firstName, setFirstName] = useState(p.first_name ?? '')
   const [sex, setSex] = useState<TDEESex | ''>(p.sex ?? '')
   const [age, setAge] = useState(p.age != null ? String(p.age) : '')
   const [heightCm, setHeightCm] = useState(p.height_cm != null ? String(p.height_cm) : '')
@@ -120,7 +122,7 @@ export default function TargetCalculatorWidget({
     setActivities(prev => prev.filter(a => a.id !== id))
   }
 
-  const statsComplete = age && sex && heightCm && weightKg && goal
+  const statsComplete = firstName.trim() && age && sex && heightCm && weightKg && goal
   const tdeeResult = statsComplete
     ? calcTDEE(parseFloat(age), sex as TDEESex, parseFloat(heightCm), parseFloat(weightKg), activities, parseFloat(stepsPerDay) || 0)
     : null
@@ -136,6 +138,7 @@ export default function TargetCalculatorWidget({
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        first_name: firstName.trim(),
         age: parseFloat(age),
         sex,
         height_cm: parseFloat(heightCm),
@@ -173,6 +176,15 @@ export default function TargetCalculatorWidget({
       <div>
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Calculate your targets</p>
         <p className="text-xs text-gray-500 mt-0.5">A few details so we can work out your daily calories and macros.</p>
+      </div>
+
+      <div>
+        <label className="block text-[11px] text-gray-500 mb-1">Your name</label>
+        <input
+          type="text" value={firstName} onChange={e => setFirstName(e.target.value)}
+          placeholder="First name"
+          className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none"
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-3">

@@ -197,7 +197,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     const [{ data: profile }, { data: instance }] = await Promise.all([
       admin
         .from('profiles')
-        .select('age, sex, height_cm, weight_kg, steps_per_day, activities, goal, adjustment_pct, dietary_preference')
+        .select('first_name, age, sex, height_cm, weight_kg, steps_per_day, activities, goal, adjustment_pct, dietary_preference')
         .eq('id', user.id)
         .single(),
       admin

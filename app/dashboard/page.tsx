@@ -496,8 +496,16 @@ export default async function DashboardPage() {
           </a>
         ))}
 
-        {/* Individual clients who haven't set up their profile yet */}
-        {!isCoached && !profile?.onboarding_completed && (
+        {/* Anyone who hasn't set up their profile yet — not just individual
+            clients. A coached client (incl. signup-link/gym members with no
+            coach setting targets manually) can land here too if they bailed
+            on /onboarding and haven't gone through their autoflow's own
+            target calculator either. Gated on target_calories rather than
+            just onboarding_completed so a 1:1 invited client who's simply
+            waiting on their coach to set targets manually (onboarding_completed
+            is set true immediately on invite acceptance for exactly that
+            reason) never sees this. */}
+        {!profile?.onboarding_completed && !profile?.target_calories && (
           <a
             href="/onboarding"
             className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4 hover:bg-blue-100 transition-colors"

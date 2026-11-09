@@ -51,13 +51,39 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
   // paid platform plan already gets below — looked up early so checkoutPath
   // can cover both cases with one redirect mechanism.
   let orgJoinIsPaid = false
+  // Whether any autoflow attached to this link already has its own target
+  // calculator (see TargetCalculatorWidget) on one of its steps — if so,
+  // that step fully covers what /onboarding would ask, so a brand-new
+  // signup-link member can skip the separate /onboarding gate entirely and
+  // go straight to their dashboard, where that step is already due. Falls
+  // back to /onboarding below whenever a link's autoflow(s) don't have one
+  // set up, so this is never a dead end even for links created before this
+  // existed or that simply didn't enable it.
+  let orgJoinHasTargetCalc = false
   if (orgJoin) {
-    const { data: orgJoinLink } = await createAdminClient()
+    const orgAdmin = createAdminClient()
+    const { data: orgJoinLink } = await orgAdmin
       .from('org_signup_links')
-      .select('price_cents')
+      .select('id, price_cents')
       .eq('code', orgJoin)
       .maybeSingle()
     orgJoinIsPaid = !!orgJoinLink?.price_cents
+    if (orgJoinLink && !orgJoinIsPaid) {
+      const { data: linkAutoflows } = await orgAdmin
+        .from('org_signup_link_autoflows')
+        .select('autoflow_id')
+        .eq('link_id', orgJoinLink.id)
+      const autoflowIds = (linkAutoflows ?? []).map((a) => a.autoflow_id as string)
+      if (autoflowIds.length > 0) {
+        const { data: stepsWithCalc } = await orgAdmin
+          .from('autoflow_template_steps')
+          .select('id')
+          .in('template_id', autoflowIds)
+          .not('target_calc', 'is', null)
+          .limit(1)
+        orgJoinHasTargetCalc = (stepsWithCalc ?? []).length > 0
+      }
+    }
   }
 
   // For paid plans, the confirmation email should take the user straight to checkout
@@ -76,10 +102,15 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
     ? `${origin}/auth/callback?next=/dashboard`
     : checkoutPath
     ? `${origin}/auth/callback?next=${encodeURIComponent(checkoutPath)}`
-    // orgJoin falls through to here deliberately — a gym signup has no
-    // coach to set macros manually, so (like a brand-new individual
-    // signup) they need the self-service TDEE onboarding flow themselves.
-    // A *priced* orgJoin already took the checkoutPath branch above instead.
+    // A free orgJoin whose autoflow(s) already have their own target
+    // calculator skips /onboarding entirely — that step covers the same
+    // ground and is harder to abandon than a one-off gate screen, since
+    // it's just the first thing in the program they already signed up
+    // for. Anything else (including a priced orgJoin, handled above) falls
+    // through to the self-service TDEE onboarding flow, same as a
+    // brand-new individual signup with no coach to set macros manually.
+    : orgJoin && orgJoinHasTargetCalc
+    ? `${origin}/auth/callback?next=/dashboard`
     : `${origin}/auth/callback?next=/onboarding`
 
   // Use admin.generateLink instead of supabase.auth.signUp so that Supabase does NOT send

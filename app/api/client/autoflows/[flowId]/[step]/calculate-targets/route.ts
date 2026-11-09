@@ -42,7 +42,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   const body = await req.json()
   const {
-    age, sex, height_cm, weight_kg, steps_per_day, activities, goal, adjustment_pct, dietary_preference,
+    first_name, age, sex, height_cm, weight_kg, steps_per_day, activities, goal, adjustment_pct, dietary_preference,
     tdee, target_calories, target_protein, target_carbs, target_fat,
   } = body
 
@@ -50,9 +50,19 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     return Response.json({ error: 'Missing calculated targets' }, { status: 400 })
   }
 
+  // This calculator is the only "onboarding" some signup-link clients ever
+  // see (no coach sets their profile manually) — so completing it has to
+  // fully substitute for /onboarding, not just set targets. Seeds full_name
+  // from first_name the same way /api/onboarding/complete does, without
+  // overwriting one the client already has.
+  const { data: existingProfile } = await admin.from('profiles').select('full_name').eq('id', user.id).maybeSingle()
+
   const { error: profileError } = await admin
     .from('profiles')
     .update({
+      first_name: first_name ?? null,
+      full_name: existingProfile?.full_name ?? (first_name ? String(first_name).trim() : null),
+      onboarding_completed: true,
       age: age ?? null,
       sex: sex ?? null,
       height_cm: height_cm ?? null,
