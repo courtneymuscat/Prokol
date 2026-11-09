@@ -23,7 +23,6 @@ type Row = {
   flag_counts: { urgent: number; normal: number; lead: number }
 }
 
-const PATH_LABELS: Record<string, string> = { ps: 'Plan & Swap', ts: 'Track Serves', pc: 'Protein + Calories' }
 const TYPE_LABELS: Record<string, string> = { week0: 'Week 0', weekly: 'Weekly', final: 'Final' }
 
 function fmtDate(d: string) {
@@ -64,7 +63,6 @@ export default function ProkolMethodCheckins() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [weekFilter, setWeekFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<string>('all')
-  const [pathFilter, setPathFilter] = useState<string>('all')
   const [flaggedOnly, setFlaggedOnly] = useState(false)
   const [statusFilter, setStatusFilter] = useState<'new' | 'reviewed' | 'all'>('new')
   const [dateFrom, setDateFrom] = useState('')
@@ -89,7 +87,6 @@ export default function ProkolMethodCheckins() {
     let list = rows ?? []
     if (weekFilter !== 'all') list = list.filter((r) => r.step_number === Number(weekFilter))
     if (typeFilter !== 'all') list = list.filter((r) => r.type === typeFilter)
-    if (pathFilter !== 'all') list = list.filter((r) => r.path === pathFilter)
     if (flaggedOnly) list = list.filter((r) => r.is_flagged)
     if (statusFilter === 'new') list = list.filter((r) => !r.reviewed)
     else if (statusFilter === 'reviewed') list = list.filter((r) => r.reviewed)
@@ -106,7 +103,7 @@ export default function ProkolMethodCheckins() {
       })
     }
     return sorted
-  }, [rows, weekFilter, typeFilter, pathFilter, flaggedOnly, statusFilter, dateFrom, dateTo, sort])
+  }, [rows, weekFilter, typeFilter, flaggedOnly, statusFilter, dateFrom, dateTo, sort])
 
   const newCount = (rows ?? []).filter((r) => !r.reviewed).length
   const flaggedCount = (rows ?? []).filter((r) => r.is_flagged).length
@@ -179,12 +176,6 @@ export default function ProkolMethodCheckins() {
           <option value="weekly">Weekly</option>
           <option value="final">Final</option>
         </select>
-        <select value={pathFilter} onChange={(e) => setPathFilter(e.target.value)} className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
-          <option value="all">All paths</option>
-          <option value="ps">Plan & Swap</option>
-          <option value="ts">Track Serves</option>
-          <option value="pc">Protein + Calories</option>
-        </select>
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as 'new' | 'reviewed' | 'all')} className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white">
           <option value="new">New</option>
           <option value="reviewed">Reviewed</option>
@@ -218,7 +209,7 @@ export default function ProkolMethodCheckins() {
           <input type="checkbox" checked={filtered.length > 0 && selected.size === filtered.length} onChange={toggleAll} className="rounded" />
           <span className="flex-1">Client</span>
           <span className="w-24">Week</span>
-          <span className="w-28 hidden sm:block">Path</span>
+          <span className="w-40 hidden sm:block">Step</span>
           <span className="w-16">Score</span>
           <span className="w-24">Date</span>
           <span className="w-28 text-right">Flag</span>
@@ -239,11 +230,8 @@ export default function ProkolMethodCheckins() {
                 </p>
                 <p className="text-xs text-gray-400">{r.reviewed ? 'Reviewed' : 'New'}{r.has_feedback ? ' · replied' : ''}</p>
               </a>
-              <span className="w-24 flex-shrink-0">
-                <span className="block text-xs text-gray-600">{TYPE_LABELS[r.type]}{r.type === 'weekly' ? ` ${r.step_number - 1}` : ''}</span>
-                <span className="block text-[11px] text-gray-400 truncate">{r.title}</span>
-              </span>
-              <span className="w-28 text-xs text-gray-500 hidden sm:block flex-shrink-0">{r.path ? PATH_LABELS[r.path] : '—'}</span>
+              <span className="w-24 text-xs text-gray-600 flex-shrink-0">{TYPE_LABELS[r.type]}{r.type === 'weekly' ? ` ${r.step_number - 1}` : ''}</span>
+              <span className="w-40 text-xs text-gray-500 hidden sm:block flex-shrink-0 truncate">{r.title}</span>
               <span className="w-16 text-xs font-semibold text-gray-700 flex-shrink-0">{r.overall_score ?? '—'}</span>
               <span className="w-24 text-xs text-gray-400 flex-shrink-0">{fmtDate(r.submitted_at)}</span>
               <span className="w-28 flex justify-end flex-shrink-0">
