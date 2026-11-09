@@ -2,6 +2,50 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { reportSeatUsage, reportWhiteLabelClientSeatUsage } from '@/lib/billing'
 
+type StepForImmediateMessage = {
+  step_number: number
+  day_offset: number
+  trigger_type: string | null
+  automated_message: string | null
+}
+
+/**
+ * Sends any day_offset=0 step's automated_message the moment an autoflow
+ * is enrolled, rather than waiting for the once-daily push-reminders cron
+ * to notice it's due. Mirrors the exact logic already proven in
+ * app/api/coach/clients/[clientId]/autoflows/route.ts (a coach manually
+ * assigning an autoflow to an existing client) — this was missing from
+ * both acceptInvite and acceptOrgSignupLink below, so a step 1 welcome
+ * message configured in the builder never actually reached anyone who
+ * joined via an invite or a signup link, only clients a coach assigned
+ * by hand. Logs to client_autoflow_message_log either way so the cron
+ * never double-sends once it does run.
+ */
+async function sendImmediateDayZeroMessages(
+  admin: ReturnType<typeof createAdminClient>,
+  { coachId, clientId, flowId, steps }: { coachId: string; clientId: string; flowId: string; steps: StepForImmediateMessage[] },
+): Promise<void> {
+  const immediateSteps = steps.filter((s) => s.trigger_type !== 'on_step_complete' && s.day_offset === 0 && s.automated_message)
+  if (immediateSteps.length === 0) return
+
+  const { data: convo } = await admin
+    .from('conversations')
+    .upsert({ coach_id: coachId, client_id: clientId }, { onConflict: 'coach_id,client_id', ignoreDuplicates: false })
+    .select('id')
+    .single()
+  if (!convo?.id) return
+
+  await admin.from('messages').insert(
+    immediateSteps.map((s) => ({ conversation_id: convo.id, sender_id: coachId, body: s.automated_message as string }))
+  )
+  await admin.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', convo.id)
+  // ignoreDuplicates lets a retry (or the cron later seeing the same step) pass through cleanly.
+  await admin.from('client_autoflow_message_log').upsert(
+    immediateSteps.map((s) => ({ client_autoflow_id: flowId, step_number: s.step_number })),
+    { onConflict: 'client_autoflow_id,step_number', ignoreDuplicates: true },
+  )
+}
+
 /**
  * Accept a coach invite by token.
  * Called after a user signs up or logs in with an invite token.
@@ -160,7 +204,7 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
         if (flow) {
           const { data: steps } = await admin
             .from('autoflow_template_steps')
-            .select('step_number, title, day_offset, trigger_type')
+            .select('step_number, title, day_offset, trigger_type, automated_message')
             .eq('template_id', autoflowId)
             .order('step_number')
 
@@ -177,6 +221,8 @@ export async function acceptInvite(token: string, clientId: string): Promise<voi
                 content: { flow_id: flow.id, step_number: s.step_number, link: `/autoflows/${flow.id}/${s.step_number}` },
               }))
             if (events.length > 0) await admin.from('calendar_events').insert(events)
+
+            await sendImmediateDayZeroMessages(admin, { coachId: invite.coach_id, clientId, flowId: flow.id, steps })
           }
         }
       }
@@ -324,7 +370,7 @@ export async function acceptOrgSignupLink(code: string, clientId: string): Promi
 
       const { data: steps } = await admin
         .from('autoflow_template_steps')
-        .select('step_number, title, day_offset, trigger_type')
+        .select('step_number, title, day_offset, trigger_type, automated_message')
         .eq('template_id', autoflowId)
         .order('step_number')
 
@@ -341,6 +387,8 @@ export async function acceptOrgSignupLink(code: string, clientId: string): Promi
             content: { flow_id: flow.id, step_number: s.step_number, link: `/autoflows/${flow.id}/${s.step_number}` },
           }))
         if (events.length > 0) await admin.from('calendar_events').insert(events)
+
+        await sendImmediateDayZeroMessages(admin, { coachId, clientId, flowId: flow.id, steps })
       }
     } catch { /* per-autoflow enrollment is non-critical — don't block the rest */ }
   }
