@@ -48,7 +48,7 @@ export async function GET() {
       .is('read_at', null),
     supabase
       .from('messages')
-      .select('conversation_id, body, sender_id, attachment_type')
+      .select('conversation_id, body, sender_id, attachment_type, is_automated')
       .in('conversation_id', convoIds.length ? convoIds : ['none'])
       .order('created_at', { ascending: false }),
   ])
@@ -68,7 +68,7 @@ export async function GET() {
     unreadMap[m.conversation_id] = (unreadMap[m.conversation_id] ?? 0) + 1
   }
 
-  const latestMap: Record<string, { body: string; sender_id: string; attachment_type?: string | null }> = {}
+  const latestMap: Record<string, { body: string; sender_id: string; attachment_type?: string | null; is_automated?: boolean }> = {}
   for (const m of latestRes.data ?? []) {
     if (!latestMap[m.conversation_id]) latestMap[m.conversation_id] = m
   }

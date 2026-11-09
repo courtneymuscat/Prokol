@@ -226,6 +226,7 @@ export async function GET(req: NextRequest) {
                     conversation_id: convo.id,
                     sender_id: coachId,
                     body: (s as unknown as Record<string, unknown>).automated_message as string,
+                    is_automated: true,
                   })),
                 )
                 await supabase

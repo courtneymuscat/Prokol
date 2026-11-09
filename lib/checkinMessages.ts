@@ -113,7 +113,7 @@ export async function sendAutomatedCheckinMessage(
       .single()
     if (!convo?.id) return
 
-    await admin.from('messages').insert({ conversation_id: convo.id, sender_id: coachId, body })
+    await admin.from('messages').insert({ conversation_id: convo.id, sender_id: coachId, body, is_automated: true })
     await admin.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', convo.id)
 
     const { sendPushToUser } = await import('@/lib/push')

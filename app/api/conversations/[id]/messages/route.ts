@@ -28,7 +28,7 @@ export async function GET(
 
   const { data: messages } = await supabase
     .from('messages')
-    .select('id, sender_id, body, created_at, read_at, attachment_url, attachment_type')
+    .select('id, sender_id, body, created_at, read_at, attachment_url, attachment_type, is_automated')
     .eq('conversation_id', id)
     .order('created_at', { ascending: true })
     .limit(100)

@@ -36,7 +36,7 @@ async function sendImmediateDayZeroMessages(
   if (!convo?.id) return
 
   await admin.from('messages').insert(
-    immediateSteps.map((s) => ({ conversation_id: convo.id, sender_id: coachId, body: s.automated_message as string }))
+    immediateSteps.map((s) => ({ conversation_id: convo.id, sender_id: coachId, body: s.automated_message as string, is_automated: true }))
   )
   await admin.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', convo.id)
   // ignoreDuplicates lets a retry (or the cron later seeing the same step) pass through cleanly.

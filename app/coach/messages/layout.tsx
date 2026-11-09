@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import ClientTagBadges from '../ClientTagBadges'
 
 type Convo = { id: string; client_id: string; last_message_at: string }
-type LatestMsg = { body: string; sender_id: string; attachment_type?: string | null }
+type LatestMsg = { body: string; sender_id: string; attachment_type?: string | null; is_automated?: boolean }
 type Client = { id: string; email: string; full_name?: string | null }
 
 function timeAgo(iso: string) {
@@ -119,7 +119,7 @@ export default function CoachMessagesLayout({ children }: { children: React.Reac
               const name = profileMap[c.client_id] ?? 'Unknown'
               const isSelected = c.id === selectedId
               const preview = latest
-                ? (latest.attachment_type === 'audio' ? '🎤 Voice note' : `${latest.sender_id === coachId ? 'You: ' : ''}${latest.body || '📎'}`)
+                ? (latest.attachment_type === 'audio' ? '🎤 Voice note' : `${latest.is_automated ? 'Automated: ' : latest.sender_id === coachId ? 'You: ' : ''}${latest.body || '📎'}`)
                 : 'No messages yet'
 
               return (

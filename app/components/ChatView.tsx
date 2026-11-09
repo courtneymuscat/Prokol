@@ -11,6 +11,7 @@ type Message = {
   read_at: string | null
   attachment_url?: string | null
   attachment_type?: string | null
+  is_automated?: boolean
 }
 
 function formatTime(iso: string) {
@@ -396,6 +397,15 @@ export default function ChatView({
               )}
               <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} ${showTail ? 'mb-2' : 'mb-0.5'}`}>
                 <div className={`max-w-[75%] ${isMe ? 'items-end' : 'items-start'} flex flex-col gap-0.5`}>
+                  {/* Only the coach sees this — the client reads the same
+                      first-person message with no indication it wasn't
+                      typed by their coach personally, by design. isMe is
+                      the simplest correct gate here: is_automated only
+                      exists on coach-sent messages, so it only renders
+                      when it's the coach's own view of their own message. */}
+                  {msg.is_automated && isMe && (
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 px-1">Automated</span>
+                  )}
                   {isAudio && msg.attachment_url ? (
                     <AudioPlayer url={msg.attachment_url} isMe={isMe} knownDuration={msg.body ? parseInt(msg.body) || 0 : 0} />
                   ) : (
