@@ -11,12 +11,18 @@ export async function proxy(req: NextRequest) {
   // Next 16's runtime doesn't always set x-invoke-path on its own.
   requestHeaders.set('x-pathname', path)
 
+  // /org/join and /org/invite are public entry points — an anonymous
+  // visitor with no account yet has to be able to reach them (a gym's
+  // signup link, or a coach-staff invite accepted before signing up).
+  // Every other /org/* page (setup, white-label) is coach-management and
+  // stays behind auth.
+  const isOrgPublicPath = path.startsWith('/org/join') || path.startsWith('/org/invite')
   const isProtected =
     path.startsWith('/dashboard') ||
     path.startsWith('/onboarding') ||
     path.startsWith('/coach') ||
     path.startsWith('/messages') ||
-    path.startsWith('/org') ||
+    (path.startsWith('/org') && !isOrgPublicPath) ||
     path.startsWith('/print')
   const isAuthPage = path === '/login' || path === '/signup'
   // Admin Mode always stays Prokol-branded — even for a platform admin who
