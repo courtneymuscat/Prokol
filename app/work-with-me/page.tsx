@@ -50,11 +50,16 @@ export default function WorkWithMePage() {
               Understanding your body shouldn&apos;t be optional.
             </h1>
             <p className="text-lg leading-relaxed mb-6" style={{ color: INK_SOFT, fontWeight: 300 }}>
-              I coach, consult, and teach so people stop pushing through symptoms they&apos;ve been told are normal, and start understanding what their body is actually telling them.
+              I coach, consult, teach, and partner with gyms and studios so people stop pushing through symptoms they&apos;ve been told are normal, and start understanding what their body is actually telling them — whether that&apos;s one person, a whole gym membership, or a room full of people at once.
             </p>
+            <div className="rounded-xl px-5 py-4 mb-4" style={{ background: '#fff', borderLeft: `3px solid ${BERRY}` }}>
+              <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>
+                I see too many people pushed to chase how they look over how they feel, follow rules without understanding why they work, and never learn what&apos;s actually happening in their own body. Every service here exists to close that gap: real education, not more rules — so people can live symptom-free, eat without fear, and fuel properly for how they want to perform.
+              </p>
+            </div>
             <div className="rounded-xl px-5 py-4" style={{ background: '#fff', borderLeft: `3px solid ${BERRY}` }}>
               <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>
-                I see too many people — especially women — pushed to ignore their period symptoms, chase how they look over how they feel, and never learn what&apos;s actually happening in their body. Every service here exists to close that gap: real education, not more rules — so people can live symptom-free, eat without fear, and fuel properly for how they want to perform.
+                Women&apos;s health is one of my specialties — cycles, hormones and perimenopause change what a body actually needs, and most nutrition education leaves that out entirely, so it&apos;s never an afterthought in anything I build or teach. But it&apos;s a specialty, not the whole offering: everything here works exactly the same way whether you&apos;re a man, a woman, an athlete, or an entire gym team.
               </p>
             </div>
           </div>
