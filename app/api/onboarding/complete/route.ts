@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
   if (!user) return Response.json({ error: 'Unauthorised' }, { status: 401 })
 
   const {
-    goal, first_name, age, sex, height_cm, weight_kg,
+    goal, first_name, phone, age, sex, height_cm, weight_kg,
     dietary_preference, steps_per_day, activities,
     tdee, target_calories, target_protein, target_carbs, target_fat,
     adjustment_pct,
@@ -112,6 +112,7 @@ export async function POST(req: NextRequest) {
       id:                   user.id,
       goal,
       first_name:           first_name ?? null,
+      phone:                phone ?? null,
       // Seed full_name from first_name if not already set (coach display uses full_name)
       full_name:            (existing as Record<string, unknown>)?.full_name ?? (first_name ? first_name.trim() : null),
       age:                  age ?? null,

@@ -24,6 +24,7 @@ type Activity = {
 type FormState = {
   goal: Goal | null
   first_name: string
+  phone: string
   age: string
   sex: Sex | ''
   height_cm: string
@@ -185,6 +186,7 @@ export default function OnboardingPage() {
   const [form, setForm] = useState<FormState>({
     goal: null,
     first_name: '',
+    phone: '',
     age: '',
     sex: '',
     height_cm: '',
@@ -252,6 +254,7 @@ export default function OnboardingPage() {
       body: JSON.stringify({
         goal: form.goal,
         first_name: form.first_name.trim() || null,
+        phone: form.phone.trim() || null,
         age: form.age ? parseFloat(form.age) : null,
         sex: form.sex || null,
         height_cm: form.height_cm ? parseFloat(form.height_cm) : null,
@@ -346,6 +349,18 @@ export default function OnboardingPage() {
                     value={form.first_name}
                     onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
                     placeholder="e.g. Alex"
+                    className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  />
+                </div>
+
+                {/* Phone */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone number</label>
+                  <input
+                    type="tel"
+                    value={form.phone}
+                    onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                    placeholder="e.g. 0412 345 678"
                     className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
                   />
                 </div>

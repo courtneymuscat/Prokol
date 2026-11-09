@@ -42,7 +42,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   const body = await req.json()
   const {
-    first_name, age, sex, height_cm, weight_kg, steps_per_day, activities, goal, adjustment_pct, dietary_preference,
+    first_name, phone, age, sex, height_cm, weight_kg, steps_per_day, activities, goal, adjustment_pct, dietary_preference,
     tdee, target_calories, target_protein, target_carbs, target_fat,
   } = body
 
@@ -62,6 +62,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     .update({
       first_name: first_name ?? null,
       full_name: existingProfile?.full_name ?? (first_name ? String(first_name).trim() : null),
+      phone: phone ?? null,
       onboarding_completed: true,
       age: age ?? null,
       sex: sex ?? null,

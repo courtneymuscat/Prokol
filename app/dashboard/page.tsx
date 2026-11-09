@@ -249,6 +249,49 @@ export default async function DashboardPage() {
   const isCoach = userType === 'coach'
   const isCoached = tier === 'coached' || !!coachRel
 
+  // Where the "Set up your profile" banner below should send someone who
+  // hasn't set up targets yet. Defaults to /onboarding, but if they have an
+  // active autoflow step with its own target calculator (see
+  // TargetCalculatorWidget) that they haven't completed yet, send them
+  // there instead — that's now the primary place signup-link/gym members
+  // are expected to do this (see app/actions/auth.ts's signup()), so the
+  // banner needs to match or it'd route them straight back to the flow we
+  // deliberately skip for them.
+  let setupProfileHref = '/onboarding'
+  if (!profile?.onboarding_completed && !profile?.target_calories) {
+    const { data: activeFlows } = await admin
+      .from('client_autoflows')
+      .select('id, template_id, start_date')
+      .eq('client_id', user.id)
+      .eq('status', 'active')
+    for (const flow of activeFlows ?? []) {
+      const { data: steps } = await admin
+        .from('autoflow_template_steps')
+        .select('step_number, day_offset, target_calc')
+        .eq('template_id', flow.template_id)
+        .not('target_calc', 'is', null)
+        .order('step_number')
+      if (!steps?.length) continue
+      const { data: responses } = await admin
+        .from('autoflow_responses')
+        .select('step_number')
+        .eq('client_autoflow_id', flow.id)
+      const doneSteps = new Set((responses ?? []).map((r) => r.step_number as number))
+      const today = new Date(); today.setHours(0, 0, 0, 0)
+      const startDate = new Date(flow.start_date + 'T00:00:00')
+      const nextStep = steps.find((s) => {
+        if (doneSteps.has(s.step_number)) return false
+        const dueDate = new Date(startDate.getTime() + s.day_offset * 86400000)
+        dueDate.setHours(0, 0, 0, 0)
+        return dueDate <= today
+      })
+      if (nextStep) {
+        setupProfileHref = `/autoflows/${flow.id}/${nextStep.step_number}`
+        break
+      }
+    }
+  }
+
   const featureSet = computeFeatureSet(tier, userType)
   for (const [feature, tierMap] of Object.entries(featureOverrides ?? {})) {
     const tm = tierMap as Record<string, boolean>
@@ -507,7 +550,7 @@ export default async function DashboardPage() {
             reason) never sees this. */}
         {!profile?.onboarding_completed && !profile?.target_calories && (
           <a
-            href="/onboarding"
+            href={setupProfileHref}
             className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4 hover:bg-blue-100 transition-colors"
           >
             <div className="flex items-center gap-3">
