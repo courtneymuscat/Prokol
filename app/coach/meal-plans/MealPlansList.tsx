@@ -33,6 +33,7 @@ type MealPlan = {
   updated_at: string
   archived_at?: string | null
   is_org_template?: boolean
+  is_generic?: boolean
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -288,6 +289,17 @@ export default function MealPlansList({
     router.push(`/coach/meal-plans/${data.id}`)
   }
 
+  async function toggleGeneric(plan: MealPlan) {
+    const next = !plan.is_generic
+    setPlans((prev) => prev.map((p) => p.id === plan.id ? { ...p, is_generic: next } : p))
+    const res = await fetch(`/api/coach/meal-plans/${plan.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_generic: next }),
+    })
+    if (!res.ok) setPlans((prev) => prev.map((p) => p.id === plan.id ? { ...p, is_generic: !next } : p))
+  }
+
   async function handleDuplicate(id: string) {
     setDuplicatingId(id)
     const res = await fetch(`/api/coach/meal-plans/${id}/duplicate`, { method: 'POST' })
@@ -445,6 +457,70 @@ export default function MealPlansList({
           }
           const orgPlans = filteredPlans.filter((p) => p.is_org_template)
           const ownPlans = filteredPlans.filter((p) => !p.is_org_template)
+          const genericOwnPlans = ownPlans.filter((p) => p.is_generic)
+          const otherOwnPlans = ownPlans.filter((p) => !p.is_generic)
+
+          function renderOwnPlanCard(plan: MealPlan) {
+            const badge = DIET_BADGE[plan.goal] ?? DIET_BADGE.other
+            const mealCount = Array.isArray(plan.content) ? plan.content.length : 0
+            return (
+              <div key={plan.id} className="bg-white rounded-2xl border p-5 flex flex-col hover:shadow-sm transition-shadow">
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-gray-900 leading-snug truncate">{plan.name}</p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badge.className}`}>{badge.label}</span>
+                      <span className="text-xs text-gray-500">{fmtCalories(plan.total_calories)} kcal</span>
+                      <span className="text-xs text-gray-400">{mealCount} {mealCount === 1 ? 'meal' : 'meals'}</span>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 mb-4">Created {fmtDate(plan.created_at)}</p>
+                <div className="mt-auto flex flex-col gap-2 pt-3 border-t border-gray-100">
+                  <button
+                    onClick={() => setAssigningPlan(plan)}
+                    className="w-full text-center text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg py-1.5 transition-colors"
+                  >
+                    Assign to Client
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href={`/coach/meal-plans/${plan.id}`}
+                      className="flex-1 text-center text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg py-1.5 hover:bg-blue-50 transition-colors"
+                    >
+                      Edit
+                    </a>
+                    <button
+                      onClick={() => handleDuplicate(plan.id)}
+                      disabled={duplicatingId === plan.id}
+                      className="flex-1 text-center text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg py-1.5 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                    >
+                      {duplicatingId === plan.id ? 'Copying…' : 'Duplicate'}
+                    </button>
+                    <button
+                      onClick={() => setDeletingTarget(plan)}
+                      className="text-xs font-semibold text-red-400 border border-red-100 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors"
+                      title="Archive or delete meal plan"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => toggleGeneric(plan)}
+                    className={`w-full text-center text-xs font-semibold rounded-lg py-1.5 transition-colors ${
+                      plan.is_generic
+                        ? 'text-amber-700 border border-amber-200 hover:bg-amber-50'
+                        : 'text-emerald-700 border border-emerald-200 hover:bg-emerald-50'
+                    }`}
+                    title="Generic plans are the ones the system can auto-assign to a new client during onboarding"
+                  >
+                    {plan.is_generic ? 'Remove from Generic Plans' : 'Add to Generic Plans'}
+                  </button>
+                </div>
+              </div>
+            )
+          }
+
           return (
             <div className="space-y-6">
               {orgPlans.length > 0 && (
@@ -509,68 +585,34 @@ export default function MealPlansList({
                 </div>
               )}
 
-              {ownPlans.length > 0 && (
+              {genericOwnPlans.length > 0 && (
                 <div className="space-y-3">
-                  {orgPlans.length > 0 && (
-                    <>
-                      <h2 className="text-sm font-semibold text-gray-900">Your meal plans</h2>
-                      <p className="text-xs text-gray-500 -mt-1">
-                        {orgName
-                          ? `Private to you. Other coaches in ${orgName} can't see these unless you publish them.`
-                          : 'Private to you. Only your own clients can be assigned these.'}
-                      </p>
-                    </>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-semibold text-gray-900">Generic Plans</h2>
+                    <span className="text-[10px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                      Auto-assign eligible
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 -mt-1">
+                    These are the only plans the system will reach for when a client gets a meal plan automatically (e.g. gym signup-link onboarding) — it picks whichever one here is closest to their calorie target and matches their diet. Everything below in &quot;Your meal plans&quot; is manual-assign only.
+                  </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {ownPlans.map((plan) => {
-                      const badge = DIET_BADGE[plan.goal] ?? DIET_BADGE.other
-                      const mealCount = Array.isArray(plan.content) ? plan.content.length : 0
-                      return (
-                        <div key={plan.id} className="bg-white rounded-2xl border p-5 flex flex-col hover:shadow-sm transition-shadow">
-                          <div className="flex items-start justify-between gap-2 mb-3">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-gray-900 leading-snug truncate">{plan.name}</p>
-                              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badge.className}`}>{badge.label}</span>
-                                <span className="text-xs text-gray-500">{fmtCalories(plan.total_calories)} kcal</span>
-                                <span className="text-xs text-gray-400">{mealCount} {mealCount === 1 ? 'meal' : 'meals'}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <p className="text-xs text-gray-400 mb-4">Created {fmtDate(plan.created_at)}</p>
-                          <div className="mt-auto flex flex-col gap-2 pt-3 border-t border-gray-100">
-                            <button
-                              onClick={() => setAssigningPlan(plan)}
-                              className="w-full text-center text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg py-1.5 transition-colors"
-                            >
-                              Assign to Client
-                            </button>
-                            <div className="flex items-center gap-2">
-                              <a
-                                href={`/coach/meal-plans/${plan.id}`}
-                                className="flex-1 text-center text-xs font-semibold text-blue-600 border border-blue-200 rounded-lg py-1.5 hover:bg-blue-50 transition-colors"
-                              >
-                                Edit
-                              </a>
-                              <button
-                                onClick={() => handleDuplicate(plan.id)}
-                                disabled={duplicatingId === plan.id}
-                                className="flex-1 text-center text-xs font-semibold text-gray-600 border border-gray-200 rounded-lg py-1.5 hover:bg-gray-50 transition-colors disabled:opacity-50"
-                              >
-                                {duplicatingId === plan.id ? 'Copying…' : 'Duplicate'}
-                              </button>
-                              <button
-                                onClick={() => setDeletingTarget(plan)}
-                                className="text-xs font-semibold text-red-400 border border-red-100 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors"
-                                title="Archive or delete meal plan"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
+                    {genericOwnPlans.map(renderOwnPlanCard)}
+                  </div>
+                </div>
+              )}
+
+              {otherOwnPlans.length > 0 && (
+                <div className="space-y-3">
+                  <h2 className="text-sm font-semibold text-gray-900">Your meal plans</h2>
+                  <p className="text-xs text-gray-500 -mt-1">
+                    {orgName
+                      ? `Private to you. Other coaches in ${orgName} can't see these unless you publish them.`
+                      : 'Private to you. Only your own clients can be assigned these.'}
+                    {' '}Not used for auto-assign — add a plan to Generic Plans above if you want the system able to pick it automatically.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {otherOwnPlans.map(renderOwnPlanCard)}
                   </div>
                 </div>
               )}

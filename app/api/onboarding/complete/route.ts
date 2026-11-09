@@ -56,6 +56,7 @@ async function autoSetupForSignupLinkClient(
       .from('meal_plans')
       .select('id, name, goal, total_calories, content')
       .eq('coach_id', coachId)
+      .eq('is_generic', true)
       .is('archived_at', null)
 
     const best = pickBestMealPlan(candidates ?? [], macros.target_calories, dietGoal)

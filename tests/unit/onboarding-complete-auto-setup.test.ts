@@ -10,7 +10,7 @@ let coachRel: { id: string; coach_id: string; status: string } | null = null
 let existingProfile: { subscription_tier: string; full_name: string | null } | null = null
 let existingServeTargets: { id: string } | null = null
 let existingMealPlan: { id: string } | null = null
-let mealPlanCandidates: Array<{ id: string; name: string; goal: string; total_calories: number; content: unknown }> = []
+let mealPlanCandidates: Array<{ id: string; name: string; goal: string; total_calories: number; content: unknown; is_generic: boolean }> = []
 
 const serveTargetInserts: Record<string, unknown>[] = []
 const mealPlanInserts: Record<string, unknown>[] = []
@@ -50,7 +50,7 @@ vi.mock('@/lib/supabase/admin', () => ({
         }
       }
       if (table === 'meal_plans') {
-        return { select: () => ({ eq: () => ({ is: async () => ({ data: mealPlanCandidates }) }) }) }
+        return { select: () => ({ eq: () => ({ eq: () => ({ is: async () => ({ data: mealPlanCandidates }) }) }) }) }
       }
       throw new Error(`unexpected table: ${table}`)
     },
@@ -87,8 +87,8 @@ beforeEach(() => {
   existingServeTargets = null
   existingMealPlan = null
   mealPlanCandidates = [
-    { id: 'plan-vegan-1800', name: 'Vegan 1800', goal: 'vegan', total_calories: 1800, content: [{ foo: 'bar' }] },
-    { id: 'plan-omni-1800', name: 'Omnivore 1800', goal: 'omnivore', total_calories: 1800, content: [] },
+    { id: 'plan-vegan-1800', name: 'Vegan 1800', goal: 'vegan', total_calories: 1800, content: [{ foo: 'bar' }], is_generic: true },
+    { id: 'plan-omni-1800', name: 'Omnivore 1800', goal: 'omnivore', total_calories: 1800, content: [], is_generic: true },
   ]
   serveTargetInserts.length = 0
   mealPlanInserts.length = 0
