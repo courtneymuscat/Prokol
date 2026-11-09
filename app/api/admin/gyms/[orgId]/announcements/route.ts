@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendPushToUser } from '@/lib/push'
 
 type Ctx = { params: Promise<{ orgId: string }> }
 
@@ -51,5 +52,26 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     .single()
 
   if (error || !data) return NextResponse.json({ error: error?.message ?? 'Failed to post announcement' }, { status: 500 })
+
+  // Push every member of this gym org — fire-and-forget, never blocks the
+  // response. sendPushToUser already no-ops per-user if they have no
+  // registered subscription, and silently skips entirely if push isn't
+  // configured on this environment.
+  admin
+    .from('profiles')
+    .select('id')
+    .eq('org_id', orgId)
+    .then(({ data: members }) => {
+      for (const m of members ?? []) {
+        sendPushToUser(m.id as string, {
+          title: title,
+          body: data.note?.trim() || 'New announcement from your gym — tap to view.',
+          url: '/more/announcements',
+          icon: '/icons/icon-192.png',
+          tag: `gym-announcement-${orgId}`,
+        }).catch(() => {})
+      }
+    })
+
   return NextResponse.json(data)
 }
