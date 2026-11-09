@@ -38,12 +38,6 @@ export type EffectiveTarget = {
   protein: number
   carbs: number
   fat: number
-  // true when these numbers come from a real meal plan's actual food
-  // totals (so macrosToServes — real grams ÷ serve size — is the right
-  // conversion); false when they're an abstract TDEE/profile figure with
-  // no real food behind it (so targetMacrosToServes' backward-solved
-  // estimate is the right one instead). See lib/autoAssignNutrition.ts.
-  fromRealFood: boolean
   // Present whenever targets_source is 'weekly_plan' — null if no visible
   // plan currently covers today (so calories/protein/carbs/fat below fell
   // back to the TDEE-saved profile fields instead), otherwise the actual
@@ -110,7 +104,6 @@ export async function resolveEffectiveTarget(
         protein: weekInfo.protein ?? 0,
         carbs: weekInfo.carbs ?? 0,
         fat: weekInfo.fat ?? 0,
-        fromRealFood: false,
         weekInfo,
       }
     }
@@ -128,10 +121,10 @@ export async function resolveEffectiveTarget(
     if (plan) {
       const summed = sumPlanMacros(plan.content)
       return summed.calories > 0
-        ? { ...summed, fromRealFood: true }
-        : { calories: plan.total_calories ?? 0, protein: 0, carbs: 0, fat: 0, fromRealFood: false }
+        ? summed
+        : { calories: plan.total_calories ?? 0, protein: 0, carbs: 0, fat: 0 }
     }
-    return { calories: 0, protein: 0, carbs: 0, fat: 0, fromRealFood: false }
+    return { calories: 0, protein: 0, carbs: 0, fat: 0 }
   }
 
   const profile = known?.profile !== undefined
@@ -146,7 +139,6 @@ export async function resolveEffectiveTarget(
     protein: profile?.target_protein ?? 0,
     carbs: profile?.target_carbs ?? 0,
     fat: profile?.target_fat ?? 0,
-    fromRealFood: false,
     ...(rel?.targets_source === 'weekly_plan' ? { weekInfo: null } : {}),
   }
 }

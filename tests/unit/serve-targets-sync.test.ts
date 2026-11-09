@@ -8,9 +8,15 @@ import { syncServeTargetsForClient } from '@/lib/serveTargetsSync'
 // wrote. This is what closes the gap where serves could reflect a
 // just-saved-but-inactive TDEE number while the client actually sees a
 // different, meal-plan-driven target.
+//
+// Both sources now run through the SAME macrosToServes formula (real
+// grams ÷ serve size, with the flat veg carb reserve) — a separate
+// calorie-backward-solving formula used to run for the TDEE case, which
+// quietly shrank the carb-serve count below what the stated carb target
+// actually calls for.
 
 type Rel = { targets_source: string | null; targets_meal_plan_id: string | null }
-type Profile = { target_calories: number | null; target_protein: number | null; target_fat: number | null }
+type Profile = { target_calories: number | null; target_protein: number | null; target_carbs: number | null; target_fat: number | null }
 type Plan = { content: unknown; total_calories: number | null }
 
 let rel: Rel | null = null
@@ -55,16 +61,17 @@ beforeEach(() => {
 })
 
 describe('syncServeTargetsForClient', () => {
-  it('syncs from profile TDEE fields when targets_source is tdee', async () => {
-    profile = { target_calories: 2062, target_protein: 108, target_fat: 78 }
+  it('syncs from profile TDEE fields when targets_source is tdee, using the same real-grams formula as a meal plan', async () => {
+    profile = { target_calories: 2062, target_protein: 108, target_carbs: 225, target_fat: 78 }
     await syncServeTargetsForClient(fakeAdmin(), 'client-1', 'coach-1')
-    expect(upserted).toMatchObject({ protein_serves: 3.5, carb_serves: 7.5, fat_serves: 8, veg_unlimited: true })
+    // protein 108/30=3.6->3.5, carb (225-38 veg reserve)/20=9.35->9.5, fat 78/10=7.8->8
+    expect(upserted).toMatchObject({ protein_serves: 3.5, carb_serves: 9.5, fat_serves: 8, veg_unlimited: true })
   })
 
   it('syncs from the active meal plan\'s REAL gram totals (matching the plan\'s own Total Serves display) when targets_source is meal_plan, ignoring stale profile fields', async () => {
     rel = { targets_source: 'meal_plan', targets_meal_plan_id: 'plan-1' }
     // Stale/irrelevant TDEE numbers that must NOT be used
-    profile = { target_calories: 9999, target_protein: 999, target_fat: 999 }
+    profile = { target_calories: 9999, target_protein: 999, target_carbs: 999, target_fat: 999 }
     plansById['plan-1'] = {
       total_calories: null,
       content: [
@@ -73,10 +80,8 @@ describe('syncServeTargetsForClient', () => {
       ],
     }
     await syncServeTargetsForClient(fakeAdmin(), 'client-1', 'coach-1')
-    // calories = 745, protein = 53, carbs = 87, fat = 20 — real grams, so this
-    // must use macrosToServes (veg-reserved real division), not
-    // targetMacrosToServes (which would ignore the real 87g and backward-solve
-    // carb_serves to 1.5 from the 745kcal budget instead of the correct 2.5).
+    // calories = 745, protein = 53, carbs = 87, fat = 20 — real grams,
+    // ignoring the stale profile fields above entirely.
     expect(upserted).not.toBeNull()
     expect((upserted as Record<string, unknown>).protein_serves).toBeCloseTo(2) // 53/30 = 1.77 -> roundHalf -> 2
     expect((upserted as Record<string, unknown>).fat_serves).toBeCloseTo(2) // 20/10
@@ -91,13 +96,13 @@ describe('syncServeTargetsForClient', () => {
   })
 
   it('does nothing when no calorie target is resolvable at all', async () => {
-    profile = { target_calories: null, target_protein: null, target_fat: null }
+    profile = { target_calories: null, target_protein: null, target_carbs: null, target_fat: null }
     await syncServeTargetsForClient(fakeAdmin(), 'client-1', 'coach-1')
     expect(upserted).toBeNull()
   })
 
   it('preserves existing notes on the serve targets row rather than wiping them', async () => {
-    profile = { target_calories: 2062, target_protein: 108, target_fat: 78 }
+    profile = { target_calories: 2062, target_protein: 108, target_carbs: 225, target_fat: 78 }
     existingNotes = 'Prioritise protein at dinner'
     await syncServeTargetsForClient(fakeAdmin(), 'client-1', 'coach-1')
     expect((upserted as Record<string, unknown>).notes).toBe('Prioritise protein at dinner')

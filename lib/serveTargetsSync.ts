@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { targetMacrosToServes, macrosToServes } from './autoAssignNutrition'
+import { macrosToServes } from './autoAssignNutrition'
 import { resolveEffectiveTarget } from './effectiveTarget'
 
 type KnownRel = { targets_source: string | null; targets_meal_plan_id: string | null } | null
@@ -34,6 +34,14 @@ type KnownRel = { targets_source: string | null; targets_meal_plan_id: string | 
  * same "don't guess" precedent as the pre-existing profile-macro sync in
  * the meal-plan routes.
  *
+ * Always runs through macrosToServes — real-grams ÷ serve-size, with the
+ * same flat veg carb reservation — regardless of whether the target came
+ * from a meal plan's real food or an abstract TDEE/profile figure. A
+ * separate calorie-backward-solving formula used to run for the TDEE case
+ * (targetMacrosToServes); it quietly shrank the carb-serve count well
+ * below what the stated carb target actually calls for, which is exactly
+ * the inconsistency this now avoids — see macrosToServes' own comment.
+ *
  * `knownRel` lets a caller that just wrote targets_source/targets_meal_plan_id
  * itself (the settings route) pass those along instead of this function
  * re-querying the row it was only just updated — see resolveEffectiveTarget's
@@ -52,13 +60,11 @@ export async function syncServeTargetsForClient(
     resolveEffectiveTarget(admin, clientId, coachId, knownRel !== undefined ? { rel: knownRel } : undefined),
     admin.from('client_serve_targets').select('notes').eq('client_id', clientId).maybeSingle(),
   ])
-  const { calories, protein, carbs, fat, fromRealFood } = effective
+  const { calories, protein, carbs, fat } = effective
 
   if (!(calories > 0 && (protein > 0 || fat > 0))) return
 
-  const serves = fromRealFood
-    ? macrosToServes({ proteinG: protein, carbG: carbs, fatG: fat })
-    : targetMacrosToServes({ proteinG: protein, fatG: fat, targetCals: calories })
+  const serves = macrosToServes({ proteinG: protein, carbG: carbs, fatG: fat })
 
   await admin.from('client_serve_targets').upsert({
     client_id: clientId,

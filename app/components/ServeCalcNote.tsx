@@ -1,5 +1,7 @@
 'use client'
 
+import { VEG_KCAL, VEG_RESERVE_CARB_G } from '@/lib/autoAssignNutrition'
+
 // Shared "how are these serves calculated" explainer for meal plans —
 // used in both the coach editor (app/coach/meal-plans/[id]/MealPlanEditor)
 // and the client view (app/dashboard/MealPlanView). Kept in one place so
@@ -18,8 +20,8 @@
 // totals have no such adjustment, so they always exactly match the sum
 // of what's shown per meal.
 
-const VEG_RESERVE_KCAL = 150
-const VEG_RESERVE_G = Math.round(VEG_RESERVE_KCAL / 4)
+const VEG_RESERVE_KCAL = VEG_KCAL
+const VEG_RESERVE_G = VEG_RESERVE_CARB_G
 
 type ServeCalcNoteProps = {
   proteinG: number

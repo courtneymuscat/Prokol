@@ -1,6 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
-import { mapDietaryPreferenceToMealPlanGoal, pickBestMealPlan, targetMacrosToServes } from '@/lib/autoAssignNutrition'
+import { mapDietaryPreferenceToMealPlanGoal, pickBestMealPlan, macrosToServes } from '@/lib/autoAssignNutrition'
 import type { NextRequest } from 'next/server'
 
 // Auto-setup for signup-link clients only (gym members, or someone who
@@ -26,11 +26,11 @@ async function autoSetupForSignupLinkClient(
     .eq('client_id', clientId)
     .maybeSingle()
 
-  if (!existingTargets && macros.target_protein != null && macros.target_fat != null && macros.target_calories != null) {
-    const serves = targetMacrosToServes({
+  if (!existingTargets && macros.target_protein != null && macros.target_carbs != null && macros.target_fat != null) {
+    const serves = macrosToServes({
       proteinG: macros.target_protein,
+      carbG: macros.target_carbs,
       fatG: macros.target_fat,
-      targetCals: macros.target_calories,
     })
     await admin.from('client_serve_targets').insert({
       client_id: clientId,

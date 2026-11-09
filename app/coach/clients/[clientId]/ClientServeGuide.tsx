@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { SERVE_BUDGET, VEG_KCAL } from '@/lib/autoAssignNutrition'
+import { VEG_KCAL, VEG_RESERVE_CARB_G } from '@/lib/autoAssignNutrition'
 
 // ─── ClientServeGuide ─────────────────────────────────────────────────────────
 
@@ -31,17 +31,33 @@ const CAT_CONFIG: Record<string, { label: string; serve: string; badge: string; 
 const SEC_LABELS: Record<string, string> = { fat: '+ 1 fat', carb: '+ 1 carb', fat_half: '+ ½ fat', carb_half: '+ ½ carb', protein_half: '+ ½ protein', protein: '+ 1 protein' }
 const SEC_COLORS: Record<string, string> = { fat: 'bg-green-100 text-green-700', carb: 'bg-teal-100 text-teal-700', fat_half: 'bg-green-50 text-green-600', carb_half: 'bg-teal-50 text-teal-600', protein_half: 'bg-pink-50 text-pink-600', protein: 'bg-pink-100 text-pink-700' }
 
+// Reconstructs the real grams/calories behind a set of serve targets —
+// same formula as macrosToServes (lib/autoAssignNutrition.ts) run in
+// reverse: 30g protein/serve, 20g carbs/serve (+ the flat veg reserve),
+// 10g fat/serve, standard 4/4/9 kcal-per-gram. This is the SAME formula
+// the meal plan's own explainer (ServeCalcNote.tsx) uses on real food —
+// unified so "X carb serves" always means the same real grams everywhere
+// on the platform, whether the target came from a meal plan or a TDEE
+// figure (see macrosToServes' own comment for why that used to drift).
+function estimateFromServes(protein_serves: number, carb_serves: number, fat_serves: number, veg_unlimited: boolean) {
+  const proteinG = protein_serves * 30
+  const carbG = carb_serves * 20 + (veg_unlimited ? VEG_RESERVE_CARB_G : 0)
+  const fatG = fat_serves * 10
+  const kcal = proteinG * 4 + carbG * 4 + fatG * 9
+  return { proteinG, carbG, fatG, kcal }
+}
+
 function ServeMathBreakdown({
   protein_serves, carb_serves, fat_serves, veg_unlimited,
 }: {
   protein_serves: number; carb_serves: number; fat_serves: number; veg_unlimited: boolean
 }) {
+  const { proteinG, carbG, fatG, kcal: totalKcal } = estimateFromServes(protein_serves, carb_serves, fat_serves, veg_unlimited)
   const lines = [
-    { label: 'Protein', serves: protein_serves, ...SERVE_BUDGET.protein },
-    { label: 'Carbs',   serves: carb_serves,    ...SERVE_BUDGET.carb },
-    { label: 'Fats',    serves: fat_serves,     ...SERVE_BUDGET.fat },
+    { label: 'Protein', serves: protein_serves, perServeG: 30, grams: proteinG, kcalPerG: 4 },
+    { label: 'Carbs',   serves: carb_serves,    perServeG: 20, grams: carb_serves * 20, kcalPerG: 4 },
+    { label: 'Fats',    serves: fat_serves,     perServeG: 10, grams: fatG, kcalPerG: 9 },
   ]
-  const totalKcal = lines.reduce((s, l) => s + l.serves * l.kcal, 0) + (veg_unlimited ? VEG_KCAL : 0)
   return (
     <details className="group">
       <summary className="text-[11px] text-amber-700 underline cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
@@ -52,14 +68,11 @@ function ServeMathBreakdown({
         <div>
           <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wide mb-1">Per-serve assumptions</p>
           <ul className="text-[11px] text-amber-800 space-y-0.5">
-            {lines.map((l) => (
-              <li key={l.label}>
-                <span className="font-semibold">{l.label}:</span>{' '}
-                {l.kcal} kcal/serve = {l.primaryG}g {l.primaryMacro} ({l.primaryG * (l.primaryMacro === 'F' ? 9 : 4)} kcal) {l.extras}
-              </li>
-            ))}
+            <li><span className="font-semibold">Protein:</span> 30g protein = 1 serve</li>
+            <li><span className="font-semibold">Carbs:</span> 20g carbs = 1 serve (includes fruit — same unit)</li>
+            <li><span className="font-semibold">Fats:</span> 10g fat = 1 serve</li>
             {veg_unlimited && (
-              <li><span className="font-semibold">Veg (∞):</span> +{VEG_KCAL} kcal/day flat (~500g/day non-starchy veg)</li>
+              <li><span className="font-semibold">Veg (∞):</span> ~{VEG_RESERVE_CARB_G}g carbs (~{VEG_KCAL} kcal) held back from the Carbs serve count above</li>
             )}
           </ul>
         </div>
@@ -70,29 +83,29 @@ function ServeMathBreakdown({
               {lines.filter(l => l.serves > 0).map((l) => (
                 <tr key={l.label}>
                   <td className="py-0.5 pr-2 font-medium">{l.label}</td>
-                  <td className="py-0.5 pr-2 tabular-nums">{l.serves} × {l.kcal}</td>
-                  <td className="py-0.5 pr-2 tabular-nums">= {Math.round(l.serves * l.kcal)} kcal</td>
-                  <td className="py-0.5 tabular-nums text-amber-600">{Math.round(l.serves * l.primaryG)}g {l.primaryMacro}</td>
+                  <td className="py-0.5 pr-2 tabular-nums">{l.serves} × {l.perServeG}g</td>
+                  <td className="py-0.5 pr-2 tabular-nums">= {Math.round(l.grams)}g</td>
+                  <td className="py-0.5 tabular-nums text-amber-600">{Math.round(l.grams * l.kcalPerG)} kcal</td>
                 </tr>
               ))}
               {veg_unlimited && (
                 <tr>
-                  <td className="py-0.5 pr-2 font-medium">Veg</td>
+                  <td className="py-0.5 pr-2 font-medium">Veg (held back from Carbs)</td>
                   <td className="py-0.5 pr-2 tabular-nums">flat</td>
-                  <td className="py-0.5 pr-2 tabular-nums">= {VEG_KCAL} kcal</td>
-                  <td className="py-0.5 text-amber-600">—</td>
+                  <td className="py-0.5 pr-2 tabular-nums">= {VEG_RESERVE_CARB_G}g</td>
+                  <td className="py-0.5 tabular-nums text-amber-600">{VEG_KCAL} kcal</td>
                 </tr>
               )}
               <tr className="border-t border-amber-100">
                 <td className="py-0.5 pr-2 font-semibold pt-1">Total</td>
                 <td className="py-0.5 pr-2" />
-                <td className="py-0.5 pr-2 tabular-nums font-semibold pt-1">= {Math.round(totalKcal)} kcal</td>
-                <td />
+                <td className="py-0.5 pr-2" />
+                <td className="py-0.5 tabular-nums font-semibold pt-1">= {Math.round(totalKcal)} kcal</td>
               </tr>
             </tbody>
           </table>
           <p className="text-[10px] text-amber-600 mt-1.5 leading-snug">
-            The macro figures shown above the breakdown count primary macros only ({SERVE_BUDGET.protein.primaryG}g P/serve, {SERVE_BUDGET.carb.primaryG}g C/serve, {SERVE_BUDGET.fat.primaryG}g F/serve). The kcal total is higher because per-serve kcal also covers the typical &quot;mixed&quot; macros found in real food (fat in protein foods, protein in grains, etc.) — that&apos;s why 120P + 240C + 60F ≠ kcal total exactly.
+            These are the real grams each serve count stands for — same formula the meal plan&apos;s own serve breakdown uses. Real food will land close to this but rarely exactly on it (a leaner or fattier choice than average shifts the real total a little either way), which is why this is a close estimate, not an exact prescription.
           </p>
         </div>
       </div>
@@ -253,29 +266,19 @@ export default function ClientServeGuide({
             )}
             {/* Estimated daily calories + macros */}
             {(draft.protein_serves > 0 || draft.carb_serves > 0 || draft.fat_serves > 0) && (() => {
-              const vegCal = draft.veg_unlimited ? VEG_KCAL : 0
-              const estCal = Math.round(
-                draft.protein_serves * SERVE_BUDGET.protein.kcal +
-                draft.carb_serves    * SERVE_BUDGET.carb.kcal +
-                draft.fat_serves     * SERVE_BUDGET.fat.kcal +
-                vegCal
-              )
-              const estP = Math.round(draft.protein_serves * SERVE_BUDGET.protein.primaryG)
-              const estC = Math.round(draft.carb_serves * SERVE_BUDGET.carb.primaryG)
-              const estF = Math.round(draft.fat_serves * SERVE_BUDGET.fat.primaryG)
+              const est = estimateFromServes(draft.protein_serves, draft.carb_serves, draft.fat_serves, draft.veg_unlimited)
               return (
                 <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-amber-700">Estimated daily <span className="font-normal text-amber-600">(real-food total, incl. ~{vegCal} kcal veg)</span></span>
-                    <span className="text-sm font-bold text-amber-800">~{estCal} kcal</span>
+                    <span className="text-xs text-amber-700">Estimated daily <span className="font-normal text-amber-600">(incl. ~{VEG_RESERVE_CARB_G}g veg carbs)</span></span>
+                    <span className="text-sm font-bold text-amber-800">~{Math.round(est.kcal)} kcal</span>
                   </div>
                   <div className="flex gap-3 text-xs font-semibold">
-                    <span className="text-pink-600">~{estP}g P</span>
-                    <span className="text-teal-600">~{estC}g C</span>
-                    <span className="text-green-600">~{estF}g F</span>
-                    <span className="text-gray-400 font-normal">(primary macros only)</span>
+                    <span className="text-pink-600">{Math.round(est.proteinG)}g P</span>
+                    <span className="text-teal-600">{Math.round(est.carbG)}g C</span>
+                    <span className="text-green-600">{Math.round(est.fatG)}g F</span>
                   </div>
-                  <p className="text-[11px] text-amber-600">Estimate includes real-food mixed macros (e.g. fat in protein foods, protein in grains) + ~{VEG_KCAL} kcal for veg. Note: the {VEG_KCAL} kcal veg estimate is drawn from the carb budget when auto-assigning from TDEE.</p>
+                  <p className="text-[11px] text-amber-600">Real grams these serves stand for, same formula as the meal plan&apos;s own serve breakdown — includes ~{VEG_RESERVE_CARB_G}g carbs (~{VEG_KCAL} kcal) held back for veg.</p>
                   <ServeMathBreakdown
                     protein_serves={draft.protein_serves}
                     carb_serves={draft.carb_serves}
@@ -312,12 +315,7 @@ export default function ClientServeGuide({
               ))}
             </div>
             <p className="text-xs text-gray-400">
-              ~{Math.round(
-                targets.protein_serves * SERVE_BUDGET.protein.kcal +
-                targets.carb_serves    * SERVE_BUDGET.carb.kcal +
-                targets.fat_serves     * SERVE_BUDGET.fat.kcal +
-                (targets.veg_unlimited ? VEG_KCAL : 0)
-              )} kcal/day estimated (real-food total incl. mixed macros + ~{VEG_KCAL} kcal veg). Carbs includes fruit.
+              ~{Math.round(estimateFromServes(targets.protein_serves, targets.carb_serves, targets.fat_serves, targets.veg_unlimited).kcal)} kcal/day estimated (incl. ~{VEG_KCAL} kcal veg). Carbs includes fruit.
             </p>
             {targets.veg_unlimited && (
               <p className="text-[11px] text-amber-600 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-2">
@@ -338,7 +336,7 @@ export default function ClientServeGuide({
             <div className="bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2.5 space-y-1">
               <p className="text-xs font-semibold text-indigo-900">Worth knowing: this is an estimate, on purpose</p>
               <p className="text-[11px] text-indigo-700 leading-relaxed">
-                That&apos;s a feature, not a gap — the whole point of serves is to give a client a simple number to hit instead of weighing every gram, which is exactly what reduces overwhelm for someone who&apos;d otherwise be tracking exact macros. The trade-off is that what they actually log will land close to {Math.round(targets.protein_serves * SERVE_BUDGET.protein.kcal + targets.carb_serves * SERVE_BUDGET.carb.kcal + targets.fat_serves * SERVE_BUDGET.fat.kcal + (targets.veg_unlimited ? VEG_KCAL : 0))} kcal, not exactly on it — e.g. if they pick a leaner protein source than the {SERVE_BUDGET.protein.primaryG}g-protein-plus-a-bit-of-fat assumption behind each protein serve, their real total comes in a bit under; a fattier choice, a bit over. Worth saying to a client up front so a day that logs 150-250kcal off this estimate doesn&apos;t read as doing it wrong.
+                That&apos;s a feature, not a gap — the whole point of serves is to give a client a simple number to hit instead of weighing every gram, which is exactly what reduces overwhelm for someone who&apos;d otherwise be tracking exact macros. The trade-off is that what they actually log will land close to ~{Math.round(estimateFromServes(targets.protein_serves, targets.carb_serves, targets.fat_serves, targets.veg_unlimited).kcal)} kcal, not exactly on it — real food rarely lines up perfectly with a 30g/20g/10g serve boundary, so a day that logs a little either side of this estimate isn&apos;t doing it wrong.
               </p>
             </div>
             {targets.notes && <p className="text-xs text-gray-500 bg-gray-50 rounded-xl px-3 py-2 whitespace-pre-wrap">{targets.notes}</p>}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mapDietaryPreferenceToMealPlanGoal, pickBestMealPlan, macrosToServes, mealMacrosToServes, targetMacrosToServes, SERVE_BUDGET, VEG_KCAL } from '@/lib/autoAssignNutrition'
+import { mapDietaryPreferenceToMealPlanGoal, pickBestMealPlan, macrosToServes, mealMacrosToServes } from '@/lib/autoAssignNutrition'
 
 describe('mapDietaryPreferenceToMealPlanGoal', () => {
   it('maps vegan and dairy_free straight across — the two non-omnivore options onboarding actually offers', () => {
@@ -72,36 +72,6 @@ describe('macrosToServes', () => {
     // reservation swallows it whole and reports zero.
     const serves = macrosToServes({ proteinG: 36.6, carbG: 32.7, fatG: 12.2 })
     expect(serves.carb_serves).toBe(0)
-  })
-})
-
-function realFoodKcal(serves: { protein_serves: number; carb_serves: number; fat_serves: number }) {
-  return serves.protein_serves * SERVE_BUDGET.protein.kcal + serves.carb_serves * SERVE_BUDGET.carb.kcal + serves.fat_serves * SERVE_BUDGET.fat.kcal + VEG_KCAL
-}
-
-describe('targetMacrosToServes', () => {
-  it('reproduces a real coaching example within half a serve\'s rounding error, unlike macrosToServes', () => {
-    // A client with TDEE daily target 2062 kcal / 108g P / 225g C / 78g F —
-    // macrosToServes({proteinG:108, carbG:225, fatG:78}) estimates 2278kcal
-    // real-food total against a 2062kcal target, a 216kcal/10% overshoot.
-    const serves = targetMacrosToServes({ proteinG: 108, fatG: 78, targetCals: 2062 })
-    expect(serves.protein_serves).toBe(3.5) // 108 / 30, same as macrosToServes
-    expect(serves.fat_serves).toBe(8) // 78 / 10, same as macrosToServes
-    expect(serves.carb_serves).toBe(7.5) // solved backwards from the calorie budget, not 225/20
-
-    const estimate = realFoodKcal(serves)
-    expect(Math.abs(estimate - 2062)).toBeLessThan(10) // within half a carb-serve's kcal of the actual target
-  })
-
-  it('never produces a negative carb-serve count when protein/fat alone already exceed the target', () => {
-    const serves = targetMacrosToServes({ proteinG: 200, fatG: 150, targetCals: 1200 })
-    expect(serves.carb_serves).toBe(0)
-  })
-
-  it('has veg_unlimited true and no fruit_serves field, same shape as macrosToServes', () => {
-    const serves = targetMacrosToServes({ proteinG: 108, fatG: 78, targetCals: 2062 })
-    expect(serves.veg_unlimited).toBe(true)
-    expect(serves).not.toHaveProperty('fruit_serves')
   })
 })
 
