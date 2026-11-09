@@ -105,7 +105,7 @@ type AutoflowCheckIn = {
   step_description?: string | null
   submitted_at: string
   answers: Record<string, string>
-  questions: { id: string; label: string; type: string }[]
+  questions: { id: string; label: string; type: string; description?: string | null }[]
   reviewed_by_coach?: boolean
   coach_feedback?: string | null
   resources?: { id: string; name: string; type: string; url: string | null }[]
@@ -114,6 +114,7 @@ type AutoflowCheckIn = {
   // 'staged_flow' = this came from an onboarding-type (lesson) autoflow
   // step rather than a real check-in.
   source?: 'checkin' | 'staged_flow'
+  flags?: { questionId: string | null; severity: string; reason: string }[]
 }
 
 type CustomMetric = {
@@ -1643,7 +1644,19 @@ function EditFormButton({ scheduleId, clientId }: { scheduleId: string; clientId
 
 // ── Expandable check-in response cards ───────────────────────────────────────
 
-function AnswerRow({ label, value, type }: { label: string; value: string; type: string }) {
+const FLAG_BADGE_STYLES: Record<string, string> = {
+  urgent: 'bg-red-600 text-white',
+  normal: 'bg-amber-50 text-amber-700 border border-amber-200',
+  lead: 'bg-blue-100 text-blue-700 border border-blue-200',
+}
+
+function AnswerRow({ label, value, type, description, flag }: {
+  label: string
+  value: string
+  type: string
+  description?: string | null
+  flag?: { questionId: string | null; severity: string; reason: string }
+}) {
   let display = value
   if (type === 'yesno') display = value === 'yes' ? 'Yes' : value === 'no' ? 'No' : value
   try {
@@ -1651,9 +1664,18 @@ function AnswerRow({ label, value, type }: { label: string; value: string; type:
     if (Array.isArray(parsed)) display = parsed.join(', ')
   } catch { /* not JSON */ }
   return (
-    <div className="py-2 border-b border-gray-50 last:border-0">
-      <p className="text-xs text-gray-400">{label}</p>
+    <div className={`py-2 border-b border-gray-50 last:border-0 ${flag ? 'border-l-2 pl-2.5 -ml-2.5' : ''} ${flag?.severity === 'urgent' ? 'border-l-red-500' : flag?.severity === 'lead' ? 'border-l-blue-400' : flag ? 'border-l-amber-400' : ''}`}>
+      <div className="flex items-center gap-2">
+        <p className="text-xs text-gray-400">{label}</p>
+        {flag && (
+          <span className={`text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full ${FLAG_BADGE_STYLES[flag.severity] ?? FLAG_BADGE_STYLES.normal}`}>
+            {flag.severity}
+          </span>
+        )}
+      </div>
+      {description && <p className="text-[11px] text-gray-400 italic mt-0.5">{description}</p>}
       <p className="text-sm text-gray-800 mt-0.5">{display || '—'}</p>
+      {flag && <p className="text-xs text-gray-500 mt-0.5">{flag.reason}</p>}
     </div>
   )
 }
@@ -1929,16 +1951,18 @@ function ExpandableAutoflowCheckIn({ item, clientId, onDelete }: { item: Autoflo
             <p className="text-xs text-gray-400 pt-3">No answers recorded.</p>
           ) : (
             <div className="pt-2">
-              {item.questions.map((q) => (
-                q.id in item.answers
-                  ? <AnswerRow key={q.id} label={q.label} value={item.answers[q.id]} type={q.type} />
+              {item.questions.map((q) => {
+                const flag = (item.flags ?? []).find((f) => f.questionId === q.id)
+                return q.id in item.answers
+                  ? <AnswerRow key={q.id} label={q.label} value={item.answers[q.id]} type={q.type} description={q.description} flag={flag} />
                   : (
                     <div key={q.id} className="py-2 border-b border-gray-50 last:border-0">
                       <p className="text-xs text-gray-400">{q.label}</p>
+                      {q.description && <p className="text-[11px] text-gray-400 italic mt-0.5">{q.description}</p>}
                       <p className="text-sm text-gray-400 italic mt-0.5">Client did not answer</p>
                     </div>
                   )
-              ))}
+              })}
             </div>
           )}
         </div>

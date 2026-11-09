@@ -113,7 +113,8 @@ export async function GET(
   type AutoflowCheckIn = {
     id: string; flow_id: string; flow_name: string; step_number: number
     submitted_at: string; answers: Record<string, string>
-    questions: { id: string; label: string; type: string }[]
+    questions: { id: string; label: string; type: string; description?: string | null }[]
+    flags?: { questionId: string | null; severity: string; reason: string }[]
   }
   let autoflowCheckIns: AutoflowCheckIn[] = []
 
@@ -156,7 +157,7 @@ export async function GET(
         : Promise.resolve({ data: [] }),
       admin
         .from('autoflow_template_steps')
-        .select('template_id, step_number, title, description, questions, form_id, resource_ids, tasks')
+        .select('template_id, step_number, title, description, questions, form_id, resource_ids, tasks, include_core_questions')
         .in('template_id', [...checkinTemplateIds]),
       checkinFlowIds.length
         ? admin
@@ -166,9 +167,29 @@ export async function GET(
         : Promise.resolve({ data: [] }),
     ])
 
-    const coreQByTemplate: Record<string, { id: string; label: string; type: string }[]> = {}
+    // Which specific question(s) tripped a flag on each response, so the
+    // client file can show a marker next to the exact question rather than
+    // just a severity badge with no detail.
+    const respIds = (resps ?? []).map((r) => r.id)
+    const flagsByResponse: Record<string, { questionId: string | null; severity: string; reason: string }[]> = {}
+    if (respIds.length) {
+      const { data: openFlags } = await admin
+        .from('autoflow_response_flags')
+        .select('response_id, rule_key, severity, reason')
+        .in('response_id', respIds)
+        .is('cleared_at', null)
+      for (const f of openFlags ?? []) {
+        const rid = f.response_id as string
+        const ruleKey = f.rule_key as string
+        const questionId = ruleKey.startsWith('question:') ? ruleKey.slice('question:'.length) : null
+        if (!flagsByResponse[rid]) flagsByResponse[rid] = []
+        flagsByResponse[rid].push({ questionId, severity: f.severity as string, reason: f.reason as string })
+      }
+    }
+
+    const coreQByTemplate: Record<string, { id: string; label: string; type: string; description?: string | null }[]> = {}
     for (const t of templates ?? []) {
-      const cqs = (t.core_questions as { id: string; label: string; type: string }[] | null) ?? []
+      const cqs = (t.core_questions as { id: string; label: string; type: string; description?: string | null }[] | null) ?? []
       coreQByTemplate[t.id] = cqs.filter((q) => q.type !== 'note' && q.type !== 'section')
     }
 
@@ -176,16 +197,17 @@ export async function GET(
     type StepMeta = {
       title: string | null
       description: string | null
-      questions: { id: string; label: string; type: string }[]
+      questions: { id: string; label: string; type: string; description?: string | null }[]
       form_id: string | null
       resource_ids: string[]
       tasks: StepTask[]
+      include_core_questions: boolean
     }
     const stepMetaByTemplate: Record<string, Record<number, StepMeta>> = {}
     for (const s of steps ?? []) {
       const rec = s as Record<string, unknown>
       if (!stepMetaByTemplate[s.template_id]) stepMetaByTemplate[s.template_id] = {}
-      const qs = (s.questions as { id: string; label: string; type: string }[] | null) ?? []
+      const qs = (s.questions as { id: string; label: string; type: string; description?: string | null }[] | null) ?? []
       const rawTasks = Array.isArray(rec.tasks) ? rec.tasks as Array<Record<string, unknown>> : []
       stepMetaByTemplate[s.template_id][s.step_number] = {
         title: (rec.title as string | null) ?? null,
@@ -200,6 +222,7 @@ export async function GET(
           link_url: (t.link_url as string | null) ?? null,
           link_label: (t.link_label as string | null) ?? null,
         })),
+        include_core_questions: rec.include_core_questions !== false,
       }
     }
 
@@ -213,7 +236,7 @@ export async function GET(
       if (rec.title != null) patch.title = rec.title as string
       if (rec.description != null) patch.description = rec.description as string
       if (rec.questions != null) {
-        const qs = (rec.questions as { id: string; label: string; type: string }[] | null) ?? []
+        const qs = (rec.questions as { id: string; label: string; type: string; description?: string | null }[] | null) ?? []
         patch.questions = qs.filter((q) => q.type !== 'note' && q.type !== 'section')
       }
       overrideMetaMap[ov.client_autoflow_id][ov.step_number] = patch
@@ -279,10 +302,14 @@ export async function GET(
 
     autoflowCheckIns = (resps ?? []).map((r) => {
       const templateId = flowTemplateById[r.client_autoflow_id]
-      const coreQs = coreQByTemplate[templateId] ?? []
       const tplMeta = stepMetaByTemplate[templateId]?.[r.step_number]
       const overrideMeta = overrideMetaMap[r.client_autoflow_id]?.[r.step_number]
-      const stepQs = effectiveQuestions(overrideMeta?.questions, tplMeta?.questions) as { id: string; label: string; type: string }[]
+      // Respect this specific step's own include_core_questions setting —
+      // core questions are a template-wide list, but any given step can opt
+      // out of showing them (e.g. an intake-only step with no weekly core
+      // questions attached).
+      const coreQs = (tplMeta?.include_core_questions ?? true) ? (coreQByTemplate[templateId] ?? []) : []
+      const stepQs = effectiveQuestions(overrideMeta?.questions, tplMeta?.questions) as { id: string; label: string; type: string; description?: string | null }[]
       const stepTitle = overrideMeta?.title ?? tplMeta?.title ?? null
       const stepDescription = overrideMeta?.description ?? tplMeta?.description ?? null
       const answers = (r.answers as Record<string, string>) ?? {}
@@ -370,6 +397,7 @@ export async function GET(
         tasks,
         linked_form: linkedForm,
         source: templateTypeById[templateId] === 'onboarding' ? 'staged_flow' : 'checkin',
+        flags: flagsByResponse[r.id] ?? [],
       }
     })
   }
