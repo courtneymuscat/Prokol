@@ -1666,6 +1666,11 @@ function AnswerRow({ label, value, type, description, flag }: {
     const parsed = JSON.parse(value)
     if (Array.isArray(parsed)) display = parsed.join(', ')
   } catch { /* not JSON */ }
+  // A plain "match" flag's reason is just `"<label>" was answered "<value>".`
+  // — pure restatement of the label/value already shown above, so it adds
+  // nothing. Threshold, trend, and streak reasons ("...for 3 check-ins in
+  // a row") carry real info beyond label+value, so those still show.
+  const reasonIsRedundant = !!flag && /^".*" was answered ".*"\.$/.test(flag.reason)
   return (
     <div className={`py-2 border-b border-gray-50 last:border-0 ${flag ? 'border-l-2 pl-2.5 -ml-2.5' : ''} ${flag?.severity === 'urgent' ? 'border-l-red-500' : flag?.severity === 'lead' ? 'border-l-blue-400' : flag ? 'border-l-amber-400' : ''}`}>
       <div className="flex items-center gap-2">
@@ -1678,7 +1683,7 @@ function AnswerRow({ label, value, type, description, flag }: {
       </div>
       {description && <p className="text-[11px] text-gray-400 italic mt-0.5">{description}</p>}
       <p className="text-sm text-gray-800 mt-0.5">{display || '—'}</p>
-      {flag && <p className="text-xs text-gray-500 mt-0.5">{flag.reason}</p>}
+      {flag && !reasonIsRedundant && <p className="text-xs text-gray-500 mt-0.5">{flag.reason}</p>}
     </div>
   )
 }
