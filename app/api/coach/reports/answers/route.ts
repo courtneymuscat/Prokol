@@ -2,19 +2,27 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireCoach } from '@/lib/coach'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-// Every answer any of the coach's own clients gave to one specific
-// question, across every autoflow/step it appears on (a core question
+// Every answer any of the coach's own clients gave to one or more specific
+// questions, across every autoflow/step they appear on (a core question
 // answered weekly shows up once per check-in it was asked on), optionally
-// bounded to a date range. Powers Check-ins > Reports' bulk-pull.
+// bounded to a date range. One row per check-in submission that answered
+// at least one of the requested questions — answers come back keyed by
+// question id so a multi-question report pivots naturally (e.g. "wins" and
+// "obstacles" side by side for the same check-in) rather than needing a
+// separate run per question. Powers Check-ins > Reports' bulk-pull.
 export async function GET(req: NextRequest) {
   const coachId = await requireCoach()
   if (!coachId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
-  const questionId = searchParams.get('questionId')
+  // questionIds (plural, comma-separated) is the current param; questionId
+  // (singular) kept working too in case anything else ever links here.
+  const questionIdsParam = searchParams.get('questionIds') ?? searchParams.get('questionId')
   const from = searchParams.get('from')
   const to = searchParams.get('to')
-  if (!questionId) return NextResponse.json({ error: 'questionId required' }, { status: 400 })
+  if (!questionIdsParam) return NextResponse.json({ error: 'questionIds required' }, { status: 400 })
+  const questionIds = questionIdsParam.split(',').map((s) => s.trim()).filter(Boolean)
+  if (questionIds.length === 0) return NextResponse.json({ error: 'questionIds required' }, { status: 400 })
 
   const admin = createAdminClient()
 
@@ -48,15 +56,20 @@ export async function GET(req: NextRequest) {
   )
 
   const rows = (responses ?? [])
-    .filter((r) => r.answers && Object.prototype.hasOwnProperty.call(r.answers, questionId))
-    .map((r) => ({
-      client_id: r.client_id,
-      client_name: profileById[r.client_id] ?? 'Unknown',
-      flow_name: flowById[r.client_autoflow_id]?.name ?? 'Check-in',
-      step_number: r.step_number,
-      answer: (r.answers as Record<string, string>)[questionId],
-      submitted_at: r.submitted_at,
-    }))
+    .filter((r) => r.answers && questionIds.some((qid) => Object.prototype.hasOwnProperty.call(r.answers, qid)))
+    .map((r) => {
+      const answerSet = r.answers as Record<string, string>
+      const answers: Record<string, string | null> = {}
+      for (const qid of questionIds) answers[qid] = Object.prototype.hasOwnProperty.call(answerSet, qid) ? answerSet[qid] : null
+      return {
+        client_id: r.client_id,
+        client_name: profileById[r.client_id] ?? 'Unknown',
+        flow_name: flowById[r.client_autoflow_id]?.name ?? 'Check-in',
+        step_number: r.step_number,
+        submitted_at: r.submitted_at,
+        answers,
+      }
+    })
 
   return NextResponse.json(rows)
 }
