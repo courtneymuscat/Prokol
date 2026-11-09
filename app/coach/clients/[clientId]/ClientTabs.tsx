@@ -111,6 +111,9 @@ type AutoflowCheckIn = {
   resources?: { id: string; name: string; type: string; url: string | null }[]
   tasks?: { id: string; label: string; link_type?: string | null; link_url?: string | null; link_label?: string | null; completed: boolean; submission_id?: string | null }[]
   linked_form?: { id: string; title: string; submission_id: string | null } | null
+  // 'staged_flow' = this came from an onboarding-type (lesson) autoflow
+  // step rather than a real check-in.
+  source?: 'checkin' | 'staged_flow'
 }
 
 type CustomMetric = {
@@ -2601,6 +2604,7 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
     setVisitedNutritionSubTabs((prev) => (prev.has(nutritionSubTab) ? prev : new Set(prev).add(nutritionSubTab)))
   }, [nutritionSubTab])
   const [autoflowRefreshKey, setAutoflowRefreshKey] = useState(0)
+  const [checkinsFilter, setCheckinsFilter] = useState<'all' | 'checkin' | 'staged_flow'>('all')
   const [data, setData] = useState<ClientData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -2962,17 +2966,44 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
             </Suspense>
           )}
 
-          {data && (
+          {data && (() => {
+            const merged = [
+              ...(data.autoflowCheckIns ?? []).map((ac) => ({ kind: 'autoflow' as const, date: ac.submitted_at, item: ac, source: ac.source ?? 'checkin' })),
+              ...(data.formCheckIns ?? []).map((fc) => ({ kind: 'form' as const, date: fc.submitted_at, item: fc, source: 'checkin' as const })),
+              ...data.checkIns.map((c) => ({ kind: 'direct' as const, date: c.created_at, item: c, source: 'checkin' as const })),
+            ]
+            const checkinCount = merged.filter((e) => e.source === 'checkin').length
+            const stagedCount = merged.filter((e) => e.source === 'staged_flow').length
+            const filtered = checkinsFilter === 'all' ? merged : merged.filter((e) => e.source === checkinsFilter)
+
+            return (
             <div className="space-y-3">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Submitted Check-ins</p>
-              {data.checkIns.length === 0 && (data.formCheckIns ?? []).length === 0 && (data.autoflowCheckIns ?? []).length === 0 && <Empty label="No check-ins submitted yet." />}
+              {merged.length === 0 && <Empty label="No check-ins submitted yet." />}
+
+              {merged.length > 0 && (
+                <div className="flex items-center gap-2">
+                  {([
+                    ['all', `All (${merged.length})`],
+                    ['checkin', `Check-ins (${checkinCount})`],
+                    ['staged_flow', `Staged flow (${stagedCount})`],
+                  ] as const).map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => setCheckinsFilter(key)}
+                      className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+                        checkinsFilter === key ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {merged.length > 0 && filtered.length === 0 && <Empty label="Nothing in this filter right now." />}
 
               {/* Merge all check-in types and sort newest first */}
-              {[
-                ...(data.autoflowCheckIns ?? []).map((ac) => ({ kind: 'autoflow' as const, date: ac.submitted_at, item: ac })),
-                ...(data.formCheckIns ?? []).map((fc) => ({ kind: 'form' as const, date: fc.submitted_at, item: fc })),
-                ...data.checkIns.map((c) => ({ kind: 'direct' as const, date: c.created_at, item: c })),
-              ]
+              {filtered
                 .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                 .map((entry) => {
                   if (entry.kind === 'autoflow') return (
@@ -3045,7 +3076,8 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
                   )
                 })}
             </div>
-          )}
+            )
+          })()}
         </div>
       )}
 

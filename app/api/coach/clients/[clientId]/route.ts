@@ -140,6 +140,10 @@ export async function GET(
         .map((t) => t.id)
     )
     const checkinFlowIds = clientFlows.filter((f) => checkinTemplateIds.has(f.template_id)).map((f) => f.id)
+    // 'staged_flow' = this response came from an onboarding-type (lesson)
+    // autoflow step rather than a real check-in — see CheckinsFeedList's
+    // identical distinction on the main Check-ins page.
+    const templateTypeById: Record<string, string> = Object.fromEntries((templates ?? []).map((t) => [t.id, (t as Record<string, unknown>).type as string]))
 
     const [{ data: resps }, { data: steps }, { data: stepOverrides }] = await Promise.all([
       checkinFlowIds.length
@@ -365,6 +369,7 @@ export async function GET(
         resources,
         tasks,
         linked_form: linkedForm,
+        source: templateTypeById[templateId] === 'onboarding' ? 'staged_flow' : 'checkin',
       }
     })
   }
