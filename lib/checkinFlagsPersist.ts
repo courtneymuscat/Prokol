@@ -131,24 +131,42 @@ export async function computeAndStoreCheckinFlags(params: {
 
   const vars = { first_name: clientFirstName, coach_name: coachDisplayName }
 
+  // Records exactly what was sent (if anything) directly on the response
+  // row, so the coach's client-file view can show "an automated message
+  // was sent for this check-in" without having to guess which message in
+  // the conversation thread it was. Normal and Lead can both fire for the
+  // same check-in (see pickAutomatedMessages), so this collects every
+  // body actually sent rather than letting a second send overwrite the
+  // first.
+  const sent: { body: string; severity: 'urgent' | 'normal' | 'lead' }[] = []
+
   if (picked.urgent) {
     if (templates.urgent_enabled) {
-      await sendAutomatedCheckinMessage(admin, { coachId, clientId, body: renderTemplate(templates.urgent_template, vars) })
+      const body = renderTemplate(templates.urgent_template, vars)
+      await sendAutomatedCheckinMessage(admin, { coachId, clientId, body })
+      sent.push({ body, severity: 'urgent' })
     }
-    return
+  } else {
+    if (picked.normal) {
+      const categories = picked.normal.flags.map((f) => f.category as FlagCategory)
+      const { reason, tip } = combineCategorySnippets(categories, templates.category_snippets)
+      const body = renderTemplate(templates.normal_template, { ...vars, flag_reason: reason, flag_tip: tip })
+      await sendAutomatedCheckinMessage(admin, { coachId, clientId, body })
+      sent.push({ body, severity: 'normal' })
+    }
+
+    if (picked.lead) {
+      const body = renderTemplate(templates.lead_template, vars)
+      await sendAutomatedCheckinMessage(admin, { coachId, clientId, body })
+      sent.push({ body, severity: 'lead' })
+    }
   }
 
-  if (picked.normal) {
-    const categories = picked.normal.flags.map((f) => f.category as FlagCategory)
-    const { reason, tip } = combineCategorySnippets(categories, templates.category_snippets)
-    await sendAutomatedCheckinMessage(admin, {
-      coachId,
-      clientId,
-      body: renderTemplate(templates.normal_template, { ...vars, flag_reason: reason, flag_tip: tip }),
-    })
-  }
-
-  if (picked.lead) {
-    await sendAutomatedCheckinMessage(admin, { coachId, clientId, body: renderTemplate(templates.lead_template, vars) })
+  if (sent.length > 0) {
+    await admin.from('autoflow_responses').update({
+      automated_message_sent: sent.map((s) => s.body).join('\n\n---\n\n'),
+      automated_message_sent_at: new Date().toISOString(),
+      automated_message_severity: sent.map((s) => s.severity).join(','),
+    }).eq('id', responseId)
   }
 }

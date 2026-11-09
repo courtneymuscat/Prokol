@@ -20,6 +20,7 @@ type Row = {
   flags: { rule_key: string; severity: string; reason: string; cleared_at: string | null }[]
   is_flagged: boolean
   flag_severity: 'urgent' | 'lead' | 'normal' | null
+  flag_counts: { urgent: number; normal: number; lead: number }
 }
 
 const PATH_LABELS: Record<string, string> = { ps: 'Plan & Swap', ts: 'Track Serves', pc: 'Protein + Calories' }
@@ -30,12 +31,26 @@ function fmtDate(d: string) {
 }
 
 // Urgent = red, Normal = amber, Lead = blue — same scheme as the flag
-// editor in the autoflow builder.
-function SeverityBadge({ severity }: { severity: 'urgent' | 'lead' | 'normal' | null }) {
-  if (severity === 'urgent') return <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-red-600 text-white">Urgent</span>
-  if (severity === 'lead') return <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">Lead</span>
-  if (severity === 'normal') return <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">Normal</span>
-  return null
+// editor in the autoflow builder. r.flag_severity (used for the row's
+// left border / sort order) only ever surfaces the single worst
+// severity — this shows every severity that actually fired, with a count,
+// since one response can carry several (e.g. 2 Normal + 3 Lead).
+function FlagCounts({ counts }: { counts: { urgent: number; normal: number; lead: number } }) {
+  const items: { label: string; n: number; className: string }[] = [
+    { label: 'Urgent', n: counts.urgent, className: 'bg-red-600 text-white' },
+    { label: 'Normal', n: counts.normal, className: 'bg-amber-50 text-amber-700 border border-amber-200' },
+    { label: 'Lead', n: counts.lead, className: 'bg-blue-100 text-blue-700 border border-blue-200' },
+  ].filter((i) => i.n > 0)
+  if (items.length === 0) return null
+  return (
+    <div className="flex flex-col items-end gap-1">
+      {items.map((i) => (
+        <span key={i.label} className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full whitespace-nowrap ${i.className}`}>
+          {i.n} {i.label}
+        </span>
+      ))}
+    </div>
+  )
 }
 
 const SEVERITY_BORDER: Record<'urgent' | 'lead' | 'normal', string> = {
@@ -206,7 +221,7 @@ export default function ProkolMethodCheckins() {
           <span className="w-28 hidden sm:block">Path</span>
           <span className="w-16">Score</span>
           <span className="w-24">Date</span>
-          <span className="w-20 text-right">Flag</span>
+          <span className="w-28 text-right">Flag</span>
         </div>
         {filtered.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-10">No check-ins match these filters.</p>
@@ -224,12 +239,15 @@ export default function ProkolMethodCheckins() {
                 </p>
                 <p className="text-xs text-gray-400">{r.reviewed ? 'Reviewed' : 'New'}{r.has_feedback ? ' · replied' : ''}</p>
               </a>
-              <span className="w-24 text-xs text-gray-600 flex-shrink-0">{TYPE_LABELS[r.type]}{r.type === 'weekly' ? ` ${r.step_number - 1}` : ''}</span>
+              <span className="w-24 flex-shrink-0">
+                <span className="block text-xs text-gray-600">{TYPE_LABELS[r.type]}{r.type === 'weekly' ? ` ${r.step_number - 1}` : ''}</span>
+                <span className="block text-[11px] text-gray-400 truncate">{r.title}</span>
+              </span>
               <span className="w-28 text-xs text-gray-500 hidden sm:block flex-shrink-0">{r.path ? PATH_LABELS[r.path] : '—'}</span>
               <span className="w-16 text-xs font-semibold text-gray-700 flex-shrink-0">{r.overall_score ?? '—'}</span>
               <span className="w-24 text-xs text-gray-400 flex-shrink-0">{fmtDate(r.submitted_at)}</span>
-              <span className="w-20 flex justify-end flex-shrink-0">
-                <SeverityBadge severity={r.flag_severity} />
+              <span className="w-28 flex justify-end flex-shrink-0">
+                <FlagCounts counts={r.flag_counts} />
               </span>
             </div>
           ))

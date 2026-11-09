@@ -115,6 +115,9 @@ export async function GET(
     submitted_at: string; answers: Record<string, string>
     questions: { id: string; label: string; type: string; description?: string | null }[]
     flags?: { questionId: string | null; severity: string; reason: string }[]
+    automated_message_sent?: string | null
+    automated_message_sent_at?: string | null
+    automated_message_severity?: string | null
   }
   let autoflowCheckIns: AutoflowCheckIn[] = []
 
@@ -150,7 +153,7 @@ export async function GET(
       checkinFlowIds.length
         ? admin
             .from('autoflow_responses')
-            .select('id, client_autoflow_id, step_number, submitted_at, answers, reviewed_by_coach, coach_feedback')
+            .select('id, client_autoflow_id, step_number, submitted_at, answers, reviewed_by_coach, coach_feedback, automated_message_sent, automated_message_sent_at, automated_message_severity')
             .in('client_autoflow_id', checkinFlowIds)
             .order('submitted_at', { ascending: false })
             .limit(30)
@@ -398,6 +401,9 @@ export async function GET(
         linked_form: linkedForm,
         source: templateTypeById[templateId] === 'onboarding' ? 'staged_flow' : 'checkin',
         flags: flagsByResponse[r.id] ?? [],
+        automated_message_sent: (r as Record<string, unknown>).automated_message_sent as string | null ?? null,
+        automated_message_sent_at: (r as Record<string, unknown>).automated_message_sent_at as string | null ?? null,
+        automated_message_severity: (r as Record<string, unknown>).automated_message_severity as string | null ?? null,
       }
     })
   }

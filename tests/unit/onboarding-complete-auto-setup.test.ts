@@ -132,7 +132,7 @@ describe('POST /api/onboarding/complete — signup-link auto-setup', () => {
   })
 
   it('does not assign any plan when no template matches the client\'s diet', async () => {
-    mealPlanCandidates = [{ id: 'plan-omni-1800', name: 'Omnivore 1800', goal: 'omnivore', total_calories: 1800, content: [] }]
+    mealPlanCandidates = [{ id: 'plan-omni-1800', name: 'Omnivore 1800', goal: 'omnivore', total_calories: 1800, content: [], is_generic: true }]
     await POST(fakeRequest(BASE_BODY))
     expect(mealPlanInserts).toHaveLength(0)
   })

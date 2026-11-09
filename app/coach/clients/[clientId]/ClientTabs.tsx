@@ -115,6 +115,9 @@ type AutoflowCheckIn = {
   // step rather than a real check-in.
   source?: 'checkin' | 'staged_flow'
   flags?: { questionId: string | null; severity: string; reason: string }[]
+  automated_message_sent?: string | null
+  automated_message_sent_at?: string | null
+  automated_message_severity?: string | null
 }
 
 type CustomMetric = {
@@ -1963,6 +1966,15 @@ function ExpandableAutoflowCheckIn({ item, clientId, onDelete }: { item: Autoflo
                     </div>
                   )
               })}
+            </div>
+          )}
+          {item.automated_message_sent && (
+            <div className="mt-3 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
+              <p className="text-xs font-semibold text-blue-800">
+                Automated message sent to client
+                {item.automated_message_sent_at && ` · ${new Date(item.automated_message_sent_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`}
+              </p>
+              <p className="text-xs text-blue-700 mt-1 whitespace-pre-wrap">{item.automated_message_sent}</p>
             </div>
           )}
         </div>

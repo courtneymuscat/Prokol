@@ -72,6 +72,12 @@ export async function GET() {
     const title = stepMeta[r.step_number] ?? `Step ${r.step_number}`
     const answers = (r.answers ?? {}) as Record<string, string>
     const openFlags = (flagsByResponse[r.id] ?? []).filter((f) => !f.cleared_at)
+    const flagCounts = { urgent: 0, normal: 0, lead: 0 }
+    for (const f of openFlags) {
+      if (f.severity === 'urgent') flagCounts.urgent++
+      else if (f.severity === 'normal') flagCounts.normal++
+      else if (f.severity === 'lead') flagCounts.lead++
+    }
     return {
       id: r.id,
       client_id: r.client_id,
@@ -89,6 +95,7 @@ export async function GET() {
       flags: flagsByResponse[r.id] ?? [],
       is_flagged: openFlags.length > 0,
       flag_severity: openFlags.some((f) => f.severity === 'urgent') ? 'urgent' : openFlags.some((f) => f.severity === 'lead') ? 'lead' : openFlags.length > 0 ? 'normal' : null,
+      flag_counts: flagCounts,
     }
   })
 
