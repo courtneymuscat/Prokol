@@ -231,7 +231,15 @@ export default function ProkolMethodCheckins() {
                 <p className="text-xs text-gray-400">{r.reviewed ? 'Reviewed' : 'New'}{r.has_feedback ? ' · replied' : ''}</p>
               </a>
               <span className="w-24 text-xs text-gray-600 flex-shrink-0">{TYPE_LABELS[r.type]}{r.type === 'weekly' ? ` ${r.step_number - 1}` : ''}</span>
-              <span className="w-40 text-xs text-gray-500 hidden sm:block flex-shrink-0 truncate">{r.title}</span>
+              <span className="w-40 hidden sm:flex flex-shrink-0">
+                {r.title === 'Intake Form' ? (
+                  <span className="text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full truncate">
+                    {r.title}
+                  </span>
+                ) : (
+                  <span className="text-xs text-gray-500 truncate">{r.title}</span>
+                )}
+              </span>
               <span className="w-16 text-xs font-semibold text-gray-700 flex-shrink-0">{r.overall_score ?? '—'}</span>
               <span className="w-24 text-xs text-gray-400 flex-shrink-0">{fmtDate(r.submitted_at)}</span>
               <span className="w-28 flex justify-end flex-shrink-0">
