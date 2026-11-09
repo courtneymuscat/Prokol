@@ -281,11 +281,14 @@ export default function TargetCalculatorWidget({
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div className="rounded-xl border border-amber-300 p-3 space-y-2" style={{ backgroundColor: '#fffbeb' }}>
         <div className="flex items-center justify-between">
-          <label className="block text-[11px] text-gray-500">Regular training/activity (optional)</label>
-          <button onClick={addActivity} className="text-xs font-semibold text-blue-600">+ Add</button>
+          <label className="block text-xs font-semibold text-amber-800">Add your regular training/activity</label>
+          <button onClick={addActivity} className="text-xs font-semibold text-amber-700 underline flex-shrink-0">+ Add</button>
         </div>
+        <p className="text-[11px] text-amber-700 leading-relaxed">
+          Don&apos;t skip this if you train regularly — without it, your target can under-fuel you, putting you at risk of low energy availability. Adding it gives a more accurate number.
+        </p>
         {activities.map(act => (
           <div key={act.id} className="flex items-center gap-2">
             <select
