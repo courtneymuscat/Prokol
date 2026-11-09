@@ -52,11 +52,9 @@ export default function WorkWithMePage() {
             <p className="text-lg leading-relaxed mb-6" style={{ color: INK_SOFT, fontWeight: 300 }}>
               I coach, consult, teach, and partner with gyms and studios so people stop pushing through symptoms they&apos;ve been told are normal, and start understanding what their body is actually telling them — whether that&apos;s one person, a whole gym membership, or a room full of people at once.
             </p>
-            <div className="rounded-xl px-5 py-4 mb-4" style={{ background: '#fff', borderLeft: `3px solid ${BERRY}` }}>
-              <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>
-                I see too many people chasing a goal they never quite reach, or reach and can&apos;t hold onto — following rules without understanding why they work, and pushing through symptoms instead of listening to them. My point of difference is education, not more rules: if you don&apos;t understand the why behind what you&apos;re doing, you&apos;re not learning, you&apos;re just doing — and that&apos;s exactly how people end up giving up. Every service here exists to close that gap, so people can actually sustain their results, live symptom-free, eat without fear, and fuel properly for how they want to perform.
-              </p>
-            </div>
+            <p className="text-lg leading-relaxed mb-6" style={{ color: INK_SOFT, fontWeight: 300 }}>
+              I see too many people chasing a goal they never quite reach, or reach and can&apos;t hold onto — following rules without understanding why they work, and pushing through symptoms instead of listening to them. My point of difference is education, not more rules: if you don&apos;t understand the why behind what you&apos;re doing, you&apos;re not learning, you&apos;re just doing — and that&apos;s exactly how people end up giving up. Every service here exists to close that gap, so people can actually sustain their results, live symptom-free, eat without fear, and fuel properly for how they want to perform.
+            </p>
             <div className="rounded-xl px-5 py-4" style={{ background: '#fff', borderLeft: `3px solid ${BERRY}` }}>
               <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>
                 Women&apos;s health is one of my specialties — cycles, hormones and perimenopause change what a body actually needs, and most nutrition education leaves that out entirely, so it&apos;s never an afterthought in anything I build or teach. But it&apos;s a specialty, not the whole offering: everything here works exactly the same way whether you&apos;re a man, a woman, an athlete, or an entire gym team.
