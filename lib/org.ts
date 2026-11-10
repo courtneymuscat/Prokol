@@ -135,6 +135,41 @@ export async function getCoachPermissions(
 }
 
 /**
+ * Batched version of getCoachPermissions for listing every coach in an
+ * org at once (e.g. the org's Coaches tab) — one query for the whole
+ * roster instead of one per coach, which otherwise scales with gym size
+ * (10-20+ coaches per org). Coaches with no row default to
+ * DEFAULT_PERMISSIONS, same as the single-coach version.
+ */
+export async function getCoachPermissionsBatch(
+  coachIds: string[],
+  orgId: string,
+): Promise<Record<string, OrgCoachPermissions>> {
+  const result: Record<string, OrgCoachPermissions> = Object.fromEntries(coachIds.map((id) => [id, { ...DEFAULT_PERMISSIONS }]))
+  if (coachIds.length === 0) return result
+
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('org_coach_permissions')
+    .select(
+      'coach_id, can_view_all_clients, can_reassign_clients, can_use_org_templates, can_message_all_clients, can_view_org_analytics',
+    )
+    .eq('org_id', orgId)
+    .in('coach_id', coachIds)
+
+  for (const row of data ?? []) {
+    result[row.coach_id] = {
+      can_view_all_clients: row.can_view_all_clients,
+      can_reassign_clients: row.can_reassign_clients,
+      can_use_org_templates: row.can_use_org_templates,
+      can_message_all_clients: row.can_message_all_clients,
+      can_view_org_analytics: row.can_view_org_analytics,
+    }
+  }
+  return result
+}
+
+/**
  * Returns true if the given template (in `table`) is an org template
  * belonging to the specified org.
  */

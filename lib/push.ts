@@ -60,3 +60,53 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
     await supabase.from('push_subscriptions').delete().in('id', staleIds)
   }
 }
+
+/**
+ * Batched version of sendPushToUser for fanning out to many users at once
+ * (cron jobs, org-wide announcements) — one push_subscriptions query for
+ * every recipient instead of one per recipient, which is what turns a
+ * "for each client" loop into an N+1 the moment the recipient list scales
+ * with roster/org size. Each recipient can carry a different payload
+ * (e.g. personalised reminder text).
+ */
+export async function sendPushToUsers(items: { userId: string; payload: PushPayload }[]): Promise<void> {
+  if (!process.env.VAPID_PRIVATE_KEY || items.length === 0) return
+
+  const supabase = createServiceClient()
+  const userIds = [...new Set(items.map((i) => i.userId))]
+  const { data: subs } = await supabase
+    .from('push_subscriptions')
+    .select('id, user_id, endpoint, p256dh, auth')
+    .in('user_id', userIds)
+
+  if (!subs?.length) return
+
+  const subsByUser = new Map<string, typeof subs>()
+  for (const sub of subs) {
+    const list = subsByUser.get(sub.user_id)
+    if (list) list.push(sub)
+    else subsByUser.set(sub.user_id, [sub])
+  }
+
+  const staleIds: string[] = []
+
+  await Promise.allSettled(
+    items.flatMap((item) =>
+      (subsByUser.get(item.userId) ?? []).map(async (sub) => {
+        try {
+          await webpush.sendNotification(
+            { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+            JSON.stringify(item.payload),
+          )
+        } catch (err) {
+          const status = (err as { statusCode?: number }).statusCode
+          if (status === 410 || status === 404) staleIds.push(sub.id)
+        }
+      }),
+    ),
+  )
+
+  if (staleIds.length > 0) {
+    await supabase.from('push_subscriptions').delete().in('id', staleIds)
+  }
+}

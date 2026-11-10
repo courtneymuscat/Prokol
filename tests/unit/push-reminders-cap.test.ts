@@ -54,6 +54,9 @@ vi.mock('@/lib/push', () => ({
   sendPushToUser: vi.fn(async (userId: string, payload: { tag?: string }) => {
     sentPushes.push({ userId, tag: payload.tag })
   }),
+  sendPushToUsers: vi.fn(async (items: { userId: string; payload: { tag?: string } }[]) => {
+    for (const item of items) sentPushes.push({ userId: item.userId, tag: item.payload.tag })
+  }),
 }))
 
 process.env.CRON_SECRET = 'test-secret'

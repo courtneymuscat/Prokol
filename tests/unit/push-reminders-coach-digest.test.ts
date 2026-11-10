@@ -51,6 +51,7 @@ vi.mock('@/lib/supabase/service', () => ({
 
 vi.mock('@/lib/push', () => ({
   sendPushToUser: vi.fn(async () => {}),
+  sendPushToUsers: vi.fn(async () => {}),
 }))
 
 vi.mock('@/lib/email', () => ({

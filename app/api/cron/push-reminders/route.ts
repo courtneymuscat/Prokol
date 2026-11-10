@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { sendPushToUser } from '@/lib/push'
+import { sendPushToUser, sendPushToUsers } from '@/lib/push'
 import { sendEmail } from '@/lib/email'
 
 /**
@@ -155,6 +155,22 @@ export async function GET(req: NextRequest) {
     .eq('status', 'active')
 
   if (activeFlows?.length) {
+    // One query for every template these flows use, instead of one query
+    // per flow — the per-flow version scales with total active flows
+    // platform-wide (every client × every assigned autoflow), which is
+    // exactly the kind of cost that balloons once there are 1000+ users.
+    const templateIds = [...new Set(activeFlows.map((f) => f.template_id))]
+    const { data: allSteps } = await supabase
+      .from('autoflow_template_steps')
+      .select('template_id, step_number, day_offset, trigger_type, automated_message')
+      .in('template_id', templateIds)
+    const stepsByTemplate = new Map<string, typeof allSteps>()
+    for (const s of allSteps ?? []) {
+      const list = stepsByTemplate.get(s.template_id)
+      if (list) list.push(s)
+      else stepsByTemplate.set(s.template_id, [s])
+    }
+
     for (const flow of activeFlows) {
       const profile = (flow as Record<string, unknown>).profiles as { timezone: string | null } | null
       const timezone = profile?.timezone ?? null
@@ -166,10 +182,7 @@ export async function GET(req: NextRequest) {
           .map((r) => r.step_number)
       )
 
-      const { data: steps } = await supabase
-        .from('autoflow_template_steps')
-        .select('step_number, day_offset, trigger_type, automated_message')
-        .eq('template_id', flow.template_id)
+      const steps = stepsByTemplate.get(flow.template_id)
 
       if (!steps?.length) continue
 
@@ -416,6 +429,29 @@ export async function GET(req: NextRequest) {
   } catch { /* column doesn't exist yet — all users get reminders */ }
 
   if (femaleClients?.length) {
+    // One query for every eligible client's last-90-days cycle logs,
+    // instead of two queries (last log + recent logs) PER client — the
+    // per-client version scales with total female clients platform-wide,
+    // run daily. A log older than 90 days is never within the 7-day
+    // "skip if logged recently" gate anyway, so windowing to 90 days up
+    // front changes nothing about which clients end up eligible.
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 86400000).toISOString().split('T')[0]
+    const eligibleIds = femaleClients.map((c) => (c as unknown as { id: string }).id).filter((id) => !cycleOptOuts.has(id))
+    const { data: allRecentLogs } = eligibleIds.length
+      ? await supabase
+          .from('cycle_logs')
+          .select('user_id, log_date, period')
+          .in('user_id', eligibleIds)
+          .gte('log_date', ninetyDaysAgo)
+          .order('log_date', { ascending: true })
+      : { data: [] }
+    const logsByUser = new Map<string, { log_date: string; period: boolean }[]>()
+    for (const l of allRecentLogs ?? []) {
+      const list = logsByUser.get(l.user_id)
+      if (list) list.push(l)
+      else logsByUser.set(l.user_id, [l])
+    }
+
     for (const client of femaleClients) {
       const p = client as unknown as { id: string; timezone: string | null }
 
@@ -426,27 +462,15 @@ export async function GET(req: NextRequest) {
 
       const { dateStr } = getLocalInfo(timezone)
 
+      const recentLogs = logsByUser.get(p.id) ?? []
+
       // Skip unless it's been at least 7 days since their most recent log
       // (or they have no logs at all, which trivially satisfies that).
-      const { data: lastLog } = await supabase
-        .from('cycle_logs')
-        .select('log_date')
-        .eq('user_id', p.id)
-        .order('log_date', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+      const lastLog = recentLogs.length > 0 ? recentLogs[recentLogs.length - 1] : null
 
       if (lastLog && daysBetween(lastLog.log_date, dateStr) < 7) continue
 
       // ── Phase-aware message ───────────────────────────────────────────────
-      // Fetch recent logs (90 days) to estimate current cycle phase
-      const ninetyDaysAgo = new Date(now.getTime() - 90 * 86400000).toISOString().split('T')[0]
-      const { data: recentLogs } = await supabase
-        .from('cycle_logs')
-        .select('log_date, period')
-        .eq('user_id', p.id)
-        .gte('log_date', ninetyDaysAgo)
-        .order('log_date', { ascending: true })
 
       // Phase-aware message pools
       const generalMessages = [
@@ -798,6 +822,20 @@ export async function GET(req: NextRequest) {
         stepsByTemplate.set(s.template_id, arr)
       }
 
+      // One query for every flow's step-due-date overrides, instead of one
+      // query per flow — scales with total active flows platform-wide.
+      const flowIds = flowsForEndCheck.map((f) => f.id)
+      const { data: allOverrides } = await supabase
+        .from('client_autoflow_step_overrides')
+        .select('client_autoflow_id, step_number, due_date')
+        .in('client_autoflow_id', flowIds)
+      const overridesByFlow = new Map<string, { step_number: number; due_date: string | null }[]>()
+      for (const o of allOverrides ?? []) {
+        const arr = overridesByFlow.get(o.client_autoflow_id) ?? []
+        arr.push(o)
+        overridesByFlow.set(o.client_autoflow_id, arr)
+      }
+
       for (const flow of flowsForEndCheck) {
         const tz = coachTzById[flow.coach_id] ?? null
 
@@ -808,12 +846,9 @@ export async function GET(req: NextRequest) {
         const startDate = flow.start_date as string
         if (!startDate) continue
 
-        const { data: overrides } = await supabase
-          .from('client_autoflow_step_overrides')
-          .select('step_number, due_date')
-          .eq('client_autoflow_id', flow.id)
+        const overrides = overridesByFlow.get(flow.id) ?? []
         const overrideDateByStep: Record<number, string> = Object.fromEntries(
-          (overrides ?? []).filter((o) => o.due_date).map((o) => [o.step_number, o.due_date as string])
+          overrides.filter((o) => o.due_date).map((o) => [o.step_number, o.due_date as string])
         )
 
         const startMs = new Date(startDate + 'T00:00:00Z').getTime()
@@ -1039,16 +1074,21 @@ export async function GET(req: NextRequest) {
   // Everything above registered candidates instead of sending — this is
   // where the actual pushes go out, capped per client so a day where
   // several nudges happen to apply doesn't turn into a wall of notifications.
+  // Collected into one batched sendPushToUsers call rather than one
+  // sendPushToUser (and one push_subscriptions query) per client — this is
+  // the section whose cost scales most directly with total active clients.
+  const dispatchItems: { userId: string; payload: PushPayload }[] = []
   for (const [clientId, candidates] of candidatesByClient) {
     candidates.sort((a, b) => a.priority - b.priority)
     for (const candidate of candidates.slice(0, 2)) {
-      sendPushToUser(clientId, candidate.payload).catch(() => {/* silent */})
+      dispatchItems.push({ userId: clientId, payload: candidate.payload })
       pushed++
       if (candidate.onSend) {
         await candidate.onSend().catch(() => {/* silent */})
       }
     }
   }
+  sendPushToUsers(dispatchItems).catch(() => {/* silent */})
 
   // ── Coach email digest: training / check-in / weekly-changes ending soon ──
   //

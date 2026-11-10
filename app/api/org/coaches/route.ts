@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { requireOrgRole, getCoachPermissions } from '@/lib/org'
+import { requireOrgRole, getCoachPermissionsBatch } from '@/lib/org'
 import { sendEmail } from '@/lib/email'
 import { getOrgFrontDoorUrl } from '@/lib/whitelabel'
 import type { NextRequest } from 'next/server'
@@ -57,15 +57,8 @@ export async function GET() {
     clientCountMap[row.coach_id] = (clientCountMap[row.coach_id] ?? 0) + 1
   }
 
-  // Fetch permissions for each coach
-  const permissionsMap = Object.fromEntries(
-    await Promise.all(
-      memberIds.map(async (id) => [
-        id,
-        await getCoachPermissions(id, membership.org_id),
-      ])
-    )
-  )
+  // Fetch permissions for every coach in one query instead of one per coach
+  const permissionsMap = await getCoachPermissionsBatch(memberIds, membership.org_id)
 
   const coaches = members.map((m) => ({
     id: m.user_id,
