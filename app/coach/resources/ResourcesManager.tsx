@@ -47,7 +47,11 @@ const PRESET_RESOURCES: { name: string; description: string; type: Resource['typ
   { name: 'Motivation vs Discipline', description: 'Why motivation is unreliable and how to build discipline that lasts.', type: 'document', folderName: 'Mindset' },
   { name: 'Goal Setting Template', description: '90-day goal setting framework with weekly milestones and checkpoints.', type: 'document', folderName: 'Mindset' },
   { name: 'Welcome to Coaching', description: 'What to expect from your coaching program and how to get the most out of it.', type: 'document', folderName: 'Onboarding' },
-  { name: 'How to Use the App', description: 'Quick guide to logging food, tracking habits, and using the calendar.', type: 'document', folderName: 'Onboarding' },
+  // 'How to Use the App' used to be here — removed since it's now a
+  // platform-wide (is_global) resource every coach already has automatically
+  // (see app/api/coach/resources/route.ts). Leaving it in this importable
+  // list would let a coach create a second, blank-url copy of a resource
+  // they already have.
   { name: 'Progress Photo Guide', description: 'How to take consistent progress photos for accurate comparison.', type: 'document', folderName: 'Onboarding' },
 ]
 
