@@ -83,7 +83,21 @@ export default function FormsSection() {
     load()
   }, [])
 
-  if (loading || forms.length === 0) return null
+  if (loading) {
+    return (
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold text-gray-900">Forms</h3>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 animate-pulse">
+          <div className="h-4 w-1/2 bg-gray-100 rounded-full mb-2" />
+          <div className="h-3 w-1/3 bg-gray-50 rounded-full" />
+        </div>
+      </section>
+    )
+  }
+
+  if (forms.length === 0) return null
 
   return (
     <section>

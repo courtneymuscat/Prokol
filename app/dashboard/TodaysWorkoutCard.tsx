@@ -124,7 +124,24 @@ export default function TodaysWorkoutCard() {
     return () => { cancelled = true }
   }, [])
 
-  if (!ready || !workout) return null
+  if (!ready) {
+    return (
+      <section>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Today&apos;s workout</p>
+        <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4 animate-pulse">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex-shrink-0" />
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="h-4 w-1/2 bg-gray-100 rounded-full" />
+              <div className="h-3 w-1/3 bg-gray-50 rounded-full" />
+            </div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (!workout) return null
 
   const dayName = workout.day.name?.trim() || 'Today\'s workout'
 

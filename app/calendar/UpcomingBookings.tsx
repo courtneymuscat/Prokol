@@ -30,7 +30,24 @@ export default function UpcomingBookings() {
       .finally(() => setLoaded(true))
   }, [])
 
-  if (!loaded || bookings.length === 0) return null
+  if (!loaded) {
+    return (
+      <section className="mb-5">
+        <h2 className="text-sm font-bold text-gray-900 mb-2 px-1">Upcoming sessions</h2>
+        <div className="bg-white rounded-2xl border border-gray-200 px-4 py-3 animate-pulse">
+          <div className="flex items-start gap-3">
+            <span className="w-2.5 h-2.5 mt-1.5 rounded-full flex-shrink-0 bg-gray-200" />
+            <div className="flex-1 min-w-0 space-y-2">
+              <div className="h-4 w-1/2 bg-gray-100 rounded-full" />
+              <div className="h-3 w-1/3 bg-gray-50 rounded-full" />
+            </div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (bookings.length === 0) return null
 
   return (
     <section className="mb-5">

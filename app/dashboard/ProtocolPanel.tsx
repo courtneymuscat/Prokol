@@ -19,7 +19,18 @@ export default function ProtocolPanel() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading || sections.length === 0) return null
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 animate-pulse">
+        <div className="h-4 w-24 bg-gray-100 rounded-full mb-4" />
+        <div className="space-y-3">
+          <div className="h-14 bg-gray-50 rounded-xl" />
+        </div>
+      </div>
+    )
+  }
+
+  if (sections.length === 0) return null
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">

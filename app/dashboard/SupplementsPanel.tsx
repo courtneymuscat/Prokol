@@ -23,7 +23,18 @@ export default function SupplementsPanel() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading || supplements.length === 0) return null
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 animate-pulse">
+        <div className="h-4 w-28 bg-gray-100 rounded-full mb-4" />
+        <div className="space-y-2">
+          <div className="h-12 bg-gray-50 rounded-xl" />
+        </div>
+      </div>
+    )
+  }
+
+  if (supplements.length === 0) return null
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">

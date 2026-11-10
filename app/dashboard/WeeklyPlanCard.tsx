@@ -13,7 +13,24 @@ export default function WeeklyPlanCard() {
       .catch(() => setInfo(null))
   }, [])
 
-  if (info === 'loading' || info === null) return null
+  if (info === 'loading') {
+    return (
+      <div className="bg-white rounded-2xl border px-5 py-4 space-y-3 animate-pulse">
+        <div className="flex items-center justify-between">
+          <div className="h-3 w-16 bg-gray-100 rounded-full" />
+          <div className="h-3 w-20 bg-gray-50 rounded-full" />
+        </div>
+        <div className="h-4 w-1/2 bg-gray-100 rounded-full" />
+        <div className="flex gap-2">
+          <div className="h-6 w-16 bg-gray-50 rounded-full" />
+          <div className="h-6 w-16 bg-gray-50 rounded-full" />
+          <div className="h-6 w-16 bg-gray-50 rounded-full" />
+        </div>
+      </div>
+    )
+  }
+
+  if (info === null) return null
 
   const { weekNumber, totalWeeks, phaseName, note, calories, protein, carbs, fat, fibre } = info
   const hasMacros = calories || protein || carbs || fat || fibre
