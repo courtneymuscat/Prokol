@@ -56,7 +56,23 @@ export default function AutoflowTasksPanel({ onEmpty }: Props) {
     if (ready) onEmpty?.(stepsWithContent.length === 0)
   }, [ready, stepsWithContent.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!ready || stepsWithContent.length === 0) return null
+  if (!ready) {
+    return (
+      <section>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Tasks &amp; Resources</p>
+        <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4 space-y-3 animate-pulse">
+          <div className="h-4 w-2/3 bg-gray-100 rounded-full" />
+          <div className="h-3 w-1/3 bg-gray-50 rounded-full" />
+          <div className="space-y-1.5 pt-1">
+            <div className="h-3.5 w-full bg-gray-50 rounded-full" />
+            <div className="h-3.5 w-5/6 bg-gray-50 rounded-full" />
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  if (stepsWithContent.length === 0) return null
 
   return (
     <section>

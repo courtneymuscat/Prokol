@@ -228,7 +228,19 @@ export default function ScheduledCheckIns({ onEmpty }: Props) {
     if (ready) onEmpty?.(isEmpty)
   }, [ready, isEmpty]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!ready || isEmpty) return null
+  if (!ready) {
+    return (
+      <section>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Check-ins</p>
+        <div className="bg-white rounded-2xl border border-gray-100 px-5 py-4 space-y-3 animate-pulse">
+          <div className="h-4 w-1/2 bg-gray-100 rounded-full" />
+          <div className="h-3 w-1/3 bg-gray-50 rounded-full" />
+        </div>
+      </section>
+    )
+  }
+
+  if (isEmpty) return null
 
   return (
     <section>

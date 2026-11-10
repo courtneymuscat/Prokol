@@ -42,7 +42,17 @@ export default function GoalsPanel() {
     }
   }
 
-  if (!goals) return null
+  if (!goals) {
+    return (
+      <div className="bg-white rounded-2xl border px-5 py-4 space-y-3 animate-pulse">
+        <div className="h-3 w-20 bg-gray-100 rounded-full" />
+        <div className="space-y-2">
+          <div className="h-3 w-16 bg-gray-50 rounded-full" />
+          <div className="h-4 w-2/3 bg-gray-100 rounded-full" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-white rounded-2xl border px-5 py-4 space-y-3">
