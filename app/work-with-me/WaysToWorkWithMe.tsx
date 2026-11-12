@@ -62,7 +62,6 @@ const GYM_STATS = [
   { n: '25', label: 'video lessons' },
   { n: '24', label: 'downloadable guides' },
   { n: '41', label: 'flagged messages' },
-  { n: '13', label: 'weeks' },
 ]
 
 const GYM_TIERS = [
@@ -76,7 +75,7 @@ const GYM_TIERS = [
     priceWeekly: 'About $3.33 a member a month',
     desc: 'Every member gets the full nutrition education curriculum, with automated tips on common flags and me personally reviewing every safety screening and sensitive health flag.',
     points: [
-      'A real nutrition education curriculum — 25 video lessons and 24 downloadable guides, delivered over 13 weeks',
+      'A real nutrition education curriculum — 25 video lessons and 24 downloadable guides',
       '3 paths to choose from: Plan & Swap, Track Serves, or Protein + Calories',
       'Personalised plan, macros and targets from their intake form',
       'Weekly recorded Q&A — I answer every progress-check question on video',
@@ -128,8 +127,8 @@ const GYM_ADDONS = [
   {
     title: 'Personal Feedback',
     price: '$299',
-    priceNote: 'per member, for 13 weeks',
-    desc: 'A personal Loom video reply from me to every weekly progress check, for 13 weeks. Member opts in, or your gym subsidises it — works with either tier.',
+    priceNote: 'per member, for the length of their curriculum',
+    desc: 'A personal Loom video reply from me to every weekly progress check, for the length of their curriculum. Member opts in, or your gym subsidises it — works with either tier.',
   },
   {
     title: 'Plan Consults',
@@ -142,7 +141,7 @@ const GYM_ADDONS = [
 const GYM_HOW_IT_WORKS = [
   { n: '01', t: 'Set-up week', d: 'I brand your app and send your Gym Toolkit.' },
   { n: '02', t: 'Members join', d: 'With your gym’s own code.' },
-  { n: '03', t: 'Education unfolds', d: 'Lessons, habits and their personalised plan, week by week over 13 weeks.' },
+  { n: '03', t: 'Education unfolds', d: 'Lessons, habits and their personalised plan, delivered week by week.' },
   { n: '04', t: 'Every week', d: 'Progress checks, replies and the recorded Q&A.' },
 ]
 
@@ -538,11 +537,11 @@ export default function WaysToWorkWithMe() {
                 style={{ background: 'rgba(29,158,117,0.08)', border: '1px solid rgba(29,158,117,0.18)', maxWidth: 700 }}
               >
                 <p style={{ color: INK, fontWeight: 300, fontSize: '1.05rem', lineHeight: 1.6 }}>
-                  Real nutrition education for your members, running inside your gym’s own branded app — 25 video lessons, 24 downloadable guides, and a women’s health library, delivered over 13 weeks and built and run personally by me as an Accredited Sports Nutritionist. Give your members as much or as little personal guidance as you like: one flat monthly fee covers everyone, every flag is seen, and it takes zero extra time from your trainers.
+                  Real nutrition education for your members, running inside your gym’s own branded app — 25 video lessons, 24 downloadable guides, and a women’s health library, built and run personally by me as an Accredited Sports Nutritionist. Give your members as much or as little personal guidance as you like: one flat monthly fee covers everyone, every flag is seen, and it takes zero extra time from your trainers.
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-14 max-w-3xl mx-auto">
+              <div className="grid grid-cols-3 gap-4 mb-14 max-w-2xl mx-auto">
                 {GYM_STATS.map((s) => (
                   <div key={s.label} className="rounded-2xl text-center py-7 px-3" style={{ background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}>
                     <p className="font-black" style={{ fontFamily: HEAD, fontSize: '2.25rem', lineHeight: 1, color: BERRY }}>{s.n}</p>
