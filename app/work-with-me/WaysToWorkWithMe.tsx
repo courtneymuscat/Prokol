@@ -59,10 +59,10 @@ const HOW_IT_WORKS = [
 ]
 
 const GYM_STATS = [
-  { n: '13', label: 'weeks' },
   { n: '25', label: 'video lessons' },
   { n: '24', label: 'downloadable guides' },
   { n: '41', label: 'flagged messages' },
+  { n: '13', label: 'weeks' },
 ]
 
 const GYM_TIERS = [
@@ -74,9 +74,9 @@ const GYM_TIERS = [
     price: '$499',
     priceNote: '/ month',
     priceWeekly: 'About $3.33 a member a month',
-    desc: 'Every member gets the full 13-week lessons program, with automated tips on common flags and me personally reviewing every safety screening and sensitive health flag.',
+    desc: 'Every member gets the full nutrition education curriculum, with automated tips on common flags and me personally reviewing every safety screening and sensitive health flag.',
     points: [
-      '13-week nutrition lessons program — 25 video lessons, 24 downloadable guides',
+      'A real nutrition education curriculum — 25 video lessons and 24 downloadable guides, delivered over 13 weeks',
       '3 paths to choose from: Plan & Swap, Track Serves, or Protein + Calories',
       'Personalised plan, macros and targets from their intake form',
       'Weekly recorded Q&A — I answer every progress-check question on video',
@@ -142,7 +142,7 @@ const GYM_ADDONS = [
 const GYM_HOW_IT_WORKS = [
   { n: '01', t: 'Set-up week', d: 'I brand your app and send your Gym Toolkit.' },
   { n: '02', t: 'Members join', d: 'With your gym’s own code.' },
-  { n: '03', t: '13 weeks', d: 'Of lessons, habits and their personalised plan.' },
+  { n: '03', t: 'Education unfolds', d: 'Lessons, habits and their personalised plan, week by week over 13 weeks.' },
   { n: '04', t: 'Every week', d: 'Progress checks, replies and the recorded Q&A.' },
 ]
 
@@ -538,7 +538,7 @@ export default function WaysToWorkWithMe() {
                 style={{ background: 'rgba(29,158,117,0.08)', border: '1px solid rgba(29,158,117,0.18)', maxWidth: 700 }}
               >
                 <p style={{ color: INK, fontWeight: 300, fontSize: '1.05rem', lineHeight: 1.6 }}>
-                  A 13-week nutrition lessons program that runs inside your gym’s own branded app — 25 video lessons, 24 downloadable guides, and a women’s health library, built and run personally by me as an Accredited Sports Nutritionist. Give your members as much or as little personal guidance as you like: one flat monthly fee covers everyone, every flag is seen, and it takes zero extra time from your trainers.
+                  Real nutrition education for your members, running inside your gym’s own branded app — 25 video lessons, 24 downloadable guides, and a women’s health library, delivered over 13 weeks and built and run personally by me as an Accredited Sports Nutritionist. Give your members as much or as little personal guidance as you like: one flat monthly fee covers everyone, every flag is seen, and it takes zero extra time from your trainers.
                 </p>
               </div>
 
@@ -567,7 +567,7 @@ export default function WaysToWorkWithMe() {
 
               {/* 41 built-in flags */}
               <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
-                <p className="font-bold text-lg mb-2 text-center" style={{ fontFamily: HEAD }}>41 built-in flags across 13 weeks</p>
+                <p className="font-bold text-lg mb-2 text-center" style={{ fontFamily: HEAD }}>41 built-in flags, built into the curriculum</p>
                 <p className="text-sm text-center mb-8" style={{ color: INK_SOFT, maxWidth: 560, marginLeft: 'auto', marginRight: 'auto' }}>
                   Every progress check is scored against a real set of rules, built from actually coaching members at scale — not a generic checklist.
                 </p>
