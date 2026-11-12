@@ -237,6 +237,22 @@ const EDUCATION_CARDS = [
   },
 ]
 
+const CURRICULUM = [
+  { week: 'Week 0', title: 'Foundations', d: 'Six short lessons to get set up — protein, carbs, fats, energy balance, and building your first plate.' },
+  { week: 'Week 1', title: 'Protein at Every Meal', d: 'Making protein a habit, not an afterthought.' },
+  { week: 'Week 2', title: 'Fuel Your Training', d: 'Timing your carbs and fuelling your sessions properly.' },
+  { week: 'Week 3', title: 'Fibre, Colour and Gut Health', d: 'More plants, more often.' },
+  { week: 'Week 4', title: 'Meals Made Simple', d: 'Easy swaps that make eating well sustainable.' },
+  { week: 'Week 5', title: 'Real Life: Eating Out, Drinks and Weekends', d: 'Handling meals away from home, guilt-free.' },
+  { week: 'Week 6', title: 'Midpoint Review', d: 'Compare your Week 0 photos and measurements — see how far you’ve come.' },
+  { week: 'Week 7', title: "Supplements: What's Worth It", d: 'What’s actually doing something, before you add anything new.' },
+  { week: 'Week 8', title: 'Hunger, Cravings and Appetite', d: 'Rating your hunger and understanding your cues.' },
+  { week: 'Week 9', title: 'Body Composition Phases', d: 'Fat loss, maintenance, or building — choosing what’s next.' },
+  { week: 'Week 10', title: 'Sleep, Stress and Recovery', d: 'Your wind-down routine and your evenings.' },
+  { week: 'Week 11', title: 'Ease Off and Your Reset Plan', d: 'Pulling back on tracking in a way that still feels safe.' },
+  { week: 'Week 12', title: 'Making It Last', d: 'Locking in what keeps working long after the program ends.' },
+]
+
 const WHATS_INCLUDED = [
   { label: '25 short video lessons', d: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
   { label: '24 downloadable guides', d: 'M12 10v6m0 0l-3-3m3 3l3-3m2 8H8a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
@@ -315,7 +331,17 @@ export default function WaysToWorkWithMe() {
                 Four levels of support, from one clear answer to full ongoing coaching — built around your goals and your calendar, not the other way around.
               </p>
 
-              <div className="grid md:grid-cols-2 gap-5">
+              <div className="grid md:grid-cols-3 gap-6">
+                {HOW_IT_WORKS.map((step) => (
+                  <div key={step.n}>
+                    <p className="text-xs font-bold tracking-widest mb-2" style={{ color: BERRY }}>{step.n}</p>
+                    <p className="font-bold mb-2" style={{ fontFamily: HEAD }}>{step.t}</p>
+                    <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>{step.d}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-5 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
                 {COACHING_TIERS.map((t) => (
                   <div
                     key={t.title}
@@ -360,16 +386,6 @@ export default function WaysToWorkWithMe() {
                 ))}
               </div>
 
-              <div className="grid md:grid-cols-3 gap-6 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
-                {HOW_IT_WORKS.map((step) => (
-                  <div key={step.n}>
-                    <p className="text-xs font-bold tracking-widest mb-2" style={{ color: BERRY }}>{step.n}</p>
-                    <p className="font-bold mb-2" style={{ fontFamily: HEAD }}>{step.t}</p>
-                    <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>{step.d}</p>
-                  </div>
-                ))}
-              </div>
-
               <div className="text-center mt-14">
                 <p className="text-sm mb-4" style={{ color: INK_SOFT }}>Not sure which fits? Every journey starts with a conversation, not a sign-up form.</p>
                 <InquiryButton defaultService="1:1 Nutrition Coaching" className="inline-block px-7 py-3.5 rounded-full text-sm font-bold text-white hover:opacity-90 transition-opacity" style={{ background: BERRY }}>
@@ -383,7 +399,75 @@ export default function WaysToWorkWithMe() {
                 13 weeks of nutrition coaching for one simple payment, from just $249. Learn how to eat for your goals at your own pace, with the same education-first framework behind my 1:1 coaching, all inside the Prokol app. No subscriptions, no lock-in, and you keep access to every lesson and resource after you finish.
               </p>
 
-              <div className="grid md:grid-cols-2 gap-5">
+              {/* Curriculum */}
+              <div>
+                <p className="font-bold text-lg mb-6 text-center" style={{ fontFamily: HEAD }}>The 13-week curriculum</p>
+                <div className="grid md:grid-cols-2 gap-3 max-w-3xl mx-auto">
+                  {CURRICULUM.map((c) => (
+                    <div key={c.week} className="rounded-xl p-4 flex items-start gap-3" style={{ background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}>
+                      <span
+                        className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full flex-shrink-0"
+                        style={{ background: 'rgba(29,158,117,0.1)', color: BERRY }}
+                      >
+                        {c.week}
+                      </span>
+                      <div>
+                        <p className="font-bold text-sm" style={{ fontFamily: HEAD, color: INK }}>{c.title}</p>
+                        <p className="text-xs leading-relaxed mt-0.5" style={{ color: INK_SOFT }}>{c.d}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-center mt-5" style={{ color: 'rgba(33,26,23,0.4)' }}>
+                  Plus a women’s health bonus library alongside it — cycle, iron, energy, menopause, bloodwork.
+                </p>
+              </div>
+
+              {/* What's included */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                {WHATS_INCLUDED.map((item) => (
+                  <div key={item.label} className="flex flex-col items-center text-center gap-2">
+                    <span className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(29,158,117,0.1)', color: BERRY }}>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.d} />
+                      </svg>
+                    </span>
+                    <p className="text-xs leading-relaxed" style={{ color: INK_SOFT }}>{item.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* How it works */}
+              <div className="grid md:grid-cols-3 gap-6 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                {EDUCATION_HOW_IT_WORKS.map((step) => (
+                  <div key={step.n}>
+                    <p className="text-xs font-bold tracking-widest mb-2" style={{ color: BERRY }}>{step.n}</p>
+                    <p className="font-bold mb-2" style={{ fontFamily: HEAD }}>{step.t}</p>
+                    <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>{step.d}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* FAQ */}
+              <div className="max-w-3xl mx-auto mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                <p className="font-bold text-lg mb-4 text-center" style={{ fontFamily: HEAD }}>Questions</p>
+                <div className="space-y-3">
+                  {EDUCATION_FAQS.map((f) => (
+                    <details key={f.q} className="group rounded-xl bg-white px-5 py-4" style={{ border: '1px solid rgba(33,26,23,0.08)' }}>
+                      <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-3 font-semibold text-sm" style={{ color: INK }}>
+                        {f.q}
+                        <svg className="w-4 h-4 flex-shrink-0 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </summary>
+                      <p className="text-sm leading-relaxed mt-3" style={{ color: INK_SOFT }}>{f.a}</p>
+                    </details>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pricing */}
+              <div className="grid md:grid-cols-2 gap-5 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
                 {EDUCATION_CARDS.map((t) => (
                   <div
                     key={t.title}
@@ -430,49 +514,6 @@ export default function WaysToWorkWithMe() {
                 ))}
               </div>
 
-              {/* What's included */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
-                {WHATS_INCLUDED.map((item) => (
-                  <div key={item.label} className="flex flex-col items-center text-center gap-2">
-                    <span className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(29,158,117,0.1)', color: BERRY }}>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.d} />
-                      </svg>
-                    </span>
-                    <p className="text-xs leading-relaxed" style={{ color: INK_SOFT }}>{item.label}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* How it works */}
-              <div className="grid md:grid-cols-3 gap-6 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
-                {EDUCATION_HOW_IT_WORKS.map((step) => (
-                  <div key={step.n}>
-                    <p className="text-xs font-bold tracking-widest mb-2" style={{ color: BERRY }}>{step.n}</p>
-                    <p className="font-bold mb-2" style={{ fontFamily: HEAD }}>{step.t}</p>
-                    <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>{step.d}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* FAQ */}
-              <div className="max-w-3xl mx-auto mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
-                <p className="font-bold text-lg mb-4 text-center" style={{ fontFamily: HEAD }}>Questions</p>
-                <div className="space-y-3">
-                  {EDUCATION_FAQS.map((f) => (
-                    <details key={f.q} className="group rounded-xl bg-white px-5 py-4" style={{ border: '1px solid rgba(33,26,23,0.08)' }}>
-                      <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-3 font-semibold text-sm" style={{ color: INK }}>
-                        {f.q}
-                        <svg className="w-4 h-4 flex-shrink-0 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </summary>
-                      <p className="text-sm leading-relaxed mt-3" style={{ color: INK_SOFT }}>{f.a}</p>
-                    </details>
-                  ))}
-                </div>
-              </div>
-
               {/* Upgrade line */}
               <div className="text-center mt-14">
                 <p className="text-sm mb-4" style={{ color: INK_SOFT }}>
@@ -510,7 +551,67 @@ export default function WaysToWorkWithMe() {
                 ))}
               </div>
 
-              <div className="grid md:grid-cols-2 gap-5">
+              {/* What your gym gets */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                {GYM_WHATS_INCLUDED.map((item) => (
+                  <div key={item.label} className="flex flex-col items-center text-center gap-2">
+                    <span className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(29,158,117,0.1)', color: BERRY }}>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.d} />
+                      </svg>
+                    </span>
+                    <p className="text-xs leading-relaxed" style={{ color: INK_SOFT }}>{item.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* 41 built-in flags */}
+              <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                <p className="font-bold text-lg mb-2 text-center" style={{ fontFamily: HEAD }}>41 built-in flags across 13 weeks</p>
+                <p className="text-sm text-center mb-8" style={{ color: INK_SOFT, maxWidth: 560, marginLeft: 'auto', marginRight: 'auto' }}>
+                  Every progress check is scored against a real set of rules, built from actually coaching members at scale — not a generic checklist.
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-5 max-w-3xl mx-auto">
+                  {GYM_FLAG_CATEGORIES.map((c) => (
+                    <div key={c.n} className="rounded-xl p-4" style={{ background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}>
+                      <p className="font-bold text-sm mb-1" style={{ fontFamily: HEAD, color: INK }}>{c.t}</p>
+                      <p className="text-xs leading-relaxed" style={{ color: INK_SOFT }}>{c.d}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* How it works */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                {GYM_HOW_IT_WORKS.map((step) => (
+                  <div key={step.n}>
+                    <p className="text-xs font-bold tracking-widest mb-2" style={{ color: BERRY }}>{step.n}</p>
+                    <p className="font-bold mb-2" style={{ fontFamily: HEAD }}>{step.t}</p>
+                    <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>{step.d}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* FAQ */}
+              <div className="max-w-3xl mx-auto mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                <p className="font-bold text-lg mb-4 text-center" style={{ fontFamily: HEAD }}>Questions</p>
+                <div className="space-y-3">
+                  {GYM_FAQS.map((f) => (
+                    <details key={f.q} className="group rounded-xl bg-white px-5 py-4" style={{ border: '1px solid rgba(33,26,23,0.08)' }}>
+                      <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-3 font-semibold text-sm" style={{ color: INK }}>
+                        {f.q}
+                        <svg className="w-4 h-4 flex-shrink-0 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </summary>
+                      <p className="text-sm leading-relaxed mt-3" style={{ color: INK_SOFT }}>{f.a}</p>
+                    </details>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pricing */}
+              <div className="grid md:grid-cols-2 gap-5 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
                 {GYM_TIERS.map((t) => (
                   <div
                     key={t.title}
@@ -557,36 +658,6 @@ export default function WaysToWorkWithMe() {
                 ))}
               </div>
 
-              {/* What your gym gets */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
-                {GYM_WHATS_INCLUDED.map((item) => (
-                  <div key={item.label} className="flex flex-col items-center text-center gap-2">
-                    <span className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(29,158,117,0.1)', color: BERRY }}>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.d} />
-                      </svg>
-                    </span>
-                    <p className="text-xs leading-relaxed" style={{ color: INK_SOFT }}>{item.label}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* 41 built-in flags */}
-              <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
-                <p className="font-bold text-lg mb-2 text-center" style={{ fontFamily: HEAD }}>41 built-in flags across 13 weeks</p>
-                <p className="text-sm text-center mb-8" style={{ color: INK_SOFT, maxWidth: 560, marginLeft: 'auto', marginRight: 'auto' }}>
-                  Every progress check is scored against a real set of rules, built from actually coaching members at scale — not a generic checklist.
-                </p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-5 max-w-3xl mx-auto">
-                  {GYM_FLAG_CATEGORIES.map((c) => (
-                    <div key={c.n} className="rounded-xl p-4" style={{ background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}>
-                      <p className="font-bold text-sm mb-1" style={{ fontFamily: HEAD, color: INK }}>{c.t}</p>
-                      <p className="text-xs leading-relaxed" style={{ color: INK_SOFT }}>{c.d}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
               {/* Add-ons */}
               <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
                 <p className="font-bold text-lg mb-2 text-center" style={{ fontFamily: HEAD }}>Add-ons</p>
@@ -605,38 +676,10 @@ export default function WaysToWorkWithMe() {
                 </div>
               </div>
 
-              {/* How it works */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
-                {GYM_HOW_IT_WORKS.map((step) => (
-                  <div key={step.n}>
-                    <p className="text-xs font-bold tracking-widest mb-2" style={{ color: BERRY }}>{step.n}</p>
-                    <p className="font-bold mb-2" style={{ fontFamily: HEAD }}>{step.t}</p>
-                    <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>{step.d}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* FAQ */}
-              <div className="max-w-3xl mx-auto mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
-                <p className="font-bold text-lg mb-4 text-center" style={{ fontFamily: HEAD }}>Questions</p>
-                <div className="space-y-3">
-                  {GYM_FAQS.map((f) => (
-                    <details key={f.q} className="group rounded-xl bg-white px-5 py-4" style={{ border: '1px solid rgba(33,26,23,0.08)' }}>
-                      <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden flex items-center justify-between gap-3 font-semibold text-sm" style={{ color: INK }}>
-                        {f.q}
-                        <svg className="w-4 h-4 flex-shrink-0 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </summary>
-                      <p className="text-sm leading-relaxed mt-3" style={{ color: INK_SOFT }}>{f.a}</p>
-                    </details>
-                  ))}
-                </div>
-              </div>
-
               {/* CTA */}
               <div className="text-center mt-14">
                 <p className="text-sm mb-4" style={{ color: INK_SOFT }}>Not sure which tier fits your gym? Let's talk it through.</p>
+
                 <InquiryButton defaultService="Gym & Studio Partnerships" className="inline-block px-7 py-3.5 rounded-full text-sm font-bold text-white hover:opacity-90 transition-opacity" style={{ background: BERRY }}>
                   Get in touch
                 </InquiryButton>
