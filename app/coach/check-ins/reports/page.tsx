@@ -3,17 +3,21 @@
 import { useEffect, useState } from 'react'
 
 type ReportableQuestion = { id: string; label: string; type: string; templateName: string }
-type AnswerRow = { client_id: string; client_name: string; flow_name: string; step_number: number; submitted_at: string; answers: Record<string, string | null> }
+type AnswerRow = { client_id: string; client_name: string; flow_name: string; step_number: number; step_title: string | null; submitted_at: string; answers: Record<string, string | null> }
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function stepLabel(r: AnswerRow): string {
+  return r.step_title ?? `Step ${r.step_number}`
 }
 
 function toCsv(rows: AnswerRow[], questions: ReportableQuestion[]): string {
   const header = ['Client', 'Date', 'Flow', 'Step', ...questions.map((q) => q.label)]
   const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
   const lines = rows.map((r) => [
-    r.client_name, fmtDate(r.submitted_at), r.flow_name, String(r.step_number),
+    r.client_name, fmtDate(r.submitted_at), r.flow_name, stepLabel(r),
     ...questions.map((q) => r.answers[q.id] ?? ''),
   ].map(escape).join(','))
   return [header.map(escape).join(','), ...lines].join('\n')
@@ -147,9 +151,10 @@ export default function ReportsPage() {
             <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
               {rows.map((r, i) => (
                 <div key={i} className="px-5 py-3 flex items-start gap-4">
-                  <div className="w-36 flex-shrink-0">
+                  <div className="w-44 flex-shrink-0">
                     <a href={`/coach/clients/${r.client_id}?tab=checkins`} className="text-sm font-medium text-gray-900 hover:underline truncate block">{r.client_name}</a>
                     <p className="text-xs text-gray-400">{fmtDate(r.submitted_at)}</p>
+                    <p className="text-xs text-gray-400 truncate">{stepLabel(r)}</p>
                   </div>
                   <p className="flex-1 text-sm text-gray-700 whitespace-pre-line">{r.answers[selectedQuestions[0].id] || <span className="text-gray-300 italic">No answer</span>}</p>
                 </div>
@@ -162,6 +167,7 @@ export default function ReportsPage() {
                   <tr>
                     <th className="text-left font-semibold text-gray-700 px-5 py-2.5 whitespace-nowrap">Client</th>
                     <th className="text-left font-semibold text-gray-700 px-3 py-2.5 whitespace-nowrap">Date</th>
+                    <th className="text-left font-semibold text-gray-700 px-3 py-2.5 whitespace-nowrap">Step</th>
                     {selectedQuestions.map((q) => (
                       <th key={q.id} className="text-left font-semibold text-gray-700 px-3 py-2.5 min-w-[200px]">{q.label}</th>
                     ))}
@@ -174,6 +180,7 @@ export default function ReportsPage() {
                         <a href={`/coach/clients/${r.client_id}?tab=checkins`} className="text-sm font-medium text-gray-900 hover:underline">{r.client_name}</a>
                       </td>
                       <td className="px-3 py-3 text-xs text-gray-400 whitespace-nowrap">{fmtDate(r.submitted_at)}</td>
+                      <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">{stepLabel(r)}</td>
                       {selectedQuestions.map((q) => (
                         <td key={q.id} className="px-3 py-3 text-sm text-gray-700 whitespace-pre-line">
                           {r.answers[q.id] || <span className="text-gray-300 italic">—</span>}

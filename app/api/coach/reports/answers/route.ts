@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   // of org/gym membership — see questions/route.ts's identical comment.
   const { data: flows } = await admin
     .from('client_autoflows')
-    .select('id, client_id, name')
+    .select('id, client_id, name, template_id')
     .eq('coach_id', coachId)
 
   const flowIds = (flows ?? []).map((f) => f.id as string)
@@ -46,6 +46,34 @@ export async function GET(req: NextRequest) {
   if (from) respQuery = respQuery.gte('submitted_at', from)
   if (to) respQuery = respQuery.lte('submitted_at', `${to}T23:59:59.999Z`)
   const { data: responses } = await respQuery
+
+  // Step titles (e.g. "Week 1 Check-in") — per-client overrides take
+  // precedence over the template's own title, same precedence used
+  // everywhere else a step title is shown (ClientTabs.tsx etc.).
+  const templateIds = [...new Set((flows ?? []).map((f) => f.template_id).filter(Boolean) as string[])]
+  const [{ data: stepRows }, { data: overrideRows }] = await Promise.all([
+    templateIds.length
+      ? admin.from('autoflow_template_steps').select('template_id, step_number, title').in('template_id', templateIds)
+      : Promise.resolve({ data: [] }),
+    flowIds.length
+      ? admin.from('client_autoflow_step_overrides').select('client_autoflow_id, step_number, title').in('client_autoflow_id', flowIds)
+      : Promise.resolve({ data: [] }),
+  ])
+  const titleByTemplateStep: Record<string, string> = {}
+  for (const s of stepRows ?? []) {
+    if (s.title) titleByTemplateStep[`${s.template_id}:${s.step_number}`] = s.title
+  }
+  const titleByFlowStep: Record<string, string> = {}
+  for (const o of overrideRows ?? []) {
+    if (o.title) titleByFlowStep[`${o.client_autoflow_id}:${o.step_number}`] = o.title
+  }
+  function stepTitleFor(flowId: string, stepNumber: number): string | null {
+    const override = titleByFlowStep[`${flowId}:${stepNumber}`]
+    if (override) return override
+    const templateId = flowById[flowId]?.template_id as string | undefined
+    if (!templateId) return null
+    return titleByTemplateStep[`${templateId}:${stepNumber}`] ?? null
+  }
 
   const clientIds = [...new Set((flows ?? []).map((f) => f.client_id as string))]
   const { data: profiles } = clientIds.length
@@ -66,6 +94,7 @@ export async function GET(req: NextRequest) {
         client_name: profileById[r.client_id] ?? 'Unknown',
         flow_name: flowById[r.client_autoflow_id]?.name ?? 'Check-in',
         step_number: r.step_number,
+        step_title: stepTitleFor(r.client_autoflow_id, r.step_number),
         submitted_at: r.submitted_at,
         answers,
       }
