@@ -79,17 +79,6 @@ export default function ProkolMethodTrends({ checkIns }: { checkIns: AutoflowChe
     .map((c) => ({ x: c.step_number, value: num(c.answers.weight_avg_kg) }))
     .filter((p): p is { x: number; value: number } => p.value != null)
 
-  const week0 = prokol.find((c) => c.step_title === 'Week 0 Check-in')
-  const final = prokol.find((c) => c.step_title === 'Final Check-in')
-
-  const COMPARISON_METRICS: { week0Key: string; finalKey: string; label: string }[] = [
-    { week0Key: 'start_energy', finalKey: 'now_energy', label: 'Energy' },
-    { week0Key: 'start_sleep', finalKey: 'now_sleep', label: 'Sleep' },
-    { week0Key: 'start_hunger', finalKey: 'now_hunger', label: 'Hunger' },
-    { week0Key: 'start_stress', finalKey: 'now_stress', label: 'Stress' },
-    { week0Key: 'food_confidence_1_10', finalKey: 'now_food_confidence', label: 'Food confidence' },
-  ]
-
   return (
     <div className="bg-white rounded-2xl border p-5 space-y-5">
       <div className="flex items-center justify-between">
@@ -115,26 +104,6 @@ export default function ProkolMethodTrends({ checkIns }: { checkIns: AutoflowChe
             maxY={Math.max(...weightPoints.map((p) => p.value)) + 1}
             points={weightPoints.map((p) => ({ x: p.x, values: { w: p.value } }))}
           />
-        </div>
-      )}
-
-      {week0 && final && (
-        <div className="pt-4 border-t border-gray-100">
-          <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Week 0 vs Week 12</p>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {COMPARISON_METRICS.map((m) => {
-              const before = num(week0.answers[m.week0Key])
-              const after = num(final.answers[m.finalKey])
-              return (
-                <div key={m.label}>
-                  <p className="text-[11px] text-gray-400">{m.label}</p>
-                  <p className="text-sm font-semibold text-gray-900">
-                    {before ?? '—'} <span className="text-gray-300">→</span> {after ?? '—'}
-                  </p>
-                </div>
-              )
-            })}
-          </div>
         </div>
       )}
     </div>

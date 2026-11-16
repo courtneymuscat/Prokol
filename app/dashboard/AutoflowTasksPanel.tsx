@@ -30,6 +30,7 @@ type DueStep = {
   tasks: Task[]
   resources: Resource[]
   linked_form: { id: string; title: string } | null
+  protocol_section: { title: string; content: string } | null
   unlocks_next_step: boolean
 }
 
@@ -47,9 +48,9 @@ export default function AutoflowTasksPanel({ onEmpty }: Props) {
       .finally(() => setReady(true))
   }, [])
 
-  // Only show steps that have tasks, resources, or a form
+  // Only show steps that have tasks, resources, a form, or a protocol note
   const stepsWithContent = steps.filter(
-    s => s.tasks.length > 0 || s.resources.length > 0 || s.linked_form
+    s => s.tasks.length > 0 || s.resources.length > 0 || s.linked_form || s.protocol_section
   )
 
   useEffect(() => {
@@ -94,6 +95,16 @@ export default function AutoflowTasksPanel({ onEmpty }: Props) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </div>
+
+            {/* Protocol note for this step */}
+            {step.protocol_section && (
+              <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5">
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                  {step.protocol_section.title || 'Protocol'}
+                </p>
+                <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-wrap">{step.protocol_section.content}</p>
+              </div>
+            )}
 
             {/* Tasks */}
             {step.tasks.length > 0 && (

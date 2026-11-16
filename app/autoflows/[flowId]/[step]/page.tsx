@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react'
 import TargetCalculatorWidget, { type TargetCalcData } from './TargetCalculatorWidget'
+import { PATH_KEYS, PATH_LABELS, type PathKey } from '@/lib/autoflowPaths'
 
 type QuestionType = 'text' | 'textarea' | 'number' | 'scale' | 'yesno' | 'radio' | 'choice' | 'dropdown' | 'file_upload' | 'signature' | 'note' | 'section'
 
@@ -33,7 +34,7 @@ type Task = {
 type StepData = {
   flow_id: string
   flow_name: string
-  selected_path: 'ps' | 'ts' | 'pc' | null
+  selected_path: PathKey | null
   step_number: number
   total_steps: number
   type: string
@@ -225,7 +226,7 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
   const [isDirty, setIsDirty] = useState(false)
   const [pathSaving, setPathSaving] = useState(false)
 
-  async function changePath(path: 'ps' | 'ts' | 'pc') {
+  async function changePath(path: PathKey) {
     if (!data || path === data.selected_path) return
     setPathSaving(true)
     const res = await fetch(`/api/client/autoflows/${flowId}/path`, {
@@ -429,22 +430,24 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
             )}
             <h1 className="text-lg font-bold text-gray-900">{data.title || `Step ${data.step_number}`}</h1>
           </div>
-          {data.selected_path && (
-            <div className="flex-shrink-0">
-              <select
-                value={data.selected_path}
-                onChange={e => changePath(e.target.value as 'ps' | 'ts' | 'pc')}
-                disabled={pathSaving}
-                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-600 disabled:opacity-50"
-                title="Change your path anytime"
-              >
-                <option value="ps">Plan & Swap</option>
-                <option value="ts">Track Serves</option>
-                <option value="pc">Protein + Calories</option>
-              </select>
-            </div>
-          )}
         </div>
+        {data.selected_path && (
+          <div className="mt-3 flex items-center justify-between gap-3 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Your path</p>
+              <p className="text-[11px] text-gray-400 truncate">Sets which protocol &amp; habit notes you see below</p>
+            </div>
+            <select
+              value={data.selected_path}
+              onChange={e => changePath(e.target.value as PathKey)}
+              disabled={pathSaving}
+              className="text-xs font-medium border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 disabled:opacity-50 flex-shrink-0"
+              title="Change your path anytime"
+            >
+              {PATH_KEYS.map(k => <option key={k} value={k}>{PATH_LABELS[k]}</option>)}
+            </select>
+          </div>
+        )}
         {/* Progress dots */}
         <div className="flex items-center gap-1.5 mt-3">
           {Array.from({ length: data.total_steps }, (_, i) => (
@@ -471,9 +474,14 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
         {/* Protocol note — informational, shown only while this step is due */}
         {data.protocol_section && (
           <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-              {data.protocol_section.title || 'Protocol'}
-            </p>
+            <div className="flex items-start justify-between gap-2 mb-1">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                {data.protocol_section.title || 'Protocol'}
+              </p>
+              {data.selected_path && (
+                <span className="text-[10px] text-gray-400 flex-shrink-0">for your path: {PATH_LABELS[data.selected_path]}</span>
+              )}
+            </div>
             <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{data.protocol_section.content}</p>
           </div>
         )}
@@ -483,7 +491,9 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
           <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3">
             <span className="text-xl flex-shrink-0">{data.habit.icon}</span>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-0.5">This week&apos;s habit</p>
+              <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-0.5">
+                This week&apos;s habit{data.selected_path && <span className="font-normal"> · {PATH_LABELS[data.selected_path]}</span>}
+              </p>
               <p className="text-sm font-semibold text-emerald-900">
                 {data.habit.name} — {data.habit.target} {data.habit.unit}
               </p>
