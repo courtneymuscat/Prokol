@@ -71,12 +71,13 @@ export async function POST(req: NextRequest) {
               text: `Analyze this meal photo and identify every distinct food item visible.
 
 Return ONLY a valid JSON array — no explanation, no markdown:
-[{"food_name":"string","grams":number,"calories":number,"protein":number,"carbs":number,"fat":number}]
+[{"food_name":"string","grams":number,"calories":number,"protein":number,"carbs":number,"fat":number,"fibre":number}]
 
 Rules:
 - Be specific (e.g. "Grilled chicken breast" not "meat")
 - Estimate portion size visually in grams
 - Round calories to nearest 5, macros to 1 decimal place
+- Estimate fibre in grams too (1 decimal place) — use 0 for foods with no meaningful fibre (meat, oils, dairy)
 - If you cannot identify any food, return []`,
             },
           ],

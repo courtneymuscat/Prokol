@@ -11,6 +11,7 @@ export type RowData = {
   protein: number
   carbs: number
   fat: number
+  fibre: number | null
 }
 
 type Props = {
@@ -26,6 +27,7 @@ function calc(food: FoodResult, grams: number) {
     protein: Math.round(food.protein_per_100g * f * 10) / 10,
     carbs: Math.round(food.carbs_per_100g * f * 10) / 10,
     fat: Math.round(food.fat_per_100g * f * 10) / 10,
+    fibre: food.fibre_per_100g != null ? Math.round(food.fibre_per_100g * f * 10) / 10 : null,
   }
 }
 
@@ -38,7 +40,7 @@ export default function MealFoodRow({ onChange, onRemove, initial }: Props) {
   const [grams, setGrams] = useState(initial?.grams ?? 100)
   const [unit, setUnit] = useState<'g' | 'ml'>(initial?.food.unit === 'ml' ? 'ml' : 'g')
   const [creatingFood, setCreatingFood] = useState(false)
-  const [newFood, setNewFood] = useState({ name: '', calories: '', protein: '', carbs: '', fat: '' })
+  const [newFood, setNewFood] = useState({ name: '', calories: '', protein: '', carbs: '', fat: '', fibre: '' })
   const [foodScope, setFoodScope] = useState<'personal' | 'global'>('personal')
   const [savingNew, setSavingNew] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -98,12 +100,13 @@ export default function MealFoodRow({ onChange, onRemove, initial }: Props) {
         protein_per_100g: Number(newFood.protein) || 0,
         carbs_per_100g: Number(newFood.carbs) || 0,
         fat_per_100g: Number(newFood.fat) || 0,
+        fibre_per_100g: newFood.fibre.trim() === '' ? null : Number(newFood.fibre),
       }),
     })
     const saved: FoodResult = await res.json()
     setSavingNew(false)
     setCreatingFood(false)
-    setNewFood({ name: '', calories: '', protein: '', carbs: '', fat: '' })
+    setNewFood({ name: '', calories: '', protein: '', carbs: '', fat: '', fibre: '' })
     selectFood(saved)
   }
 
@@ -159,7 +162,7 @@ export default function MealFoodRow({ onChange, onRemove, initial }: Props) {
                     {f.unit === 'ml' && <span className="flex-shrink-0 text-xs font-medium px-1 py-0.5 rounded bg-cyan-50 text-cyan-600">liquid</span>}
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    per 100{f.unit === 'ml' ? 'ml' : 'g'} · {f.calories_per_100g ?? 0} kcal · P {f.protein_per_100g ?? 0}g · C {f.carbs_per_100g ?? 0}g · F {f.fat_per_100g ?? 0}g
+                    per 100{f.unit === 'ml' ? 'ml' : 'g'} · {f.calories_per_100g ?? 0} kcal · P {f.protein_per_100g ?? 0}g · C {f.carbs_per_100g ?? 0}g · F {f.fat_per_100g ?? 0}g{f.fibre_per_100g != null ? ` · Fibre ${f.fibre_per_100g}g` : ''}
                   </p>
                 </button>
               </li>
@@ -203,6 +206,7 @@ export default function MealFoodRow({ onChange, onRemove, initial }: Props) {
               <span className="text-macro-p whitespace-nowrap">P {macros.protein}g</span>
               <span className="text-macro-c whitespace-nowrap">C {macros.carbs}g</span>
               <span className="text-macro-f whitespace-nowrap">F {macros.fat}g</span>
+              {macros.fibre != null && <span className="text-amber-500 whitespace-nowrap">Fibre {macros.fibre}g</span>}
             </>
           ) : (
             <span className="text-gray-300 text-xs">Select a food above to see macros</span>
@@ -234,6 +238,7 @@ export default function MealFoodRow({ onChange, onRemove, initial }: Props) {
               { key: 'protein', placeholder: 'P (g)' },
               { key: 'carbs', placeholder: 'C (g)' },
               { key: 'fat', placeholder: 'F (g)' },
+              { key: 'fibre', placeholder: 'Fibre (g)' },
             ] as const).map(({ key, placeholder }) => (
               <input
                 key={key}

@@ -137,6 +137,7 @@ export type FoodResult = {
   protein_per_100g: number
   carbs_per_100g: number
   fat_per_100g: number
+  fibre_per_100g?: number | null
   unit?: string
   custom?: boolean
   source?: string
@@ -258,6 +259,7 @@ function FoodResultRow({ food, onSelect, highlighted }: { food: FoodResult; onSe
         <MacroPill label="P" value={food.protein_per_100g ?? 0} color="bg-macro-p text-macro-p" />
         <MacroPill label="C" value={food.carbs_per_100g ?? 0} color="bg-macro-c text-macro-c" />
         <MacroPill label="F" value={food.fat_per_100g ?? 0} color="bg-macro-f text-macro-f" />
+        {food.fibre_per_100g != null && <MacroPill label="Fibre" value={food.fibre_per_100g} color="bg-amber-50 text-amber-600" />}
       </div>
     </button>
   )
@@ -398,7 +400,7 @@ export default function FoodSearch({ onSelect }: Props) {
   const [selected, setSelected] = useState<FoodResult | null>(null)
   const [highlightedId, setHighlightedId] = useState<string | null>(null)
   const [addingNew, setAddingNew] = useState(false)
-  const [customFood, setCustomFood] = useState({ name: '', calories: '', protein: '', carbs: '', fat: '' })
+  const [customFood, setCustomFood] = useState({ name: '', calories: '', protein: '', carbs: '', fat: '', fibre: '' })
   const [savingCustom, setSavingCustom] = useState(false)
   const [foodScope, setFoodScope] = useState<'personal' | 'global'>('personal')
   const [recentFoods, setRecentFoods] = useState<FoodResult[]>([])
@@ -418,7 +420,7 @@ export default function FoodSearch({ onSelect }: Props) {
   const [scannerOpen, setScannerOpen] = useState(false)
   const [expandedSearch, setExpandedSearch] = useState(false)
   const [barcode, setBarcode] = useState<BarcodeState>({ status: 'idle' })
-  const [newFood, setNewFood] = useState({ name: '', calories: '', protein: '', carbs: '', fat: '' })
+  const [newFood, setNewFood] = useState({ name: '', calories: '', protein: '', carbs: '', fat: '', fibre: '' })
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -468,6 +470,7 @@ export default function FoodSearch({ onSelect }: Props) {
             protein_per_100g: food.protein_per_100g,
             carbs_per_100g: food.carbs_per_100g,
             fat_per_100g: food.fat_per_100g,
+            fibre_per_100g: food.fibre_per_100g ?? null,
           }),
         })
         if (res.ok) {
@@ -607,12 +610,13 @@ export default function FoodSearch({ onSelect }: Props) {
         protein_per_100g: Number(customFood.protein) || 0,
         carbs_per_100g: Number(customFood.carbs) || 0,
         fat_per_100g: Number(customFood.fat) || 0,
+        fibre_per_100g: customFood.fibre.trim() === '' ? null : Number(customFood.fibre),
       }),
     })
     const food: FoodResult = await res.json()
     setSavingCustom(false)
     setAddingNew(false)
-    setCustomFood({ name: '', calories: '', protein: '', carbs: '', fat: '' })
+    setCustomFood({ name: '', calories: '', protein: '', carbs: '', fat: '', fibre: '' })
     handleSelect({ ...food, custom: foodScope === 'personal' })
   }
 
@@ -628,7 +632,7 @@ export default function FoodSearch({ onSelect }: Props) {
       setBarcode({ status: 'idle' })
     } else {
       setBarcode({ status: 'not_found', code })
-      setNewFood({ name: '', calories: '', protein: '', carbs: '', fat: '' })
+      setNewFood({ name: '', calories: '', protein: '', carbs: '', fat: '', fibre: '' })
     }
   }
 
@@ -646,6 +650,7 @@ export default function FoodSearch({ onSelect }: Props) {
         protein_per_100g: Number(newFood.protein),
         carbs_per_100g: Number(newFood.carbs),
         fat_per_100g: Number(newFood.fat),
+        fibre_per_100g: newFood.fibre.trim() === '' ? null : Number(newFood.fibre),
         ...(foodScope === 'global' ? { barcode: barcode.code } : {}),
       }),
     })
@@ -729,6 +734,7 @@ export default function FoodSearch({ onSelect }: Props) {
                                 <MacroPill label="P" value={food.protein_per_100g} color="bg-macro-p text-macro-p" />
                                 <MacroPill label="C" value={food.carbs_per_100g} color="bg-macro-c text-macro-c" />
                                 <MacroPill label="F" value={food.fat_per_100g} color="bg-macro-f text-macro-f" />
+                                {food.fibre_per_100g != null && <MacroPill label="Fibre" value={food.fibre_per_100g} color="bg-amber-50 text-amber-600" />}
                               </div>
                             </button>
                           </li>
@@ -839,6 +845,7 @@ export default function FoodSearch({ onSelect }: Props) {
                 { key: 'protein', placeholder: 'Protein (g)' },
                 { key: 'carbs', placeholder: 'Carbs (g)' },
                 { key: 'fat', placeholder: 'Fat (g)' },
+                { key: 'fibre', placeholder: 'Fibre (g, optional)' },
               ].map(({ key, placeholder }) => (
                 <input
                   key={key}
@@ -926,6 +933,7 @@ export default function FoodSearch({ onSelect }: Props) {
                 { key: 'protein', placeholder: 'Protein (g)' },
                 { key: 'carbs', placeholder: 'Carbs (g)' },
                 { key: 'fat', placeholder: 'Fat (g)' },
+                { key: 'fibre', placeholder: 'Fibre (g, optional)' },
               ] as const).map(({ key, placeholder }) => (
                 <input
                   key={key}
@@ -1059,6 +1067,11 @@ export default function FoodSearch({ onSelect }: Props) {
                     </div>
                   ))}
                 </div>
+                {selected.fibre_per_100g != null && (
+                  <p className="text-xs text-amber-600">
+                    Fibre: <span className="font-semibold">{Math.round(selected.fibre_per_100g * factor * 10) / 10}g</span>
+                  </p>
+                )}
                 {(servingUnit === 'cup' || servingUnit === 'tbsp' || servingUnit === 'tsp' || servingUnit === 'piece') && gramsPerUnit && (
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-xs text-gray-400">1 {servingUnit} ≈ {gramsPerUnit}g</span>

@@ -35,7 +35,7 @@ export default async function LogFoodPage() {
       .maybeSingle(),
     supabase
       .from('food_logs')
-      .select('id, food_name, calories, protein, carbs, fat, notes, meal_notes, meal_photo_url, meal_type, serving_description')
+      .select('id, food_name, calories, protein, carbs, fat, fibre, notes, meal_notes, meal_photo_url, meal_type, serving_description')
       .eq('user_id', user.id)
       .eq('log_date', todayLocal)
       .order('created_at', { ascending: true }),

@@ -26,7 +26,7 @@ export type ExistingMeal = {
 }
 
 function emptyItem(): MealItem {
-  return { id: crypto.randomUUID(), food: null, grams: 100, calories: 0, protein: 0, carbs: 0, fat: 0 }
+  return { id: crypto.randomUUID(), food: null, grams: 100, calories: 0, protein: 0, carbs: 0, fat: 0, fibre: null }
 }
 
 // Reconstructs a per-100g FoodResult from a saved meal_items snapshot row
@@ -43,7 +43,7 @@ function itemToMealItem(it: ExistingMealItem): MealItem {
     carbs_per_100g: it.carbs * factor,
     fat_per_100g: it.fat * factor,
   }
-  return { id: it.id, food, grams: it.grams, calories: it.calories, protein: it.protein, carbs: it.carbs, fat: it.fat }
+  return { id: it.id, food, grams: it.grams, calories: it.calories, protein: it.protein, carbs: it.carbs, fat: it.fat, fibre: null }
 }
 
 export default function MealBuilder({

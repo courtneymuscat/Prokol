@@ -29,7 +29,7 @@ export async function GET(
 
   let foodQuery = admin
     .from('food_logs')
-    .select('id, log_date, meal_type, food_name, calories, protein, carbs, fat, scan_image_url, meal_notes, meal_photo_url, created_at')
+    .select('id, log_date, meal_type, food_name, calories, protein, carbs, fat, fibre, scan_image_url, meal_notes, meal_photo_url, created_at')
     .eq('user_id', clientId)
     .order('log_date', { ascending: false })
     .order('created_at', { ascending: true })

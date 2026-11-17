@@ -37,6 +37,7 @@ async function fetchOFF(code: string, host = 'world.openfoodfacts.org') {
   const servingQty = rawServingQty ?? (rawProductQty && rawProductQty <= 1500 ? rawProductQty : null)
   const servingLabel = servingSize ?? (servingQty && rawServingQty !== servingQty ? `${servingQty}g` : null)
   const imageUrl = (p.image_front_small_url || p.image_front_url || p.image_url || null) as string | null
+  const fibre = n['fiber_100g']
   return {
     name,
     calories_per_100g: Math.round(kcal),
@@ -47,6 +48,7 @@ async function fetchOFF(code: string, host = 'world.openfoodfacts.org') {
     ...(servingQty ? { serving_quantity: servingQty } : {}),
     ...(servingLabel ? { serving_size: servingLabel } : {}),
     ...(imageUrl ? { image_url: imageUrl } : {}),
+    ...(fibre != null ? { fibre_per_100g: Math.round(fibre * 10) / 10 } : {}),
   }
 }
 
@@ -61,7 +63,7 @@ export async function GET(req: NextRequest) {
   for (const v of variants) {
     const { data: local } = await supabase
       .from('food_database')
-      .select('id, name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g')
+      .select('id, name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, fibre_per_100g')
       .eq('barcode', v)
       .maybeSingle()
     if (local) return Response.json(local)
@@ -72,7 +74,7 @@ export async function GET(req: NextRequest) {
     const { data: saved } = await supabase
       .from('food_database')
       .insert(food)
-      .select('id, name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g')
+      .select('id, name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, fibre_per_100g')
       .single()
     return saved ?? { id: code, ...food }
   }
@@ -112,6 +114,7 @@ export async function GET(req: NextRequest) {
             protein_per_100g:  Math.round(getNutrient(1003) * 10) / 10,
             carbs_per_100g:    Math.round(getNutrient(1005) * 10) / 10,
             fat_per_100g:      Math.round(getNutrient(1004) * 10) / 10,
+            fibre_per_100g:    Math.round(getNutrient(1079) * 10) / 10,
             barcode: String(match.gtinUpc ?? v),
           }
           if (food.name) return Response.json(await saveAndReturn(food))

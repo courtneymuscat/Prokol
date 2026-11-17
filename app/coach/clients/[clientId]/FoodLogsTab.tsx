@@ -14,6 +14,7 @@ type FoodLogEntry = {
   protein: number
   carbs: number
   fat: number
+  fibre: number | null
   scan_image_url: string | null
   meal_notes: string | null
   meal_photo_url: string | null
@@ -110,7 +111,8 @@ export default function FoodLogsTab({ clientId }: { clientId: string }) {
             const logs = byDate[date]
             const totals = logs.reduce((a, l) => ({
               cal: a.cal + l.calories, p: a.p + l.protein, c: a.c + l.carbs, f: a.f + l.fat,
-            }), { cal: 0, p: 0, c: 0, f: 0 })
+              fibre: a.fibre + (l.fibre ?? 0), hasFibre: a.hasFibre || l.fibre != null,
+            }), { cal: 0, p: 0, c: 0, f: 0, fibre: 0, hasFibre: false })
             const byMeal = logs.reduce<Record<string, FoodLogEntry[]>>((acc, l) => {
               acc[l.meal_type] = acc[l.meal_type] ?? []; acc[l.meal_type].push(l); return acc
             }, {})
@@ -125,7 +127,7 @@ export default function FoodLogsTab({ clientId }: { clientId: string }) {
                     {new Date(date + 'T00:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {Math.round(totals.cal)} kcal · {Math.round(totals.p)}g P · {Math.round(totals.c)}g C · {Math.round(totals.f)}g F
+                    {Math.round(totals.cal)} kcal · {Math.round(totals.p)}g P · {Math.round(totals.c)}g C · {Math.round(totals.f)}g F{totals.hasFibre ? ` · ${Math.round(totals.fibre)}g Fibre` : ''}
                   </p>
                 </div>
 

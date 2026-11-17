@@ -9,6 +9,7 @@ type FoodLog = {
   protein: number
   carbs: number
   fat: number
+  fibre: number | null
   serving_description: string | null
 }
 
@@ -19,6 +20,7 @@ type SearchFood = {
   protein_per_100g: number
   carbs_per_100g: number
   fat_per_100g: number
+  fibre_per_100g?: number | null
 }
 
 type ServingUnit = 'g' | 'ml' | 'oz' | 'cup' | 'tbsp' | 'tsp'
@@ -45,6 +47,7 @@ export default function EditFoodLogForm({
     protein: number
     carbs: number
     fat: number
+    fibre: number | null
   }) => void
   onCancel: () => void
 }) {
@@ -57,6 +60,7 @@ export default function EditFoodLogForm({
     pro: log.protein  / baseGrams,
     carb: log.carbs   / baseGrams,
     fat: log.fat      / baseGrams,
+    fibre: log.fibre != null ? log.fibre / baseGrams : null,
   }
 
   const [foodName, setFoodName] = useState(log.food_name ?? '')
@@ -75,6 +79,7 @@ export default function EditFoodLogForm({
   const pro  = fmt1(perGram.pro  * grams)
   const carb = fmt1(perGram.carb * grams)
   const fat  = fmt1(perGram.fat  * grams)
+  const fib  = perGram.fibre != null ? fmt1(perGram.fibre * grams) : null
 
   // Auto-search for per-100g values in background for better accuracy
   useEffect(() => {
@@ -92,6 +97,7 @@ export default function EditFoodLogForm({
             pro:  match.protein_per_100g  / 100,
             carb: match.carbs_per_100g    / 100,
             fat:  match.fat_per_100g      / 100,
+            fibre: match.fibre_per_100g != null ? match.fibre_per_100g / 100 : null,
           })
         }
       })
@@ -125,6 +131,7 @@ export default function EditFoodLogForm({
       pro:  food.protein_per_100g  / 100,
       carb: food.carbs_per_100g    / 100,
       fat:  food.fat_per_100g      / 100,
+      fibre: food.fibre_per_100g != null ? food.fibre_per_100g / 100 : null,
     })
     setQty(100)
     setUnit('g')
@@ -138,6 +145,7 @@ export default function EditFoodLogForm({
       protein:  pro,
       carbs:    carb,
       fat:      fat,
+      fibre:    fib,
     })
   }
 
@@ -192,6 +200,9 @@ export default function EditFoodLogForm({
               </div>
             ))}
           </div>
+          {fib != null && (
+            <p className="text-xs text-amber-600">Fibre: <span className="font-semibold">{fib}g</span></p>
+          )}
         </div>
       ) : (
         /* Change food search */
@@ -224,7 +235,7 @@ export default function EditFoodLogForm({
                   onMouseDown={(e) => { e.preventDefault(); selectFood(f) }}
                   className="w-full text-left px-3 py-2.5 hover:bg-gray-50 border-b border-gray-50 last:border-0">
                   <p className="text-sm font-medium text-gray-900">{f.name}</p>
-                  <p className="text-xs text-gray-400">per 100g: {Math.round(f.calories_per_100g)} kcal · P {f.protein_per_100g}g · C {f.carbs_per_100g}g · F {f.fat_per_100g}g</p>
+                  <p className="text-xs text-gray-400">per 100g: {Math.round(f.calories_per_100g)} kcal · P {f.protein_per_100g}g · C {f.carbs_per_100g}g · F {f.fat_per_100g}g{f.fibre_per_100g != null ? ` · Fibre ${f.fibre_per_100g}g` : ''}</p>
                 </button>
               ))}
             </div>

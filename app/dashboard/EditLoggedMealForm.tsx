@@ -4,7 +4,7 @@ import { useState } from 'react'
 import MealFoodRow, { type RowData } from './MealFoodRow'
 import type { FoodResult } from './FoodSearch'
 
-type Ingredient = { name: string; grams: number; calories: number; protein: number; carbs: number; fat: number }
+type Ingredient = { name: string; grams: number; calories: number; protein: number; carbs: number; fat: number; fibre?: number | null }
 type Item = RowData & { id: string }
 
 // Reconstructs a per-100g FoodResult from a logged ingredient snapshot
@@ -20,12 +20,13 @@ function ingredientToItem(ing: Ingredient): Item {
     protein_per_100g: ing.protein * factor,
     carbs_per_100g: ing.carbs * factor,
     fat_per_100g: ing.fat * factor,
+    fibre_per_100g: ing.fibre != null ? ing.fibre * factor : null,
   }
-  return { id: crypto.randomUUID(), food, grams: ing.grams, calories: ing.calories, protein: ing.protein, carbs: ing.carbs, fat: ing.fat }
+  return { id: crypto.randomUUID(), food, grams: ing.grams, calories: ing.calories, protein: ing.protein, carbs: ing.carbs, fat: ing.fat, fibre: ing.fibre ?? null }
 }
 
 function emptyItem(): Item {
-  return { id: crypto.randomUUID(), food: null, grams: 100, calories: 0, protein: 0, carbs: 0, fat: 0 }
+  return { id: crypto.randomUUID(), food: null, grams: 100, calories: 0, protein: 0, carbs: 0, fat: 0, fibre: null }
 }
 
 // Lets a client edit the individual ingredients of an already-logged
@@ -43,15 +44,22 @@ export default function EditLoggedMealForm({
 }: {
   foodName: string | null
   ingredients: Ingredient[]
-  onSave: (update: { food_name: string | null; calories: number; protein: number; carbs: number; fat: number; notes: string }) => void
+  onSave: (update: { food_name: string | null; calories: number; protein: number; carbs: number; fat: number; fibre: number | null; notes: string }) => void
   onCancel: () => void
 }) {
   const [name, setName] = useState(foodName ?? '')
   const [items, setItems] = useState<Item[]>(() => (ingredients.length > 0 ? ingredients.map(ingredientToItem) : [emptyItem()]))
 
   const totals = items.reduce(
-    (acc, i) => ({ calories: acc.calories + i.calories, protein: acc.protein + i.protein, carbs: acc.carbs + i.carbs, fat: acc.fat + i.fat }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    (acc, i) => ({
+      calories: acc.calories + i.calories,
+      protein: acc.protein + i.protein,
+      carbs: acc.carbs + i.carbs,
+      fat: acc.fat + i.fat,
+      fibre: acc.fibre + (i.fibre ?? 0),
+      hasFibre: acc.hasFibre || i.fibre != null,
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0, fibre: 0, hasFibre: false },
   )
 
   function handleSave() {
@@ -63,7 +71,8 @@ export default function EditLoggedMealForm({
       protein: Math.round(totals.protein * 10) / 10,
       carbs: Math.round(totals.carbs * 10) / 10,
       fat: Math.round(totals.fat * 10) / 10,
-      notes: JSON.stringify(validItems.map((i) => ({ name: i.food!.name, grams: i.grams, calories: i.calories, protein: i.protein, carbs: i.carbs, fat: i.fat }))),
+      fibre: totals.hasFibre ? Math.round(totals.fibre * 10) / 10 : null,
+      notes: JSON.stringify(validItems.map((i) => ({ name: i.food!.name, grams: i.grams, calories: i.calories, protein: i.protein, carbs: i.carbs, fat: i.fat, fibre: i.fibre }))),
     })
   }
 
@@ -108,6 +117,9 @@ export default function EditLoggedMealForm({
           </div>
         ))}
       </div>
+      {totals.hasFibre && (
+        <p className="text-xs text-amber-600">Fibre: <span className="font-semibold">{Math.round(totals.fibre * 10) / 10}g</span></p>
+      )}
 
       <div className="flex gap-2">
         <button

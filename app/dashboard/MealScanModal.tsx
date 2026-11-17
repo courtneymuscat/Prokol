@@ -11,6 +11,7 @@ type ScannedItem = {
   protein: number
   carbs: number
   fat: number
+  fibre?: number
 }
 
 type Props = {
@@ -158,6 +159,7 @@ export default function MealScanModal({ mealKey, date, onLogged, onClose }: Prop
       protein: Math.round(item.protein * 10) / 10,
       carbs: Math.round(item.carbs * 10) / 10,
       fat: Math.round(item.fat * 10) / 10,
+      fibre: item.fibre != null ? Math.round(item.fibre * 10) / 10 : null,
       meal_type: mealKey,
       log_date: date,
       scan_image_url: scanImageUrl,
@@ -337,12 +339,13 @@ export default function MealScanModal({ mealKey, date, onLogged, onClose }: Prop
                       </svg>
                     </button>
                   </div>
-                  <div className="grid grid-cols-5 gap-1.5 text-center">
+                  <div className="grid grid-cols-6 gap-1.5 text-center">
                     {([
                       { label: 'kcal', field: 'calories' as const },
                       { label: 'P', field: 'protein' as const },
                       { label: 'C', field: 'carbs' as const },
                       { label: 'F', field: 'fat' as const },
+                      { label: 'Fibre', field: 'fibre' as const },
                       { label: 'g', field: 'grams' as const },
                     ]).map(({ label, field }) => (
                       <div key={field}>
@@ -351,7 +354,7 @@ export default function MealScanModal({ mealKey, date, onLogged, onClose }: Prop
                           type="number"
                           min={0}
                           step="any"
-                          value={item[field]}
+                          value={item[field] ?? ''}
                           onChange={(e) => updateItem(i, field, e.target.value)}
                           className="w-full text-xs text-center bg-white border border-gray-200 rounded-lg py-1 focus:outline-none focus:ring-1 focus:ring-blue-400"
                         />

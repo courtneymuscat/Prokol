@@ -67,6 +67,7 @@ export async function GET(req: NextRequest) {
     const servingLabel = servingSize ?? (servingQty && rawServingQty !== servingQty ? `${servingQty}g` : null)
     const code = (p.code as string | undefined) ?? null
     const imageUrl = (p.image_front_small_url || p.image_front_url || p.image_url || null) as string | null
+    const fibre = n['fiber_100g']
 
     return {
       id: `off:${encodeURIComponent(name)}`,
@@ -80,6 +81,7 @@ export async function GET(req: NextRequest) {
       ...(servingQty ? { serving_quantity: servingQty } : {}),
       ...(servingLabel ? { serving_size: servingLabel } : {}),
       ...(imageUrl ? { image_url: imageUrl } : {}),
+      ...(fibre != null ? { fibre_per_100g: Math.round(fibre * 10) / 10 } : {}),
     }
   }
 

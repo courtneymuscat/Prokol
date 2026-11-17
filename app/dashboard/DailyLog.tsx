@@ -27,6 +27,7 @@ type FoodLog = {
   protein: number
   carbs: number
   fat: number
+  fibre: number | null
   notes: string | null        // AI scan ingredient JSON
   meal_notes: string | null   // user-entered notes
   meal_photo_url: string | null
@@ -49,14 +50,16 @@ function sumMacros(logs: FoodLog[]) {
       protein: acc.protein + (l.protein ?? 0),
       carbs: acc.carbs + (l.carbs ?? 0),
       fat: acc.fat + (l.fat ?? 0),
+      fibre: acc.fibre + (l.fibre ?? 0),
+      hasFibre: acc.hasFibre || l.fibre != null,
     }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    { calories: 0, protein: 0, carbs: 0, fat: 0, fibre: 0, hasFibre: false }
   )
 }
 
 function fmt1(n: number) { return Math.round(n * 10) / 10 }
 
-type MealIngredient = { name: string; grams: number; calories: number; protein: number; carbs: number; fat: number }
+type MealIngredient = { name: string; grams: number; calories: number; protein: number; carbs: number; fat: number; fibre?: number | null }
 
 function parseMealIngredients(notes: string | null): MealIngredient[] | null {
   if (!notes) return null
@@ -162,7 +165,7 @@ export default function DailyLog({
     const [{ data }, { data: mealNoteData }] = await Promise.all([
       supabase
         .from('food_logs')
-        .select('id, food_name, calories, protein, carbs, fat, notes, meal_notes, meal_photo_url, meal_type, serving_description')
+        .select('id, food_name, calories, protein, carbs, fat, fibre, notes, meal_notes, meal_photo_url, meal_type, serving_description')
         .eq('user_id', session.user.id)
         .eq('log_date', date)
         .order('created_at', { ascending: true }),
@@ -233,6 +236,7 @@ export default function DailyLog({
       protein: fmt1(food.protein_per_100g * factor),
       carbs: fmt1(food.carbs_per_100g * factor),
       fat: fmt1(food.fat_per_100g * factor),
+      fibre: food.fibre_per_100g != null ? fmt1(food.fibre_per_100g * factor) : null,
       meal_type: addingTo,
       log_date: date,
       serving_description: pendingEntry.servingDescription ?? null,
@@ -255,6 +259,7 @@ export default function DailyLog({
       protein_per_100g: food.protein_per_100g,
       carbs_per_100g: food.carbs_per_100g,
       fat_per_100g: food.fat_per_100g,
+      fibre_per_100g: food.fibre_per_100g ?? null,
     })
 
     setSaving(false)
@@ -291,6 +296,7 @@ export default function DailyLog({
             protein: log.protein,
             carbs: log.carbs,
             fat: log.fat,
+            fibre: log.fibre,
             meal_type: mk,
             log_date: copyTargetDate,
             notes: log.notes,
@@ -303,6 +309,7 @@ export default function DailyLog({
           protein: log.protein,
           carbs: log.carbs,
           fat: log.fat,
+          fibre: log.fibre,
           meal_type: mealKey,
           log_date: copyTargetDate,
           notes: log.notes,
@@ -330,7 +337,7 @@ export default function DailyLog({
 
     let query = supabase
       .from('food_logs')
-      .select('food_name, calories, protein, carbs, fat, meal_type, notes')
+      .select('food_name, calories, protein, carbs, fat, fibre, meal_type, notes')
       .eq('user_id', session.user.id)
       .eq('log_date', copyFromDate)
 
@@ -346,6 +353,7 @@ export default function DailyLog({
         protein: log.protein,
         carbs: log.carbs,
         fat: log.fat,
+        fibre: log.fibre,
         meal_type: log.meal_type,
         log_date: date,
         notes: log.notes,
@@ -371,6 +379,7 @@ export default function DailyLog({
     protein: number
     carbs: number
     fat: number
+    fibre?: number | null
     notes?: string
   }) {
     if (!editingId) return
@@ -667,6 +676,9 @@ export default function DailyLog({
               </div>
             ))}
           </div>
+          {totals.hasFibre && (
+            <p className="text-xs text-amber-300 mt-3">Fibre: <span className="font-semibold">{fmt1(totals.fibre)}g</span></p>
+          )}
         </div>
       )}
 
@@ -812,6 +824,7 @@ export default function DailyLog({
                         <span className="text-macro-p ml-2">P {fmt1(mt.protein)}g</span>
                         <span className="text-macro-c ml-1">C {fmt1(mt.carbs)}g</span>
                         <span className="text-macro-f ml-1">F {fmt1(mt.fat)}g</span>
+                        {mt.hasFibre && <span className="text-amber-500 ml-1">Fibre {fmt1(mt.fibre)}g</span>}
                       </p>
                     )}
                     {/* Meal note preview */}
@@ -1070,6 +1083,7 @@ export default function DailyLog({
                                   <span className="text-macro-p hidden sm:inline">P {log.protein}g</span>
                                   <span className="text-macro-c hidden sm:inline">C {log.carbs}g</span>
                                   <span className="text-macro-f hidden sm:inline">F {log.fat}g</span>
+                                  {log.fibre != null && <span className="text-amber-500 hidden sm:inline">Fibre {log.fibre}g</span>}
                                 </div>
                                 {/* Serve badges — only for cheat-sheet tagged foods */}
                                 {(() => {
@@ -1196,6 +1210,7 @@ export default function DailyLog({
                                         <span className="text-macro-p">P {item.protein}g</span>
                                         <span className="text-macro-c">C {item.carbs}g</span>
                                         <span className="text-macro-f">F {item.fat}g</span>
+                                        {item.fibre != null && <span className="text-amber-500">Fibre {item.fibre}g</span>}
                                       </div>
                                     </div>
                                   ))}
