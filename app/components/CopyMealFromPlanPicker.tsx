@@ -10,6 +10,7 @@ type MealFood = {
   protein: number
   carbs: number
   fat: number
+  fibre?: number | null
   serving_qty?: number
   unit?: string
   _key?: string

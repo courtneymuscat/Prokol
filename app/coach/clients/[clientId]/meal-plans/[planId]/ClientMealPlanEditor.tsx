@@ -17,11 +17,13 @@ type MealFood = {
   protein: number
   carbs: number
   fat: number
+  fibre?: number | null
   swapped_from?: string
   _calories_per_100g?: number
   _protein_per_100g?: number
   _carbs_per_100g?: number
   _fat_per_100g?: number
+  _fibre_per_100g?: number | null
   serving_qty?: number
   unit?: string
   _key?: string
@@ -107,7 +109,7 @@ function withKey(food: MealFood): MealFood {
 }
 
 function computeMacros(content: MealSlot[]) {
-  let calories = 0, protein = 0, carbs = 0, fat = 0
+  let calories = 0, protein = 0, carbs = 0, fat = 0, fibre = 0, hasFibre = false
   for (const slot of content) {
     if (slot.foods.length > 0) {
       for (const food of slot.foods) {
@@ -115,6 +117,7 @@ function computeMacros(content: MealSlot[]) {
         protein += food.protein
         carbs += food.carbs
         fat += food.fat
+        if (food.fibre != null) { fibre += food.fibre; hasFibre = true }
       }
     } else if (hasAnyTarget(slot)) {
       calories += slot.target_calories ?? 0
@@ -123,7 +126,7 @@ function computeMacros(content: MealSlot[]) {
       fat += slot.target_fat ?? 0
     }
   }
-  return { calories, protein, carbs, fat }
+  return { calories, protein, carbs, fat, fibre: hasFibre ? fibre : null }
 }
 
 function macroDerivedKcal(p: number, c: number, f: number): number {
@@ -146,6 +149,7 @@ function FoodRow({
     pro: food._protein_per_100g ?? (food.grams > 0 ? (food.protein / food.grams) * 100 : 0),
     carb: food._carbs_per_100g ?? (food.grams > 0 ? (food.carbs / food.grams) * 100 : 0),
     fat: food._fat_per_100g ?? (food.grams > 0 ? (food.fat / food.grams) * 100 : 0),
+    fib: food._fibre_per_100g ?? (food.fibre != null && food.grams > 0 ? (food.fibre / food.grams) * 100 : null),
   })
 
   // Restore the per-piece gram value from the saved row — customPieceG
@@ -175,6 +179,7 @@ function FoodRow({
       pro: food._protein_per_100g ?? (food.grams > 0 ? (food.protein / food.grams) * 100 : 0),
       carb: food._carbs_per_100g ?? (food.grams > 0 ? (food.carbs / food.grams) * 100 : 0),
       fat: food._fat_per_100g ?? (food.grams > 0 ? (food.fat / food.grams) * 100 : 0),
+      fib: food._fibre_per_100g ?? (food.fibre != null && food.grams > 0 ? (food.fibre / food.grams) * 100 : null),
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [foodIdentity])
@@ -186,6 +191,7 @@ function FoodRow({
       protein: Math.round(p100.current.pro * f * 10) / 10,
       carbs: Math.round(p100.current.carb * f * 10) / 10,
       fat: Math.round(p100.current.fat * f * 10) / 10,
+      fibre: p100.current.fib != null ? Math.round(p100.current.fib * f * 10) / 10 : null,
     }
   }
 
@@ -296,6 +302,11 @@ function FoodRow({
             <span className="text-[11px] bg-blue-50 text-blue-400 font-semibold px-1.5 py-0.5 rounded-full">
               F {food.fat.toFixed(1)}g
             </span>
+            {food.fibre != null && (
+              <span className="text-[11px] bg-amber-50 text-amber-600 font-semibold px-1.5 py-0.5 rounded-full">
+                Fibre {food.fibre.toFixed(1)}g
+              </span>
+            )}
             {food.recipe_name && (
               <span className="text-[11px] bg-purple-50 text-purple-500 font-semibold px-1.5 py-0.5 rounded-full">
                 🍳 {food.recipe_name}
@@ -436,8 +447,9 @@ function MealSlotCard({
       p: acc.p + f.protein,
       c: acc.c + f.carbs,
       f: acc.f + f.fat,
+      fibre: f.fibre != null ? (acc.fibre ?? 0) + f.fibre : acc.fibre,
     }),
-    { cal: 0, p: 0, c: 0, f: 0 }
+    { cal: 0, p: 0, c: 0, f: 0, fibre: null as number | null }
   )
 
   function updateFood(i: number, updated: MealFood) {
@@ -464,6 +476,7 @@ function MealSlotCard({
         protein: i.protein,
         carbs: i.carbs,
         fat: i.fat,
+        fibre: i.fibre ?? null,
         recipe_id: recipe.id,
         recipe_name: recipe.name,
         image_url: i.link ?? undefined,
@@ -987,6 +1000,12 @@ export default function ClientMealPlanEditor({
               <span className="text-xs text-gray-400">Fat </span>
               <span className="text-sm font-semibold text-blue-400">{totals.fat.toFixed(1)}g</span>
             </div>
+            {totals.fibre != null && (
+              <div>
+                <span className="text-xs text-gray-400">Fibre </span>
+                <span className="text-sm font-semibold text-amber-500">{totals.fibre.toFixed(1)}g</span>
+              </div>
+            )}
           </div>
           <div className="h-4 w-px bg-gray-200" />
           <div>

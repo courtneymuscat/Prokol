@@ -11,6 +11,7 @@ interface FoodItem {
   protein: number
   carbs: number
   fat: number
+  fibre?: number | null
   recipe_id?: string
   recipe_name?: string
   swapped_from?: unknown
@@ -83,7 +84,7 @@ export async function PATCH(
   let newId: string
   let newName: string
   let newTotalCalories: number
-  let newIngredientsRaw: { food_id?: string | null; food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number }[]
+  let newIngredientsRaw: { food_id?: string | null; food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number; fibre?: number | null }[]
   let recipeSource: 'library' | 'saved_meal' | 'my_recipe'
 
   if (new_recipe_id) {
@@ -113,7 +114,7 @@ export async function PATCH(
 
     const { data: newIngredients } = await admin
       .from('recipe_ingredients')
-      .select('food_id, food_name, grams, calories, protein, carbs, fat, sort_order')
+      .select('food_id, food_name, grams, calories, protein, carbs, fat, fibre, sort_order')
       .eq('recipe_id', new_recipe_id)
       .order('sort_order', { ascending: true })
     if (!newIngredients?.length) return Response.json({ error: 'Replacement recipe has no ingredients' }, { status: 400 })
@@ -137,7 +138,7 @@ export async function PATCH(
 
     const { data: myIngredients } = await supabase
       .from('client_recipe_ingredients')
-      .select('food_id, food_name, grams, calories, protein, carbs, fat, sort_order')
+      .select('food_id, food_name, grams, calories, protein, carbs, fat, fibre, sort_order')
       .eq('recipe_id', new_client_recipe_id)
       .order('sort_order', { ascending: true })
     if (!myIngredients?.length) return Response.json({ error: 'Replacement recipe has no ingredients' }, { status: 400 })
@@ -160,7 +161,7 @@ export async function PATCH(
 
     const { data: items } = await supabase
       .from('meal_items')
-      .select('food_id, food_name, grams, calories, protein, carbs, fat')
+      .select('food_id, food_name, grams, calories, protein, carbs, fat, fibre')
       .eq('meal_id', new_saved_meal_id)
     if (!items?.length) return Response.json({ error: 'That saved meal has no food items' }, { status: 400 })
 
@@ -182,6 +183,7 @@ export async function PATCH(
     protein: i.protein,
     carbs: i.carbs,
     fat: i.fat,
+    fibre: i.fibre ?? null,
     recipe_id: newId,
     recipe_name: newName,
     recipe_source: recipeSource,

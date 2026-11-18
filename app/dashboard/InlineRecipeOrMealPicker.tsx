@@ -14,6 +14,7 @@ type LibraryRecipe = {
   total_protein: number
   total_carbs: number
   total_fat: number
+  total_fibre: number | null
   diet_tags: string[]
   tier_tag: string | null
 }
@@ -26,15 +27,22 @@ type MyRecipeItem = {
   total_protein: number
   total_carbs: number
   total_fat: number
+  total_fibre: number | null
 }
 
-type SavedMealItem = { food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number }
+type SavedMealItem = { food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number; fibre?: number | null }
 type SavedMeal = { id: string; name: string; meal_items: SavedMealItem[] }
 
-function sumItems(items: { calories: number; protein: number; carbs: number; fat: number }[]) {
+function sumItems(items: { calories: number; protein: number; carbs: number; fat: number; fibre?: number | null }[]) {
   return items.reduce(
-    (acc, i) => ({ calories: acc.calories + i.calories, protein: acc.protein + i.protein, carbs: acc.carbs + i.carbs, fat: acc.fat + i.fat }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    (acc, i) => ({
+      calories: acc.calories + i.calories,
+      protein: acc.protein + i.protein,
+      carbs: acc.carbs + i.carbs,
+      fat: acc.fat + i.fat,
+      fibre: i.fibre != null ? (acc.fibre ?? 0) + i.fibre : acc.fibre,
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0, fibre: null as number | null },
   )
 }
 
@@ -84,7 +92,7 @@ export default function InlineRecipeOrMealPicker({ source, mealKey, date, onLogg
         const { data: mealsData } = await supabase.from('meals').select('id, name').eq('user_id', session.user.id).order('created_at', { ascending: false })
         if (!mealsData || mealsData.length === 0) { setSavedMeals([]); setLoading(false); return }
         const mealIds = mealsData.map((m) => m.id)
-        const { data: itemsData } = await supabase.from('meal_items').select('meal_id, food_name, grams, calories, protein, carbs, fat').in('meal_id', mealIds)
+        const { data: itemsData } = await supabase.from('meal_items').select('meal_id, food_name, grams, calories, protein, carbs, fat, fibre').in('meal_id', mealIds)
         const byMeal: Record<string, SavedMealItem[]> = {}
         for (const item of itemsData ?? []) (byMeal[item.meal_id] ??= []).push(item)
         setSavedMeals(mealsData.map((m) => ({ ...m, meal_items: byMeal[m.id] ?? [] })))
@@ -107,7 +115,7 @@ export default function InlineRecipeOrMealPicker({ source, mealKey, date, onLogg
   })
   const filteredSaved = savedMeals.filter((m) => !query.trim() || m.name.toLowerCase().includes(query.trim().toLowerCase()))
 
-  async function logEntry(name: string, ingredients: { food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number }[], key: string) {
+  async function logEntry(name: string, ingredients: { food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number; fibre?: number | null }[], key: string) {
     setLogging(key)
     setError(null)
     const supabase = createClient()
@@ -121,9 +129,10 @@ export default function InlineRecipeOrMealPicker({ source, mealKey, date, onLogg
       protein: Math.round(t.protein * 10) / 10,
       carbs: Math.round(t.carbs * 10) / 10,
       fat: Math.round(t.fat * 10) / 10,
+      fibre: t.fibre != null ? Math.round(t.fibre * 10) / 10 : null,
       meal_type: mealKey,
       log_date: date,
-      notes: JSON.stringify(ingredients.map((i) => ({ name: i.food_name, grams: i.grams, calories: i.calories, protein: i.protein, carbs: i.carbs, fat: i.fat }))),
+      notes: JSON.stringify(ingredients.map((i) => ({ name: i.food_name, grams: i.grams, calories: i.calories, protein: i.protein, carbs: i.carbs, fat: i.fat, fibre: i.fibre }))),
     })
     setLogging(null)
     if (insertError) { setError(insertError.message); return }
@@ -233,7 +242,7 @@ export default function InlineRecipeOrMealPicker({ source, mealKey, date, onLogg
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">
                       {r.category && <span className="capitalize">{r.category} · </span>}
-                      {Math.round(r.total_calories)} kcal · {Math.round(r.total_protein)}g P · {Math.round(r.total_carbs)}g C · {Math.round(r.total_fat)}g F
+                      {Math.round(r.total_calories)} kcal · {Math.round(r.total_protein)}g P · {Math.round(r.total_carbs)}g C · {Math.round(r.total_fat)}g F{r.total_fibre != null ? ` · ${Math.round(r.total_fibre)}g Fibre` : ''}
                     </p>
                     {((r.diet_tags && r.diet_tags.length > 0) || r.tier_tag) && (
                       <div className="flex flex-wrap gap-1 mt-1">
@@ -274,7 +283,7 @@ export default function InlineRecipeOrMealPicker({ source, mealKey, date, onLogg
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">
                       {r.category && <span className="capitalize">{r.category} · </span>}
-                      {Math.round(r.total_calories)} kcal · {Math.round(r.total_protein)}g P · {Math.round(r.total_carbs)}g C · {Math.round(r.total_fat)}g F
+                      {Math.round(r.total_calories)} kcal · {Math.round(r.total_protein)}g P · {Math.round(r.total_carbs)}g C · {Math.round(r.total_fat)}g F{r.total_fibre != null ? ` · ${Math.round(r.total_fibre)}g Fibre` : ''}
                     </p>
                   </button>
                 </li>
@@ -299,7 +308,7 @@ export default function InlineRecipeOrMealPicker({ source, mealKey, date, onLogg
                     {loggedId === m.id && <span className="text-xs font-semibold text-green-600 flex-shrink-0">✓ Logged</span>}
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {(() => { const t = sumItems(m.meal_items); return `${Math.round(t.calories)} kcal · ${Math.round(t.protein)}g P · ${Math.round(t.carbs)}g C · ${Math.round(t.fat)}g F` })()}
+                    {(() => { const t = sumItems(m.meal_items); return `${Math.round(t.calories)} kcal · ${Math.round(t.protein)}g P · ${Math.round(t.carbs)}g C · ${Math.round(t.fat)}g F${t.fibre != null ? ` · ${Math.round(t.fibre)}g Fibre` : ''}` })()}
                   </p>
                 </button>
               </li>

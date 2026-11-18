@@ -10,6 +10,7 @@ type IngredientInput = {
   protein: number
   carbs: number
   fat: number
+  fibre?: number | null
   section?: string | null
 }
 
@@ -21,8 +22,9 @@ function sumTotals(ingredients: IngredientInput[]) {
       total_protein: acc.total_protein + (i.protein || 0),
       total_carbs: acc.total_carbs + (i.carbs || 0),
       total_fat: acc.total_fat + (i.fat || 0),
+      total_fibre: i.fibre != null ? (acc.total_fibre ?? 0) + i.fibre : acc.total_fibre,
     }),
-    { total_grams: 0, total_calories: 0, total_protein: 0, total_carbs: 0, total_fat: 0 },
+    { total_grams: 0, total_calories: 0, total_protein: 0, total_carbs: 0, total_fat: 0, total_fibre: null as number | null },
   )
 }
 
@@ -37,7 +39,7 @@ export async function GET(
 
   const { data: recipe, error } = await supabase
     .from('client_recipes')
-    .select('id, name, category, instructions, servings, total_grams, total_calories, total_protein, total_carbs, total_fat')
+    .select('id, name, category, instructions, servings, total_grams, total_calories, total_protein, total_carbs, total_fat, total_fibre')
     .eq('id', recipeId)
     .eq('user_id', user.id)
     .single()
@@ -46,7 +48,7 @@ export async function GET(
 
   const { data: ingredients } = await supabase
     .from('client_recipe_ingredients')
-    .select('id, food_id, food_name, grams, calories, protein, carbs, fat, section, sort_order')
+    .select('id, food_id, food_name, grams, calories, protein, carbs, fat, fibre, section, sort_order')
     .eq('recipe_id', recipeId)
     .order('sort_order', { ascending: true })
 
@@ -110,6 +112,7 @@ export async function PATCH(
       protein: i.protein,
       carbs: i.carbs,
       fat: i.fat,
+      fibre: i.fibre ?? null,
       section: i.section || null,
       sort_order: idx,
     })),
@@ -126,6 +129,7 @@ export async function PATCH(
     totalProtein: totals.total_protein,
     totalCarbs: totals.total_carbs,
     totalFat: totals.total_fat,
+    totalFibre: totals.total_fibre,
   })
 
   return Response.json({ ok: true })

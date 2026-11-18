@@ -13,6 +13,7 @@ type IngredientInput = {
   protein: number
   carbs: number
   fat: number
+  fibre?: number | null
   link?: string | null
 }
 
@@ -28,8 +29,9 @@ function sumTotals(ingredients: IngredientInput[]) {
       total_protein: acc.total_protein + (i.protein || 0),
       total_carbs: acc.total_carbs + (i.carbs || 0),
       total_fat: acc.total_fat + (i.fat || 0),
+      total_fibre: i.fibre != null ? (acc.total_fibre ?? 0) + i.fibre : acc.total_fibre,
     }),
-    { total_calories: 0, total_protein: 0, total_carbs: 0, total_fat: 0 },
+    { total_calories: 0, total_protein: 0, total_carbs: 0, total_fat: 0, total_fibre: null as number | null },
   )
 }
 
@@ -60,7 +62,7 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from('recipes')
-    .select('id, coach_id, name, category, image_url, total_calories, total_protein, total_carbs, total_fat, diet_tags, tier_tag, archived_at, created_at, is_global')
+    .select('id, coach_id, name, category, image_url, total_calories, total_protein, total_carbs, total_fat, total_fibre, diet_tags, tier_tag, archived_at, created_at, is_global')
   query = includeGlobal ? query.or(`coach_id.eq.${coachId},is_global.eq.true`) : query.eq('coach_id', coachId)
   if (category) query = query.eq('category', category)
   if (!includeArchived) query = query.is('archived_at', null)
@@ -133,6 +135,7 @@ export async function POST(req: NextRequest) {
       protein: i.protein,
       carbs: i.carbs,
       fat: i.fat,
+      fibre: i.fibre ?? null,
       link: i.link || null,
       sort_order: idx,
     })),

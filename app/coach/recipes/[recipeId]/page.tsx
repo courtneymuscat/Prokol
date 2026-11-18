@@ -13,6 +13,7 @@ type Ingredient = {
   protein: number
   carbs: number
   fat: number
+  fibre?: number | null
   link?: string | null
 }
 
@@ -59,6 +60,7 @@ function toIngredient(food: MealFood): Ingredient {
     protein: food.protein,
     carbs: food.carbs,
     fat: food.fat,
+    fibre: food.fibre ?? null,
     link: null,
   }
 }
@@ -125,8 +127,9 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
       protein: acc.protein + (i.protein || 0),
       carbs: acc.carbs + (i.carbs || 0),
       fat: acc.fat + (i.fat || 0),
+      fibre: i.fibre != null ? (acc.fibre ?? 0) + i.fibre : acc.fibre,
     }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    { calories: 0, protein: 0, carbs: 0, fat: 0, fibre: null as number | null },
   )
   // Recomputed live from the coach's own food-serves cheat sheet as
   // ingredients are added/removed — not a server round-trip per edit.
@@ -279,6 +282,7 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
             <span className="text-xs text-blue-600">{Math.round(totals.protein)}g P</span>
             <span className="text-xs text-orange-600">{Math.round(totals.carbs)}g C</span>
             <span className="text-xs text-yellow-600">{Math.round(totals.fat)}g F</span>
+            {totals.fibre != null && <span className="text-xs text-amber-600">{Math.round(totals.fibre)}g Fibre</span>}
           </div>
         </div>
 
@@ -305,7 +309,7 @@ export default function RecipeEditorPage({ params }: { params: Promise<{ recipeI
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-gray-800 truncate">{i.food_name}</p>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {i.grams}g · {Math.round(i.calories)} kcal · {Math.round(i.protein)}g P · {Math.round(i.carbs)}g C · {Math.round(i.fat)}g F
+                      {i.grams}g · {Math.round(i.calories)} kcal · {Math.round(i.protein)}g P · {Math.round(i.carbs)}g C · {Math.round(i.fat)}g F{i.fibre != null ? ` · ${Math.round(i.fibre)}g Fibre` : ''}
                       {serveCount != null && <span className="ml-1 text-gray-300">· ~{serveCount.toFixed(1)} serves</span>}
                     </p>
                     <input

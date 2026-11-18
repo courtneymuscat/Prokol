@@ -15,6 +15,7 @@ type Recipe = {
   total_protein: number
   total_carbs: number
   total_fat: number
+  total_fibre: number | null
   diet_tags: string[]
   tier_tag: string | null
 }
@@ -163,6 +164,7 @@ export default function RecipesPageClient({ canUseSavedMeals, canAccessLibrary }
                       <span className="text-xs text-blue-600">{Math.round(r.total_protein)}g P</span>
                       <span className="text-xs text-orange-600">{Math.round(r.total_carbs)}g C</span>
                       <span className="text-xs text-yellow-600">{Math.round(r.total_fat)}g F</span>
+                      {r.total_fibre != null && <span className="text-xs text-amber-600">{Math.round(r.total_fibre)}g Fibre</span>}
                     </div>
                     {((r.diet_tags && r.diet_tags.length > 0) || r.tier_tag) && (
                       <div className="flex flex-wrap gap-1.5 mt-1.5">

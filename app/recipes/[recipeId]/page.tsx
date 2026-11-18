@@ -12,6 +12,7 @@ type Ingredient = {
   protein: number
   carbs: number
   fat: number
+  fibre?: number | null
   link?: string | null
 }
 
@@ -26,6 +27,7 @@ type RecipeDetail = {
   total_protein: number
   total_carbs: number
   total_fat: number
+  total_fibre: number | null
   diet_tags: string[]
   tier_tag: string | null
   ingredients: Ingredient[]
@@ -96,6 +98,7 @@ export default function ClientRecipeDetailPage({ params }: { params: Promise<{ r
                 <span className="text-xs text-blue-600">{Math.round(recipe.total_protein)}g P</span>
                 <span className="text-xs text-orange-600">{Math.round(recipe.total_carbs)}g C</span>
                 <span className="text-xs text-yellow-600">{Math.round(recipe.total_fat)}g F</span>
+                {recipe.total_fibre != null && <span className="text-xs text-amber-600">{Math.round(recipe.total_fibre)}g Fibre</span>}
               </div>
               {((recipe.diet_tags && recipe.diet_tags.length > 0) || recipe.tier_tag) && (
                 <div className="flex flex-wrap gap-1.5">
@@ -181,6 +184,7 @@ export default function ClientRecipeDetailPage({ params }: { params: Promise<{ r
               protein: i.protein,
               carbs: i.carbs,
               fat: i.fat,
+              fibre: i.fibre ?? null,
             })),
           }}
           onClose={() => setShowLog(false)}

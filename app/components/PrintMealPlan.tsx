@@ -10,6 +10,7 @@ type MealFood = {
   protein: number
   carbs: number
   fat: number
+  fibre?: number | null
   serving_qty?: number
   unit?: string
   coach_note?: string | null
@@ -50,7 +51,7 @@ function formatServing(food: MealFood): string {
 }
 
 function computeTotals(content: MealSlot[]) {
-  let calories = 0, protein = 0, carbs = 0, fat = 0
+  let calories = 0, protein = 0, carbs = 0, fat = 0, fibre = 0, hasFibre = false
   for (const slot of content) {
     if (slot.foods.length > 0) {
       for (const food of slot.foods) {
@@ -58,6 +59,7 @@ function computeTotals(content: MealSlot[]) {
         protein += food.protein
         carbs += food.carbs
         fat += food.fat
+        if (food.fibre != null) { fibre += food.fibre; hasFibre = true }
       }
     } else {
       calories += slot.target_calories ?? 0
@@ -66,7 +68,7 @@ function computeTotals(content: MealSlot[]) {
       fat += slot.target_fat ?? 0
     }
   }
-  return { calories, protein, carbs, fat }
+  return { calories, protein, carbs, fat, fibre: hasFibre ? fibre : null }
 }
 
 export default function PrintMealPlan({
@@ -177,6 +179,12 @@ export default function PrintMealPlan({
                   <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Fat</p>
                   <p className="text-sm font-semibold text-gray-800">{totals.fat.toFixed(1)} g</p>
                 </div>
+                {totals.fibre != null && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Fibre</p>
+                    <p className="text-sm font-semibold text-gray-800">{totals.fibre.toFixed(1)} g</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -208,7 +216,7 @@ export default function PrintMealPlan({
                     <h2 className="text-base font-bold text-gray-900">{slot.label || `Meal ${i + 1}`}</h2>
                     {showMacros && slot.foods.length > 0 && (
                       <p className="text-xs text-gray-500">
-                        {Math.round(slotTotals.calories)} kcal · P {slotTotals.protein.toFixed(0)}g · C {slotTotals.carbs.toFixed(0)}g · F {slotTotals.fat.toFixed(0)}g
+                        {Math.round(slotTotals.calories)} kcal · P {slotTotals.protein.toFixed(0)}g · C {slotTotals.carbs.toFixed(0)}g · F {slotTotals.fat.toFixed(0)}g{slotTotals.fibre != null ? ` · Fibre ${slotTotals.fibre.toFixed(0)}g` : ''}
                       </p>
                     )}
                   </div>
@@ -233,6 +241,7 @@ export default function PrintMealPlan({
                               <th className="py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 text-right">P</th>
                               <th className="py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 text-right">C</th>
                               <th className="py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 text-right">F</th>
+                              {totals.fibre != null && <th className="py-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 text-right">Fibre</th>}
                             </>
                           )}
                         </tr>
@@ -256,6 +265,7 @@ export default function PrintMealPlan({
                                 <td className="py-1.5 pr-3 text-right text-gray-700 tabular-nums">{food.protein.toFixed(1)}</td>
                                 <td className="py-1.5 pr-3 text-right text-gray-700 tabular-nums">{food.carbs.toFixed(1)}</td>
                                 <td className="py-1.5 text-right text-gray-700 tabular-nums">{food.fat.toFixed(1)}</td>
+                                {totals.fibre != null && <td className="py-1.5 text-right text-gray-700 tabular-nums">{food.fibre != null ? food.fibre.toFixed(1) : '—'}</td>}
                               </>
                             )}
                           </tr>

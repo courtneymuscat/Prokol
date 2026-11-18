@@ -22,9 +22,10 @@ export async function syncRecipeFood(
     totalProtein: number
     totalCarbs: number
     totalFat: number
+    totalFibre?: number | null
   },
 ): Promise<void> {
-  const { recipeId, userId, name, servings, totalGrams, totalCalories, totalProtein, totalCarbs, totalFat } = opts
+  const { recipeId, userId, name, servings, totalGrams, totalCalories, totalProtein, totalCarbs, totalFat, totalFibre } = opts
   const factor = totalGrams > 0 ? 100 / totalGrams : 0
 
   const foodRow = {
@@ -34,6 +35,7 @@ export async function syncRecipeFood(
     protein_per_100g: Math.round(totalProtein * factor * 10) / 10,
     carbs_per_100g: Math.round(totalCarbs * factor * 10) / 10,
     fat_per_100g: Math.round(totalFat * factor * 10) / 10,
+    fibre_per_100g: totalFibre != null ? Math.round(totalFibre * factor * 10) / 10 : null,
     serving_quantity: servings ? Math.round((totalGrams / servings) * 10) / 10 : null,
     serving_size: servings ? '1 serving' : null,
     source_client_recipe_id: recipeId,

@@ -11,6 +11,7 @@ type IngredientInput = {
   protein: number
   carbs: number
   fat: number
+  fibre?: number | null
   link?: string | null
 }
 
@@ -26,8 +27,9 @@ function sumTotals(ingredients: IngredientInput[]) {
       total_protein: acc.total_protein + (i.protein || 0),
       total_carbs: acc.total_carbs + (i.carbs || 0),
       total_fat: acc.total_fat + (i.fat || 0),
+      total_fibre: i.fibre != null ? (acc.total_fibre ?? 0) + i.fibre : acc.total_fibre,
     }),
-    { total_calories: 0, total_protein: 0, total_carbs: 0, total_fat: 0 },
+    { total_calories: 0, total_protein: 0, total_carbs: 0, total_fat: 0, total_fibre: null as number | null },
   )
 }
 
@@ -46,7 +48,7 @@ export async function GET(
   // by a different coach_id (Court's), not only their own.
   const { data: recipe, error } = await supabase
     .from('recipes')
-    .select('id, coach_id, name, category, instructions, image_url, total_calories, total_protein, total_carbs, total_fat, diet_tags, tier_tag, archived_at, is_global')
+    .select('id, coach_id, name, category, instructions, image_url, total_calories, total_protein, total_carbs, total_fat, total_fibre, diet_tags, tier_tag, archived_at, is_global')
     .eq('id', recipeId)
     .or(`coach_id.eq.${coachId},is_global.eq.true`)
     .single()
@@ -56,7 +58,7 @@ export async function GET(
   const [{ data: ingredients }, { data: modifications }, serveMap] = await Promise.all([
     supabase
       .from('recipe_ingredients')
-      .select('id, food_id, food_name, grams, calories, protein, carbs, fat, link, sort_order')
+      .select('id, food_id, food_name, grams, calories, protein, carbs, fat, fibre, link, sort_order')
       .eq('recipe_id', recipeId)
       .order('sort_order', { ascending: true }),
     supabase
@@ -147,6 +149,7 @@ export async function PATCH(
       protein: i.protein,
       carbs: i.carbs,
       fat: i.fat,
+      fibre: i.fibre ?? null,
       link: i.link || null,
       sort_order: idx,
     })),

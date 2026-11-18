@@ -16,9 +16,10 @@ type RecipeListItem = {
   total_protein: number
   total_carbs: number
   total_fat: number
+  total_fibre: number | null
 }
 
-type Ingredient = { food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number; section?: string | null }
+type Ingredient = { food_name: string; grams: number; calories: number; protein: number; carbs: number; fat: number; fibre?: number | null; section?: string | null }
 
 function groupIngredients(items: Ingredient[]): { title: string | null; items: Ingredient[] }[] {
   const sectionNames: string[] = []
@@ -122,6 +123,7 @@ export default function MyRecipes() {
       protein: Math.round(i.protein * ratio * 10) / 10,
       carbs: Math.round(i.carbs * ratio * 10) / 10,
       fat: Math.round(i.fat * ratio * 10) / 10,
+      fibre: i.fibre != null ? Math.round(i.fibre * ratio * 10) / 10 : null,
     }))
 
     const label = recipeMode === 'servings' && recipe.servings
@@ -135,6 +137,7 @@ export default function MyRecipes() {
       protein: Math.round(recipe.total_protein * ratio * 10) / 10,
       carbs: Math.round(recipe.total_carbs * ratio * 10) / 10,
       fat: Math.round(recipe.total_fat * ratio * 10) / 10,
+      fibre: recipe.total_fibre != null ? Math.round(recipe.total_fibre * ratio * 10) / 10 : null,
       meal_type: mealType,
       log_date,
       notes: JSON.stringify(scaledIngredients),
@@ -235,6 +238,7 @@ export default function MyRecipes() {
                       <span className="text-xs text-macro-p">P {Math.round(r.total_protein)}g</span>
                       <span className="text-xs text-macro-c">C {Math.round(r.total_carbs)}g</span>
                       <span className="text-xs text-macro-f">F {Math.round(r.total_fat)}g</span>
+                      {r.total_fibre != null && <span className="text-xs text-amber-500">Fibre {Math.round(r.total_fibre)}g</span>}
                       {r.servings && <span className="text-xs text-gray-400">· makes {r.servings}</span>}
                     </div>
                   </div>

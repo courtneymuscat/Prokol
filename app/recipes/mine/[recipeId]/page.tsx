@@ -13,6 +13,7 @@ type Ingredient = {
   protein: number
   carbs: number
   fat: number
+  fibre?: number | null
   section?: string | null
 }
 
@@ -25,6 +26,7 @@ function toIngredient(food: MealFood, section: string | null): Ingredient {
     protein: food.protein,
     carbs: food.carbs,
     fat: food.fat,
+    fibre: food.fibre ?? null,
     section,
   }
 }
@@ -73,8 +75,9 @@ export default function MyRecipeEditorPage({ params }: { params: Promise<{ recip
       protein: acc.protein + (i.protein || 0),
       carbs: acc.carbs + (i.carbs || 0),
       fat: acc.fat + (i.fat || 0),
+      fibre: i.fibre != null ? (acc.fibre ?? 0) + i.fibre : acc.fibre,
     }),
-    { grams: 0, calories: 0, protein: 0, carbs: 0, fat: 0 },
+    { grams: 0, calories: 0, protein: 0, carbs: 0, fat: 0, fibre: null as number | null },
   )
   const servingsNum = Number(servings) || 0
 
@@ -204,6 +207,7 @@ export default function MyRecipeEditorPage({ params }: { params: Promise<{ recip
               <span className="text-xs text-blue-600">{Math.round(totals.protein)}g P</span>
               <span className="text-xs text-orange-600">{Math.round(totals.carbs)}g C</span>
               <span className="text-xs text-yellow-600">{Math.round(totals.fat)}g F</span>
+              {totals.fibre != null && <span className="text-xs text-amber-600">{Math.round(totals.fibre)}g Fibre</span>}
             </div>
           </div>
           {totals.grams > 0 && servingsNum > 0 && (
@@ -229,7 +233,7 @@ export default function MyRecipeEditorPage({ params }: { params: Promise<{ recip
                       <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium text-gray-800 truncate">{i.food_name}</p>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          {i.grams}g · {Math.round(i.calories)} kcal · {Math.round(i.protein)}g P · {Math.round(i.carbs)}g C · {Math.round(i.fat)}g F
+                          {i.grams}g · {Math.round(i.calories)} kcal · {Math.round(i.protein)}g P · {Math.round(i.carbs)}g C · {Math.round(i.fat)}g F{i.fibre != null ? ` · ${Math.round(i.fibre)}g Fibre` : ''}
                         </p>
                       </div>
                       <button onClick={() => removeIngredient(i)} className="text-gray-300 hover:text-red-500 text-xs flex-shrink-0 mt-0.5">

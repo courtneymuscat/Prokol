@@ -13,7 +13,7 @@ export function computeRecipeSwapScale(originalCalories: number, newRecipeCalori
 }
 
 export function scaleRecipeIngredients<
-  T extends { grams: number; calories: number; protein: number; carbs: number; fat: number },
+  T extends { grams: number; calories: number; protein: number; carbs: number; fat: number; fibre?: number | null },
 >(ingredients: T[], scale: number): T[] {
   return ingredients.map((i) => ({
     ...i,
@@ -22,5 +22,6 @@ export function scaleRecipeIngredients<
     protein: Math.round(i.protein * scale * 10) / 10,
     carbs: Math.round(i.carbs * scale * 10) / 10,
     fat: Math.round(i.fat * scale * 10) / 10,
+    fibre: i.fibre != null ? Math.round(i.fibre * scale * 10) / 10 : i.fibre,
   }))
 }

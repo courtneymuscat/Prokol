@@ -10,6 +10,7 @@ export type RecipeIngredient = {
   protein: number
   carbs: number
   fat: number
+  fibre?: number | null
   link?: string | null
 }
 
@@ -27,6 +28,7 @@ type RecipeListItem = {
   total_protein: number
   total_carbs: number
   total_fat: number
+  total_fibre?: number | null
   diet_tags?: string[]
   tier_tag?: string | null
   is_global?: boolean
@@ -89,6 +91,7 @@ export default function RecipePickerModal({
         protein: i.protein,
         carbs: i.carbs,
         fat: i.fat,
+        fibre: i.fibre,
         link: i.link,
       })),
     })
@@ -139,7 +142,7 @@ export default function RecipePickerModal({
                     <p className="text-sm font-medium text-gray-800">{r.name}</p>
                     <p className="text-xs text-gray-400 mt-0.5">
                       {r.category && <span className="capitalize">{r.category} · </span>}
-                      {Math.round(r.total_calories)} kcal · {Math.round(r.total_protein)}g P · {Math.round(r.total_carbs)}g C · {Math.round(r.total_fat)}g F
+                      {Math.round(r.total_calories)} kcal · {Math.round(r.total_protein)}g P · {Math.round(r.total_carbs)}g C · {Math.round(r.total_fat)}g F{r.total_fibre != null ? ` · ${Math.round(r.total_fibre)}g Fibre` : ''}
                     </p>
                     {(r.is_global || (r.diet_tags && r.diet_tags.length > 0) || r.tier_tag) && (
                       <div className="flex flex-wrap gap-1 mt-1">

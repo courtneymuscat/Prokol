@@ -16,6 +16,7 @@ export type LoggableFood = {
   protein: number
   carbs: number
   fat: number
+  fibre?: number | null
   serving_qty?: number
   unit?: string
 }
@@ -70,6 +71,8 @@ export default function LogMealModal({ slot, onClose }: { slot: LoggableSlot; on
   const totalP   = slot.foods.reduce((s, f) => s + f.protein, 0)
   const totalC   = slot.foods.reduce((s, f) => s + f.carbs, 0)
   const totalF   = slot.foods.reduce((s, f) => s + f.fat, 0)
+  const hasFibre = slot.foods.some(f => f.fibre != null)
+  const totalFib = slot.foods.reduce((s, f) => s + (f.fibre ?? 0), 0)
 
   async function logMeal() {
     setLogging(true)
@@ -89,6 +92,7 @@ export default function LogMealModal({ slot, onClose }: { slot: LoggableSlot; on
       protein: Math.round(f.protein * 10) / 10,
       carbs: Math.round(f.carbs * 10) / 10,
       fat: Math.round(f.fat * 10) / 10,
+      fibre: f.fibre != null ? Math.round(f.fibre * 10) / 10 : null,
       meal_type: mealType,
       log_date: date,
       serving_description: `${f.grams}g (${slot.label})`,
@@ -148,6 +152,9 @@ export default function LogMealModal({ slot, onClose }: { slot: LoggableSlot; on
                 <span className="flex-1 bg-indigo-50 text-indigo-500 rounded-lg py-1">C {totalC.toFixed(1)}g</span>
                 <span className="flex-1 bg-violet-50 text-violet-500 rounded-lg py-1">F {totalF.toFixed(1)}g</span>
               </div>
+              {hasFibre && (
+                <p className="text-xs text-amber-600 text-center">Fibre: <span className="font-semibold">{totalFib.toFixed(1)}g</span></p>
+              )}
 
               {/* Meal type */}
               <div>

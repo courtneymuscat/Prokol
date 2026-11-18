@@ -16,6 +16,7 @@ type MealItem = {
   protein: number
   carbs: number
   fat: number
+  fibre: number | null
 }
 
 type Meal = {
@@ -32,8 +33,10 @@ function mealTotals(items: MealItem[]) {
       protein: acc.protein + item.protein,
       carbs: acc.carbs + item.carbs,
       fat: acc.fat + item.fat,
+      fibre: acc.fibre + (item.fibre ?? 0),
+      hasFibre: acc.hasFibre || item.fibre != null,
     }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    { calories: 0, protein: 0, carbs: 0, fat: 0, fibre: 0, hasFibre: false }
   )
 }
 
@@ -78,7 +81,7 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
     const mealIds = mealsData.map((m) => m.id)
     const { data: itemsData, error: itemsErr } = await supabase
       .from('meal_items')
-      .select('id, meal_id, food_name, grams, calories, protein, carbs, fat')
+      .select('id, meal_id, food_name, grams, calories, protein, carbs, fat, fibre')
       .in('meal_id', mealIds)
 
     if (itemsErr) { setFetchError(itemsErr.message); setLoading(false); return }
@@ -128,6 +131,7 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
       protein: Math.round(t.protein * 10) / 10,
       carbs: Math.round(t.carbs * 10) / 10,
       fat: Math.round(t.fat * 10) / 10,
+      fibre: t.hasFibre ? Math.round(t.fibre * 10) / 10 : null,
       meal_type: mealType,
       log_date,
       notes: JSON.stringify(meal.meal_items.map((item) => ({
@@ -137,6 +141,7 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
         protein: item.protein,
         carbs: item.carbs,
         fat: item.fat,
+        fibre: item.fibre,
       }))),
     })
 
@@ -226,6 +231,7 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
               <span className="text-xs text-macro-p">P {Math.round(t.protein * 10) / 10}g</span>
               <span className="text-xs text-macro-c">C {Math.round(t.carbs * 10) / 10}g</span>
               <span className="text-xs text-macro-f">F {Math.round(t.fat * 10) / 10}g</span>
+              {t.hasFibre && <span className="text-xs text-amber-500">Fibre {Math.round(t.fibre * 10) / 10}g</span>}
             </div>
           </div>
 
@@ -331,6 +337,7 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
                     protein: i.protein,
                     carbs: i.carbs,
                     fat: i.fat,
+                    fibre: i.fibre,
                   })),
                 } satisfies ExistingMeal}
                 onSaved={() => { setEditingMealId(null); fetchMeals() }}
@@ -353,6 +360,7 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
                     <span className="text-macro-p">P {item.protein}g</span>
                     <span className="text-macro-c">C {item.carbs}g</span>
                     <span className="text-macro-f">F {item.fat}g</span>
+                    {item.fibre != null && <span className="text-amber-500">Fibre {item.fibre}g</span>}
                   </div>
                 </div>
               ))}
@@ -363,6 +371,7 @@ export default function SavedMeals({ refreshKey }: { refreshKey: number }) {
                   <span className="text-macro-p">P {Math.round(t.protein * 10) / 10}g</span>
                   <span className="text-macro-c">C {Math.round(t.carbs * 10) / 10}g</span>
                   <span className="text-macro-f">F {Math.round(t.fat * 10) / 10}g</span>
+                  {t.hasFibre && <span className="text-amber-500">Fibre {Math.round(t.fibre * 10) / 10}g</span>}
                 </div>
               </div>
             </div>

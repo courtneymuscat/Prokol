@@ -30,7 +30,7 @@ export async function GET() {
 
   if (!canAccessLibrary && !rel) return Response.json([])
 
-  const cols = 'id, name, category, image_url, total_calories, total_protein, total_carbs, total_fat, diet_tags, tier_tag'
+  const cols = 'id, name, category, image_url, total_calories, total_protein, total_carbs, total_fat, total_fibre, diet_tags, tier_tag'
   const base = admin.from('recipes').select(cols)
   const filtered = rel && canAccessLibrary
     ? base.or(`coach_id.eq.${rel.coach_id},is_global.eq.true`)

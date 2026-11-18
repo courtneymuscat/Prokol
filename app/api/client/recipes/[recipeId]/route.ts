@@ -33,7 +33,7 @@ export async function GET(
 
   const { data: recipe, error } = await admin
     .from('recipes')
-    .select('id, coach_id, name, category, instructions, total_calories, total_protein, total_carbs, total_fat, diet_tags, tier_tag, is_global')
+    .select('id, coach_id, name, category, instructions, total_calories, total_protein, total_carbs, total_fat, total_fibre, diet_tags, tier_tag, is_global')
     .eq('id', recipeId)
     .single()
   const allowed = recipe && ((rel && recipe.coach_id === rel.coach_id) || (canAccessLibrary && recipe.is_global))
@@ -42,7 +42,7 @@ export async function GET(
   const [{ data: ingredients }, { data: modifications }] = await Promise.all([
     admin
       .from('recipe_ingredients')
-      .select('food_id, food_name, grams, calories, protein, carbs, fat, link, sort_order')
+      .select('food_id, food_name, grams, calories, protein, carbs, fat, fibre, link, sort_order')
       .eq('recipe_id', recipeId)
       .order('sort_order', { ascending: true }),
     admin

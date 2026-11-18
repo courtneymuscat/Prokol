@@ -17,6 +17,7 @@ export type ExistingMealItem = {
   protein: number
   carbs: number
   fat: number
+  fibre?: number | null
 }
 
 export type ExistingMeal = {
@@ -42,8 +43,9 @@ function itemToMealItem(it: ExistingMealItem): MealItem {
     protein_per_100g: it.protein * factor,
     carbs_per_100g: it.carbs * factor,
     fat_per_100g: it.fat * factor,
+    fibre_per_100g: it.fibre != null ? it.fibre * factor : null,
   }
-  return { id: it.id, food, grams: it.grams, calories: it.calories, protein: it.protein, carbs: it.carbs, fat: it.fat, fibre: null }
+  return { id: it.id, food, grams: it.grams, calories: it.calories, protein: it.protein, carbs: it.carbs, fat: it.fat, fibre: it.fibre ?? null }
 }
 
 export default function MealBuilder({
@@ -70,8 +72,10 @@ export default function MealBuilder({
       protein: acc.protein + item.protein,
       carbs: acc.carbs + item.carbs,
       fat: acc.fat + item.fat,
+      fibre: acc.fibre + (item.fibre ?? 0),
+      hasFibre: acc.hasFibre || item.fibre != null,
     }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    { calories: 0, protein: 0, carbs: 0, fat: 0, fibre: 0, hasFibre: false }
   )
 
   const hasMacros = items.some((i) => i.calories > 0)
@@ -106,6 +110,7 @@ export default function MealBuilder({
           protein: item.protein,
           carbs: item.carbs,
           fat: item.fat,
+          fibre: item.fibre,
         }))
       )
       if (itemsErr) { setError(itemsErr.message); setSaving(false); return }
@@ -133,6 +138,7 @@ export default function MealBuilder({
         protein: item.protein,
         carbs: item.carbs,
         fat: item.fat,
+        fibre: item.fibre,
       }))
     )
 
@@ -204,6 +210,9 @@ export default function MealBuilder({
               </div>
             ))}
           </div>
+          {totals.hasFibre && (
+            <p className="text-xs text-amber-600 mt-2">Fibre: <span className="font-semibold">{Math.round(totals.fibre * 10) / 10}g</span></p>
+          )}
         </div>
       )}
 

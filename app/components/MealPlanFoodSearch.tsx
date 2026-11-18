@@ -58,6 +58,7 @@ type FoodResult = {
   protein_per_100g: number
   carbs_per_100g: number
   fat_per_100g: number
+  fibre_per_100g?: number | null
   unit?: string
   custom?: boolean
   source?: string
@@ -75,6 +76,7 @@ export type MealFood = {
   protein: number
   carbs: number
   fat: number
+  fibre?: number | null
   _calories_per_100g?: number
   _protein_per_100g?: number
   _carbs_per_100g?: number
@@ -183,6 +185,7 @@ function toMealFood(
     protein: Math.round(r.protein_per_100g  * factor * 10) / 10,
     carbs:   Math.round(r.carbs_per_100g    * factor * 10) / 10,
     fat:     Math.round(r.fat_per_100g      * factor * 10) / 10,
+    fibre:   r.fibre_per_100g != null ? Math.round(r.fibre_per_100g * factor * 10) / 10 : null,
     ...(r.image_url ? { image_url: r.image_url } : {}),
     // Preserve the coach's serving choice (piece, cup, tbsp…) and quantity
     // so the saved meal renders '2 pieces (150g)' on next load instead of
@@ -206,6 +209,7 @@ async function saveOFFFood(food: FoodResult): Promise<FoodResult> {
         protein_per_100g: food.protein_per_100g,
         carbs_per_100g: food.carbs_per_100g,
         fat_per_100g: food.fat_per_100g,
+        fibre_per_100g: food.fibre_per_100g ?? null,
         serving_quantity: food.serving_quantity ?? null,
         serving_size:     food.serving_size     ?? null,
       }),
@@ -264,6 +268,7 @@ function ResultRow({ food, onSelect }: { food: FoodResult; onSelect: (f: FoodRes
         <span className="text-[11px] bg-teal-50 text-teal-600 font-medium px-1.5 py-0.5 rounded-full">P {food.protein_per_100g}g</span>
         <span className="text-[11px] bg-green-50 text-green-600 font-medium px-1.5 py-0.5 rounded-full">C {food.carbs_per_100g}g</span>
         <span className="text-[11px] bg-blue-50 text-blue-500 font-medium px-1.5 py-0.5 rounded-full">F {food.fat_per_100g}g</span>
+        {food.fibre_per_100g != null && <span className="text-[11px] bg-amber-50 text-amber-600 font-medium px-1.5 py-0.5 rounded-full">Fibre {food.fibre_per_100g}g</span>}
       </div>
     </button>
   )
@@ -697,6 +702,7 @@ function CustomFoodModal({
   const [protein, setProtein] = useState<string>('')
   const [carbs, setCarbs] = useState<string>('')
   const [fat, setFat] = useState<string>('')
+  const [fibre, setFibre] = useState<string>('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -715,6 +721,7 @@ function CustomFoodModal({
       protein_per_100g:  Math.max(0, (parseFloat(protein) || 0) * factor),
       carbs_per_100g:    Math.max(0, (parseFloat(carbs)   || 0) * factor),
       fat_per_100g:      Math.max(0, (parseFloat(fat)     || 0) * factor),
+      fibre_per_100g:    fibre.trim() === '' ? null : Math.max(0, parseFloat(fibre) * factor),
     }
 
     setSaving(true)
@@ -825,6 +832,14 @@ function CustomFoodModal({
                 <input
                   type="number" min={0} step="0.1"
                   value={fat} onChange={(e) => setFat(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-amber-500 block mb-1">Fibre (g, optional)</label>
+                <input
+                  type="number" min={0} step="0.1"
+                  value={fibre} onChange={(e) => setFibre(e.target.value)}
                   className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -1034,6 +1049,7 @@ export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) 
           protein_per_100g: food.protein_per_100g,
           carbs_per_100g: food.carbs_per_100g,
           fat_per_100g: food.fat_per_100g,
+          fibre_per_100g: food.fibre_per_100g ?? null,
           serving_quantity: enteredPieceG ?? food.serving_quantity ?? null,
           serving_size: enteredPieceG ? '1 piece' : food.serving_size ?? null,
         })
@@ -1157,6 +1173,7 @@ export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) 
           const pro  = Math.round(f.protein_per_100g  * factor * 10) / 10
           const carb = Math.round(f.carbs_per_100g    * factor * 10) / 10
           const fat  = Math.round(f.fat_per_100g      * factor * 10) / 10
+          const fib  = f.fibre_per_100g != null ? Math.round(f.fibre_per_100g * factor * 10) / 10 : null
           const knownPieceG = pieceWeightFor(f.name)
           const showCustomPiece = pendingUnit === 'piece' && !knownPieceG
           return (
@@ -1255,6 +1272,9 @@ export default function MealPlanFoodSearch({ onAdd }: { onAdd: (food: MealFood) 
                   </div>
                 ))}
               </div>
+              {fib != null && (
+                <p className="text-xs text-amber-600">Fibre: <span className="font-semibold">{fib}g</span></p>
+              )}
 
               <button type="button" onClick={confirmAdd}
                 className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors">

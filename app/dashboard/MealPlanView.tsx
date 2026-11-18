@@ -26,6 +26,7 @@ type MealFood = {
   protein: number
   carbs: number
   fat: number
+  fibre?: number | null
   swapped_from?: string
   image_url?: string | null
   coach_note?: string | null
@@ -103,6 +104,7 @@ type FoodSearchResult = {
   protein_per_100g: number
   carbs_per_100g: number
   fat_per_100g: number
+  fibre_per_100g?: number | null
   unit?: string
   custom?: boolean
 }
@@ -182,6 +184,7 @@ function SwapModal({ planId, mealIndex, foodIndex, original, onClose, onSwapped 
         protein: Math.round((selected.protein_per_100g / 100) * grams * 10) / 10,
         carbs: Math.round((selected.carbs_per_100g / 100) * grams * 10) / 10,
         fat: Math.round((selected.fat_per_100g / 100) * grams * 10) / 10,
+        fibre: selected.fibre_per_100g != null ? Math.round((selected.fibre_per_100g / 100) * grams * 10) / 10 : null,
       }
     : null
 
@@ -323,7 +326,7 @@ function SwapModal({ planId, mealIndex, foodIndex, original, onClose, onSwapped 
                     >
                       <p className="text-sm font-medium text-gray-800 truncate">{food.name}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        {Math.round(food.calories_per_100g)} kcal · {Math.round(food.protein_per_100g)}g P · {Math.round(food.carbs_per_100g)}g C · {Math.round(food.fat_per_100g)}g F <span className="ml-1 text-gray-300">per 100g</span>
+                        {Math.round(food.calories_per_100g)} kcal · {Math.round(food.protein_per_100g)}g P · {Math.round(food.carbs_per_100g)}g C · {Math.round(food.fat_per_100g)}g F{food.fibre_per_100g != null ? ` · ${Math.round(food.fibre_per_100g)}g Fibre` : ''} <span className="ml-1 text-gray-300">per 100g</span>
                       </p>
                     </button>
                   </li>
@@ -355,6 +358,7 @@ function SwapModal({ planId, mealIndex, foodIndex, original, onClose, onSwapped 
                   <MacroPill label="P" value={computedFood.protein} colour="bg-blue-100 text-blue-700" />
                   <MacroPill label="C" value={computedFood.carbs} colour="bg-orange-100 text-orange-700" />
                   <MacroPill label="F" value={computedFood.fat} colour="bg-yellow-100 text-yellow-700" />
+                  {computedFood.fibre != null && <MacroPill label="Fibre" value={computedFood.fibre} colour="bg-amber-100 text-amber-700" />}
                 </div>
               )}
             </div>
@@ -450,6 +454,7 @@ function FoodRow({ food, onSwap, showMacros }: FoodRowProps) {
                 <MacroPill label="P" value={food.protein} colour="bg-rose-50 text-rose-600" />
                 <MacroPill label="C" value={food.carbs} colour="bg-indigo-50 text-indigo-500" />
                 <MacroPill label="F" value={food.fat} colour="bg-violet-50 text-violet-500" />
+                {food.fibre != null && <MacroPill label="Fibre" value={food.fibre} colour="bg-amber-50 text-amber-600" />}
               </>
             ) : (
               <span className="text-xs text-gray-400">{formatServing(food)}</span>
@@ -528,6 +533,9 @@ function FoodRow({ food, onSwap, showMacros }: FoodRowProps) {
                   </div>
                 ))}
               </div>
+              {food.fibre != null && (
+                <p className="text-xs text-amber-600 text-center">Fibre: <span className="font-semibold">{food.fibre}g</span></p>
+              )}
               <p className="text-xs text-gray-400 text-center">{food.grams}g serving</p>
 
               {/* Coach note */}
@@ -579,8 +587,9 @@ function RecipeGroupCard({
       protein: acc.protein + food.protein,
       carbs: acc.carbs + food.carbs,
       fat: acc.fat + food.fat,
+      fibre: food.fibre != null ? (acc.fibre ?? 0) + food.fibre : acc.fibre,
     }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    { calories: 0, protein: 0, carbs: 0, fat: 0, fibre: null as number | null },
   )
 
   const hasNoNotes = group.recipeSource === 'saved_meal' || group.recipeSource === 'my_recipe'
@@ -593,7 +602,7 @@ function RecipeGroupCard({
           <p className="text-sm font-semibold text-purple-900 truncate">{emoji} {group.recipeName}</p>
           {showMacros && (
             <p className="text-xs text-purple-500 mt-0.5">
-              {Math.round(totals.calories)} kcal · {Math.round(totals.protein)}g P · {Math.round(totals.carbs)}g C · {Math.round(totals.fat)}g F
+              {Math.round(totals.calories)} kcal · {Math.round(totals.protein)}g P · {Math.round(totals.carbs)}g C · {Math.round(totals.fat)}g F{totals.fibre != null ? ` · ${Math.round(totals.fibre)}g Fibre` : ''}
             </p>
           )}
         </div>
@@ -635,6 +644,7 @@ type ClientRecipeListItem = {
   total_protein: number
   total_carbs: number
   total_fat: number
+  total_fibre: number | null
   diet_tags: string[]
   tier_tag: string | null
 }
@@ -642,7 +652,7 @@ type ClientRecipeListItem = {
 type SavedMealListItem = {
   id: string
   name: string
-  meal_items: { calories: number; protein: number; carbs: number; fat: number }[]
+  meal_items: { calories: number; protein: number; carbs: number; fat: number; fibre?: number | null }[]
 }
 
 type MyRecipeListItem = {
@@ -653,12 +663,19 @@ type MyRecipeListItem = {
   total_protein: number
   total_carbs: number
   total_fat: number
+  total_fibre: number | null
 }
 
 function sumSavedMeal(items: SavedMealListItem['meal_items']) {
   return items.reduce(
-    (acc, i) => ({ calories: acc.calories + i.calories, protein: acc.protein + i.protein, carbs: acc.carbs + i.carbs, fat: acc.fat + i.fat }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 },
+    (acc, i) => ({
+      calories: acc.calories + i.calories,
+      protein: acc.protein + i.protein,
+      carbs: acc.carbs + i.carbs,
+      fat: acc.fat + i.fat,
+      fibre: i.fibre != null ? (acc.fibre ?? 0) + i.fibre : acc.fibre,
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0, fibre: null as number | null },
   )
 }
 
@@ -721,7 +738,7 @@ function RecipeSwapModal({
       const { data: mealsData } = await supabase.from('meals').select('id, name').eq('user_id', session.user.id).order('created_at', { ascending: false })
       if (!mealsData || mealsData.length === 0) { setSavedMeals([]); setLoadingSaved(false); return }
       const mealIds = mealsData.map((m) => m.id)
-      const { data: itemsData } = await supabase.from('meal_items').select('meal_id, calories, protein, carbs, fat').in('meal_id', mealIds)
+      const { data: itemsData } = await supabase.from('meal_items').select('meal_id, calories, protein, carbs, fat, fibre').in('meal_id', mealIds)
       const byMeal: Record<string, SavedMealListItem['meal_items']> = {}
       for (const item of itemsData ?? []) (byMeal[item.meal_id] ??= []).push(item)
       setSavedMeals(
@@ -871,7 +888,7 @@ function RecipeSwapModal({
                       <p className="text-sm font-medium text-gray-800">{r.name}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {r.category && <span className="capitalize">{r.category} · </span>}
-                        {Math.round(r.total_calories)} kcal · {Math.round(r.total_protein)}g P · {Math.round(r.total_carbs)}g C · {Math.round(r.total_fat)}g F
+                        {Math.round(r.total_calories)} kcal · {Math.round(r.total_protein)}g P · {Math.round(r.total_carbs)}g C · {Math.round(r.total_fat)}g F{r.total_fibre != null ? ` · ${Math.round(r.total_fibre)}g Fibre` : ''}
                       </p>
                       {((r.diet_tags && r.diet_tags.length > 0) || r.tier_tag) && (
                         <div className="flex flex-wrap gap-1 mt-1">
@@ -911,7 +928,7 @@ function RecipeSwapModal({
                       <p className="text-sm font-medium text-gray-800">{r.name}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {r.category && <span className="capitalize">{r.category} · </span>}
-                        {Math.round(r.total_calories)} kcal · {Math.round(r.total_protein)}g P · {Math.round(r.total_carbs)}g C · {Math.round(r.total_fat)}g F
+                        {Math.round(r.total_calories)} kcal · {Math.round(r.total_protein)}g P · {Math.round(r.total_carbs)}g C · {Math.round(r.total_fat)}g F{r.total_fibre != null ? ` · ${Math.round(r.total_fibre)}g Fibre` : ''}
                       </p>
                     </button>
                   </li>
@@ -937,7 +954,7 @@ function RecipeSwapModal({
                     >
                       <p className="text-sm font-medium text-gray-800">{m.name}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        {Math.round(t.calories)} kcal · {Math.round(t.protein)}g P · {Math.round(t.carbs)}g C · {Math.round(t.fat)}g F
+                        {Math.round(t.calories)} kcal · {Math.round(t.protein)}g P · {Math.round(t.carbs)}g C · {Math.round(t.fat)}g F{t.fibre != null ? ` · ${Math.round(t.fibre)}g Fibre` : ''}
                       </p>
                     </button>
                   </li>
