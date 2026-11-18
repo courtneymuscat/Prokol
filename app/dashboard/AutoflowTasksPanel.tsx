@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { PATH_KEYS, PATH_LABELS, type PathKey } from '@/lib/autoflowPaths'
 
 type Props = { onEmpty?: (empty: boolean) => void }
 
@@ -23,6 +24,7 @@ type Resource = {
 type DueStep = {
   flow_id: string
   flow_name: string
+  selected_path: PathKey | null
   step_number: number
   title: string
   due_date: string
@@ -38,6 +40,7 @@ type DueStep = {
 export default function AutoflowTasksPanel({ onEmpty }: Props) {
   const [steps, setSteps] = useState<DueStep[]>([])
   const [ready, setReady] = useState(false)
+  const [pathSaving, setPathSaving] = useState(false)
 
   useEffect(() => {
     fetch('/api/client/autoflows/due')
@@ -48,10 +51,28 @@ export default function AutoflowTasksPanel({ onEmpty }: Props) {
       .finally(() => setReady(true))
   }, [])
 
+  async function changePath(flowId: string, path: PathKey) {
+    setPathSaving(true)
+    const res = await fetch(`/api/client/autoflows/${flowId}/path`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    })
+    if (res.ok) {
+      setSteps(prev => prev.map(s => s.flow_id === flowId ? { ...s, selected_path: path } : s))
+    }
+    setPathSaving(false)
+  }
+
   // Only show steps that have tasks, resources, a form, or a protocol note
   const stepsWithContent = steps.filter(
     s => s.tasks.length > 0 || s.resources.length > 0 || s.linked_form || s.protocol_section
   )
+
+  // Path belongs to the whole autoflow, not a single step — surface it once,
+  // from whichever due step happens to carry it, rather than repeating it
+  // per card.
+  const pathStep = stepsWithContent.find(s => s.selected_path)
 
   useEffect(() => {
     if (ready) onEmpty?.(stepsWithContent.length === 0)
@@ -78,6 +99,22 @@ export default function AutoflowTasksPanel({ onEmpty }: Props) {
   return (
     <section>
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Tasks &amp; Resources</p>
+      {pathStep && (
+        <div className="mb-3 flex items-center justify-between gap-3 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Your path</p>
+            <p className="text-[11px] text-gray-400 truncate">Sets which protocol &amp; habit notes you see below</p>
+          </div>
+          <select
+            value={pathStep.selected_path!}
+            onChange={e => changePath(pathStep.flow_id, e.target.value as PathKey)}
+            disabled={pathSaving}
+            className="text-xs font-medium border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 disabled:opacity-50 flex-shrink-0"
+          >
+            {PATH_KEYS.map(k => <option key={k} value={k}>{PATH_LABELS[k]}</option>)}
+          </select>
+        </div>
+      )}
       <div className="space-y-3">
         {stepsWithContent.map(step => (
           <a

@@ -204,6 +204,7 @@ export async function GET() {
         return {
           flow_id: flow.id,
           flow_name: flow.name,
+          selected_path: clientPath,
           step_number: step.step_number,
           title: step.title,
           trigger_type: (stepRecord.trigger_type as string) ?? 'day_offset',

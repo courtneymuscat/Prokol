@@ -1069,8 +1069,9 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
           p: acc.p + f.protein,
           c: acc.c + f.carbs,
           f: acc.f + f.fat,
+          fibre: f.fibre != null ? (acc.fibre ?? 0) + f.fibre : acc.fibre,
         }),
-        { cal: 0, p: 0, c: 0, f: 0 }
+        { cal: 0, p: 0, c: 0, f: 0, fibre: null as number | null }
       )
     }
     return {
@@ -1078,19 +1079,27 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
       p: slot.target_protein ?? 0,
       c: slot.target_carbs ?? 0,
       f: slot.target_fat ?? 0,
+      fibre: null as number | null,
     }
   }
   const dailyTotals = plan.content.reduce(
     (acc, slot) => {
       const s = slotContribution(slot)
-      return { cal: acc.cal + s.cal, p: acc.p + s.p, c: acc.c + s.c, f: acc.f + s.f }
+      return {
+        cal: acc.cal + s.cal,
+        p: acc.p + s.p,
+        c: acc.c + s.c,
+        f: acc.f + s.f,
+        fibre: s.fibre != null ? (acc.fibre ?? 0) + s.fibre : acc.fibre,
+      }
     },
-    { cal: 0, p: 0, c: 0, f: 0 }
+    { cal: 0, p: 0, c: 0, f: 0, fibre: null as number | null }
   )
   const totalCalories = dailyTotals.cal
   const totalProtein = dailyTotals.p
   const totalCarbs = dailyTotals.c
   const totalFat = dailyTotals.f
+  const totalFibre = dailyTotals.fibre
 
   // The per-meal "Serves" row (below) shows PRESCRIBED macros — an
   // explicit coach-set target for that meal if there is one, otherwise
@@ -1172,6 +1181,12 @@ function PlanView({ plan, onPlanRefresh }: PlanViewProps) {
               <span className="w-2 h-2 rounded-full bg-violet-400" />
               <span className="text-xs text-gray-600 font-medium">{Math.round(totalFat)}g fat</span>
             </div>
+            {totalFibre != null && (
+              <div className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <span className="text-xs text-gray-600 font-medium">{Math.round(totalFibre)}g fibre</span>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-1.5 flex-wrap w-full">
             <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Serves</span>
