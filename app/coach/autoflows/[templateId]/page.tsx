@@ -740,10 +740,14 @@ function PathModeSection<T>({ value, onChange, empty, renderFields }: {
   )
 }
 
-function TaskCard({ task, onChange, onDelete, resources, forms }: {
+function TaskCard({ task, onChange, onDelete, onMoveUp, onMoveDown, canMoveUp, canMoveDown, resources, forms }: {
   task: Task
   onChange: (t: Task) => void
   onDelete: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
+  canMoveUp: boolean
+  canMoveDown: boolean
   resources: CoachResource[]
   forms: CoachForm[]
 }) {
@@ -762,6 +766,24 @@ function TaskCard({ task, onChange, onDelete, resources, forms }: {
   return (
     <div className="border border-gray-200 rounded-xl p-3 space-y-2 bg-white">
       <div className="flex items-center gap-2">
+        <div className="flex flex-col flex-shrink-0 -my-1">
+          <button
+            onClick={onMoveUp}
+            disabled={!canMoveUp}
+            className="text-gray-300 hover:text-gray-600 disabled:opacity-25 disabled:hover:text-gray-300 transition-colors p-0.5"
+            title="Move up"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" /></svg>
+          </button>
+          <button
+            onClick={onMoveDown}
+            disabled={!canMoveDown}
+            className="text-gray-300 hover:text-gray-600 disabled:opacity-25 disabled:hover:text-gray-300 transition-colors p-0.5"
+            title="Move down"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+          </button>
+        </div>
         <span className="text-gray-400 text-sm flex-shrink-0">☐</span>
         <input
           value={task.label}
@@ -1633,20 +1655,34 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                   <p className="text-xs text-gray-500 mt-0.5">Checklist items the client ticks off as part of this step.</p>
                 </div>
                 <div className="space-y-2">
-                  {(currentStep.tasks ?? []).map((task, i) => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      resources={resources}
-                      forms={forms}
-                      onChange={updated => {
-                        const tasks = [...(currentStep.tasks ?? [])]
-                        tasks[i] = updated
-                        updateStep(activeStep, { tasks })
-                      }}
-                      onDelete={() => updateStep(activeStep, { tasks: (currentStep.tasks ?? []).filter((_, j) => j !== i) })}
-                    />
-                  ))}
+                  {(currentStep.tasks ?? []).map((task, i) => {
+                    const taskList = currentStep.tasks ?? []
+                    function moveTask(from: number, to: number) {
+                      if (to < 0 || to >= taskList.length) return
+                      const tasks = [...taskList]
+                      const [moved] = tasks.splice(from, 1)
+                      tasks.splice(to, 0, moved)
+                      updateStep(activeStep, { tasks })
+                    }
+                    return (
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        resources={resources}
+                        forms={forms}
+                        canMoveUp={i > 0}
+                        canMoveDown={i < taskList.length - 1}
+                        onMoveUp={() => moveTask(i, i - 1)}
+                        onMoveDown={() => moveTask(i, i + 1)}
+                        onChange={updated => {
+                          const tasks = [...taskList]
+                          tasks[i] = updated
+                          updateStep(activeStep, { tasks })
+                        }}
+                        onDelete={() => updateStep(activeStep, { tasks: taskList.filter((_, j) => j !== i) })}
+                      />
+                    )
+                  })}
                   <button
                     onClick={() => updateStep(activeStep, { tasks: [...(currentStep.tasks ?? []), { id: crypto.randomUUID(), label: '' }] })}
                     className="text-xs text-gray-500 hover:text-gray-800 border border-dashed border-gray-200 rounded-xl py-2 px-3 w-full transition-colors">
@@ -1659,30 +1695,92 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
               <div className="border border-gray-200 rounded-2xl p-4 space-y-3 bg-white">
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">Resources</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Resources from your library to share with the client in this step.</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Resources from your library to share with the client in this step — shown in this order, top first.</p>
                 </div>
                 {resources.length === 0 ? (
                   <p className="text-xs text-gray-400">No resources in your library yet. <a href="/coach/resources" target="_blank" className="text-blue-500 underline">Add resources →</a></p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {resources.map(r => {
-                      const selected = (currentStep.resource_ids ?? []).includes(r.id)
-                      return (
-                        <label key={r.id} className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 cursor-pointer transition-colors ${selected ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                          <input type="checkbox" checked={selected} onChange={e => {
-                            const ids = currentStep.resource_ids ?? []
-                            updateStep(activeStep, { resource_ids: e.target.checked ? [...ids, r.id] : ids.filter(id => id !== r.id) })
-                          }} className="rounded accent-blue-600" />
-                          <span className="text-sm">{r.type === 'link' ? '🔗' : r.type === 'video' ? '🎬' : r.type === 'pdf' ? '📄' : '📝'}</span>
-                          <span className="text-sm font-medium text-gray-900 flex-1 truncate">{r.name}</span>
-                          {r.coach_resource_folders && (
-                            <span className="text-xs text-gray-400 flex-shrink-0">{r.coach_resource_folders.icon} {r.coach_resource_folders.name}</span>
-                          )}
-                        </label>
-                      )
-                    })}
-                  </div>
-                )}
+                ) : (() => {
+                  const selectedIds = currentStep.resource_ids ?? []
+                  const resourceById = Object.fromEntries(resources.map(r => [r.id, r]))
+                  const selectedResources = selectedIds.map(id => resourceById[id]).filter(Boolean) as CoachResource[]
+                  const unselected = resources.filter(r => !selectedIds.includes(r.id))
+
+                  function moveResource(from: number, to: number) {
+                    if (to < 0 || to >= selectedIds.length) return
+                    const ids = [...selectedIds]
+                    const [moved] = ids.splice(from, 1)
+                    ids.splice(to, 0, moved)
+                    updateStep(activeStep, { resource_ids: ids })
+                  }
+                  function removeResource(id: string) {
+                    updateStep(activeStep, { resource_ids: selectedIds.filter(rid => rid !== id) })
+                  }
+                  function addResource(id: string) {
+                    updateStep(activeStep, { resource_ids: [...selectedIds, id] })
+                  }
+
+                  return (
+                    <>
+                      {selectedResources.length > 0 && (
+                        <div className="space-y-1.5">
+                          {selectedResources.map((r, i) => (
+                            <div key={r.id} className="flex items-center gap-2 rounded-xl border border-blue-400 bg-blue-50 px-3 py-2">
+                              <div className="flex flex-col flex-shrink-0 -my-1">
+                                <button
+                                  onClick={() => moveResource(i, i - 1)}
+                                  disabled={i === 0}
+                                  className="text-blue-300 hover:text-blue-600 disabled:opacity-25 disabled:hover:text-blue-300 transition-colors p-0.5"
+                                  title="Move up — shows earlier to the client"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" /></svg>
+                                </button>
+                                <button
+                                  onClick={() => moveResource(i, i + 1)}
+                                  disabled={i === selectedResources.length - 1}
+                                  className="text-blue-300 hover:text-blue-600 disabled:opacity-25 disabled:hover:text-blue-300 transition-colors p-0.5"
+                                  title="Move down — shows later to the client"
+                                >
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" /></svg>
+                                </button>
+                              </div>
+                              <span className="text-sm">{r.type === 'link' ? '🔗' : r.type === 'video' ? '🎬' : r.type === 'pdf' ? '📄' : '📝'}</span>
+                              <span className="text-sm font-medium text-gray-900 flex-1 truncate">{r.name}</span>
+                              {r.coach_resource_folders && (
+                                <span className="text-xs text-gray-400 flex-shrink-0">{r.coach_resource_folders.icon} {r.coach_resource_folders.name}</span>
+                              )}
+                              <button onClick={() => removeResource(r.id)} className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {unselected.length > 0 && (
+                        <details className="group">
+                          <summary className="text-xs text-gray-500 hover:text-gray-800 cursor-pointer select-none border border-dashed border-gray-200 rounded-xl py-2 px-3 list-none">
+                            + Add a resource
+                          </summary>
+                          <div className="space-y-1.5 mt-2">
+                            {unselected.map(r => (
+                              <button
+                                key={r.id}
+                                onClick={() => addResource(r.id)}
+                                className="w-full flex items-center gap-2.5 rounded-xl border border-gray-200 hover:border-gray-300 px-3 py-2 text-left transition-colors"
+                              >
+                                <span className="text-sm">{r.type === 'link' ? '🔗' : r.type === 'video' ? '🎬' : r.type === 'pdf' ? '📄' : '📝'}</span>
+                                <span className="text-sm font-medium text-gray-900 flex-1 truncate">{r.name}</span>
+                                {r.coach_resource_folders && (
+                                  <span className="text-xs text-gray-400 flex-shrink-0">{r.coach_resource_folders.icon} {r.coach_resource_folders.name}</span>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+                    </>
+                  )
+                })()}
               </div>
 
               {/* Linked form */}
