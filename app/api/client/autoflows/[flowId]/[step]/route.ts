@@ -116,10 +116,18 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     }
   }
 
-  // Auto-assign this step's resources to the client's resource library (idempotent)
+  // Auto-assign this step's resources to the client's resource library
+  // (idempotent) — covers both the step's own resource_ids and any resource
+  // a task links to individually (see link_resource_id below).
   const resourceIds: string[] = Array.isArray(templateStep?.resource_ids) ? templateStep.resource_ids as string[] : []
-  if (resourceIds.length > 0 && coachId) {
-    const rows = resourceIds.map(rid => ({
+  const rawTasksForResources = Array.isArray(templateStep?.tasks) ? templateStep.tasks as Array<Record<string, unknown>> : []
+  const taskResourceIds = rawTasksForResources
+    .map((t) => t.link_resource_id as string | null)
+    .filter((id): id is string => !!id)
+  const allResourceIds = [...new Set([...resourceIds, ...taskResourceIds])]
+
+  if (allResourceIds.length > 0 && coachId) {
+    const rows = allResourceIds.map(rid => ({
       resource_id: rid,
       client_id: user.id,
       coach_id: coachId,
@@ -135,11 +143,12 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   //      (covers autoflows published as org templates whose referenced
   //       resources belong to the org owner, not the assigning coach).
   let resources: unknown[] = []
-  if (resourceIds.length > 0 && coachId) {
+  const resourceById: Record<string, { id: string; name: string; description: string | null; type: string; url: string | null }> = {}
+  if (allResourceIds.length > 0 && coachId) {
     const { data: candidates } = await admin
       .from('coach_resources')
       .select('id, name, description, type, url, coach_id, org_id, is_org_template, is_global')
-      .in('id', resourceIds)
+      .in('id', allResourceIds)
 
     let assigningCoachOrgId: string | null = null
     {
@@ -163,7 +172,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       is_global: boolean
     }
 
-    resources = ((candidates as ResourceRow[] | null) ?? [])
+    const accessible = ((candidates as ResourceRow[] | null) ?? [])
       .filter((r) => {
         if (r.is_global) return true
         if (r.coach_id === coachId) return true
@@ -171,6 +180,12 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
         return false
       })
       .map((r) => ({ id: r.id, name: r.name, description: r.description, type: r.type, url: r.url }))
+
+    for (const r of accessible) resourceById[r.id] = r
+    // The step's own resource list stays scoped to resource_ids only —
+    // a task's individually-linked resource shows inline on the task
+    // instead, not duplicated into this general list.
+    resources = resourceIds.map((id) => resourceById[id]).filter(Boolean)
   }
 
   // Resolve linked form title
@@ -246,7 +261,12 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     questions: effectiveQuestions(override?.questions, templateStep?.questions),
     resources,
     tasks: (Array.isArray(templateStep?.tasks) ? templateStep.tasks : [])
-      .filter((t: { paths?: PathKey[] | null }) => taskAppliesToPath({ paths: t.paths ?? null }, clientPath)),
+      .filter((t: { paths?: PathKey[] | null }) => taskAppliesToPath({ paths: t.paths ?? null }, clientPath))
+      .map((t: { link_type?: string | null; link_resource_id?: string | null; link_url?: string | null }) =>
+        t.link_type === 'resource' && t.link_resource_id
+          ? { ...t, link_url: resourceById[t.link_resource_id]?.url ?? null }
+          : t
+      ),
     linked_form: linkedForm,
     protocol_section: resolveForPath(templateStep?.protocol_section as { title: string; content: string } | null, clientPath),
     habit: resolveForPath(templateStep?.habit as { name: string; icon: string; unit: string; target: number } | null, clientPath),
@@ -404,6 +424,25 @@ export async function POST(req: NextRequest, { params }: Ctx) {
           .from('conversations')
           .update({ last_message_at: new Date().toISOString() })
           .eq('id', convo.id)
+
+        // Push notification — an automated message lands in the client's
+        // inbox exactly like one the coach typed themselves, so it should
+        // notify the same way (see /api/conversations/[id]/messages's
+        // human-sent equivalent).
+        const { data: coachProfile } = await adminClient
+          .from('profiles')
+          .select('first_name, full_name')
+          .eq('id', coachId)
+          .single()
+        const coachName = coachProfile?.first_name ?? coachProfile?.full_name ?? 'Your coach'
+        const firstMessage = msgRows[0].body
+        sendPushToUser(user.id, {
+          title: coachName,
+          body: firstMessage.slice(0, 80) + (firstMessage.length > 80 ? '…' : ''),
+          url: `/messages/${convo.id}`,
+          icon: '/icons/icon-192.png',
+          tag: `message-${convo.id}`,
+        }).catch(() => {/* silent */})
         // Mark sent so the hourly cron never resends these on-complete messages
         // if they later happen to also match a day_offset window.
         await adminClient

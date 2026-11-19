@@ -264,32 +264,41 @@ export default async function DashboardPage() {
       .select('id, template_id, start_date')
       .eq('client_id', user.id)
       .eq('status', 'active')
-    for (const flow of activeFlows ?? []) {
-      const { data: steps } = await admin
-        .from('autoflow_template_steps')
-        .select('step_number, day_offset, target_calc')
-        .eq('template_id', flow.template_id)
-        .not('target_calc', 'is', null)
-        .order('step_number')
-      if (!steps?.length) continue
-      const { data: responses } = await admin
-        .from('autoflow_responses')
-        .select('step_number')
-        .eq('client_autoflow_id', flow.id)
-      const doneSteps = new Set((responses ?? []).map((r) => r.step_number as number))
-      const today = new Date(); today.setHours(0, 0, 0, 0)
-      const startDate = new Date(flow.start_date + 'T00:00:00')
-      const nextStep = steps.find((s) => {
-        if (doneSteps.has(s.step_number)) return false
-        const dueDate = new Date(startDate.getTime() + s.day_offset * 86400000)
-        dueDate.setHours(0, 0, 0, 0)
-        return dueDate <= today
+
+    // Checked on every first-ever dashboard load (onboarding_completed is
+    // false until this resolves) — fetch every flow's steps+responses in
+    // parallel rather than one flow at a time, then pick the first match
+    // in original order, so this doesn't add a sequential round-trip per
+    // active flow to a page every brand-new client hits immediately after
+    // confirming their email.
+    const flowResults = await Promise.all(
+      (activeFlows ?? []).map(async (flow) => {
+        const [{ data: steps }, { data: responses }] = await Promise.all([
+          admin
+            .from('autoflow_template_steps')
+            .select('step_number, day_offset, target_calc')
+            .eq('template_id', flow.template_id)
+            .not('target_calc', 'is', null)
+            .order('step_number'),
+          admin
+            .from('autoflow_responses')
+            .select('step_number')
+            .eq('client_autoflow_id', flow.id),
+        ])
+        if (!steps?.length) return null
+        const doneSteps = new Set((responses ?? []).map((r) => r.step_number as number))
+        const today = new Date(); today.setHours(0, 0, 0, 0)
+        const startDate = new Date(flow.start_date + 'T00:00:00')
+        const nextStep = steps.find((s) => {
+          if (doneSteps.has(s.step_number)) return false
+          const dueDate = new Date(startDate.getTime() + s.day_offset * 86400000)
+          dueDate.setHours(0, 0, 0, 0)
+          return dueDate <= today
+        })
+        return nextStep ? `/autoflows/${flow.id}/${nextStep.step_number}` : null
       })
-      if (nextStep) {
-        setupProfileHref = `/autoflows/${flow.id}/${nextStep.step_number}`
-        break
-      }
-    }
+    )
+    setupProfileHref = flowResults.find((href) => href != null) ?? setupProfileHref
   }
 
   const featureSet = computeFeatureSet(tier, userType)

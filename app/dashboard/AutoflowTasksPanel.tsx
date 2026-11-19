@@ -8,7 +8,7 @@ type Props = { onEmpty?: (empty: boolean) => void }
 type Task = {
   id: string
   label: string
-  link_type?: string | null
+  link_type?: 'resource' | 'form' | 'url' | null
   link_url?: string | null
   link_label?: string | null
   completed: boolean
@@ -155,9 +155,18 @@ export default function AutoflowTasksPanel({ onEmpty }: Props) {
                         </svg>
                       )}
                     </div>
-                    <p className={`text-sm flex-1 min-w-0 ${task.completed ? 'line-through text-gray-400' : 'text-gray-800'}`}>
-                      {task.label}
-                    </p>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm ${task.completed ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+                        {task.label}
+                      </p>
+                      {/* Not a clickable link here — the whole card already opens the
+                          step page, where this resolves to a real, tappable link. */}
+                      {task.link_type && task.link_url && (
+                        <p className="text-xs text-gray-400 mt-0.5 truncate">
+                          {task.link_type === 'resource' ? '📚' : task.link_type === 'form' ? '📋' : '🔗'} {task.link_label || task.link_url}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

@@ -255,6 +255,24 @@ export async function GET(req: NextRequest) {
                     })),
                     { onConflict: 'client_autoflow_id,step_number', ignoreDuplicates: true },
                   )
+
+                // Push notification — same as the on-step-complete path, an
+                // automated message should notify the client exactly like a
+                // coach-typed one would.
+                const { data: coachProfile } = await supabase
+                  .from('profiles')
+                  .select('first_name, full_name')
+                  .eq('id', coachId)
+                  .single()
+                const coachName = coachProfile?.first_name ?? coachProfile?.full_name ?? 'Your coach'
+                const firstMessage = toSend[0].automated_message as string
+                sendPushToUser(flow.client_id, {
+                  title: coachName,
+                  body: firstMessage.slice(0, 80) + (firstMessage.length > 80 ? '…' : ''),
+                  url: `/messages/${convo.id}`,
+                  icon: '/icons/icon-192.png',
+                  tag: `message-${convo.id}`,
+                }).catch(() => {/* silent */})
               }
             }
           }

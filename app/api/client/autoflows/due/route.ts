@@ -1,3 +1,4 @@
+import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { syncAutoflowStepHabits } from '@/lib/autoflowStepHabits'
@@ -71,40 +72,68 @@ export async function GET() {
       // (e.g. the client switched path), and deactivates any habit whose
       // step just became not-due (completed, dismissed, or not yet
       // reached).
+      //
+      // Both syncs below are side effects the response doesn't depend on
+      // (tasks/protocol/habit are resolved straight from `steps`, not
+      // read back from what these writes produce) — they used to run
+      // synchronously here, one DB round-trip per relevant step, on every
+      // single dashboard load. Deferred via `after()` so the client gets
+      // its due steps immediately and these reconcile just after, same
+      // pattern as the Stripe sync on the dashboard page.
       const clientPathForSync = ((flow as Record<string, unknown>).selected_path as PathKey | null) ?? null
-      await syncAutoflowStepHabits(admin, {
-        clientAutoflowId: flow.id,
-        clientId: user.id,
-        coachId: flow.coach_id as string,
-        dueStepNumbers: new Set(dueSteps.map((s) => s.step_number)),
-        stepsWithHabit: (steps ?? []).map((s) => ({
-          step_number: s.step_number,
-          habit: resolveForPath(
-            (s as Record<string, unknown>).habit as { name: string; icon: string; unit: string; target: number } | null,
-            clientPathForSync,
-          ),
-        })),
+      const dueStepNumbersForSync = new Set(dueSteps.map((s) => s.step_number))
+      after(async () => {
+        try {
+          await syncAutoflowStepHabits(admin, {
+            clientAutoflowId: flow.id,
+            clientId: user.id,
+            coachId: flow.coach_id as string,
+            dueStepNumbers: dueStepNumbersForSync,
+            stepsWithHabit: (steps ?? []).map((s) => ({
+              step_number: s.step_number,
+              habit: resolveForPath(
+                (s as Record<string, unknown>).habit as { name: string; icon: string; unit: string; target: number } | null,
+                clientPathForSync,
+              ),
+            })),
+          })
+        } catch (err) {
+          console.error('due: syncAutoflowStepHabits failed', err)
+        }
       })
 
       // Auto-starts a real training program the first time a step with a
       // program_link becomes due — see lib/autoflowStepPrograms.ts.
-      await syncAutoflowStepPrograms(admin, {
-        clientAutoflowId: flow.id,
-        clientId: user.id,
-        coachId: flow.coach_id as string,
-        dueStepNumbers: new Set(dueSteps.map((s) => s.step_number)),
-        stepsWithProgramLink: (steps ?? []).map((s) => ({
-          step_number: s.step_number,
-          program_link: (s as Record<string, unknown>).program_link as { program_id: string } | null,
-        })),
+      after(async () => {
+        try {
+          await syncAutoflowStepPrograms(admin, {
+            clientAutoflowId: flow.id,
+            clientId: user.id,
+            coachId: flow.coach_id as string,
+            dueStepNumbers: dueStepNumbersForSync,
+            stepsWithProgramLink: (steps ?? []).map((s) => ({
+              step_number: s.step_number,
+              program_link: (s as Record<string, unknown>).program_link as { program_id: string } | null,
+            })),
+          })
+        } catch (err) {
+          console.error('due: syncAutoflowStepPrograms failed', err)
+        }
       })
 
       if (dueSteps.length === 0) return []
 
-      // Collect all resource IDs across due steps
-      const allResourceIds = dueSteps.flatMap((s) =>
-        Array.isArray((s as Record<string, unknown>).resource_ids) ? (s as Record<string, unknown>).resource_ids as string[] : []
-      )
+      // Collect all resource IDs across due steps — both the step's own
+      // resource_ids and any resource a task links to individually (see
+      // link_resource_id below).
+      const allResourceIds = dueSteps.flatMap((s) => {
+        const r = s as Record<string, unknown>
+        const stepResourceIds = Array.isArray(r.resource_ids) ? r.resource_ids as string[] : []
+        const taskResourceIds = (Array.isArray(r.tasks) ? r.tasks as Array<Record<string, unknown>> : [])
+          .map((t) => t.link_resource_id as string | null)
+          .filter((id): id is string => !!id)
+        return [...stepResourceIds, ...taskResourceIds]
+      })
       const allFormIds = dueSteps
         .map((s) => (s as Record<string, unknown>).form_id as string | null)
         .filter(Boolean) as string[]
@@ -181,14 +210,21 @@ export async function GET() {
         const existingAnswers = responseMap[step.step_number] ?? {}
         const tasks = rawTasks
           .filter((t) => taskAppliesToPath({ paths: (t.paths as PathKey[] | null) ?? null }, clientPath))
-          .map((t) => ({
-            id: t.id as string,
-            label: t.label as string,
-            link_type: (t.link_type as string | null) ?? null,
-            link_url: (t.link_url as string | null) ?? null,
-            link_label: (t.link_label as string | null) ?? null,
-            completed: existingAnswers[`task_${t.id}`] === 'done',
-          }))
+          .map((t) => {
+            const linkType = (t.link_type as string | null) ?? null
+            const linkResourceId = t.link_resource_id as string | null
+            const resolvedUrl = linkType === 'resource' && linkResourceId
+              ? resourceMap[linkResourceId]?.url ?? null
+              : (t.link_url as string | null) ?? null
+            return {
+              id: t.id as string,
+              label: t.label as string,
+              link_type: linkType,
+              link_url: resolvedUrl,
+              link_label: (t.link_label as string | null) ?? null,
+              completed: existingAnswers[`task_${t.id}`] === 'done',
+            }
+          })
 
         // Check if completing this step unlocks another on_step_complete step
         const unlocks_next_step = allSteps.some((s) => {

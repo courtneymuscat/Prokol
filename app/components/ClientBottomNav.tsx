@@ -118,6 +118,24 @@ export default function ClientBottomNav({
       .catch(() => {/* keep server-seeded tabs on error */})
   }, [])
 
+  // Unread Messages badge — same component lifetime as the tab list above
+  // (mounted once in the root layout), so poll rather than refetch per
+  // navigation. 45s keeps it fresh without hammering the endpoint on every
+  // page the nav renders on.
+  const [unreadMessages, setUnreadMessages] = useState(0)
+  useEffect(() => {
+    let cancelled = false
+    function fetchUnread() {
+      fetch('/api/client/messages/unread-count')
+        .then((r) => r.json())
+        .then((d) => { if (!cancelled) setUnreadMessages(d.count ?? 0) })
+        .catch(() => {/* keep last-known count on error */})
+    }
+    fetchUnread()
+    const interval = setInterval(fetchUnread, 45000)
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [])
+
   // Hide on excluded paths
   if (HIDE_PREFIXES.some((p) => path.startsWith(p))) return null
   if (!SHOW_ON.some((p) => path === p || path.startsWith(p + '/'))) return null
@@ -139,9 +157,14 @@ export default function ClientBottomNav({
                 href={tab.href}
                 prefetch={true}
                 id={tab.href === '/calendar' ? 'tour-calendar' : undefined}
-                className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 min-w-0"
+                className="relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 min-w-0"
               >
                 {tab.icon(active)}
+                {tab.href === '/messages' && unreadMessages > 0 && (
+                  <span className="absolute top-1.5 right-1/2 -mr-1 translate-x-3 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                    {unreadMessages > 9 ? '9+' : unreadMessages}
+                  </span>
+                )}
                 <span className={`text-[10px] font-semibold tracking-tight ${active ? 'text-blue-600' : 'text-gray-400'}`}>
                   {tab.label}
                 </span>

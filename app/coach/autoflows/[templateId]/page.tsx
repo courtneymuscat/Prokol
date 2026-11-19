@@ -40,6 +40,12 @@ type Task = {
   link_url?: string | null
   link_label?: string | null
   link_save_to_file?: boolean
+  // Set only for link_type 'resource' — the client-facing API resolves
+  // this to the resource's current url at read time (see
+  // /api/client/autoflows/due and /api/client/autoflows/[flowId]/[step]),
+  // rather than freezing a url here, so a resource re-upload or edit
+  // stays in sync without re-saving every task that links to it.
+  link_resource_id?: string | null
 }
 
 type ProtocolSection = { title: string; content: string }
@@ -748,7 +754,7 @@ function TaskCard({ task, onChange, onDelete, resources, forms }: {
   const hasLink = !!task.link_type
 
   function removeLink() {
-    onChange({ ...task, link_type: null, link_url: null, link_label: null })
+    onChange({ ...task, link_type: null, link_url: null, link_label: null, link_resource_id: null })
     setShowPicker(false)
     setUrlInput('')
   }
@@ -828,7 +834,7 @@ function TaskCard({ task, onChange, onDelete, resources, forms }: {
                 onChange={e => {
                   const r = resources.find(r => r.id === e.target.value)
                   if (!r) return
-                  onChange({ ...task, link_type: 'resource', link_url: null, link_label: r.name })
+                  onChange({ ...task, link_type: 'resource', link_resource_id: r.id, link_url: null, link_label: r.name })
                   setShowPicker(false)
                 }}
                 className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none bg-white"
