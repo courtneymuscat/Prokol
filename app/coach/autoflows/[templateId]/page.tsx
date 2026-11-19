@@ -1705,8 +1705,10 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                   const selectedResources = selectedIds.map(id => resourceById[id]).filter(Boolean) as CoachResource[]
                   const unselected = resources.filter(r => !selectedIds.includes(r.id))
 
-                  function moveResource(from: number, to: number) {
-                    if (to < 0 || to >= selectedIds.length) return
+                  function moveResource(resourceId: string, direction: -1 | 1) {
+                    const from = selectedIds.indexOf(resourceId)
+                    const to = from + direction
+                    if (from === -1 || to < 0 || to >= selectedIds.length) return
                     const ids = [...selectedIds]
                     const [moved] = ids.splice(from, 1)
                     ids.splice(to, 0, moved)
@@ -1723,20 +1725,22 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                     <>
                       {selectedResources.length > 0 && (
                         <div className="space-y-1.5">
-                          {selectedResources.map((r, i) => (
+                          {selectedResources.map((r) => {
+                            const trueIndex = selectedIds.indexOf(r.id)
+                            return (
                             <div key={r.id} className="flex items-center gap-2 rounded-xl border border-blue-400 bg-blue-50 px-3 py-2">
                               <div className="flex flex-col flex-shrink-0 -my-1">
                                 <button
-                                  onClick={() => moveResource(i, i - 1)}
-                                  disabled={i === 0}
+                                  onClick={() => moveResource(r.id, -1)}
+                                  disabled={trueIndex === 0}
                                   className="text-blue-300 hover:text-blue-600 disabled:opacity-25 disabled:hover:text-blue-300 transition-colors p-0.5"
                                   title="Move up — shows earlier to the client"
                                 >
                                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 15l7-7 7 7" /></svg>
                                 </button>
                                 <button
-                                  onClick={() => moveResource(i, i + 1)}
-                                  disabled={i === selectedResources.length - 1}
+                                  onClick={() => moveResource(r.id, 1)}
+                                  disabled={trueIndex === selectedIds.length - 1}
                                   className="text-blue-300 hover:text-blue-600 disabled:opacity-25 disabled:hover:text-blue-300 transition-colors p-0.5"
                                   title="Move down — shows later to the client"
                                 >
@@ -1752,7 +1756,8 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                               </button>
                             </div>
-                          ))}
+                            )
+                          })}
                         </div>
                       )}
 
