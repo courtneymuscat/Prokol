@@ -7,6 +7,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const navLinks = [
     { href: '/admin', label: 'Overview' },
+    { href: '/admin/users', label: 'All Users' },
     { href: '/admin/orgs', label: 'Organisations' },
     { href: '/admin/gyms', label: 'Gyms' },
     { href: '/admin/courses', label: 'Courses' },

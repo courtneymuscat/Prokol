@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import {
   updateCoachTier,
   suspendAccount,
+  deleteUserAsAdmin,
   setOrgTenantType,
   revokeWhiteLabel,
   reinstateWhiteLabel,
@@ -47,6 +48,12 @@ export async function actionSuspendAccount(userId: string, reason: string) {
   const adminId = await getAdminId()
   if (!adminId) return { error: 'Unauthorized' }
   return suspendAccount(userId, adminId, reason)
+}
+
+export async function actionDeleteUser(userId: string) {
+  const adminId = await getAdminId()
+  if (!adminId) return { error: 'Unauthorized' }
+  return deleteUserAsAdmin(userId, adminId)
 }
 
 export async function actionSetOrgTenantType(orgId: string, tenantType: 'coaching_business' | 'gym') {

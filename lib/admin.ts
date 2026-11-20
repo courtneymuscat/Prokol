@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { notifyClientsOfBrandingChange } from '@/lib/whitelabel'
 import { WHITE_LABEL_COACH_SEAT_LIMIT, DEFAULT_COACH_SEAT_LIMIT } from '@/lib/billing'
 import { slugify } from '@/lib/org'
+import { deleteUserCompletely } from '@/lib/deleteUser'
 
 export async function requirePlatformAdmin() {
   const supabase = await createClient()
@@ -1081,6 +1082,123 @@ export async function exitToHomeOrg(adminId: string): Promise<{ success?: true; 
     admin_id: adminId,
     action: 'exit_to_home_org',
     target_org_id: homeOrgId,
+  })
+
+  return { success: true }
+}
+
+// ─── All users ────────────────────────────────────────────────────────────────
+
+export type AdminUser = {
+  id: string
+  email: string | null
+  full_name: string | null
+  user_type: string | null
+  subscription_tier: string | null
+  org_id: string | null
+  org_name: string | null
+  role: string | null
+  coach_name: string | null
+  created_at: string | null
+  last_sign_in_at: string | null
+  email_confirmed: boolean
+  /** True when an auth record exists with no matching profile row — a
+   *  half-finished signup. These can't log in properly and are the usual
+   *  reason an email appears "taken" when someone tries to sign up again. */
+  orphaned: boolean
+}
+
+/**
+ * Every account on the platform, built from auth.users rather than profiles so
+ * half-finished signups (auth row, no profile) are visible instead of silently
+ * missing — those are exactly the ones that need clearing before someone can
+ * sign up again.
+ */
+export async function getAllUsers(): Promise<AdminUser[]> {
+  const admin = createAdminClient()
+
+  const authUsers: { id: string; email: string | null; created_at: string | null; last_sign_in_at: string | null; email_confirmed_at: string | null }[] = []
+  for (let page = 1; ; page++) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 })
+    if (error) break
+    const batch = data.users ?? []
+    for (const u of batch) {
+      authUsers.push({
+        id: u.id,
+        email: u.email ?? null,
+        created_at: u.created_at ?? null,
+        last_sign_in_at: u.last_sign_in_at ?? null,
+        email_confirmed_at: u.email_confirmed_at ?? null,
+      })
+    }
+    if (batch.length < 1000) break
+  }
+
+  const [{ data: profiles }, { data: orgs }, { data: coachLinks }] = await Promise.all([
+    admin.from('profiles').select('id, full_name, email, user_type, subscription_tier, org_id, role'),
+    admin.from('organisations').select('id, name'),
+    admin.from('coach_clients').select('client_id, coach_id').eq('status', 'active'),
+  ])
+
+  const profileById = new Map((profiles ?? []).map((p) => [p.id as string, p]))
+  const orgNameById = new Map((orgs ?? []).map((o) => [o.id as string, o.name as string]))
+  const coachIdByClientId = new Map((coachLinks ?? []).map((c) => [c.client_id as string, c.coach_id as string]))
+
+  const nameById = new Map(
+    (profiles ?? []).map((p) => [p.id as string, (p.full_name as string | null) ?? (p.email as string | null)]),
+  )
+
+  return authUsers
+    .map((u) => {
+      const p = profileById.get(u.id)
+      const coachId = coachIdByClientId.get(u.id)
+      return {
+        id: u.id,
+        email: u.email ?? (p?.email as string | null) ?? null,
+        full_name: (p?.full_name as string | null) ?? null,
+        user_type: (p?.user_type as string | null) ?? null,
+        subscription_tier: (p?.subscription_tier as string | null) ?? null,
+        org_id: (p?.org_id as string | null) ?? null,
+        org_name: p?.org_id ? (orgNameById.get(p.org_id as string) ?? null) : null,
+        role: (p?.role as string | null) ?? null,
+        coach_name: coachId ? (nameById.get(coachId) ?? null) : null,
+        created_at: u.created_at,
+        last_sign_in_at: u.last_sign_in_at,
+        email_confirmed: !!u.email_confirmed_at,
+        orphaned: !p,
+      }
+    })
+    .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
+}
+
+/**
+ * Permanently removes a user and everything they own. Uses the same routine as
+ * the client-facing "delete my account" flow, which is what makes this work
+ * where Supabase's own dashboard delete fails.
+ */
+export async function deleteUserAsAdmin(userId: string, adminId: string) {
+  if (userId === adminId) return { error: 'You cannot delete your own account from here.' }
+
+  const admin = createAdminClient()
+  const { data: target } = await admin
+    .from('profiles')
+    .select('email, full_name, role')
+    .eq('id', userId)
+    .single()
+
+  if (target?.role === 'platform_admin') {
+    return { error: 'Platform admins cannot be deleted from here.' }
+  }
+
+  const { error } = await deleteUserCompletely(userId)
+  if (error) return { error }
+
+  // target_user_id is deliberately left null — the row it would point at no
+  // longer exists, and the FK has no cascade.
+  await admin.from('admin_audit_log').insert({
+    admin_id: adminId,
+    action: 'delete_user',
+    old_value: target?.email ?? target?.full_name ?? userId,
   })
 
   return { success: true }
