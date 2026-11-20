@@ -714,6 +714,13 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
         >
           {submitting ? 'Submitting…' : isResubmit ? 'Update response' : allQuestions.some(q => q.type !== 'note' && q.type !== 'section') || (data.tasks ?? []).length > 0 ? 'Submit' : 'Mark as done'}
         </button>
+
+        {!isResubmit && (
+          <p className="text-xs text-gray-500 text-center px-2 -mt-1">
+            Only submit once you&apos;ve worked through everything above — this step won&apos;t be available again afterwards. Any resources from this step are saved to your{' '}
+            <a href="/resources" className="underline hover:text-gray-700">Resources tab</a> so you can revisit them anytime.
+          </p>
+        )}
       </main>
     </div>
   )
