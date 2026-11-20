@@ -42,7 +42,7 @@ function ResourceCard({ resource: r }: { resource: Resource }) {
         {(r.name || r.description) && (
           <div className="px-4 py-3 bg-white">
             <p className="text-sm font-semibold text-gray-800">{r.name}</p>
-            {r.description && <p className="text-xs text-gray-500 mt-0.5">{r.description}</p>}
+            {r.description && <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-wrap">{r.description}</p>}
           </div>
         )}
       </a>
@@ -55,7 +55,7 @@ function ResourceCard({ resource: r }: { resource: Resource }) {
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-semibold ${meta.text}`}>{r.name}</p>
         {r.description && (
-          <p className="text-xs text-gray-500 mt-1 leading-relaxed">{r.description}</p>
+          <p className="text-xs text-gray-500 mt-1 leading-relaxed whitespace-pre-wrap">{r.description}</p>
         )}
         <div className="mt-2 flex items-center gap-2">
           <span className="text-[11px] font-medium text-gray-400">{meta.label}</span>

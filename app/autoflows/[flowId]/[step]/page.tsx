@@ -462,7 +462,7 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
 
       <main className="max-w-lg mx-auto p-4 space-y-4 pt-5">
         {data.description && (
-          <p className="text-sm text-gray-600 bg-white rounded-xl border border-gray-100 px-4 py-3">{data.description}</p>
+          <p className="text-sm text-gray-600 bg-white rounded-xl border border-gray-100 px-4 py-3 whitespace-pre-wrap leading-relaxed">{data.description}</p>
         )}
 
         {isResubmit && (
@@ -571,7 +571,7 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
                     {(r.name || r.description) && (
                       <div className="px-3.5 py-3 bg-white">
                         <p className="text-sm font-semibold text-gray-800">{r.name}</p>
-                        {r.description && <p className="text-xs text-gray-500 mt-0.5">{r.description}</p>}
+                        {r.description && <p className="text-xs text-gray-500 mt-0.5 whitespace-pre-wrap">{r.description}</p>}
                       </div>
                     )}
                   </a>
@@ -582,7 +582,7 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
                   <span className="text-xl flex-shrink-0">{meta.icon}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold">{r.name}</p>
-                    {r.description && <p className="text-xs mt-0.5 opacity-75">{r.description}</p>}
+                    {r.description && <p className="text-xs mt-0.5 opacity-75 whitespace-pre-wrap">{r.description}</p>}
                     <p className="text-xs font-semibold mt-1.5 opacity-80">Open in Resources →</p>
                   </div>
                 </a>
@@ -671,7 +671,7 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
               return (
                 <div key={q.id} className="pt-2 pb-1">
                   {q.label && <p className="text-base font-semibold text-gray-900">{q.label}</p>}
-                  {q.description && <p className="text-sm text-gray-500 mt-0.5">{q.description}</p>}
+                  {q.description && <p className="text-sm text-gray-500 mt-0.5 whitespace-pre-wrap">{q.description}</p>}
                   <div className="border-b border-gray-200 mt-2" />
                 </div>
               )
@@ -685,7 +685,7 @@ export default function AutoflowStepPage({ params }: { params: Promise<{ flowId:
                   {q.required && <span className="text-red-400 ml-0.5">*</span>}
                 </label>
                 {q.description && (
-                  <p className="text-xs text-gray-500">{q.description}</p>
+                  <p className="text-xs text-gray-500 whitespace-pre-wrap">{q.description}</p>
                 )}
                 <QuestionInput
                   q={q}
