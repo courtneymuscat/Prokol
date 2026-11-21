@@ -40,6 +40,12 @@ export async function purgeUserData(userId: string): Promise<void> {
   const photoStoragePaths = (photos ?? []).map((p) => p.storage_path).filter(Boolean) as string[]
 
   // ── 3. Personal data — simple user_id rows ───────────────────────────────
+  // foods and meals hang off auth.users rather than profiles, so unlike most
+  // tables here they don't disappear when the profile row cascades — without
+  // these two the user's custom foods and saved meals outlive the account.
+  // meal_items cascade from meals via FK.
+  await service.from('meals').delete().eq('user_id', userId)
+  await service.from('foods').delete().eq('user_id', userId)
   await service.from('food_logs').delete().eq('user_id', userId)
   await service.from('weight_logs').delete().eq('user_id', userId)
   await service.from('check_ins').delete().eq('user_id', userId)
@@ -166,9 +172,24 @@ export async function purgeUserData(userId: string): Promise<void> {
  * clears any rows left orphaned behind it.
  */
 export async function deleteUserCompletely(userId: string): Promise<{ error?: string }> {
-  await purgeUserData(userId)
-
   const service = createServiceClient()
+
+  // organisations.owner_id is ON DELETE RESTRICT, so an owned org makes the
+  // auth delete fail — and it should: the org's coaches, clients and content
+  // outlive this one account, so ownership has to move before the owner goes.
+  // Checked up front so we report it instead of purging their data and then
+  // failing at the last step.
+  const { data: ownedOrgs } = await service
+    .from('organisations')
+    .select('name')
+    .eq('owner_id', userId)
+
+  if (ownedOrgs?.length) {
+    const names = ownedOrgs.map((o) => o.name as string).join(', ')
+    return { error: `This user still owns ${ownedOrgs.length === 1 ? 'an organisation' : 'organisations'} (${names}). Transfer ownership before deleting them.` }
+  }
+
+  await purgeUserData(userId)
   const { error } = await service.auth.admin.deleteUser(userId)
 
   // An already-missing auth row means the data purge above was the only work
