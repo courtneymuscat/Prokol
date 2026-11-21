@@ -14,6 +14,23 @@ type FollowUp = {
   source_url: string | null
 }
 
+// Note bodies are the rich-text HTML the Notes tab editor produces. This is a
+// one-line summary row, not the note itself, so render a flattened preview
+// rather than injecting markup — the full note lives in the Notes tab.
+function previewText(html: string): string {
+  return html
+    .replace(/<(br|\/p|\/div|\/li|\/h[1-6])\s*\/?>/gi, ' ')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 function daysFromToday(dateStr: string): number {
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const target = new Date(dateStr + 'T00:00:00')
@@ -132,7 +149,7 @@ export default function FollowUpsSection() {
                     {due.text}
                   </span>
                 </div>
-                <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap break-words">{item.body}</p>
+                <p className="text-sm text-gray-600 mt-1 line-clamp-2 break-words">{previewText(item.body)}</p>
                 {item.source_label && (
                   item.source_url ? (
                     <a href={item.source_url} className="inline-block text-[11px] text-gray-400 hover:text-gray-700 underline mt-1">
