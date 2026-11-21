@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { noteBodyToHtml } from '@/lib/noteUtils'
+import CheckInNoteBox from './CheckInNoteBox'
 const CheckInFeedback = lazy(() => import('./CheckInFeedback'))
 const ProkolMethodTrends = lazy(() => import('./ProkolMethodTrends'))
 const FlowsTab = lazy(() => import('./FlowsTab'))
@@ -1991,6 +1992,11 @@ function ExpandableAutoflowCheckIn({ item, clientId, onDelete, highlight }: { it
           responseId={item.id}
           initialReviewed={item.reviewed_by_coach ?? false}
           initialFeedback={item.coach_feedback ?? ''}
+        />
+        <CheckInNoteBox
+          clientId={clientId}
+          sourceLabel={`${item.flow_name} — Step ${item.step_number}${item.step_title ? `: ${item.step_title}` : ''}`}
+          sourceUrl={`/coach/clients/${clientId}?tab=checkins&checkin=${item.id}`}
         />
       </div>
     </div>

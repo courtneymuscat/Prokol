@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getOrgForUser } from '@/lib/org'
 import { redirect } from 'next/navigation'
+import FollowUpsSection from './FollowUpsSection'
 import ScheduleSection from './ScheduleSection'
 import ProkolMethodCheckins from './ProkolMethodCheckins'
 import CheckinsFeedList from './CheckinsFeedList'
@@ -385,6 +386,8 @@ export default async function CoachCheckInsPage() {
           </a>
         </div>
       </div>
+
+      <FollowUpsSection />
 
       <ScheduleSection days={days7} noCheckInClients={noCheckInClients} />
 

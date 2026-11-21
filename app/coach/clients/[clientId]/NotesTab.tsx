@@ -7,6 +7,10 @@ type Note = {
   id: string
   body: string
   created_at: string
+  follow_up_date?: string | null
+  follow_up_done?: boolean
+  source_label?: string | null
+  source_url?: string | null
 }
 
 type Medication = { name: string; reason: string }
@@ -424,6 +428,28 @@ export default function NotesTab({ clientId }: { clientId: string }) {
             className="text-sm text-gray-800 leading-relaxed prose prose-sm max-w-none"
             dangerouslySetInnerHTML={{ __html: note.body }}
           />
+          {(note.source_label || note.follow_up_date) && (
+            <div className="flex items-center gap-2 flex-wrap mt-2.5">
+              {note.follow_up_date && (
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
+                  note.follow_up_done
+                    ? 'bg-gray-50 text-gray-400 border-gray-200 line-through'
+                    : 'bg-purple-50 text-purple-700 border-purple-200'
+                }`}>
+                  Follow up {new Date(note.follow_up_date + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
+                </span>
+              )}
+              {note.source_label && (
+                note.source_url ? (
+                  <a href={note.source_url} className="text-[11px] text-gray-400 hover:text-gray-700 underline">
+                    re: {note.source_label}
+                  </a>
+                ) : (
+                  <span className="text-[11px] text-gray-400">re: {note.source_label}</span>
+                )
+              )}
+            </div>
+          )}
           <div className="flex items-center justify-between mt-3">
             <p className="text-xs text-gray-400">{fmtFull(note.created_at)}</p>
             <div className="flex items-center gap-3">
