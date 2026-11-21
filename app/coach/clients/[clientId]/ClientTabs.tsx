@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { noteBodyToHtml } from '@/lib/noteUtils'
-import CheckInNoteBox from './CheckInNoteBox'
+import CheckInNoteBox, { type CheckInNote } from './CheckInNoteBox'
 const CheckInFeedback = lazy(() => import('./CheckInFeedback'))
 const ProkolMethodTrends = lazy(() => import('./ProkolMethodTrends'))
 const FlowsTab = lazy(() => import('./FlowsTab'))
@@ -1791,7 +1791,7 @@ function CheckinFeedbackViaMessages({ clientId, checkinDate, checkinLabel, respo
   )
 }
 
-function ExpandableAutoflowCheckIn({ item, clientId, onDelete, highlight }: { item: AutoflowCheckIn; clientId: string; onDelete: (id: string) => void; highlight?: boolean }) {
+function ExpandableAutoflowCheckIn({ item, clientId, onDelete, highlight, notes, onNotesChanged }: { item: AutoflowCheckIn; clientId: string; onDelete: (id: string) => void; highlight?: boolean; notes: CheckInNote[]; onNotesChanged: () => void }) {
   const [open, setOpen] = useState(!!highlight)
   const [deleting, setDeleting] = useState(false)
   const hasAnswers = item.questions.length > 0 && Object.keys(item.answers).length > 0
@@ -1997,6 +1997,8 @@ function ExpandableAutoflowCheckIn({ item, clientId, onDelete, highlight }: { it
           clientId={clientId}
           sourceLabel={`${item.flow_name} — Step ${item.step_number}${item.step_title ? `: ${item.step_title}` : ''}`}
           sourceUrl={`/coach/clients/${clientId}?tab=checkins&checkin=${item.id}`}
+          notes={notes}
+          onChanged={onNotesChanged}
         />
       </div>
     </div>
@@ -2656,6 +2658,20 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
   }, [nutritionSubTab])
   const [autoflowRefreshKey, setAutoflowRefreshKey] = useState(0)
   const [checkinsFilter, setCheckinsFilter] = useState<'all' | 'checkin' | 'staged_flow'>('all')
+  // Notes are fetched once for the whole Check-ins tab and handed to each
+  // check-in's note box by source_url — a box renders under every check-in,
+  // so fetching per-box would be one request per row.
+  const [checkinNotes, setCheckinNotes] = useState<CheckInNote[]>([])
+  const reloadCheckinNotes = useCallback(() => {
+    fetch(`/api/coach/notes/${clientId}`)
+      .then((r) => r.json())
+      .then((d) => setCheckinNotes(Array.isArray(d) ? d : []))
+      .catch(() => {/* note boxes just show nothing attached */})
+  }, [clientId])
+
+  useEffect(() => {
+    if (tab === 'checkins') reloadCheckinNotes()
+  }, [tab, reloadCheckinNotes])
   const [data, setData] = useState<ClientData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -3077,6 +3093,8 @@ export default function ClientTabs({ clientId, initialTab, coachTier = 'coach_pr
                       clientId={clientId}
                       onDelete={(id) => setData((d) => d ? { ...d, autoflowCheckIns: d.autoflowCheckIns.filter((x) => x.id !== id) } : d)}
                       highlight={entry.item.id === highlightCheckinId}
+                      notes={checkinNotes.filter((n) => n.source_url === `/coach/clients/${clientId}?tab=checkins&checkin=${entry.item.id}`)}
+                      onNotesChanged={reloadCheckinNotes}
                     />
                   )
                   if (entry.kind === 'form') return (
