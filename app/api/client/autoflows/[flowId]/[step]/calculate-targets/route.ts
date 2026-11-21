@@ -93,9 +93,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   await syncServeTargetsForClient(admin, user.id, coachId)
 
-  // Only auto-assign a meal plan if the client doesn't already have an
-  // active one — never clobber an existing plan the client is already
-  // following.
+  // A plan already recorded against this step wins — re-running the same
+  // step shouldn't churn the plan it produced.
   const { data: existingInstance } = await admin
     .from('autoflow_step_nutrition_instances')
     .select('client_meal_plan_id')
@@ -105,50 +104,79 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   let assignedPlanId: string | null = existingInstance?.client_meal_plan_id ?? null
   let assignedPlanName: string | null = null
+  let replacedPlanName: string | null = null
 
   if (!assignedPlanId) {
-    const { data: existingActivePlan } = await admin
+    // Newest first rather than maybeSingle() — a client can legitimately
+    // accumulate more than one active plan, which maybeSingle() errors on.
+    const { data: activePlans } = await admin
       .from('client_meal_plans')
-      .select('id')
+      .select('id, meal_plan_id, name, total_calories')
       .eq('client_id', user.id)
       .eq('status', 'active')
-      .maybeSingle()
+      .order('start_date', { ascending: false })
+    const currentPlan = activePlans?.[0] ?? null
 
-    if (!existingActivePlan) {
-      const dietGoal = mapDietaryPreferenceToMealPlanGoal(dietary_preference ?? null)
+    const dietGoal = mapDietaryPreferenceToMealPlanGoal(dietary_preference ?? null)
 
-      const { data: candidates } = await admin
-        .from('meal_plans')
-        .select('id, name, goal, total_calories, content')
-        .eq('coach_id', coachId)
-        .eq('is_generic', true)
-        .is('archived_at', null)
+    const { data: candidates } = await admin
+      .from('meal_plans')
+      .select('id, name, goal, total_calories, content')
+      .eq('coach_id', coachId)
+      .eq('is_generic', true)
+      .is('archived_at', null)
 
-      const best = pickBestMealPlan(candidates ?? [], target_calories, dietGoal)
-      if (best) {
-        const { data: newPlan } = await admin
-          .from('client_meal_plans')
-          .insert({
-            meal_plan_id: best.id,
-            name: best.name,
-            content: best.content,
-            start_date: new Date().toISOString().slice(0, 10),
-            total_calories: best.total_calories,
-            client_id: user.id,
-            coach_id: coachId,
-            status: 'active',
-          })
-          .select('id, name')
-          .single()
-        // Deliberately not syncing profiles.target_* from this plan's own
-        // totals — the TDEE calc just saved above is the authoritative,
-        // personalised target; this plan is a best-fit starting point the
-        // client can swap/adjust, not a target override.
-        if (newPlan) {
-          assignedPlanId = newPlan.id as string
-          assignedPlanName = newPlan.name as string
-        }
+    const best = pickBestMealPlan(candidates ?? [], target_calories, dietGoal)
+
+    // When this calculator is re-run months later (a periodic progress
+    // review), targets have usually moved and the plan assigned at signup
+    // no longer matches them. Swap to a closer one — but only when it is
+    // meaningfully closer, since generic plans sit ~300kcal apart and
+    // replacing the plan someone is actively following for a trivial gain
+    // is worse than leaving it alone.
+    const SWAP_MIN_IMPROVEMENT_KCAL = 150
+    let shouldAssign = false
+    if (best) {
+      if (!currentPlan) {
+        shouldAssign = true
+      } else if (best.id !== currentPlan.meal_plan_id) {
+        const currentGap = Math.abs((currentPlan.total_calories ?? 0) - target_calories)
+        const newGap = Math.abs(best.total_calories - target_calories)
+        shouldAssign = currentGap - newGap >= SWAP_MIN_IMPROVEMENT_KCAL
       }
+    }
+
+    if (shouldAssign && best) {
+      if (currentPlan) {
+        // Retired, not deleted — the client keeps it in their plan history.
+        await admin.from('client_meal_plans').update({ status: 'inactive' }).eq('id', currentPlan.id)
+        replacedPlanName = currentPlan.name as string | null
+      }
+      const { data: newPlan } = await admin
+        .from('client_meal_plans')
+        .insert({
+          meal_plan_id: best.id,
+          name: best.name,
+          content: best.content,
+          start_date: new Date().toISOString().slice(0, 10),
+          total_calories: best.total_calories,
+          client_id: user.id,
+          coach_id: coachId,
+          status: 'active',
+        })
+        .select('id, name')
+        .single()
+      // Deliberately not syncing profiles.target_* from this plan's own
+      // totals — the TDEE calc just saved above is the authoritative,
+      // personalised target; this plan is a best-fit starting point the
+      // client can swap/adjust, not a target override.
+      if (newPlan) {
+        assignedPlanId = newPlan.id as string
+        assignedPlanName = newPlan.name as string
+      }
+    } else if (currentPlan) {
+      assignedPlanId = currentPlan.id as string
+      assignedPlanName = currentPlan.name as string | null
     }
   } else {
     const { data: plan } = await admin
@@ -177,6 +205,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   return Response.json({
     ok: true,
-    result: { target_calories, target_protein, target_carbs, target_fat, assigned_plan_name: assignedPlanName },
+    result: {
+      target_calories, target_protein, target_carbs, target_fat,
+      assigned_plan_name: assignedPlanName,
+      replaced_plan_name: replacedPlanName,
+    },
   })
 }
