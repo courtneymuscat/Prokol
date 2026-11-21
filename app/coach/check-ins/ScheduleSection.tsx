@@ -3,8 +3,28 @@
 import { useState } from 'react'
 import ClientTagBadges from '../ClientTagBadges'
 
-type ScheduleClient = { clientId: string; name: string; label: string }
+type ScheduleClient = { clientId: string; name: string; label: string; flowName: string | null }
 type DaySchedule = { dateStr: string; dayLabel: string; clients: ScheduleClient[] }
+
+// Each autoflow gets a stable colour derived from its name, so the same flow
+// always reads the same across days without needing a colour stored per
+// template. Hues are picked to stay distinguishable against the white rows.
+const FLOW_COLORS = [
+  'bg-blue-50 text-blue-700 border-blue-200',
+  'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'bg-purple-50 text-purple-700 border-purple-200',
+  'bg-amber-50 text-amber-800 border-amber-200',
+  'bg-pink-50 text-pink-700 border-pink-200',
+  'bg-teal-50 text-teal-700 border-teal-200',
+  'bg-indigo-50 text-indigo-700 border-indigo-200',
+  'bg-rose-50 text-rose-700 border-rose-200',
+]
+
+function flowColor(name: string): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0
+  return FLOW_COLORS[Math.abs(hash) % FLOW_COLORS.length]
+}
 
 export default function ScheduleSection({
   days,
@@ -62,7 +82,14 @@ export default function ScheduleSection({
                       <span className="text-sm font-medium text-gray-800 truncate">{c.name}</span>
                       <ClientTagBadges clientId={c.clientId} />
                     </span>
-                    <span className="text-xs text-gray-400 flex-shrink-0">{c.label}</span>
+                    <span className="flex items-center gap-2 flex-shrink-0">
+                      {c.flowName && (
+                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${flowColor(c.flowName)}`}>
+                          {c.flowName}
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-400">{c.label}</span>
+                    </span>
                   </a>
                 ))}
               </div>

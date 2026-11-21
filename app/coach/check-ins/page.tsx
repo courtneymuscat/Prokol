@@ -243,7 +243,7 @@ export default async function CoachCheckInsPage() {
 
   // ── Build next-7-days schedule ────────────────────────────────────────────
 
-  type ScheduleClient = { clientId: string; name: string; label: string }
+  type ScheduleClient = { clientId: string; name: string; label: string; flowName: string | null }
   type DaySchedule = { dateStr: string; dayLabel: string; clients: ScheduleClient[] }
 
   const scheduleByDate: Record<string, ScheduleClient[]> = {}
@@ -277,6 +277,7 @@ export default async function CoachCheckInsPage() {
             clientId: s.client_id,
             name: profileMap[s.client_id]?.name ?? profileMap[s.client_id]?.email ?? 'Unknown',
             label: s.title ?? 'Weekly check-in',
+            flowName: null,
           })
           clientsWithSchedule.add(s.client_id)
         }
@@ -334,7 +335,8 @@ export default async function CoachCheckInsPage() {
                 scheduleByDate[dueDateStr].push({
                   clientId: flow.client_id,
                   name: profileMap[flow.client_id]?.name ?? profileMap[flow.client_id]?.email ?? 'Unknown',
-                  label: `${flow.name} — Step ${step.step_number}`,
+                  label: `Step ${step.step_number}`,
+                  flowName: flow.name,
                 })
                 clientsWithSchedule.add(flow.client_id)
               }
