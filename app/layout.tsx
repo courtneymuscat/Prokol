@@ -7,6 +7,7 @@ import ServiceWorkerRegistration from "@/app/components/ServiceWorkerRegistratio
 import ClientBottomNav from "@/app/components/ClientBottomNav";
 import PushSetup from "@/app/components/PushSetup";
 import AppRefresh from "@/app/components/AppRefresh";
+import UnsupportedBrowserNotice from "@/app/components/UnsupportedBrowserNotice";
 import { BrandingProvider } from "@/app/components/BrandingProvider";
 import { getBrandingFromHeaders, DEFAULT_BRANDING, brandColourOverrideCss } from "@/lib/branding";
 import { headers } from "next/headers";
@@ -142,7 +143,17 @@ export default async function RootLayout({
         <style dangerouslySetInnerHTML={{ __html: cssVars }} />
       </head>
       <body className="min-h-full flex flex-col">
+        {/* Deliberately ES5 — this has to parse and run on browsers too old
+            to execute the app bundle at all. If React hasn't marked itself
+            ready, the page is effectively dead and says so rather than
+            leaving a form that looks fine but can never submit. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{setTimeout(function(){if(window.__prokolReady)return;var d=document.createElement('div');d.id='prokol-unsupported-browser';d.setAttribute('style','position:fixed;left:0;right:0;bottom:0;z-index:2147483647;background:#7f1d1d;color:#fff;padding:14px 16px;font:14px/1.45 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif');d.innerHTML='<b>This browser is out of date</b><br>Prokol needs a newer browser to run. Please update your device software, or open this page in the latest Chrome. Your details will not save until then.';document.body.appendChild(d);},10000);}catch(e){}})();`,
+          }}
+        />
         <BrandingProvider branding={branding}>
+          <UnsupportedBrowserNotice />
           {children}
           <ClientBottomNav initialSex={navContext.sex} initialTier={navContext.tier} />
           <PushSetup />
