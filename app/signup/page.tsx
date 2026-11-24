@@ -23,7 +23,6 @@ const PLAN_LABELS: Record<string, string> = {
 function SignupForm() {
   const branding = useBranding()
   const [state, action, pending] = useActionState(signup, null)
-  const [agreed, setAgreed] = useState(false)
   const searchParams = useSearchParams()
   const invite = searchParams.get('invite')
   const orgInvite = searchParams.get('org_invite')
@@ -172,12 +171,17 @@ function SignupForm() {
             </p>
           )}
 
-          {/* Consent checkbox */}
+          {/* Consent checkbox — intentionally uncontrolled and gated by the
+              browser's own `required` validation rather than by React state
+              disabling the button. A signup on a slow or JS-blocked device
+              would otherwise render the button disabled server-side and never
+              re-enable it, leaving the form impossible to submit even with
+              the box visibly ticked. */}
           <label className="flex items-start gap-3 cursor-pointer">
             <input
               type="checkbox"
-              checked={agreed}
-              onChange={(e) => setAgreed(e.target.checked)}
+              name="agreed"
+              required
               className="mt-0.5 h-4 w-4 rounded border-gray-300 accent-yellow-500 flex-shrink-0"
             />
             <span className="text-sm text-gray-600">
@@ -194,7 +198,7 @@ function SignupForm() {
 
           <button
             type="submit"
-            disabled={pending || !agreed}
+            disabled={pending}
             className="w-full py-3 rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-colors"
             style={{ backgroundColor: 'var(--nc-primary)', color: '#ffffff' }}
           >

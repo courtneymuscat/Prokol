@@ -32,6 +32,11 @@ export async function signup(prevState: AuthState, formData: FormData): Promise<
   const supabase = await createClient()
   const email = formData.get('email') as string
   const password = formData.get('password') as string
+  // The form's own `required` attribute is the first line of defence; this
+  // backs it up, since terms_accepted_at is recorded unconditionally below.
+  if (!formData.get('agreed')) {
+    return { error: 'Please accept the Terms of Service and Privacy Policy to continue.' }
+  }
   const invite = (formData.get('invite') as string) || null
   const orgInvite = (formData.get('org_invite') as string) || null
   // A gym's reusable signup link (org_signup_links.code) — distinct from
