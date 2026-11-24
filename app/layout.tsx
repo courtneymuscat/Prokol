@@ -94,6 +94,40 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
 };
 
+// Deliberately ES5 — this has to parse and run on browsers too old to
+// execute the app bundle at all, so no arrow functions, let/const or
+// template literals.
+//
+// It deliberately does NOT fire on a timer. The app failing to start and the
+// app merely being slow look identical after N seconds, and telling someone
+// on poor gym wifi that their browser is obsolete is worse than saying
+// nothing. So it only speaks up when it has real evidence:
+//   1. a feature the framework requires is genuinely absent, or
+//   2. a script actually errored and React still hasn't reported in.
+const BROWSER_GUARD = `(function(){try{
+var shown=false;
+function show(reason){
+  if(shown||window.__prokolReady||!document.body)return;
+  shown=true;
+  var d=document.createElement('div');
+  d.id='prokol-unsupported-browser';
+  d.setAttribute('data-reason',reason);
+  d.setAttribute('style','position:fixed;left:0;right:0;bottom:0;z-index:2147483647;background:#7f1d1d;color:#fff;padding:14px 16px;font:14px/1.45 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif');
+  d.innerHTML='<button aria-label="Dismiss" style="position:absolute;top:8px;right:10px;background:none;border:0;color:#fff;font-size:20px;line-height:1;padding:4px" onclick="this.parentNode.parentNode.removeChild(this.parentNode)">&times;</button><b>This browser is out of date</b><br>Prokol needs a newer browser to run. Please update your device software, or open this page in the latest Chrome. Your details will not save until then.';
+  document.body.appendChild(d);
+}
+function ready(){
+  if(typeof Object.hasOwn!=='function'||typeof Array.prototype.at!=='function'){show('missing-feature');}
+}
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',ready);}else{ready();}
+window.addEventListener('error',function(ev){
+  var fromScript=ev&&ev.target&&ev.target.tagName==='SCRIPT';
+  var runtime=ev&&ev.message;
+  if(!fromScript&&!runtime)return;
+  setTimeout(function(){show('script-error');},5000);
+},true);
+}catch(e){}})();`
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -143,15 +177,13 @@ export default async function RootLayout({
         <style dangerouslySetInnerHTML={{ __html: cssVars }} />
       </head>
       <body className="min-h-full flex flex-col">
-        {/* Deliberately ES5 — this has to parse and run on browsers too old
-            to execute the app bundle at all. If React hasn't marked itself
-            ready, the page is effectively dead and says so rather than
-            leaving a form that looks fine but can never submit. */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{setTimeout(function(){if(window.__prokolReady)return;var d=document.createElement('div');d.id='prokol-unsupported-browser';d.setAttribute('style','position:fixed;left:0;right:0;bottom:0;z-index:2147483647;background:#7f1d1d;color:#fff;padding:14px 16px;font:14px/1.45 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif');d.innerHTML='<b>This browser is out of date</b><br>Prokol needs a newer browser to run. Please update your device software, or open this page in the latest Chrome. Your details will not save until then.';document.body.appendChild(d);},10000);}catch(e){}})();`,
-          }}
-        />
+        <script dangerouslySetInnerHTML={{ __html: BROWSER_GUARD }} />
+        <noscript>
+          <div style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 2147483647, background: '#7f1d1d', color: '#fff', padding: '14px 16px', font: '14px/1.45 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif' }}>
+            <b>JavaScript is turned off</b><br />
+            Prokol needs JavaScript to run. Please enable it in your browser settings, then reload this page.
+          </div>
+        </noscript>
         <BrandingProvider branding={branding}>
           <UnsupportedBrowserNotice />
           {children}
