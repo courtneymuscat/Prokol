@@ -297,6 +297,13 @@ export default function OnboardingPage() {
 
           {step < 5 && <ProgressBar step={step} total={TOTAL_STEPS} />}
 
+          {/* Shown on every step — the per-step Continue buttons report
+              missing fields through this, and it previously only rendered
+              inside step 4. */}
+          {error && step !== 4 && (
+            <p className="text-sm text-red-600 bg-red-50 rounded-xl px-4 py-3">{error}</p>
+          )}
+
           {/* ── Step 1: Goal ── */}
           {step === 1 && (
             <div className="space-y-6">
@@ -322,8 +329,11 @@ export default function OnboardingPage() {
               </div>
 
               <button
-                onClick={() => setStep(2)}
-                disabled={!form.goal}
+                onClick={() => {
+                  if (!form.goal) { setError('Please choose a goal to continue.'); return }
+                  setError(null)
+                  setStep(2)
+                }}
                 className="w-full py-3 rounded-2xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-900"
                 style={{ backgroundColor: 'var(--nc-primary)' }}
               >
@@ -445,8 +455,23 @@ export default function OnboardingPage() {
               <div className="flex gap-3">
                 <button onClick={() => setStep(1)} className="flex-1 border border-gray-200 text-gray-700 py-3 rounded-2xl text-sm font-semibold hover:bg-gray-50 transition-colors">Back</button>
                 <button
-                  onClick={() => setStep(3)}
-                  disabled={!form.first_name.trim() || !form.sex || !form.age || !form.height_cm || !form.weight_kg}
+                  onClick={() => {
+                    // Named rather than greyed out — a dead Continue button
+                    // with no reason given is where people abandon signup.
+                    const missing = [
+                      !form.first_name.trim() && 'your name',
+                      !form.sex && 'sex',
+                      !form.age && 'age',
+                      !form.height_cm && 'height',
+                      !form.weight_kg && 'weight',
+                    ].filter(Boolean) as string[]
+                    if (missing.length) {
+                      setError(`Please add ${missing.join(', ')} to continue.`)
+                      return
+                    }
+                    setError(null)
+                    setStep(3)
+                  }}
                   className="flex-[2] py-3 rounded-2xl text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-gray-900"
                   style={{ backgroundColor: 'var(--nc-primary)' }}
                 >

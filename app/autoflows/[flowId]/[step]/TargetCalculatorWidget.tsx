@@ -124,7 +124,20 @@ export default function TargetCalculatorWidget({
     setActivities(prev => prev.filter(a => a.id !== id))
   }
 
-  const statsComplete = firstName.trim() && phone.trim() && age && sex && heightCm && weightKg && goal
+  // Named so the button can say what is actually missing. A submit button
+  // that silently greys out gives no clue which field is holding it up —
+  // the user just sees a dead button and gives up.
+  const missing = [
+    !firstName.trim() && 'Your name',
+    !phone.trim() && 'Phone number',
+    !sex && 'Sex',
+    !age && 'Age',
+    !heightCm && 'Height',
+    !weightKg && 'Weight',
+    !goal && 'Goal',
+  ].filter(Boolean) as string[]
+
+  const statsComplete = missing.length === 0
   const tdeeResult = statsComplete
     ? calcTDEE(parseFloat(age), sex as TDEESex, parseFloat(heightCm), parseFloat(weightKg), activities, parseFloat(stepsPerDay) || 0)
     : null
@@ -133,6 +146,10 @@ export default function TargetCalculatorWidget({
     : null
 
   async function submit() {
+    if (missing.length) {
+      setError(`Please fill in: ${missing.join(', ')}`)
+      return
+    }
     if (!tdeeResult || !macros || !goal) return
     setSubmitting(true)
     setError(null)
@@ -340,7 +357,7 @@ export default function TargetCalculatorWidget({
 
       <button
         onClick={submit}
-        disabled={!macros || submitting}
+        disabled={submitting}
         className="w-full bg-gray-900 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-700 disabled:opacity-40 transition-colors"
       >
         {submitting ? 'Saving…' : 'Save my targets'}
