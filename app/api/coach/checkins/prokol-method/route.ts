@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
+import { getOrgForUser } from '@/lib/org'
 import { PROKOL_METHOD_CHECKIN_TEMPLATE_ID } from '@/lib/prokolMethodIds'
 
 // Enriched list of Prokol Method check-in responses for this coach's
@@ -14,11 +15,25 @@ export async function GET() {
 
   const admin = createAdminClient()
 
-  const { data: flows } = await admin
+  // A coach who owns more than one organisation (gym org-switching) is the
+  // same coach_id in all of them, and client_autoflows carries no org of its
+  // own — so without resolving the roster through coach_clients first, this
+  // queue mixes every organisation's clients together regardless of which
+  // one is active. Mirrors the scoping the check-ins page itself already
+  // applies to the feed above this tab.
+  const membership = await getOrgForUser(coachId)
+  let rosterQuery = admin.from('coach_clients').select('client_id').eq('coach_id', coachId)
+  if (membership) rosterQuery = rosterQuery.eq('org_id', membership.org_id)
+  const { data: roster } = await rosterQuery
+  const allowedClientIds = new Set((roster ?? []).map((r) => r.client_id as string))
+
+  const { data: allFlows } = await admin
     .from('client_autoflows')
     .select('id, client_id, selected_path, start_date')
     .eq('coach_id', coachId)
     .eq('template_id', PROKOL_METHOD_CHECKIN_TEMPLATE_ID)
+
+  const flows = (allFlows ?? []).filter((f) => allowedClientIds.has(f.client_id as string))
 
   if (!flows?.length) return Response.json([])
 

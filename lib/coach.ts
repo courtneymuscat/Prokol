@@ -353,6 +353,19 @@ export async function acceptOrgSignupLink(code: string, clientId: string): Promi
         .single()
       if (!tpl) continue
 
+      // Signing up is retryable — a slow first attempt, a refresh, or a
+      // double-tapped button can all reach here more than once for the same
+      // person. Without this the client ends up enrolled several times over
+      // and receives every check-in and automated message once per copy.
+      const { data: alreadyEnrolled } = await admin
+        .from('client_autoflows')
+        .select('id')
+        .eq('client_id', clientId)
+        .eq('template_id', autoflowId)
+        .eq('status', 'active')
+        .maybeSingle()
+      if (alreadyEnrolled) continue
+
       const startDate = new Date().toISOString().split('T')[0]
       const { data: flow } = await admin
         .from('client_autoflows')
