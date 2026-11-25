@@ -89,6 +89,23 @@ vi.mock('@/lib/supabase/admin', () => ({
       }
       if (table === 'client_autoflows') {
         return {
+          // Enrolment checks for an existing active flow before inserting, so
+          // a retried signup doesn't enrol the same person twice. The mock
+          // answers from rows already inserted in this test.
+          select: () => {
+            const filters: Record<string, unknown> = {}
+            const chain = {
+              eq(col: string, val: unknown) { filters[col] = val; return chain },
+              async maybeSingle() {
+                const found = clientAutoflowRows.find((r) =>
+                  r.client_id === filters.client_id &&
+                  r.template_id === filters.template_id &&
+                  (filters.status === undefined || r.status === filters.status))
+                return { data: found ? { id: 'existing-flow' } : null, error: null }
+              },
+            }
+            return chain
+          },
           insert: (row: Record<string, unknown>) => ({
             select: () => ({
               single: async () => {
@@ -169,6 +186,29 @@ describe('acceptOrgSignupLink', () => {
     await acceptOrgSignupLink('code-1', 'client-1')
     expect(calendarEventRows).toHaveLength(1)
     expect(calendarEventRows[0]).toMatchObject({ client_id: 'client-1', type: 'autoflow' })
+  })
+
+  it('does not enrol the same client twice when signup is retried', async () => {
+    // A slow first attempt, a refresh or a double-tapped button can all reach
+    // here more than once. A gym member retried four times and ended up with
+    // four copies of every scheduled check-in, calendar entry and welcome
+    // message.
+    linkAutoflowIds.push(TEMPLATE.id)
+    await acceptOrgSignupLink('code-1', 'client-1')
+    await acceptOrgSignupLink('code-1', 'client-1')
+    await acceptOrgSignupLink('code-1', 'client-1')
+
+    expect(clientAutoflowRows).toHaveLength(1)
+    expect(calendarEventRows).toHaveLength(1)
+  })
+
+  it('still enrols a different client against the same link after a retry', async () => {
+    linkAutoflowIds.push(TEMPLATE.id)
+    await acceptOrgSignupLink('code-1', 'client-1')
+    await acceptOrgSignupLink('code-1', 'client-1')
+    await acceptOrgSignupLink('code-1', 'client-2')
+
+    expect(clientAutoflowRows.map((r) => r.client_id)).toEqual(['client-1', 'client-2'])
   })
 
   it('upserts client_protocol only when the link has protocol_sections', async () => {
