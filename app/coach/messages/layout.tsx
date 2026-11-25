@@ -5,6 +5,8 @@ import { usePathname, useRouter } from 'next/navigation'
 import ClientTagBadges from '../ClientTagBadges'
 
 type Convo = { id: string; client_id: string; last_message_at: string }
+type Org = { id: string; name: string }
+type Tag = { id: string; name: string; color: string }
 type LatestMsg = { body: string; sender_id: string; attachment_type?: string | null; is_automated?: boolean }
 type Client = { id: string; email: string; full_name?: string | null }
 
@@ -31,6 +33,15 @@ export default function CoachMessagesLayout({ children }: { children: React.Reac
   const [coachId, setCoachId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Cross-business filtering. A coach with one business never sees these —
+  // the switcher only renders when there's more than one to switch between.
+  const [scope, setScope] = useState<string>('current')
+  const [tagFilter, setTagFilter] = useState<string>('')
+  const [orgs, setOrgs] = useState<Org[]>([])
+  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null)
+  const [orgNameByClient, setOrgNameByClient] = useState<Record<string, string | null>>({})
+  const [tags, setTags] = useState<Tag[]>([])
+
   // New message modal
   const [showModal, setShowModal] = useState(false)
   const [clients, setClients] = useState<Client[]>([])
@@ -38,7 +49,10 @@ export default function CoachMessagesLayout({ children }: { children: React.Reac
   const [creating, setCreating] = useState(false)
 
   const loadConvos = useCallback(() => {
-    fetch('/api/coach/messages/list')
+    const qs = new URLSearchParams()
+    if (scope !== 'current') qs.set('scope', scope)
+    if (tagFilter) qs.set('tag', tagFilter)
+    fetch(`/api/coach/messages/list${qs.toString() ? `?${qs}` : ''}`)
       .then(r => r.json())
       .then(data => {
         if (data.error) return
@@ -47,9 +61,13 @@ export default function CoachMessagesLayout({ children }: { children: React.Reac
         setUnreadMap(data.unreadMap ?? {})
         setLatestMap(data.latestMap ?? {})
         setCoachId(data.coachId ?? null)
+        setOrgs(data.orgs ?? [])
+        setCurrentOrgId(data.currentOrgId ?? null)
+        setOrgNameByClient(data.orgNameByClient ?? {})
+        setTags(data.tags ?? [])
       })
       .finally(() => setLoading(false))
-  }, [])
+  }, [scope, tagFilter])
 
   useEffect(() => { loadConvos() }, [loadConvos])
 
@@ -102,6 +120,40 @@ export default function CoachMessagesLayout({ children }: { children: React.Reac
             </button>
           </div>
 
+          {/* Filters — only worth showing when there's more than one business
+              to move between, or tags to filter by. */}
+          {(orgs.length > 1 || tags.length > 0) && (
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 flex-shrink-0 bg-gray-50/60">
+              {orgs.length > 1 && (
+                <select
+                  value={scope}
+                  onChange={(e) => setScope(e.target.value)}
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400 min-w-0 flex-1"
+                >
+                  <option value="current">
+                    {orgs.find((o) => o.id === currentOrgId)?.name ?? 'Current business'}
+                  </option>
+                  <option value="all">All businesses</option>
+                  {orgs.filter((o) => o.id !== currentOrgId).map((o) => (
+                    <option key={o.id} value={o.id}>{o.name} only</option>
+                  ))}
+                </select>
+              )}
+              {tags.length > 0 && (
+                <select
+                  value={tagFilter}
+                  onChange={(e) => setTagFilter(e.target.value)}
+                  className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-400 min-w-0 flex-1"
+                >
+                  <option value="">All tags</option>
+                  {tags.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
           {/* List */}
           <div className="flex-1 overflow-y-auto">
             {loading && <p className="text-xs text-gray-400 text-center py-8">Loading…</p>}
@@ -135,6 +187,14 @@ export default function CoachMessagesLayout({ children }: { children: React.Reac
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-1.5 min-w-0">
                         <p className={`text-sm truncate ${unread ? 'font-bold text-gray-900' : 'font-medium text-gray-800'}`}>{name}</p>
+                        {/* Which business this client belongs to — only
+                            meaningful once the list can span more than one,
+                            so it stays hidden while viewing a single org. */}
+                        {scope !== 'current' && orgNameByClient[c.client_id] && (
+                          <span className="text-[10px] font-semibold px-1.5 py-0 rounded-full bg-gray-100 text-gray-600 flex-shrink-0 whitespace-nowrap">
+                            {orgNameByClient[c.client_id]}
+                          </span>
+                        )}
                         <ClientTagBadges clientId={c.client_id} size="xs" />
                       </span>
                       <span className="text-xs text-gray-400 flex-shrink-0 ml-2">{timeAgo(c.last_message_at)}</span>
