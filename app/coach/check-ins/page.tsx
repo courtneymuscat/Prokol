@@ -360,6 +360,66 @@ export default async function CoachCheckInsPage() {
       name: profileMap[id]?.name ?? profileMap[id]?.email ?? 'Unknown',
     }))
 
+  // Who has gone quiet — distinct from the list above, which is about having
+  // no check-in *scheduled*. These are clients who have one and simply
+  // haven't submitted. Worked out by asking who HAS submitted in the last
+  // week and treating everyone else as overdue, so the query stays bounded
+  // to a week's rows rather than scanning every submission ever made.
+  const quietAdmin = createAdminClient()
+  const quietCutoff = new Date(Date.now() - 7 * 86400000).toISOString()
+
+  const [recentAutoflow, recentDirect, recentForms] = clientIds.length ? await Promise.all([
+    quietAdmin.from('autoflow_responses').select('client_id, submitted_at')
+      .in('client_id', clientIds).gte('submitted_at', quietCutoff),
+    quietAdmin.from('check_ins').select('user_id, created_at')
+      .in('user_id', clientIds).gte('created_at', quietCutoff),
+    quietAdmin.from('form_submissions').select('client_id, submitted_at')
+      .in('client_id', clientIds).gte('submitted_at', quietCutoff),
+  ]) : [
+    { data: [] as { client_id: string }[] },
+    { data: [] as { user_id: string }[] },
+    { data: [] as { client_id: string }[] },
+  ]
+
+  const checkedInRecently = new Set<string>([
+    ...(recentAutoflow.data ?? []).map((r) => r.client_id as string),
+    ...(recentDirect.data ?? []).map((r) => r.user_id as string),
+    ...(recentForms.data ?? []).map((r) => r.client_id as string),
+  ])
+
+  const quietClientIds = clientIds.filter((id) => !checkedInRecently.has(id))
+
+  // Only for the quiet ones, find when they last submitted anything, so the
+  // list can say "11 days ago" rather than just "overdue".
+  const lastSeen: Record<string, string | null> = {}
+  if (quietClientIds.length) {
+    const [lastAutoflow, lastDirect, lastForms] = await Promise.all([
+      quietAdmin.from('autoflow_responses').select('client_id, submitted_at')
+        .in('client_id', quietClientIds).order('submitted_at', { ascending: false }),
+      quietAdmin.from('check_ins').select('user_id, created_at')
+        .in('user_id', quietClientIds).order('created_at', { ascending: false }),
+      quietAdmin.from('form_submissions').select('client_id, submitted_at')
+        .in('client_id', quietClientIds).order('submitted_at', { ascending: false }),
+    ])
+    const consider = (id: string, when: string | null) => {
+      if (!when) return
+      if (!lastSeen[id] || when > lastSeen[id]!) lastSeen[id] = when
+    }
+    for (const r of lastAutoflow.data ?? []) consider(r.client_id as string, r.submitted_at as string)
+    for (const r of lastDirect.data ?? []) consider(r.user_id as string, r.created_at as string)
+    for (const r of lastForms.data ?? []) consider(r.client_id as string, r.submitted_at as string)
+  }
+
+  const quietClients = quietClientIds
+    .map((id) => ({
+      clientId: id,
+      name: profileMap[id]?.name ?? profileMap[id]?.email ?? 'Unknown',
+      lastCheckIn: lastSeen[id] ?? null,
+      hasSchedule: clientsWithSchedule.has(id),
+    }))
+    // Longest-silent first — never-checked-in clients sort to the top.
+    .sort((a, b) => (a.lastCheckIn ?? '').localeCompare(b.lastCheckIn ?? ''))
+
   // Sort all entries newest first
   entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
@@ -391,7 +451,7 @@ export default async function CoachCheckInsPage() {
 
       <FollowUpsSection />
 
-      <ScheduleSection days={days7} noCheckInClients={noCheckInClients} />
+      <ScheduleSection days={days7} noCheckInClients={noCheckInClients} quietClients={quietClients} />
 
       <ProkolMethodCheckins />
 

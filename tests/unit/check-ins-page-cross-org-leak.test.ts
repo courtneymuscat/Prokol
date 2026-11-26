@@ -54,10 +54,14 @@ vi.mock('@/lib/supabase/admin', () => ({
           }),
         }
       }
+      // Generic no-op chain. It is awaitable at any point as well as after
+      // .limit(), because the page awaits some queries straight after .gte()
+      // or .order() rather than always ending in .limit().
       const chain: Record<string, unknown> = {}
-      for (const m of ['select', 'eq', 'in', 'or']) chain[m] = () => chain
+      for (const m of ['select', 'eq', 'in', 'or', 'gte', 'lte', 'not', 'is']) chain[m] = () => chain
       chain.order = () => chain
       chain.limit = async () => ({ data: [] })
+      chain.then = (res: (v: { data: unknown[] }) => unknown) => Promise.resolve({ data: [] }).then(res)
       return chain
     },
   }),
