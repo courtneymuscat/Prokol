@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { noteBodyToHtml } from '@/lib/noteUtils'
+import { pastePlainText } from '@/app/coach/clients/[clientId]/RichToolbar'
 
 type Template = { id: string; name: string; body: string; created_at: string; is_org_template?: boolean }
 
@@ -297,6 +298,7 @@ export default function NoteTemplatesPage() {
               <div
                 ref={editorRef}
                 contentEditable
+                onPaste={pastePlainText}
                 suppressContentEditableWarning
                 data-placeholder="Write your template… use the toolbar for bold headings, colours, lists etc."
                 className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 leading-relaxed overflow-auto prose prose-sm max-w-none"

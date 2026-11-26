@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { noteBodyToHtml } from '@/lib/noteUtils'
-import RichToolbar from './RichToolbar'
+import RichToolbar, { pastePlainText } from './RichToolbar'
 
 type Note = {
   id: string
@@ -331,6 +331,7 @@ export default function NotesTab({ clientId }: { clientId: string }) {
         <div
           ref={editorRef}
           contentEditable
+          onPaste={pastePlainText}
           suppressContentEditableWarning
           onInput={scheduleAutoSave}
           data-placeholder="Write a note about this client… or pick a template above"

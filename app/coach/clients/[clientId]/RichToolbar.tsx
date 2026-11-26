@@ -86,3 +86,21 @@ export default function RichToolbar({ editorRef }: { editorRef: React.RefObject<
     </div>
   )
 }
+
+/**
+ * Paste as plain text.
+ *
+ * A contentEditable box otherwise keeps whatever markup the clipboard carried
+ * — pasting notes from Fathom, Google Docs or Notion drags their background
+ * colours and fonts in with the words, which is where "black highlighted"
+ * text comes from. Strips to text and lets the toolbar do any formatting.
+ *
+ * insertText rather than writing innerHTML directly so the browser's own
+ * undo history still works.
+ */
+export function pastePlainText(e: React.ClipboardEvent<HTMLDivElement>) {
+  const text = e.clipboardData.getData('text/plain')
+  if (!text) return
+  e.preventDefault()
+  document.execCommand('insertText', false, text)
+}

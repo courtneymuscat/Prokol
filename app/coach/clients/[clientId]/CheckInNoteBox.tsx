@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { noteBodyToHtml } from '@/lib/noteUtils'
-import RichToolbar from './RichToolbar'
+import RichToolbar, { pastePlainText } from './RichToolbar'
 
 // Private coach notes attached to a specific check-in, each with an optional
 // follow-up date. Deliberately distinct from CheckinFeedbackViaMessages
@@ -237,6 +237,7 @@ export default function CheckInNoteBox({
           <div
             ref={editorRef}
             contentEditable
+            onPaste={pastePlainText}
             suppressContentEditableWarning
             onInput={syncHasText}
             data-placeholder={`What you want to remember about ${sourceLabel}…`}
