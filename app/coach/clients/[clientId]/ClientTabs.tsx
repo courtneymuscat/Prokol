@@ -1992,15 +1992,10 @@ function ExpandableAutoflowCheckIn({ item, clientId, onDelete, highlight, notes,
           )}
         </div>
       )}
+      {/* Private note sits directly under the answers, with the client-facing
+          feedback below it: the note is what gets written while reading, so
+          it should be the thing nearest what you're reading. */}
       <div className="px-5 pb-5 border-t border-gray-100">
-        <CheckinFeedbackViaMessages
-          clientId={clientId}
-          checkinDate={item.submitted_at}
-          checkinLabel={`${item.flow_name} — Step ${item.step_number}`}
-          responseId={item.id}
-          initialReviewed={item.reviewed_by_coach ?? false}
-          initialFeedback={item.coach_feedback ?? ''}
-        />
         <CheckInNoteBox
           clientId={clientId}
           sourceLabel={`${item.flow_name} — Step ${item.step_number}${item.step_title ? `: ${item.step_title}` : ''}`}
@@ -2009,6 +2004,16 @@ function ExpandableAutoflowCheckIn({ item, clientId, onDelete, highlight, notes,
           onChanged={onNotesChanged}
           onComposingChange={setComposingNote}
         />
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <CheckinFeedbackViaMessages
+            clientId={clientId}
+            checkinDate={item.submitted_at}
+            checkinLabel={`${item.flow_name} — Step ${item.step_number}`}
+            responseId={item.id}
+            initialReviewed={item.reviewed_by_coach ?? false}
+            initialFeedback={item.coach_feedback ?? ''}
+          />
+        </div>
       </div>
     </div>
   )

@@ -153,7 +153,7 @@ export default function CheckInNoteBox({
   }
 
   return (
-    <div className="mt-3 space-y-2">
+    <div className="mt-4 space-y-2">
       {/* Notes already written about this check-in */}
       {notes.map((note) => (
         <div key={note.id} className="rounded-xl border border-purple-200 bg-purple-50/60 px-3 py-2.5">
