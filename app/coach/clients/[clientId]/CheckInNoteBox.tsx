@@ -46,6 +46,7 @@ export default function CheckInNoteBox({
   sourceUrl,
   notes = [],
   onChanged,
+  onComposingChange,
 }: {
   clientId: string
   sourceLabel: string
@@ -53,6 +54,9 @@ export default function CheckInNoteBox({
   /** Notes already attached to this check-in, filtered by the parent. */
   notes?: CheckInNote[]
   onChanged?: () => void
+  /** Fires when the composer opens or closes, so the check-in above can
+   *  switch its answers to a scrollable pane and keep the note in view. */
+  onComposingChange?: (composing: boolean) => void
 }) {
   const [open, setOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -84,6 +88,7 @@ export default function CheckInNoteBox({
     setEditingId(note?.id ?? null)
     setFollowUp(note?.follow_up_date ?? '')
     setOpen(true)
+    onComposingChange?.(true)
     // The editor only exists once `open` is true, so fill it after paint.
     setTimeout(() => {
       if (editorRef.current) {
@@ -96,6 +101,7 @@ export default function CheckInNoteBox({
 
   function closeComposer() {
     setOpen(false)
+    onComposingChange?.(false)
     setEditingId(null)
     setFollowUp('')
     setError(null)
@@ -191,7 +197,7 @@ export default function CheckInNoteBox({
       )}
 
       {open && (
-        <div className="rounded-xl border border-purple-200 bg-purple-50/60 p-3 space-y-2.5">
+        <div className="rounded-xl border border-purple-300 bg-purple-50 p-3 space-y-2.5">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[11px] font-semibold text-purple-800 uppercase tracking-wide">
               {editingId ? 'Editing note' : 'Private note'} · only you see this
@@ -235,7 +241,7 @@ export default function CheckInNoteBox({
             onInput={syncHasText}
             data-placeholder={`What you want to remember about ${sourceLabel}…`}
             className="w-full border border-purple-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-400 leading-relaxed overflow-auto prose prose-sm max-w-none"
-            style={{ minHeight: '7rem' }}
+            style={{ minHeight: '5.5rem', maxHeight: '22vh' }}
           />
 
           <div>

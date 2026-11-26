@@ -1793,6 +1793,11 @@ function CheckinFeedbackViaMessages({ clientId, checkinDate, checkinLabel, respo
 
 function ExpandableAutoflowCheckIn({ item, clientId, onDelete, highlight, notes, onNotesChanged }: { item: AutoflowCheckIn; clientId: string; onDelete: (id: string) => void; highlight?: boolean; notes: CheckInNote[]; onNotesChanged: () => void }) {
   const [open, setOpen] = useState(!!highlight)
+  // While a private note is being written, the answers become their own
+  // scrollable pane. Otherwise a long check-in pushes the note box off the
+  // bottom of the screen and you end up scrolling up and down between
+  // reading an answer and writing about it.
+  const [composingNote, setComposingNote] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const hasAnswers = item.questions.length > 0 && Object.keys(item.answers).length > 0
   const answeredQuestions = item.questions.filter((q) => q.id in item.answers)
@@ -1954,7 +1959,10 @@ function ExpandableAutoflowCheckIn({ item, clientId, onDelete, highlight, notes,
         </div>
       )}
       {open && (
-        <div className="px-5 pb-3 border-t border-gray-100">
+        <div
+          className={`px-5 pb-3 border-t border-gray-100 ${composingNote ? 'overflow-y-auto' : ''}`}
+          style={composingNote ? { maxHeight: '45vh' } : undefined}
+        >
           {item.questions.length === 0 ? (
             <p className="text-xs text-gray-400 pt-3">No answers recorded.</p>
           ) : (
@@ -1999,6 +2007,7 @@ function ExpandableAutoflowCheckIn({ item, clientId, onDelete, highlight, notes,
           sourceUrl={`/coach/clients/${clientId}?tab=checkins&checkin=${item.id}`}
           notes={notes}
           onChanged={onNotesChanged}
+          onComposingChange={setComposingNote}
         />
       </div>
     </div>
