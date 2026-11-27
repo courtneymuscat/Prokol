@@ -1692,6 +1692,11 @@ function CheckinFeedbackViaMessages({ clientId, checkinDate, checkinLabel, respo
   const [feedback, setFeedback] = useState(initialFeedback ?? '')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
+  // Collapsed by default: a six-row textarea per check-in pushes the next one
+  // off screen whether or not there is anything to say. Opens on demand, and
+  // stays open once feedback has been sent in this session so the confirmation
+  // is visible.
+  const [open, setOpen] = useState(false)
 
   const effectivePatchUrl = patchUrl ?? (responseId ? `/api/coach/clients/${clientId}/autoflow-responses/${responseId}` : null)
 
@@ -1737,10 +1742,21 @@ function CheckinFeedbackViaMessages({ clientId, checkinDate, checkinLabel, respo
     }
   }
 
+  const hasFeedback = !!feedback.trim()
+
   return (
     <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Coach feedback</p>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide hover:text-gray-800 transition-colors"
+        >
+          <svg className={`w-3 h-3 transition-transform ${open ? '' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+          </svg>
+          Coach feedback
+          {!open && hasFeedback && <span className="font-medium normal-case text-green-600">· written</span>}
+        </button>
         <label className="flex items-center gap-1.5 cursor-pointer">
           <input
             type="checkbox"
@@ -1763,20 +1779,35 @@ function CheckinFeedbackViaMessages({ clientId, checkinDate, checkinLabel, respo
           </span>
         </label>
       </div>
-      <textarea
-        value={feedback}
-        onChange={(e) => setFeedback(e.target.value)}
-        rows={6}
-        placeholder="Write feedback to send to client…"
-        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
-      />
-      <button
-        onClick={handleSend}
-        disabled={sending || !feedback.trim()}
-        className="text-xs font-semibold bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-      >
-        {sending ? 'Sending…' : sent ? 'Sent via messages!' : 'Send check-in feedback (sent via messages)'}
-      </button>
+      {!open && (
+        <button
+          onClick={() => setOpen(true)}
+          className="w-full text-left text-xs text-gray-500 hover:text-gray-800 border border-dashed border-gray-200 hover:border-gray-300 rounded-xl py-2 px-3 transition-colors"
+        >
+          {hasFeedback
+            ? <span className="line-clamp-1">{feedback.trim()}</span>
+            : '+ Write feedback to send to client'}
+        </button>
+      )}
+
+      {open && (
+        <>
+          <textarea
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
+            rows={6}
+            placeholder="Write feedback to send to client…"
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+          />
+          <button
+            onClick={handleSend}
+            disabled={sending || !feedback.trim()}
+            className="text-xs font-semibold bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {sending ? 'Sending…' : sent ? 'Sent via messages!' : 'Send check-in feedback (sent via messages)'}
+          </button>
+        </>
+      )}
     </div>
   )
 }
