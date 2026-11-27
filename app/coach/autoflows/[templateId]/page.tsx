@@ -1405,7 +1405,14 @@ export default function AutoflowTemplatePage({ params }: { params: Promise<{ tem
 
       <div className="flex-1 flex min-h-0">
         {/* Left: tab selector */}
-        <aside className="w-56 bg-white border-r flex-shrink-0 p-3 space-y-0.5">
+        {/* Stays put while the step editor scrolls — a step with tasks,
+            resources and questions runs well past a screen, and the step list
+            used to scroll away with it, so switching steps meant scrolling
+            back to the top first.
+            self-start matters: a flex child stretches to full height by
+            default, which leaves sticky nothing to travel against. The list
+            gets its own scrollbar for templates with many steps. */}
+        <aside className="w-56 bg-white border-r flex-shrink-0 p-3 space-y-0.5 sticky top-0 self-start max-h-screen overflow-y-auto">
           <button
             onClick={() => setTab('core')}
             className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'core' ? 'bg-gray-100 text-gray-900' : 'text-gray-500 hover:bg-gray-50'}`}
