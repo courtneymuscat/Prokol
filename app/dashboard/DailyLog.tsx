@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { recordFoodHistory } from '@/lib/foodHistory'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { notifyMyCoach } from '@/lib/notifyMyCoach'
@@ -250,17 +251,8 @@ export default function DailyLog({
 
     notifyMyCoach('food')
 
-    // Save to history (non-blocking)
-    supabase.from('user_food_history').insert({
-      user_id: session.user.id,
-      food_id: food.id,
-      name: food.name,
-      calories_per_100g: food.calories_per_100g,
-      protein_per_100g: food.protein_per_100g,
-      carbs_per_100g: food.carbs_per_100g,
-      fat_per_100g: food.fat_per_100g,
-      fibre_per_100g: food.fibre_per_100g ?? null,
-    })
+    // Save to history so it shows under "recent" next time (non-blocking)
+    recordFoodHistory(supabase, session.user.id, food)
 
     setSaving(false)
     setPendingEntry(null)

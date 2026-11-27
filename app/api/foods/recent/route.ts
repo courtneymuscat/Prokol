@@ -7,9 +7,9 @@ export async function GET() {
 
   const { data } = await supabase
     .from('user_food_history')
-    .select('food_id, name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, fibre_per_100g, unit, serving_quantity, serving_size, logged_at')
+    .select('food_id, name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g, fibre_per_100g, unit, serving_quantity, serving_size, last_used')
     .eq('user_id', session.user.id)
-    .order('logged_at', { ascending: false })
+    .order('last_used', { ascending: false })
     .limit(40)
 
   // Deduplicate by food_id (or name), keep most recent occurrence. Drop:
@@ -38,7 +38,7 @@ export async function GET() {
   }).slice(0, 10)
 
   // Map to FoodResult shape (id instead of food_id)
-  const result = unique.map(({ food_id, logged_at, ...rest }) => ({ id: food_id ?? '', ...rest }))
+  const result = unique.map(({ food_id, last_used, ...rest }) => ({ id: food_id ?? '', ...rest }))
 
   return Response.json(result)
 }

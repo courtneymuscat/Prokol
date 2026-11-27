@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { recordFoodHistory } from '@/lib/foodHistory'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import FoodSearch, { type FoodResult } from './FoodSearch'
@@ -58,15 +59,7 @@ export default function FoodLogForm() {
       setError(error.message)
     } else {
       if (selectedFood) {
-        await supabase.from('user_food_history').insert({
-          user_id: session.user.id,
-          food_id: selectedFood.id,
-          name: selectedFood.name,
-          calories_per_100g: selectedFood.calories_per_100g,
-          protein_per_100g: selectedFood.protein_per_100g,
-          carbs_per_100g: selectedFood.carbs_per_100g,
-          fat_per_100g: selectedFood.fat_per_100g,
-        })
+        await recordFoodHistory(supabase, session.user.id, selectedFood)
       }
       setSuccess(true)
       setSelectedFood(null)
