@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { preparationBonus } from '@/lib/foodSearchRank'
 import dynamic from 'next/dynamic'
 import { getPieceWeight } from '@/lib/pieceWeights'
 
@@ -51,6 +52,11 @@ function getRelevanceScore(name: string, terms: string[]): number {
     // Prefer shorter names — "Chicken, raw" beats "Chicken breast, raw, skinless, boneless"
     score += Math.max(0, 40 - Math.floor(n.length / 4))
   }
+
+  // Favour the raw, lean form of an ingredient. Applied last and kept small
+  // relative to the match bonuses above, so a branded product search still
+  // puts the product first.
+  score += preparationBonus(name)
 
   return score
 }

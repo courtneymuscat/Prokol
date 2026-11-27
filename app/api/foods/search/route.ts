@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import type { NextRequest } from 'next/server'
+import { rankFood } from '@/lib/foodSearchRank'
 
 // This route only searches the local database.
 // Open Food Facts is called directly from the browser (see FoodSearch.tsx)
@@ -47,14 +48,11 @@ export async function GET(req: NextRequest) {
     applyRecipeFoodScope(applyTerms(supabase.from('foods'))).order('name').limit(10),
   ])
 
-  // Score each DB result by how many query terms appear in the name,
-  // then sort so all-terms matches come first.
-  function scoreLocal(name: string): number {
-    const n = name.toLowerCase()
-    let s = 0
-    for (const t of terms) if (n.includes(t.toLowerCase())) s++
-    return s
-  }
+  // Ranked rather than alphabetical. The cut to 15 happens here, so without
+  // this the raw/lean entry could be dropped before the client ever sees it —
+  // "chicken breast" returned baked, casseroled, fried and grilled first
+  // purely because of the alphabet.
+  const lowerTerms = terms.map((t) => t.toLowerCase())
 
   const custom = (customFoods ?? []).map((f) => ({ ...f, custom: true }))
   const seen = new Set<string>()
@@ -64,7 +62,7 @@ export async function GET(req: NextRequest) {
     if (!seen.has(key)) { seen.add(key); merged.push(food as typeof custom[0]) }
   }
 
-  merged.sort((a, b) => scoreLocal(b.name) - scoreLocal(a.name))
+  merged.sort((a, b) => rankFood(b.name, q, lowerTerms) - rankFood(a.name, q, lowerTerms))
 
   return Response.json(merged.slice(0, 15))
 }
