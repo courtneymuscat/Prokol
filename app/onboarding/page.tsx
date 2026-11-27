@@ -1,4 +1,5 @@
 'use client'
+import { TDEE_ACTIVITY_OPTIONS as ACTIVITY_OPTIONS, type TDEEActivityType as ActivityType } from '@/lib/tdee'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -12,7 +13,6 @@ type Sex = 'male' | 'female'
 // actually match against. 'none' is still the stored value for omnivore
 // (unchanged from before, no data migration needed) — just relabelled.
 type DietaryPreference = 'none' | 'vegan' | 'dairy_free'
-type ActivityType = 'running' | 'cycling' | 'strength' | 'hiit' | 'swimming' | 'walking' | 'rowing' | 'yoga'
 
 type Activity = {
   id: string
@@ -46,18 +46,6 @@ const DIETARY_PREFS: { value: DietaryPreference; label: string }[] = [
   { value: 'none',        label: 'Omnivore (no preference)' },
   { value: 'vegan',       label: 'Vegan' },
   { value: 'dairy_free',  label: 'Dairy-free' },
-]
-
-// MET values (gross MET from Compendium of Physical Activities)
-const ACTIVITY_OPTIONS: { value: ActivityType; label: string; met: number; hint: string }[] = [
-  { value: 'running',  label: 'Running',           met: 9.0, hint: 'Jogging or running' },
-  { value: 'cycling',  label: 'Cycling',            met: 7.5, hint: 'Road, trail or stationary bike' },
-  { value: 'strength', label: 'Strength Training',  met: 5.0, hint: 'Weights, resistance, machines' },
-  { value: 'hiit',     label: 'HIIT / Circuits',    met: 9.0, hint: 'High-intensity interval training' },
-  { value: 'swimming', label: 'Swimming',            met: 6.0, hint: 'Laps, general' },
-  { value: 'walking',  label: 'Brisk Walking',       met: 3.8, hint: 'Purposeful, faster than strolling' },
-  { value: 'rowing',   label: 'Rowing',              met: 7.0, hint: 'Rowing machine or on water' },
-  { value: 'yoga',     label: 'Yoga / Pilates',      met: 2.5, hint: 'Yoga, pilates, stretching' },
 ]
 
 // ── TDEE calculation ───────────────────────────────────────────────────────

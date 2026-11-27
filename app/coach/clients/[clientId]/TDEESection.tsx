@@ -1,4 +1,5 @@
 'use client'
+import { TDEE_ACTIVITY_OPTIONS, type TDEEActivityType } from '@/lib/tdee'
 
 import { useState, useEffect, useRef } from 'react'
 import { TDEECalcExplainer, MealPlanDrivenNote } from '@/app/components/TDEEExplainerNote'
@@ -8,7 +9,6 @@ import type { WeekInfo } from '@/lib/weeklyPlan'
 
 type TDEESex = 'male' | 'female'
 type TDEEGoal = 'fat_loss' | 'muscle_gain' | 'performance' | 'general_health'
-type TDEEActivityType = 'running' | 'cycling' | 'strength' | 'hiit' | 'swimming' | 'walking' | 'rowing' | 'yoga'
 type TDEEActivity = { id: string; type: TDEEActivityType; duration_minutes: string; sessions_per_week: string }
 
 const TDEE_GOALS: { value: TDEEGoal; label: string }[] = [
@@ -18,16 +18,6 @@ const TDEE_GOALS: { value: TDEEGoal; label: string }[] = [
   { value: 'general_health', label: 'General Health' },
 ]
 
-const TDEE_ACTIVITY_OPTIONS: { value: TDEEActivityType; label: string; met: number; hint: string }[] = [
-  { value: 'running',  label: 'Running',          met: 9.0, hint: 'Jogging or running' },
-  { value: 'cycling',  label: 'Cycling',           met: 7.5, hint: 'Road, trail or stationary bike' },
-  { value: 'strength', label: 'Strength Training', met: 5.0, hint: 'Weights, resistance, machines' },
-  { value: 'hiit',     label: 'HIIT / Circuits',   met: 9.0, hint: 'High-intensity interval training' },
-  { value: 'swimming', label: 'Swimming',           met: 6.0, hint: 'Laps, general' },
-  { value: 'walking',  label: 'Brisk Walking',      met: 3.8, hint: 'Purposeful, faster than strolling' },
-  { value: 'rowing',   label: 'Rowing',             met: 7.0, hint: 'Rowing machine or on water' },
-  { value: 'yoga',     label: 'Yoga / Pilates',     met: 2.5, hint: 'Yoga, pilates, stretching' },
-]
 
 function calcTDEE(age: number, sex: TDEESex, height_cm: number, weight_kg: number, activities: TDEEActivity[], steps_per_day: number) {
   const bmr = sex === 'male'

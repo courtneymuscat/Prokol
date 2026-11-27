@@ -8,7 +8,15 @@
 
 export type TDEESex = 'male' | 'female'
 export type TDEEGoal = 'fat_loss' | 'muscle_gain' | 'performance' | 'general_health'
-export type TDEEActivityType = 'running' | 'cycling' | 'strength' | 'hiit' | 'swimming' | 'walking' | 'rowing' | 'yoga'
+export type TDEEActivityType =
+  // The original eight. Never rename or drop a value — these are stored on
+  // profiles.activities, so an existing client's saved training would stop
+  // resolving and silently lose its calorie contribution.
+  | 'running' | 'cycling' | 'strength' | 'hiit' | 'swimming' | 'walking' | 'rowing' | 'yoga'
+  // Added so harder and more specific sessions aren't all collapsed into one
+  // average — intervals cost far more than the same minutes jogging.
+  | 'running_intervals' | 'rowing_intervals' | 'crossfit' | 'hyrox'
+  | 'hiking' | 'boxing' | 'sports' | 'spin' | 'elliptical' | 'stairs' | 'dance'
 export type TDEEActivity = { type: TDEEActivityType; duration_minutes: string; sessions_per_week: string }
 
 export const TDEE_GOALS: { value: TDEEGoal; label: string }[] = [
@@ -19,14 +27,28 @@ export const TDEE_GOALS: { value: TDEEGoal; label: string }[] = [
 ]
 
 export const TDEE_ACTIVITY_OPTIONS: { value: TDEEActivityType; label: string; met: number; hint: string }[] = [
-  { value: 'running',  label: 'Running',          met: 9.0, hint: 'Jogging or running' },
-  { value: 'cycling',  label: 'Cycling',           met: 7.5, hint: 'Road, trail or stationary bike' },
-  { value: 'strength', label: 'Strength Training', met: 5.0, hint: 'Weights, resistance, machines' },
-  { value: 'hiit',     label: 'HIIT / Circuits',   met: 9.0, hint: 'High-intensity interval training' },
-  { value: 'swimming', label: 'Swimming',           met: 6.0, hint: 'Laps, general' },
-  { value: 'walking',  label: 'Brisk Walking',      met: 3.8, hint: 'Purposeful, faster than strolling' },
-  { value: 'rowing',   label: 'Rowing',             met: 7.0, hint: 'Rowing machine or on water' },
-  { value: 'yoga',     label: 'Yoga / Pilates',     met: 2.5, hint: 'Yoga, pilates, stretching' },
+  // MET values follow the Compendium of Physical Activities. The original
+  // eight keep their original numbers so existing clients' targets don't
+  // shift underneath them.
+  { value: 'running',           label: 'Running — easy/steady',   met: 9.0,  hint: 'Conversational pace, long runs, zone 2' },
+  { value: 'running_intervals', label: 'Running — intervals',     met: 12.5, hint: 'Track work, sprints, hill reps, race pace' },
+  { value: 'cycling',           label: 'Cycling',                 met: 7.5,  hint: 'Road, trail or stationary bike' },
+  { value: 'spin',              label: 'Spin / indoor cycling',   met: 8.5,  hint: 'Studio spin class, Peloton-style' },
+  { value: 'strength',          label: 'Strength Training',       met: 5.0,  hint: 'Weights, resistance, machines' },
+  { value: 'crossfit',          label: 'CrossFit / functional',   met: 8.0,  hint: 'WODs, AMRAPs, mixed functional classes' },
+  { value: 'hyrox',             label: 'Hyrox / hybrid racing',   met: 10.0, hint: 'Hyrox classes, sled work, compromised running' },
+  { value: 'hiit',              label: 'HIIT / Circuits',         met: 9.0,  hint: 'High-intensity interval training' },
+  { value: 'rowing',            label: 'Rowing — steady',         met: 7.0,  hint: 'Erg or on water at a steady pace' },
+  { value: 'rowing_intervals',  label: 'Rowing — intervals',      met: 11.0, hint: 'Erg intervals, 500m repeats, hard pieces' },
+  { value: 'swimming',          label: 'Swimming',                met: 6.0,  hint: 'Laps, general' },
+  { value: 'boxing',            label: 'Boxing / martial arts',   met: 9.0,  hint: 'Bag work, pads, sparring, BJJ' },
+  { value: 'sports',            label: 'Team / racquet sport',    met: 7.5,  hint: 'Netball, football, tennis, hockey' },
+  { value: 'stairs',            label: 'Stair climber',           met: 9.0,  hint: 'Stairmaster, stair repeats' },
+  { value: 'elliptical',        label: 'Cross-trainer',           met: 5.5,  hint: 'Elliptical, ski erg at a steady pace' },
+  { value: 'hiking',            label: 'Hiking',                  met: 6.0,  hint: 'Trails, hills, carrying a pack' },
+  { value: 'dance',             label: 'Dance / aerobics',        met: 6.5,  hint: 'Zumba, dance classes, step' },
+  { value: 'walking',           label: 'Brisk Walking',           met: 3.8,  hint: 'Purposeful, faster than strolling' },
+  { value: 'yoga',              label: 'Yoga / Pilates',          met: 2.5,  hint: 'Yoga, pilates, stretching' },
 ]
 
 export function calcTDEE(age: number, sex: TDEESex, height_cm: number, weight_kg: number, activities: TDEEActivity[], steps_per_day: number) {
