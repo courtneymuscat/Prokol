@@ -543,7 +543,10 @@ export default function OnboardingPage() {
                               </svg>
                             </button>
                           </div>
-                          <p className="text-xs text-gray-400">{opt?.hint} · MET {opt?.met}</p>
+                          {/* No MET here, unlike the coach-facing calculator:
+                              this is filled in by the client, and the number
+                              means nothing to them. */}
+                          <p className="text-xs text-gray-400">{opt?.hint}</p>
                           <div className="grid grid-cols-2 gap-3">
                             <div>
                               <label className="text-xs text-gray-500 block mb-1">Duration (min/session)</label>
