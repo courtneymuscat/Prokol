@@ -249,31 +249,60 @@ export async function reportSeatUsage(coachId: string): Promise<void> {
   if (!profile) return
 
   const tier = profile.subscription_tier as string
-  const seatCount = (profile.subscription_seat_count as number) ?? 0
+  const previous = (profile.subscription_seat_count as number) ?? 0
   const includedSeats = INCLUDED_SEATS[tier] ?? 0
   const meterEvent = TIER_TO_METER_EVENT[tier]
 
-  // Always increment seat count
-  await admin
-    .from('profiles')
-    .update({ subscription_seat_count: seatCount + 1 })
-    .eq('id', coachId)
+  const seats = await recountCoachSeats(coachId)
 
-  // Report overage to Stripe only when above the included seat threshold
-  if (seatCount >= includedSeats && meterEvent && profile.stripe_customer_id) {
+  // Only bill when the roster genuinely grew past the included allowance.
+  //
+  // This used to blindly do seatCount + 1 on every call, which drifted badly:
+  // nothing decremented when a client was archived or removed (only full
+  // account deletion did), and a retried signup incremented again per attempt.
+  // One coach ended up recorded as 92 seats against 9 active clients — and
+  // every one of those phantom seats above the plan allowance was a billable
+  // overage event.
+  if (seats > previous && seats > includedSeats && meterEvent && profile.stripe_customer_id) {
     try {
       const stripe = getStripe()
       await stripe.billing.meterEvents.create({
         event_name: meterEvent,
         payload: {
           stripe_customer_id: profile.stripe_customer_id as string,
-          value: '1',
+          value: String(Math.min(seats - previous, seats - includedSeats)),
         },
       })
     } catch (err) {
       console.error('Stripe meter event error:', err instanceof Error ? err.message : String(err))
     }
   }
+}
+
+/**
+ * Sets a coach's stored seat count to the number of clients they actually
+ * have active, and returns it.
+ *
+ * The count is derived rather than accumulated on purpose — it feeds overage
+ * billing, and a counter that only ever goes up silently overcharges. Call
+ * this wherever a coaching relationship starts or ends.
+ */
+export async function recountCoachSeats(coachId: string): Promise<number> {
+  const admin = createAdminClient()
+
+  const { count } = await admin
+    .from('coach_clients')
+    .select('id', { count: 'exact', head: true })
+    .eq('coach_id', coachId)
+    .eq('status', 'active')
+
+  const seats = count ?? 0
+  await admin
+    .from('profiles')
+    .update({ subscription_seat_count: seats })
+    .eq('id', coachId)
+
+  return seats
 }
 
 // ─── Coach_business org coach seat reporting ──────────────────────────────────

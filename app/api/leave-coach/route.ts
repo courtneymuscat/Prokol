@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { recountCoachSeats } from '@/lib/billing'
 
 export async function POST() {
   const supabase = await createClient()
@@ -29,6 +30,10 @@ export async function POST() {
     .from('profiles')
     .update({ subscription_tier: 'individual_free' })
     .eq('id', clientId)
+
+  // Seats feed overage billing, so recount once the relationship ends — the
+  // stored count previously only ever went up.
+  await recountCoachSeats(rel.coach_id as string)
 
   return Response.json({ ok: true })
 }

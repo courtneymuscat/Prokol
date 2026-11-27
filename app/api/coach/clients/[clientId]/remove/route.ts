@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { recountCoachSeats } from '@/lib/billing'
 import { requireCoach } from '@/lib/coach'
 import type { NextRequest } from 'next/server'
 
@@ -26,6 +27,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cli
     .update({ status: 'inactive' })
     .eq('coach_id', coachId)
     .eq('client_id', clientId)
+
+  // Seats feed overage billing, so recount once the relationship ends — the
+  // stored count previously only ever went up.
+  await recountCoachSeats(coachId)
 
   // Revert client to free tier
   await supabase

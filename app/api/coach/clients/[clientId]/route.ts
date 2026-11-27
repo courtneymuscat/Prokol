@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { recountCoachSeats } from '@/lib/billing'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireCoach } from '@/lib/coach'
 import { effectiveQuestions } from '@/lib/autoflow-fork'
@@ -521,6 +522,10 @@ export async function PATCH(
     .eq('coach_id', coachId)
     .eq('client_id', clientId)
 
+  // Seats feed overage billing, so recount once the relationship ends — the
+  // stored count previously only ever went up.
+  await recountCoachSeats(coachId)
+
   const admin = createAdminClient()
   await admin
     .from('profiles')
@@ -545,6 +550,10 @@ export async function DELETE(
     .update({ status: 'removed' })
     .eq('coach_id', coachId)
     .eq('client_id', clientId)
+
+  // Seats feed overage billing, so recount once the relationship ends — the
+  // stored count previously only ever went up.
+  await recountCoachSeats(coachId)
 
   // Revert client to free tier — admin client bypasses RLS on profiles
   const admin = createAdminClient()

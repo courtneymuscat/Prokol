@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/service'
 import { getStripe } from '@/lib/stripe'
+import { recountCoachSeats } from '@/lib/billing'
 
 // Deleting a user from the Supabase dashboard fails for anyone who has used
 // the app: `profiles` and its children reference auth.users without a cascade
@@ -105,20 +106,10 @@ export async function purgeUserData(userId: string): Promise<void> {
   await service.from('coach_invites').delete().eq('coach_id', userId)
   await service.from('coach_notes').delete().or(`coach_id.eq.${userId},client_id.eq.${userId}`)
 
-  // Decrement each coach's seat count now that the client relationship is gone
+  // Recount each coach's seats now the relationship is gone. Derived rather
+  // than decremented, so it self-corrects if it had already drifted.
   for (const { coach_id } of activeCoachRelationships ?? []) {
-    const { data: coachProfile } = await service
-      .from('profiles')
-      .select('subscription_seat_count')
-      .eq('id', coach_id)
-      .single()
-    const currentCount = (coachProfile?.subscription_seat_count as number) ?? 0
-    if (currentCount > 0) {
-      await service
-        .from('profiles')
-        .update({ subscription_seat_count: currentCount - 1 })
-        .eq('id', coach_id)
-    }
+    await recountCoachSeats(coach_id as string)
   }
 
   // ── 13. Coach-owned content ───────────────────────────────────────────────
