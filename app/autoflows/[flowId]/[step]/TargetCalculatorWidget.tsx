@@ -306,12 +306,15 @@ export default function TargetCalculatorWidget({
         <p className="text-[11px] text-amber-700 leading-relaxed">
           Don&apos;t skip this if you train regularly — without it, your target can under-fuel you, putting you at risk of low energy availability. Adding it gives a more accurate number.
         </p>
-        {activities.map(act => (
-          <div key={act.id} className="flex items-center gap-2">
+        {activities.map(act => {
+          const opt = TDEE_ACTIVITY_OPTIONS.find(o => o.value === act.type)
+          return (
+          <div key={act.id} className="space-y-1">
+          <div className="flex items-center gap-2">
             <select
               value={act.type}
               onChange={e => updateActivity(act.id, { type: e.target.value as TDEEActivityType })}
-              className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white"
+              className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-xs bg-white min-w-0"
             >
               {TDEE_ACTIVITY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
@@ -329,7 +332,14 @@ export default function TargetCalculatorWidget({
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
-        ))}
+          {/* Examples of what counts as this type — without them a client has
+              to guess whether their session is "intervals" or "steady", and
+              the two are costed very differently. MET is deliberately not
+              shown: it means nothing to a client filling this in. */}
+          {opt?.hint && <p className="text-[11px] text-amber-700/70 pl-1">{opt.hint}</p>}
+          </div>
+          )
+        })}
       </div>
 
       {macros && tdeeResult && (
