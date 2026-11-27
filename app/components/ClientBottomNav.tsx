@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 
@@ -90,6 +90,7 @@ export default function ClientBottomNav({
   initialTier?: string | null
 }) {
   const path = usePathname()
+  const router = useRouter()
   // Seed from server-resolved profile so the first paint already shows the
   // correct tab set for coached clients. The useEffect below still runs so
   // mid-session tier changes (upgrade, coach assignment) get picked up.
@@ -155,7 +156,15 @@ export default function ClientBottomNav({
               <Link
                 key={tab.href}
                 href={tab.href}
-                prefetch={true}
+                // Prefetching every tab was costing four extra full page
+                // renders on each dashboard load — Cycle, Calendar, Messages
+                // and More are all authenticated and database-backed, and the
+                // nav is permanently on screen so they fetched every time.
+                // Warmed on intent instead: hover on desktop, first touch on
+                // mobile, which still lands before the tap completes.
+                prefetch={false}
+                onMouseEnter={() => router.prefetch(tab.href)}
+                onTouchStart={() => router.prefetch(tab.href)}
                 id={tab.href === '/calendar' ? 'tour-calendar' : undefined}
                 className="relative flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 min-w-0"
               >
