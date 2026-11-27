@@ -118,7 +118,13 @@ export default function ReportsPage() {
                   className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs w-56 focus:outline-none focus:ring-1 focus:ring-blue-400"
                 />
               </div>
-              <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 max-h-56 overflow-y-auto">
+              {/* Viewport-relative so a bigger screen shows more at once.
+                  Each row is two lines now that the step is named, and at the
+                  old fixed height only about four questions were visible out
+                  of fifty-odd. Capped rather than unbounded so the date range
+                  and Run report stay reachable without scrolling past the
+                  list. */}
+              <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 max-h-[55vh] min-h-[14rem] overflow-y-auto">
                 {visibleQuestions.length === 0 && (
                   <p className="px-3 py-4 text-sm text-gray-400">
                     No questions match “{search}”.
