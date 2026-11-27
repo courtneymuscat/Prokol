@@ -66,6 +66,9 @@ export default function CheckInNoteBox({
   const [error, setError] = useState<string | null>(null)
   const [templates, setTemplates] = useState<{ id: string; name: string; body: string }[]>([])
   const [hasText, setHasText] = useState(false)
+  // Saved notes collapse by default once they're long enough to bury the
+  // check-in they belong to — a call-notes paste can run for pages.
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const editorRef = useRef<HTMLDivElement>(null)
 
   // Only fetch templates once the box is actually opened — this component
@@ -155,12 +158,25 @@ export default function CheckInNoteBox({
   return (
     <div className="mt-4 space-y-2">
       {/* Notes already written about this check-in */}
-      {notes.map((note) => (
+      {notes.map((note) => {
+        // Rough length of the visible words, ignoring the markup around them.
+        const plainLength = note.body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().length
+        const isLong = plainLength > 220
+        const isOpen = expanded[note.id] ?? !isLong
+        return (
         <div key={note.id} className="rounded-xl border border-purple-200 bg-purple-50/60 px-3 py-2.5">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[11px] font-semibold text-purple-800 uppercase tracking-wide">
+            <button
+              onClick={() => isLong && setExpanded((p) => ({ ...p, [note.id]: !isOpen }))}
+              className={`flex items-center gap-1.5 text-[11px] font-semibold text-purple-800 uppercase tracking-wide ${isLong ? 'hover:text-purple-950' : 'cursor-default'}`}
+            >
+              {isLong && (
+                <svg className={`w-3 h-3 transition-transform ${isOpen ? '' : '-rotate-90'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                </svg>
+              )}
               Private note
-            </p>
+            </button>
             <div className="flex items-center gap-2.5 flex-shrink-0">
               <button onClick={() => openComposer(note)} className="text-[11px] text-purple-600 hover:text-purple-900 transition-colors">
                 Edit
@@ -171,9 +187,20 @@ export default function CheckInNoteBox({
             </div>
           </div>
           <div
-            className="text-sm text-gray-800 leading-relaxed mt-1 prose prose-sm max-w-none"
+            // A height cap rather than line-clamp: the body is real HTML with
+            // its own paragraphs, and line-clamp's -webkit-box display does
+            // not clip block children reliably.
+            className={`text-sm text-gray-800 leading-relaxed mt-1 prose prose-sm max-w-none ${isOpen ? '' : 'max-h-12 overflow-hidden'}`}
             dangerouslySetInnerHTML={{ __html: note.body }}
           />
+          {isLong && (
+            <button
+              onClick={() => setExpanded((p) => ({ ...p, [note.id]: !isOpen }))}
+              className="text-[11px] font-semibold text-purple-600 hover:text-purple-900 mt-1"
+            >
+              {isOpen ? 'Hide note' : 'Show full note'}
+            </button>
+          )}
           {note.follow_up_date && (
             <span className={`inline-block mt-2 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${
               note.follow_up_done
@@ -184,7 +211,8 @@ export default function CheckInNoteBox({
             </span>
           )}
         </div>
-      ))}
+        )
+      })}
 
       {!open && (
         <button
