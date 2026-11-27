@@ -32,19 +32,21 @@ export async function GET() {
 
   const [{ data: templates }, { data: steps }] = await Promise.all([
     admin.from('autoflow_templates').select('id, name, core_questions').in('id', templateIds),
-    admin.from('autoflow_template_steps').select('template_id, questions').in('template_id', templateIds),
+    admin.from('autoflow_template_steps').select('template_id, step_number, title, questions').in('template_id', templateIds),
   ])
 
   const templateNameById = Object.fromEntries((templates ?? []).map((t) => [t.id, t.name as string]))
 
-  type Result = { id: string; label: string; type: string; templateName: string }
+  // stepName is null for a template's core questions — those repeat on every
+  // step rather than belonging to one, so there is no single step to name.
+  type Result = { id: string; label: string; type: string; templateName: string; stepName: string | null }
   const byId = new Map<string, Result>()
 
   for (const t of templates ?? []) {
     const coreQuestions = Array.isArray(t.core_questions) ? (t.core_questions as Question[]) : []
     for (const q of coreQuestions) {
       if (q.reportable && !byId.has(q.id)) {
-        byId.set(q.id, { id: q.id, label: q.label, type: q.type, templateName: templateNameById[t.id] ?? 'Untitled' })
+        byId.set(q.id, { id: q.id, label: q.label, type: q.type, templateName: templateNameById[t.id] ?? 'Untitled', stepName: null })
       }
     }
   }
@@ -52,10 +54,25 @@ export async function GET() {
     const questions = Array.isArray(s.questions) ? (s.questions as Question[]) : []
     for (const q of questions) {
       if (q.reportable && !byId.has(q.id)) {
-        byId.set(q.id, { id: q.id, label: q.label, type: q.type, templateName: templateNameById[s.template_id] ?? 'Untitled' })
+        const stepTitle = (s as Record<string, unknown>).title as string | null
+        const stepNumber = (s as Record<string, unknown>).step_number as number
+        byId.set(q.id, {
+          id: q.id,
+          label: q.label,
+          type: q.type,
+          templateName: templateNameById[s.template_id] ?? 'Untitled',
+          stepName: stepTitle?.trim() ? stepTitle : `Step ${stepNumber}`,
+        })
       }
     }
   }
 
-  return NextResponse.json([...byId.values()])
+  // Core questions first, then by step order within each autoflow, so the
+  // picker reads the way the autoflow does rather than arbitrarily.
+  const ordered = [...byId.values()].sort((a, b) =>
+    a.templateName.localeCompare(b.templateName) ||
+    Number(!!a.stepName) - Number(!!b.stepName) ||
+    (a.stepName ?? '').localeCompare(b.stepName ?? '', undefined, { numeric: true }))
+
+  return NextResponse.json(ordered)
 }

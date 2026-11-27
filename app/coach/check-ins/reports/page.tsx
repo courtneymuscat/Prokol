@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 
-type ReportableQuestion = { id: string; label: string; type: string; templateName: string }
+type ReportableQuestion = { id: string; label: string; type: string; templateName: string; stepName: string | null }
 type AnswerRow = { client_id: string; client_name: string; flow_name: string; step_number: number; step_title: string | null; submitted_at: string; answers: Record<string, string | null> }
 
 function fmtDate(iso: string) {
@@ -31,6 +31,18 @@ export default function ReportsPage() {
   const [to, setTo] = useState('')
   const [rows, setRows] = useState<AnswerRow[] | null>(null)
   const [running, setRunning] = useState(false)
+  const [search, setSearch] = useState('')
+
+  // A selected question always stays visible, so filtering can't make it look
+  // like a selection was lost.
+  const needle = search.trim().toLowerCase()
+  const visibleQuestions = needle
+    ? questions.filter((q) =>
+        selectedIds.includes(q.id) ||
+        q.label.toLowerCase().includes(needle) ||
+        q.templateName.toLowerCase().includes(needle) ||
+        (q.stepName ?? '').toLowerCase().includes(needle))
+    : questions
 
   useEffect(() => {
     fetch('/api/coach/reports/questions')
@@ -93,9 +105,27 @@ export default function ReportsPage() {
         ) : (
           <>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-2">Questions ({selectedIds.length} selected)</label>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <label className="block text-xs font-medium text-gray-700">Questions ({selectedIds.length} selected)</label>
+                {/* Searches the step and autoflow name too, so "intake" or
+                    "sleep" finds everything on that step, not just questions
+                    whose own wording happens to match. */}
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search questions, steps…"
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs w-56 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+              </div>
               <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 max-h-56 overflow-y-auto">
-                {questions.map((q) => (
+                {visibleQuestions.length === 0 && (
+                  <p className="px-3 py-4 text-sm text-gray-400">
+                    No questions match “{search}”.
+                    {selectedIds.length > 0 && ' Your selected questions are still included.'}
+                  </p>
+                )}
+                {visibleQuestions.map((q) => (
                   <label key={q.id} className="flex items-start gap-2.5 px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors">
                     <input
                       type="checkbox"
@@ -106,6 +136,9 @@ export default function ReportsPage() {
                     <span className="text-sm text-gray-700">
                       {q.label}
                       <span className="text-gray-400"> — {q.templateName}</span>
+                      <span className="block text-xs text-gray-400">
+                        {q.stepName ?? 'Asked on every check-in'}
+                      </span>
                     </span>
                   </label>
                 ))}
