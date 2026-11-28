@@ -228,14 +228,14 @@ const EDUCATION_CARDS = [
   {
     tag: 'Learn at your own pace',
     title: 'Self-guided',
-    subtitle: '13 weeks for just $249',
-    priceLabel: '13 weeks · one payment',
+    subtitle: '91 days for just $249',
+    priceLabel: '91 days · one payment',
     price: '$249',
-    priceNote: 'for the full 13 weeks',
+    priceNote: 'for the full 91 days',
     priceWeekly: 'That’s about $19 a week',
     desc: 'Everything you need to understand nutrition and put it into practice yourself, one small step at a time.',
     points: [
-      '13 weeks of short video lessons: Week 0 to get set up, then one new lesson every week',
+      '91 days of short video lessons: Week 0 to get set up, then one new topic a week',
       'One simple habit each week, matched to the path you choose',
       'Your plan, daily serves and targets in the Prokol app, built from your onboarding answers',
       '24 downloadable guides you keep, from protein and carbs to eating out and sleep',
@@ -249,15 +249,15 @@ const EDUCATION_CARDS = [
   {
     tag: 'Most support',
     title: 'Guided',
-    subtitle: 'with weekly check-in replies',
-    priceLabel: '13 weeks · one payment',
+    subtitle: 'with weekly replies on your progress check',
+    priceLabel: '91 days · one payment',
     price: '$449',
-    priceNote: 'for the full 13 weeks, with weekly check-in replies',
+    priceNote: 'for the full 91 days, with weekly replies',
     priceWeekly: 'That’s about $35 a week',
     desc: 'Everything in Self-guided, plus me reading your check-in and replying every week, so you’re never doing it alone.',
     points: [
       'Everything in Self-guided',
-      'A personal reply from me to your weekly in-app check-in, every week for 13 weeks',
+      'A personal reply from me to your weekly in-app progress check, every week for 91 days',
       'Feedback on your progress photos, habits, energy, sleep and hunger',
       'Answers to your questions, so you’re never stuck figuring it out alone',
       'Course-correct early, so small slips don’t turn into big ones',
@@ -269,8 +269,8 @@ const EDUCATION_CARDS = [
   {
     tag: 'Add training alongside it',
     title: 'Self-guided + Training',
-    subtitle: '13 weeks nutrition + 12 weeks training',
-    priceLabel: '13 weeks · one payment',
+    subtitle: '91 days nutrition + 12 weeks training',
+    priceLabel: '91 days · one payment',
     price: '$349',
     priceNote: 'for the full program',
     priceWeekly: 'That’s about $27 a week',
@@ -287,8 +287,8 @@ const EDUCATION_CARDS = [
   {
     tag: 'Most complete',
     title: 'Guided + Training',
-    subtitle: 'with weekly check-in replies',
-    priceLabel: '13 weeks · one payment',
+    subtitle: 'with weekly replies on your progress check',
+    priceLabel: '91 days · one payment',
     price: '$599',
     priceNote: 'for the full program, with weekly check-in replies',
     priceWeekly: 'That’s about $46 a week',
@@ -305,42 +305,71 @@ const EDUCATION_CARDS = [
   },
 ]
 
-const CURRICULUM = [
-  { week: 'Week 0', title: 'Foundations', d: 'Six short lessons to get set up — protein, carbs, fats, energy balance, and building your first plate.' },
-  { week: 'Week 1', title: 'Protein at Every Meal', d: 'Making protein a habit, not an afterthought.' },
-  { week: 'Week 2', title: 'Fuel Your Training', d: 'Timing your carbs and fuelling your sessions properly.' },
-  { week: 'Week 3', title: 'Fibre, Colour and Gut Health', d: 'More plants, more often.' },
-  { week: 'Week 4', title: 'Meals Made Simple', d: 'Easy swaps that make eating well sustainable.' },
-  { week: 'Week 5', title: 'Real Life: Eating Out, Drinks and Weekends', d: 'Handling meals away from home, guilt-free.' },
-  { week: 'Week 6', title: 'Midpoint Review', d: 'Compare your Week 0 photos and measurements — see how far you’ve come.' },
-  { week: 'Week 7', title: "Supplements: What's Worth It", d: 'What’s actually doing something, before you add anything new.' },
-  { week: 'Week 8', title: 'Hunger, Cravings and Appetite', d: 'Rating your hunger and understanding your cues.' },
-  { week: 'Week 9', title: 'Body Composition Phases', d: 'Fat loss, maintenance, or building — choosing what’s next.' },
-  { week: 'Week 10', title: 'Sleep, Stress and Recovery', d: 'Your wind-down routine and your evenings.' },
-  { week: 'Week 11', title: 'Ease Off and Your Reset Plan', d: 'Pulling back on tracking in a way that still feels safe.' },
-  { week: 'Week 12', title: 'Making It Last', d: 'Locking in what keeps working long after the program ends.' },
+// The full topic overviews PDF, already shared publicly from Court's Drive.
+const TOPIC_OVERVIEWS_URL = 'https://drive.google.com/file/d/12SExYXU4iqtXMDuxhTp653Mxq-IYJFqN/view?usp=sharing'
+
+// The Individual flyer, once it's uploaded and shared. The brochure buttons
+// stay hidden until this is filled in rather than linking nowhere.
+const BROCHURE_URL: string = ''
+
+// The 91-day roadmap, grouped into the three months of the brochure. Week 0
+// keeps its name; everything after it is a Topic, not a Week.
+const ROADMAP: { month: string; days: string; topics: { label: string; title: string; hook: string; d: string }[] }[] = [
+  {
+    month: 'Build the base',
+    days: 'Days 1–28',
+    topics: [
+      { label: 'Week 0', title: 'The Basics', hook: 'Not sure what a serve is, or what to actually eat?', d: 'Get set up: your plan, serves, the Cheat Sheet and your minimum day for busy weeks.' },
+      { label: 'Topic 1', title: 'Protein at Every Meal', hook: 'Skipping breakfast, then starving by 3pm?', d: 'Why protein keeps you full and how to hit it without overthinking.' },
+      { label: 'Topic 2', title: 'Fuel Your Training', hook: 'Flat at the gym, or raiding the pantry at night?', d: 'How to time carbs around training so you perform and recover.' },
+      { label: 'Topic 3', title: 'Fibre and Gut Health', hook: 'Bloated, or eating the same few meals?', d: 'More plants, more often, and why your gut cares.' },
+    ],
+  },
+  {
+    month: 'Fit it to your life',
+    days: 'Days 29–56',
+    topics: [
+      { label: 'Topic 4', title: 'Meals Made Simple', hook: '6pm panic, or sick of tracking?', d: 'Go-to meals and swaps that make planning quick.' },
+      { label: 'Topic 5', title: 'Real Life', hook: 'Weekends, drinks or eating out undoing your week?', d: 'How to enjoy social life without starting again Monday.' },
+      { label: 'Topic 6', title: 'Progress Review', hook: 'Scale won’t budge, and motivation dipping?', d: 'How to read your progress beyond the scale and adjust.' },
+      { label: 'Topic 7', title: 'Supplements', hook: 'Tempted by fat burners or greens powders?', d: 'What the evidence supports, and what to skip.' },
+    ],
+  },
+  {
+    month: 'Make it yours',
+    days: 'Days 57–91',
+    topics: [
+      { label: 'Topic 8', title: 'Hunger and Cravings', hook: 'Good all day, then the pantry wins at night?', d: 'What drives hunger and cravings, and how to work with them.' },
+      { label: 'Topic 9', title: 'Body Comp Phases', hook: 'Stuck in back-to-back diets?', d: 'How fat loss, maintenance and building phases fit together.' },
+      { label: 'Topic 10', title: 'Sleep, Stress and Recovery', hook: 'Wired at night, always sore or stress eating?', d: 'How sleep and stress change appetite, energy and results.' },
+      { label: 'Topic 11', title: 'Ease Off', hook: 'Want to stop tracking without losing results?', d: 'Eating by cues, spot-checks and your personal reset plan.' },
+      { label: 'Topic 12', title: 'Making It Last', hook: 'Worried it won’t last once the lessons end?', d: 'Pulling it together so your habits hold for the long run.' },
+    ],
+  },
 ]
 
 const WHATS_INCLUDED = [
-  { label: '25 short video lessons', d: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
-  { label: '24 downloadable guides', d: 'M12 10v6m0 0l-3-3m3 3l3-3m2 8H8a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
-  { label: 'Weekly habits matched to your path', d: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
-  { label: 'Progress tracking: photos, check-ins and trends', d: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
+  { label: 'A plan to start from', d: 'Meal plan, macros and the in-app Cheat Sheet so you can build your own meals.', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
+  { label: 'Short video lessons', d: 'About 20 minutes each, with a guide for every topic.', icon: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
+  { label: 'One habit at a time', d: 'Tick it off daily and log your data — and your cycle, if you have one.', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
+  { label: 'Weekly progress checks', d: 'Track how you’re going with your check data and progress photos.', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
+  { label: 'A women’s health library', d: 'Your cycle, energy, iron, perimenopause and bloodwork basics.', icon: 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z' },
+  { label: 'Optional weekly replies', d: 'Add my personal feedback on your progress check, every week.', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.86 9.86 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
 ]
 
-const EDUCATION_HOW_IT_WORKS = [
-  { n: '01', t: 'Pick your option', d: 'Pick your option and complete a short intake so your plan fits you.' },
-  { n: '02', t: 'Start Week 0', d: 'Get your plan in the app and start Week 0. Each lesson unlocks when you finish the last.' },
-  { n: '03', t: 'One lesson a week', d: 'One new lesson each week for 12 weeks, with a habit to practise and a check-in on day 7.' },
+// What a week actually costs you — the "35 minutes" promise, broken down.
+const WEEKLY_RHYTHM = [
+  { when: 'Day 1', what: 'Watch the lesson (20 min), then plan your week (15 min). Knowing why is what makes it stick.' },
+  { when: 'Every day', what: 'Do your one habit — small wins — and track your data, and your cycle if you have one.' },
+  { when: 'Day 6', what: 'Send your progress check and photos.' },
 ]
 
 const EDUCATION_FAQS = [
-  { q: 'How is this different from 1:1 coaching?', a: 'The Prokol Method gives everyone the same course, resources and app, built on the framework I use with 1:1 clients. 1:1 coaching is fully built around you, with calls, bloodwork and biofeedback review, and messaging.' },
-  { q: 'Do I need to follow a meal plan?', a: 'No. On the Plan and Swap path you keep eating the foods you already eat and make one small swap each week. Your plan is there for ideas.' },
-  { q: 'What if I fall behind?', a: 'Nothing is lost. Lessons stay unlocked, and you can pick up where you left off. You keep access after the 13 weeks.' },
-  { q: 'What do I get with Guided?', a: 'One personal reply to each weekly check-in. It isn’t unlimited messaging; that’s what 1:1 coaching is for.' },
-  { q: 'Can I switch from Self-guided to Guided?', a: 'Yes. Pay the difference at any time and your weekly replies start from your next check-in.' },
-  { q: 'Is this medical advice?', a: 'No. The program is education. Anything medical goes to your GP.' },
+  { q: 'Is this personal coaching?', a: 'No. It’s nutrition education you work through at your own pace. If you want my personal feedback each week, add weekly replies. For a fully personalised plan, that’s 1:1 Nutrition Coaching.' },
+  { q: 'How long do I have access?', a: 'You keep every lesson and resource after you finish, with no subscription.' },
+  { q: 'What if I fall behind?', a: 'Each lesson unlocks when you finish the last, so you go at your own pace. Busy week? Do your minimum day and pick it back up.' },
+  { q: 'Can I add weekly replies later?', a: 'Yes. Pay the difference at any time and your weekly replies start from your next progress check.' },
+  { q: 'Is it right for medical conditions?', a: 'The Prokol Method is general education, not medical advice. Bloodwork, cycle concerns and anything medical belong with your GP, or with 1:1 coaching.' },
 ]
 
 const SIMPLE_PANELS: Record<Exclude<ServiceKey, 'coaching' | 'education' | 'gyms'>, { icon: string; badge?: string; desc: string }> = {
@@ -590,57 +619,147 @@ export default function WaysToWorkWithMe() {
             </div>
           ) : active === 'education' ? (
             <div>
-              <p className="text-center mb-10" style={{ color: INK_SOFT, fontWeight: 300, maxWidth: 580, marginLeft: 'auto', marginRight: 'auto' }}>
-                13 weeks of nutrition coaching for one simple payment, from just $249. Learn how to eat for your goals at your own pace, with the same education-first framework behind my 1:1 coaching, all inside the Prokol app. No subscriptions, no lock-in, and you keep access to every lesson and resource after you finish.
-              </p>
+              {/* Hero */}
+              <div className="text-center" style={{ maxWidth: 640, marginLeft: 'auto', marginRight: 'auto' }}>
+                <h3 style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 'clamp(1.5rem,3.5vw,2.1rem)', lineHeight: 1.2, letterSpacing: '-0.02em', marginBottom: 16 }}>
+                  It was never a willpower problem.
+                </h3>
+                <p style={{ color: INK_SOFT, fontWeight: 300 }}>
+                  Most plans tell you what to eat. Almost none teach you why. The Prokol Method is 91 days of short video lessons that explain how your body actually works, one small habit at a time, all inside the Prokol app. One payment from $249. No subscription, no lock-in, and you keep every lesson and resource after you finish.
+                </p>
 
-              {/* Curriculum */}
-              <div>
-                <p className="font-bold text-lg mb-6 text-center" style={{ fontFamily: HEAD }}>The 13-week curriculum</p>
-                <div className="grid md:grid-cols-2 gap-3 max-w-3xl mx-auto">
-                  {CURRICULUM.map((c) => (
-                    <div key={c.week} className="rounded-xl p-4 flex items-start gap-3" style={{ background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}>
-                      <span
-                        className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full flex-shrink-0"
-                        style={{ background: 'rgba(29,158,117,0.1)', color: BERRY }}
-                      >
-                        {c.week}
+                <div className="flex flex-wrap items-center justify-center gap-3 mt-7">
+                  <InquiryButton
+                    defaultService="The Prokol Method — Self-guided"
+                    className="px-7 py-3.5 rounded-full text-sm font-bold text-white hover:opacity-90 transition-opacity"
+                    style={{ background: BERRY }}
+                  >
+                    Start Week 0
+                  </InquiryButton>
+                  {BROCHURE_URL && (
+                    <a
+                      href={BROCHURE_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-7 py-3.5 rounded-full text-sm font-bold transition-colors"
+                      style={{ border: '1px solid rgba(33,26,23,0.15)', color: INK }}
+                    >
+                      Download the brochure
+                    </a>
+                  )}
+                </div>
+                <p className="text-xs mt-4" style={{ color: 'rgba(33,26,23,0.45)' }}>
+                  About 35 minutes a week. Want my personal feedback? Add weekly replies.
+                </p>
+              </div>
+
+              {/* Why nothing has stuck */}
+              <div
+                className="mt-16 mx-auto rounded-[2rem] px-8 py-8 md:px-12 md:py-9"
+                style={{ background: 'rgba(29,158,117,0.08)', border: '1px solid rgba(29,158,117,0.18)', maxWidth: 700 }}
+              >
+                <p className="font-bold text-lg mb-3" style={{ fontFamily: HEAD }}>You were never taught how your body works</p>
+                <p style={{ color: INK, fontWeight: 300, lineHeight: 1.65 }}>
+                  So the moment life gets busy, you’re tired, or you’re starving at 3pm, the plan breaks and you’re back to guessing. Why do you crave sugar after a bad night’s sleep? Why do you hit a wall halfway through a session? Why are you hungrier at certain times of the month? Once you understand that, you stop relying on willpower. You know what to do, and why. That’s what makes it stick.
+                </p>
+              </div>
+
+              {/* What you get */}
+              <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                <p className="font-bold text-lg mb-8 text-center" style={{ fontFamily: HEAD }}>What you get</p>
+                <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                  {WHATS_INCLUDED.map((item) => (
+                    <div key={item.label} className="flex flex-col items-center text-center gap-2">
+                      <span className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(29,158,117,0.1)', color: BERRY }}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
+                        </svg>
                       </span>
-                      <div>
-                        <p className="font-bold text-sm" style={{ fontFamily: HEAD, color: INK }}>{c.title}</p>
-                        <p className="text-xs leading-relaxed mt-0.5" style={{ color: INK_SOFT }}>{c.d}</p>
+                      <p className="font-bold text-sm" style={{ fontFamily: HEAD, color: INK }}>{item.label}</p>
+                      <p className="text-xs leading-relaxed" style={{ color: INK_SOFT }}>{item.d}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Your 35 minutes a week */}
+              <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                <p className="font-bold text-lg mb-2 text-center" style={{ fontFamily: HEAD }}>Every week: your 35 minutes</p>
+                <p className="text-sm text-center mb-8" style={{ color: INK_SOFT }}>That’s the whole commitment. Here’s where it goes.</p>
+                <div className="max-w-2xl mx-auto space-y-3">
+                  {WEEKLY_RHYTHM.map((r) => (
+                    <div key={r.when} className="rounded-xl p-4 flex items-start gap-4" style={{ background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}>
+                      <span
+                        className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full flex-shrink-0"
+                        style={{ background: 'rgba(29,158,117,0.1)', color: BERRY, minWidth: 86, textAlign: 'center' }}
+                      >
+                        {r.when}
+                      </span>
+                      <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>{r.what}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Your 91-day roadmap */}
+              <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                <p className="font-bold text-lg mb-2 text-center" style={{ fontFamily: HEAD }}>Your 91-day roadmap</p>
+                <p className="text-sm text-center mb-10" style={{ color: INK_SOFT, maxWidth: 560, marginLeft: 'auto', marginRight: 'auto' }}>
+                  Not a quick fix. 91 days to understand your body, so your results last. Each topic builds on the last: keep the habit you’ve built, add one more.
+                </p>
+
+                <div className="max-w-3xl mx-auto space-y-10">
+                  {ROADMAP.map((group, i) => (
+                    <div key={group.month}>
+                      <div className="flex items-baseline gap-3 mb-4">
+                        <p className="font-bold text-sm" style={{ fontFamily: HEAD, color: INK }}>
+                          Month {i + 1}: {group.month}
+                        </p>
+                        <span className="text-xs" style={{ color: 'rgba(33,26,23,0.4)' }}>{group.days}</span>
+                        <span className="flex-1 h-px" style={{ background: 'rgba(33,26,23,0.1)' }} />
+                      </div>
+                      <div className="space-y-3">
+                        {group.topics.map((t) => (
+                          <div key={t.label} className="rounded-xl p-4 flex items-start gap-3" style={{ background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}>
+                            <span
+                              className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full flex-shrink-0"
+                              style={{ background: 'rgba(29,158,117,0.1)', color: BERRY, minWidth: 66, textAlign: 'center' }}
+                            >
+                              {t.label}
+                            </span>
+                            <div>
+                              <p className="font-bold text-sm" style={{ fontFamily: HEAD, color: INK }}>{t.title}</p>
+                              <p className="text-xs italic mt-1" style={{ color: BERRY }}>{t.hook}</p>
+                              <p className="text-xs leading-relaxed mt-1" style={{ color: INK_SOFT }}>{t.d}</p>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-center mt-5" style={{ color: 'rgba(33,26,23,0.4)' }}>
-                  Plus a women’s health bonus library alongside it — cycle, iron, energy, menopause, bloodwork.
-                </p>
+
+                <div className="text-center mt-8">
+                  <a
+                    href={TOPIC_OVERVIEWS_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block px-6 py-3 rounded-full text-sm font-bold transition-colors"
+                    style={{ border: '1px solid rgba(33,26,23,0.15)', color: INK }}
+                  >
+                    Full topic overviews →
+                  </a>
+                </div>
               </div>
 
-              {/* What's included */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
-                {WHATS_INCLUDED.map((item) => (
-                  <div key={item.label} className="flex flex-col items-center text-center gap-2">
-                    <span className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(29,158,117,0.1)', color: BERRY }}>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.d} />
-                      </svg>
-                    </span>
-                    <p className="text-xs leading-relaxed" style={{ color: INK_SOFT }}>{item.label}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* How it works */}
-              <div className="grid md:grid-cols-3 gap-6 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
-                {EDUCATION_HOW_IT_WORKS.map((step) => (
-                  <div key={step.n}>
-                    <p className="text-xs font-bold tracking-widest mb-2" style={{ color: BERRY }}>{step.n}</p>
-                    <p className="font-bold mb-2" style={{ fontFamily: HEAD }}>{step.t}</p>
-                    <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>{step.d}</p>
-                  </div>
-                ))}
+              {/* Watch every lesson */}
+              <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                <div className="rounded-2xl px-7 py-6 max-w-2xl mx-auto" style={{ background: '#fff', borderLeft: `3px solid ${BERRY}` }}>
+                  <p className="font-bold text-base mb-2" style={{ fontFamily: HEAD }}>My one ask: watch every lesson</p>
+                  <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>
+                    The lessons are what change things. That’s where you learn the why. Skip them and it’s just another plan you don’t understand, waiting to stop working. When it gets busy, and it will, don’t stop. Do your minimum day, watch the lesson, and keep going.
+                  </p>
+                </div>
               </div>
 
               {/* FAQ */}
@@ -709,22 +828,42 @@ export default function WaysToWorkWithMe() {
                 ))}
               </div>
 
-              {/* Upgrade line */}
-              <div className="text-center mt-14">
-                <p className="text-sm mb-4" style={{ color: INK_SOFT }}>
-                  Ready for more? Finish The Prokol Method and want support built entirely around you?{' '}
-                  <button type="button" onClick={() => setActive('coaching')} className="font-semibold underline" style={{ color: BERRY }}>
-                    Explore 1:1 coaching
-                  </button>
+              {/* Closing banner */}
+              <div className="rounded-[2rem] px-8 py-12 mt-16 text-center" style={{ background: BERRY_DEEP }}>
+                <h3 style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 'clamp(1.5rem,3.5vw,2.1rem)', color: '#fff', marginBottom: 10 }}>
+                  Stop starting over.
+                </h3>
+                <p className="mb-8" style={{ color: 'rgba(255,255,255,0.78)', fontWeight: 300 }}>
+                  Learn how your body works, once, properly.
                 </p>
-                <InquiryButton
-                  defaultService="The Prokol Method — Self-guided"
-                  className="inline-block px-7 py-3.5 rounded-full text-sm font-bold transition-colors"
-                  style={{ border: '1px solid rgba(33,26,23,0.15)', color: INK }}
-                >
-                  Questions? Get in touch
-                </InquiryButton>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <InquiryButton
+                    defaultService="The Prokol Method — Self-guided"
+                    className="px-7 py-3.5 rounded-full text-sm font-bold transition-opacity hover:opacity-90"
+                    style={{ background: '#fff', color: BERRY_DEEP }}
+                  >
+                    Start Week 0
+                  </InquiryButton>
+                  {BROCHURE_URL && (
+                    <a
+                      href={BROCHURE_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-7 py-3.5 rounded-full text-sm font-bold transition-colors"
+                      style={{ border: '1px solid rgba(255,255,255,0.35)', color: '#fff' }}
+                    >
+                      Download the brochure
+                    </a>
+                  )}
+                </div>
               </div>
+
+              <p className="text-xs text-center mt-8" style={{ color: 'rgba(33,26,23,0.4)' }}>
+                The Prokol Method is for education only, not medical advice — check with your GP for anything medical. Want support built entirely around you instead?{' '}
+                <button type="button" onClick={() => setActive('coaching')} className="font-semibold underline" style={{ color: BERRY }}>
+                  Explore 1:1 coaching
+                </button>
+              </p>
             </div>
           ) : active === 'gyms' ? (
             <div>
