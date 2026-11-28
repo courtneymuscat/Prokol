@@ -234,7 +234,7 @@ const GYM_ADDONS = [
   },
   {
     title: 'Consults',
-    price: '$40',
+    price: '$50',
     priceNote: 'per 20 minutes',
     desc: 'Current issues and a written summary, in person at your gym or online. Members pay, or your gym covers them.',
   },
@@ -254,7 +254,7 @@ const GYM_FAQS = [
   { q: 'What\u2019s the commitment?', a: 'A one-off onboarding fee, then monthly from day one with 30 days\u2019 notice.' },
   { q: 'How much time does it take members?', a: 'About 35 minutes a week: a 20-minute lesson, 15 minutes to plan their week, one small daily habit and a progress check.' },
   { q: 'Does this replace our trainers?', a: 'No. Your coaches keep coaching. When members ask \u201cwhat should I eat?\u201d, they point them to the app. The coach redirect script in your Gym Toolkit shows them how.' },
-  { q: 'What do Consults include?', a: 'A 20-minute consult with me, in person at your gym or online. We talk through their plan and targets, practical questions like eating out and busy weeks, and general supplement guidance, with a written summary saved to their app. It doesn\u2019t include bloodwork review, medical or hormone advice, or event fuelling plans. $40, paid by members or covered by your gym.' },
+  { q: 'What do Consults include?', a: 'A 20-minute consult with me, in person at your gym or online. We talk through their plan and targets, practical questions like eating out and busy weeks, and general supplement guidance, with a written summary saved to their app. It doesn\u2019t include bloodwork review, medical or hormone advice, or event fuelling plans. $50, paid by members or covered by your gym.' },
   { q: 'Does it pay for itself?', a: 'At members paying $60 a week, keeping 2 members covers the monthly fee, and 4 more cover onboarding. Each member gets $249 of program value.' },
 ]
 
