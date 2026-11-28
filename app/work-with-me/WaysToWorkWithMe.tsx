@@ -308,9 +308,9 @@ const EDUCATION_CARDS = [
 // The full topic overviews PDF, already shared publicly from Court's Drive.
 const TOPIC_OVERVIEWS_URL = 'https://drive.google.com/file/d/12SExYXU4iqtXMDuxhTp653Mxq-IYJFqN/view?usp=sharing'
 
-// The Individual flyer, once it's uploaded and shared. The brochure buttons
-// stay hidden until this is filled in rather than linking nowhere.
-const BROCHURE_URL: string = ''
+// The Individual flyer, shared publicly from Court's Drive. The brochure
+// buttons render only while this is set, rather than linking nowhere.
+const BROCHURE_URL: string = 'https://drive.google.com/file/d/150iFgaxGsUmZxq7HjW3JihyzpOqzUWrk/view?usp=sharing'
 
 // The 91-day roadmap, grouped into the three months of the brochure. Week 0
 // keeps its name; everything after it is a Topic, not a Week.
