@@ -21,42 +21,111 @@ const BUBBLES: { key: ServiceKey; label: string }[] = [
 
 const COACHING_TIERS = [
   {
-    tag: 'Low-commitment entry point',
-    title: 'Nutrition Consultations',
-    price: 'from $230',
-    desc: 'A single Initial Consultation for a specific question, or the Reset Series (consult + 2 follow-ups) for a defined block of support — no ongoing commitment.',
-    points: ['Full goals, training & health history review', 'Bloodwork & biofeedback interpreted through a nutrition lens', 'Bespoke plan delivered via Loom walkthrough'],
+    tag: 'One-off · no ongoing commitment',
+    title: 'Nutrition Plan',
+    price: '$397',
+    priceNote: 'AUD, one-off, paid upfront',
+    desc: 'A plan built around you, without ongoing support — for anyone who wants clear answers and is happy to put them into practice on their own.',
+    points: [
+      'Intake form, symptom analysis and 5-day food log reviewed',
+      'A consult call about your goals, training and lifestyle',
+      'Your plan in the Prokol app 2 to 3 business days after the call',
+      'Add follow-up calls whenever you need them',
+    ],
+    bestFor: 'Also a good way to try working with me before committing to 12 weeks.',
+    button: 'Enquire about a Nutrition Plan',
+    service: '1:1 Coaching — Nutrition Plan',
   },
   {
-    tag: 'Highest level of support',
-    title: 'Premium Nutrition Coaching',
-    price: '$550 / month',
-    desc: 'My flagship offer — for people navigating performance, hormones, and physique all at once, and want the most hands-on, data-informed coaching I offer.',
-    points: ['Weekly 1:1 calls or Loom check-ins', 'Priority 1:1 messaging between calls', 'Ongoing blood marker & biofeedback tracking', 'Cycle-informed fuelling & recovery protocols'],
+    tag: 'One-off · bloods included',
+    title: 'Blood Analysis + Plan',
+    price: '$1,097',
+    priceNote: 'AUD, one-off, paid upfront',
+    desc: 'Your bloods, symptoms and food log read together through a nutrition lens, explained on a results call, with a plan built around what we find.',
+    points: [
+      'Full blood panel (bloods included), ordered for you with a Bloodwork Manual on how to prepare',
+      'Everything in the Nutrition Plan — intake, symptom analysis and 5-day food log reviewed together',
+      'A results call once your bloods are in (I need 1 to 2 business days with them first)',
+      'Your plan in the Prokol app 2 to 3 business days after the call',
+      'Cycle and hormone considerations built into your plan, if relevant',
+      'Supplement suggestions based on your bloods, training and goals',
+      'A plain-words summary of what your results mean for your nutrition',
+    ],
+    bestFor: 'Best suited to anyone with bloodwork they’d like to understand, who’s happy to put the plan into practice on their own.',
+    button: 'Enquire about Blood Analysis + Plan',
+    service: '1:1 Coaching — Blood Analysis + Plan',
+  },
+  {
+    tag: 'Highest level of support · 12 weeks',
+    title: 'The Full Reset',
+    price: '$2,997',
+    priceNote: 'AUD upfront, or 3 payments of $1,049',
+    desc: '12 weeks of 1:1 coaching to find what’s driving how you feel and fix it at the source. Your bloods, symptoms and food log are read together, then we build and adjust your plan week by week.',
+    points: [
+      'Full blood panel (bloods order included in pricing), read through a nutrition lens',
+      'Intake form, symptom analysis and 5-day food log reviewed together',
+      'Strategy call around day 8 to 10 (once results are in), then your plan 2 to 3 business days later',
+      'Weekly 30-minute calls, with a written summary after each one',
+      'Weekly check-ins (in by Monday, feedback Tuesday) and messaging in the Prokol app',
+      'Cycle-informed fuelling if you have a cycle, and support through perimenopause or menopause',
+      'Supplement suggestions based on your bloods, training and goals',
+      'Education on your body, so you understand the why behind every change',
+    ],
+    bestFor: 'Best suited to athletes and active women who want their cycle, energy and recovery working with them, and anyone who wants the most hands-on support.',
+    footnote: 'After your 12 weeks: keep going on Continuation at $497 a month, or see the change in your bloods with a 12-week retest, $549 (plan and bloods included).',
+    button: 'Enquire about the Full Reset',
+    service: '1:1 Coaching — The Full Reset',
     highlight: true,
   },
   {
-    tag: 'Monthly recalibration',
-    title: 'Specialised Nutrition Coaching',
-    price: '$215 / month',
-    desc: 'For people who know how to execute and want professional oversight without weekly calls or daily messaging.',
-    points: ['One 1:1 check-in per month', 'Strategy reviewed & recalibrated monthly', 'Cycle & hormone considerations integrated'],
-  },
-  {
-    tag: 'Add-on, once you’re dialled in',
-    title: 'Accountability Continuation',
-    price: '$180 / month',
-    desc: 'For clients who’ve already done the groundwork and want to stay accountable without paying for a full strategy rebuild every month.',
-    points: ['Weekly async check-in — no live call', 'Light-touch review of adherence & symptoms'],
-    requires: 'Only available as a continuation — you’ll need to complete one of the tiers above first',
+    tag: 'After your Full Reset',
+    title: 'Continuation',
+    price: '$497',
+    priceNote: '/ month AUD — cancel with 14 days’ notice',
+    desc: 'For clients who’ve finished their 12-week Full Reset and want to keep going, with less contact but the same accountability.',
+    points: [
+      'Fortnightly 30-minute calls, with a written summary after each one',
+      'Weekly check-ins (in by Monday, feedback Tuesday)',
+      'Messaging in the Prokol app, replies within 2 business days',
+      'Your plan tweaked as you go; a full rebuild or 12-week retest can be added',
+    ],
+    bestFor: 'Best suited to clients whose foundations are steady and who want support while we work on the next phase. If a big change is still settling — new medication, pre-conception, a postpartum return — we’d talk first about the right support.',
+    requires: 'Only available after the Full Reset — if you haven’t done it yet, start there first',
+    button: 'Enquire about Continuation',
+    service: '1:1 Coaching — Continuation',
   },
 ]
 
 const HOW_IT_WORKS = [
-  { n: '01', t: 'Discovery call', d: 'A conversation about your goals, training, and lifestyle — and where you actually fit, consultation or ongoing coaching.' },
-  { n: '02', t: 'Your personalised plan', d: 'Built from a full intake and a 45-minute consult, delivered 2–3 business days later via a proper Loom walkthrough — never rushed out live on the call.' },
-  { n: '03', t: 'Ongoing support, your way', d: 'Weekly, monthly, or async — whatever level of contact matches the tier you’re on.' },
+  { n: '01', t: 'Discovery call', d: 'We talk about your goals, training, health and lifestyle, and work out which option fits you best.' },
+  { n: '02', t: 'Sign-up + onboarding', d: 'Your welcome steps, intake form and symptom analysis unlock in the Prokol app. Payment is confirmed here.' },
+  { n: '03', t: 'Food log + bloods', d: 'Log your food for 5 days in the app — photos, times, rough amounts — and get your bloods done in your first week, if they’re part of your option.' },
+  { n: '04', t: 'Strategy call + your plan', d: 'Around day 8 to 10, once your results are in (I need 1 to 2 business days with them). Your plan lands in the app 2 to 3 business days after the call.' },
+  { n: '05', t: 'Ongoing support', d: 'Full Reset: weekly 30-minute calls, check-ins and messaging. Continuation: fortnightly calls and weekly check-ins. Blood Analysis + Plan: one-off, with a results call. Nutrition Plan: one-off, with follow-up calls if you need them.' },
+  { n: '06', t: 'Progress + refinement', d: 'Your plan evolves with you — updates, adjustments and guidance based on progress. How often depends on the option you choose.' },
 ]
+
+const COACHING_ADDONS = [
+  { title: 'Follow-up call', price: '$129', priceNote: 'per call', desc: 'A question or a tweak later on, on any option.' },
+  { title: 'Plan change', price: '$99', priceNote: 'small change · $199 rebuild', desc: 'A small adjustment to your existing plan, or a full rebuild from scratch.' },
+  { title: '12-week retest', price: '$549', priceNote: 'plan and bloods included', desc: 'Repeat your blood panel after the Full Reset and see what actually changed.' },
+]
+
+// The columns of the comparison table, in the same order as COACHING_TIERS.
+const COMPARE_COLUMNS = ['Nutrition Plan', 'Blood Analysis + Plan', 'The Full Reset', 'Continuation']
+
+const COMPARE_ROWS: { label: string; cells: string[] }[] = [
+  { label: 'Price', cells: ['$397', '$1,097', '$2,997', '$497 / mo'] },
+  { label: 'Format', cells: ['One-off, paid upfront', 'One-off, bloods included', '12 weeks, 1 or 3 payments', 'Monthly, 14 days’ notice'] },
+  { label: 'Bloods', cells: ['Not included', 'Included in the fee', 'Included in the pricing', 'Retest can be added'] },
+  { label: 'Live calls', cells: ['1 consult call', '1 results call', 'Weekly, 30 min', 'Fortnightly, 30 min'] },
+  { label: 'Weekly check-ins', cells: ['Not included', 'Not included', 'In by Monday, feedback Tuesday', 'In by Monday, feedback Tuesday'] },
+  { label: 'Messaging access', cells: ['Not included', 'Not included', 'In app, within 2 business days', 'In app, within 2 business days'] },
+  { label: 'Best for', cells: ['Wants a plan, happy to go it alone', 'Wants bloods understood, plus a plan', 'Symptoms to untangle, wants weekly support', 'Finished the Reset, wants to keep going'] },
+]
+
+const COACHING_DISCLAIMER =
+  'I’m an Accredited Sports Nutritionist. Blood work, biofeedback and cycle data are interpreted for nutrition and performance optimisation only — not for medical diagnosis or treatment. I refer to GPs, endocrinologists and sports doctors where appropriate, and work alongside your medical team, not in place of them.'
 
 const GYM_STATS = [
   { n: '25', label: 'video lessons' },
@@ -326,10 +395,12 @@ export default function WaysToWorkWithMe() {
         <div className="mt-14">
           {active === 'coaching' ? (
             <div>
-              <p className="text-center mb-10" style={{ color: INK_SOFT, fontWeight: 300, maxWidth: 580, marginLeft: 'auto', marginRight: 'auto' }}>
-                Four levels of support, from one clear answer to full ongoing coaching — built around your goals and your calendar, not the other way around.
+              <p className="text-center mb-10" style={{ color: INK_SOFT, fontWeight: 300, maxWidth: 620, marginLeft: 'auto', marginRight: 'auto' }}>
+                Choose the level of support that suits you: the Full Reset for 12 weeks of 1:1 coaching, or a one-off Blood Analysis + Plan or Nutrition Plan if you want answers and a plan without ongoing support.
               </p>
 
+              {/* How it works — the six steps of the coaching journey */}
+              <p className="font-bold text-lg mb-6 text-center" style={{ fontFamily: HEAD }}>Your coaching journey</p>
               <div className="grid md:grid-cols-3 gap-6">
                 {HOW_IT_WORKS.map((step) => (
                   <div key={step.n}>
@@ -340,23 +411,38 @@ export default function WaysToWorkWithMe() {
                 ))}
               </div>
 
+              {/* Limited intake */}
+              <div
+                className="mt-10 mx-auto rounded-[1.5rem] px-7 py-6 text-center"
+                style={{ background: 'rgba(29,158,117,0.08)', border: '1px solid rgba(29,158,117,0.18)', maxWidth: 620 }}
+              >
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: BERRY }}>Limited intake</p>
+                <p className="text-sm leading-relaxed" style={{ color: INK }}>
+                  I only work with a small number of clients at a time, so I can be completely invested in your journey and deliver a truly premium, personalised experience.
+                </p>
+              </div>
+
+              {/* Pricing */}
               <div className="grid md:grid-cols-2 gap-5 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
                 {COACHING_TIERS.map((t) => (
                   <div
                     key={t.title}
-                    className="rounded-2xl p-7"
+                    className="rounded-2xl p-7 flex flex-col"
                     style={t.highlight ? { background: BERRY_DEEP, color: '#fff' } : { background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}
                   >
                     <span
-                      className="inline-block text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full mb-4"
+                      className="inline-block text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full mb-4 self-start"
                       style={t.highlight ? { background: 'rgba(255,255,255,0.15)', color: '#fff' } : { background: 'rgba(29,158,117,0.1)', color: BERRY }}
                     >
                       {t.tag}
                     </span>
-                    <div className="flex items-baseline justify-between gap-3 mb-2">
-                      <p className="font-bold text-lg" style={{ fontFamily: HEAD }}>{t.title}</p>
-                      <p className="font-bold text-sm flex-shrink-0" style={{ color: t.highlight ? '#fff' : BERRY }}>{t.price}</p>
+                    <p className="font-bold text-lg mb-3" style={{ fontFamily: HEAD }}>{t.title}</p>
+
+                    <div className="mb-4 flex items-baseline gap-2 flex-wrap">
+                      <span className="font-black" style={{ fontFamily: HEAD, fontSize: '2rem', lineHeight: 1, color: t.highlight ? '#fff' : INK }}>{t.price}</span>
+                      <span className="text-xs" style={{ color: t.highlight ? 'rgba(255,255,255,0.75)' : INK_SOFT }}>{t.priceNote}</span>
                     </div>
+
                     {'requires' in t && t.requires && (
                       <p
                         className="text-xs font-semibold rounded-lg px-3 py-2 mb-4 flex items-start gap-1.5"
@@ -372,8 +458,9 @@ export default function WaysToWorkWithMe() {
                         {t.requires}
                       </p>
                     )}
+
                     <p className="text-sm leading-relaxed mb-4" style={{ color: t.highlight ? 'rgba(255,255,255,0.8)' : INK_SOFT }}>{t.desc}</p>
-                    <ul className="space-y-1.5">
+                    <ul className="space-y-1.5 mb-4">
                       {t.points.map((p) => (
                         <li key={p} className="flex items-start gap-2 text-xs" style={{ color: t.highlight ? 'rgba(255,255,255,0.75)' : INK_SOFT }}>
                           <span className="mt-1 w-1 h-1 rounded-full flex-shrink-0" style={{ background: t.highlight ? 'rgba(255,255,255,0.6)' : BERRY }} />
@@ -381,16 +468,125 @@ export default function WaysToWorkWithMe() {
                         </li>
                       ))}
                     </ul>
+
+                    <p className="text-xs leading-relaxed mb-4 flex-1" style={{ color: t.highlight ? 'rgba(255,255,255,0.55)' : 'rgba(33,26,23,0.45)' }}>{t.bestFor}</p>
+
+                    {'footnote' in t && t.footnote && (
+                      <p
+                        className="text-xs leading-relaxed rounded-lg px-3 py-2.5 mb-4"
+                        style={{ background: t.highlight ? 'rgba(255,255,255,0.1)' : 'rgba(29,158,117,0.06)', color: t.highlight ? 'rgba(255,255,255,0.85)' : INK_SOFT }}
+                      >
+                        {t.footnote}
+                      </p>
+                    )}
+
+                    <InquiryButton
+                      defaultService={t.service}
+                      className="block w-full text-center px-5 py-3 rounded-full text-sm font-bold transition-opacity hover:opacity-90"
+                      style={t.highlight ? { background: '#fff', color: BERRY_DEEP } : { background: BERRY, color: '#fff' }}
+                    >
+                      {t.button}
+                    </InquiryButton>
                   </div>
                 ))}
               </div>
 
-              <div className="text-center mt-14">
-                <p className="text-sm mb-4" style={{ color: INK_SOFT }}>Not sure which fits? Every journey starts with a conversation, not a sign-up form.</p>
+              {/* Upgrade credit */}
+              <div
+                className="mt-6 rounded-2xl px-6 py-5 flex items-start gap-3"
+                style={{ background: '#fff', border: `1px dashed ${BERRY}` }}
+              >
+                <svg className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: BERRY }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+                <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>
+                  <span className="font-bold" style={{ color: INK }}>Start one-off, upgrade later.</span>{' '}
+                  Begin with a Nutrition Plan or Blood Analysis + Plan, then upgrade to the Full Reset within 3 weeks and your one-off fee comes off the Reset price.
+                </p>
+              </div>
+
+              {/* Add-ons */}
+              <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                <p className="font-bold text-lg mb-2 text-center" style={{ fontFamily: HEAD }}>Add-ons</p>
+                <p className="text-sm text-center mb-8" style={{ color: INK_SOFT }}>Available on any option, whenever you need them.</p>
+                <div className="grid md:grid-cols-3 gap-5">
+                  {COACHING_ADDONS.map((a) => (
+                    <div key={a.title} className="rounded-2xl p-6" style={{ background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}>
+                      <p className="font-bold text-base mb-1" style={{ fontFamily: HEAD }}>{a.title}</p>
+                      <div className="flex items-baseline gap-2 mb-3 flex-wrap">
+                        <span className="font-black" style={{ fontFamily: HEAD, fontSize: '1.5rem', color: INK }}>{a.price}</span>
+                        <span className="text-xs" style={{ color: INK_SOFT }}>{a.priceNote}</span>
+                      </div>
+                      <p className="text-xs leading-relaxed" style={{ color: INK_SOFT }}>{a.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Compare your options */}
+              <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                <p className="font-bold text-lg mb-2 text-center" style={{ fontFamily: HEAD }}>Compare your options</p>
+                <p className="text-sm text-center mb-8" style={{ color: INK_SOFT, maxWidth: 560, marginLeft: 'auto', marginRight: 'auto' }}>
+                  Every option starts with your intake form, symptom analysis and 5-day food log. Here&apos;s how they differ from there.
+                </p>
+                <div className="-mx-6 px-6 overflow-x-auto">
+                  <table className="w-full text-left" style={{ minWidth: 680, borderCollapse: 'separate', borderSpacing: 0 }}>
+                    <thead>
+                      <tr>
+                        <th className="p-3" />
+                        {COMPARE_COLUMNS.map((c) => (
+                          <th
+                            key={c}
+                            className="p-3 text-xs font-bold align-bottom"
+                            style={{ fontFamily: HEAD, color: c === 'The Full Reset' ? BERRY_DEEP : INK, width: '21%' }}
+                          >
+                            {c}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {COMPARE_ROWS.map((row) => (
+                        <tr key={row.label}>
+                          <th
+                            className="p-3 text-xs font-bold align-top"
+                            style={{ fontFamily: HEAD, color: INK, borderTop: '1px solid rgba(33,26,23,0.08)', whiteSpace: 'nowrap' }}
+                          >
+                            {row.label}
+                          </th>
+                          {row.cells.map((cell, i) => (
+                            <td
+                              key={COMPARE_COLUMNS[i]}
+                              className="p-3 text-xs align-top leading-relaxed"
+                              style={{
+                                color: cell === 'Not included' ? 'rgba(33,26,23,0.35)' : INK_SOFT,
+                                borderTop: '1px solid rgba(33,26,23,0.08)',
+                                background: COMPARE_COLUMNS[i] === 'The Full Reset' ? 'rgba(29,158,117,0.05)' : undefined,
+                              }}
+                            >
+                              {cell}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* CTA */}
+              <div className="text-center mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                <p className="text-sm mb-4" style={{ color: INK_SOFT, maxWidth: 520, marginLeft: 'auto', marginRight: 'auto' }}>
+                  Every journey starts with a discovery call, where we work out the right level of support together based on your goals — not the other way around.
+                </p>
                 <InquiryButton defaultService="1:1 Nutrition Coaching" className="inline-block px-7 py-3.5 rounded-full text-sm font-bold text-white hover:opacity-90 transition-opacity" style={{ background: BERRY }}>
                   Book a discovery call
                 </InquiryButton>
               </div>
+
+              <p className="text-xs leading-relaxed mt-12 mx-auto text-center" style={{ color: 'rgba(33,26,23,0.4)', maxWidth: 620 }}>
+                {COACHING_DISCLAIMER}
+              </p>
             </div>
           ) : active === 'education' ? (
             <div>
@@ -677,7 +873,7 @@ export default function WaysToWorkWithMe() {
 
               {/* CTA */}
               <div className="text-center mt-14">
-                <p className="text-sm mb-4" style={{ color: INK_SOFT }}>Not sure which tier fits your gym? Let's talk it through.</p>
+                <p className="text-sm mb-4" style={{ color: INK_SOFT }}>Not sure which tier fits your gym? Let&apos;s talk it through.</p>
 
                 <InquiryButton defaultService="Gym & Studio Partnerships" className="inline-block px-7 py-3.5 rounded-full text-sm font-bold text-white hover:opacity-90 transition-opacity" style={{ background: BERRY }}>
                   Get in touch

@@ -8,6 +8,10 @@ const BERRY = '#1D9E75'
 
 const SERVICES = [
   '1:1 Nutrition Coaching',
+  '1:1 Coaching — Nutrition Plan',
+  '1:1 Coaching — Blood Analysis + Plan',
+  '1:1 Coaching — The Full Reset',
+  '1:1 Coaching — Continuation',
   'The Prokol Method — Self-guided',
   'The Prokol Method — Guided',
   'The Prokol Method — Self-guided + Training',
