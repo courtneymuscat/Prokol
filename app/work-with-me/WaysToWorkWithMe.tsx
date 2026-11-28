@@ -128,50 +128,75 @@ const COACHING_DISCLAIMER =
   'I’m an Accredited Sports Nutritionist. Blood work, biofeedback and cycle data are interpreted for nutrition and performance optimisation only — not for medical diagnosis or treatment. I refer to GPs, endocrinologists and sports doctors where appropriate, and work alongside your medical team, not in place of them.'
 
 const GYM_STATS = [
-  { n: '25', label: 'video lessons' },
-  { n: '24', label: 'downloadable guides' },
-  { n: '41', label: 'flagged messages' },
+  { n: '1', label: 'nutritionist on hand, all year' },
+  { n: '35', label: 'minutes a week for members' },
+  { n: '41', label: 'built-in safety flags' },
+]
+
+// The gym brochure, once it's uploaded and shared. Its buttons stay hidden
+// until this is filled in rather than linking nowhere.
+const GYM_BROCHURE_URL: string = ''
+
+const GYM_PROBLEM = [
+  { t: 'What you\u2019ve tried', d: 'Another challenge. More classes. A discount to win them back. It works for a few weeks, then they drift off again.' },
+  { t: 'Why they really leave', d: 'It\u2019s not your training. They stop feeling the benefit, because results are mostly made in the 23 hours they\u2019re not in your gym.' },
+  { t: 'What your coaches hear', d: '\u201cWhat should I eat?\u201d Every day. Your coaches don\u2019t have the time to answer it properly, so members guess and stall.' },
+  { t: 'Then they quietly cancel.', d: 'No complaint, no warning. They miss a session, then a week, stop seeing results and cancel. Numbers dip, and you\u2019re back to chasing sign-ups just to stand still.', highlight: true },
+]
+
+const GYM_FIX_CARDS = [
+  { t: 'The fix', d: 'A nutritionist on hand for every member. They get a plan with real targets, are taught the why behind it, and can ask questions any time. When things change, so does their plan.' },
+  { t: 'Why they stay', d: 'Understanding creates buy-in. Buy-in builds consistent habits. Pair that with your coaching and facilities, and members see results, feel it working and stay.' },
+]
+
+const GYM_MEMBER_FEATURES = [
+  { t: 'A nutritionist on hand', d: 'I answer members\u2019 questions every week, all year.' },
+  { t: 'Their plan + macros', d: 'Real targets from their intake, updated as goals change.' },
+  { t: 'Progress reviews', d: 'Weekly for 13 weeks, then monthly and bi-monthly to keep habits on track.' },
+  { t: 'All-in-one nutrition app', d: 'Food, progress and cycle tracking, for as long as your gym subscribes.' },
+  { t: 'Weekly recorded Q&A', d: 'Ask any time; I answer on video every week.' },
+  { t: 'Bonus: 25 video lessons', d: 'Plus 24 guides, theirs to keep.' },
+  { t: 'Women\u2019s health library', d: 'Cycle, iron, energy, menopause and bloodwork basics.' },
+  { t: 'Health flags caught', d: 'Flagged progress checks get next steps, and a GP or support referral where needed.' },
 ]
 
 const GYM_TIERS = [
   {
-    tag: 'Every member, automated',
-    title: 'Self-guided',
-    subtitle: 'Every flag seen, automated tips on the common ones',
-    priceLabel: 'Flat monthly fee · up to 150 members',
-    price: '$499',
-    priceNote: '/ month',
-    priceWeekly: 'About $3.33 a member a month',
-    desc: 'Every member gets the full nutrition education curriculum, with automated tips on common flags and me personally reviewing every safety screening and sensitive health flag.',
+    tag: 'Every member included',
+    title: 'Nutritionist',
+    subtitle: 'A nutritionist on hand, every flag seen',
+    priceLabel: 'Flat monthly fee \u00b7 up to 150 members',
+    price: '$900',
+    priceNote: 'onboarding + $349 / month',
+    priceWeekly: 'About $2.33 a member a month',
+    desc: 'Every member gets their plan and macros, the Prokol app, progress reviews, the weekly recorded Q&A and the bonus lessons. Questions are answered as a group in the weekly Q&A. I see every flag and personally review every intake health screen, and reply if a GP or support referral is needed.',
     points: [
-      'A real nutrition education curriculum — 25 video lessons and 24 downloadable guides',
-      '3 paths to choose from: Plan & Swap, Track Serves, or Protein + Calories',
-      'Personalised plan, macros and targets from their intake form',
-      'Weekly recorded Q&A — I answer every progress-check question on video',
-      'Women’s health bonus library: cycle, iron, energy, menopause, bloodwork',
-      'Automated tip and next steps on common flags',
-      'I personally review every safety screening and sensitive health flag',
+      'Their plan, macros and targets from their intake form',
+      'Progress reviews: weekly for 13 weeks, then monthly and bi-monthly',
+      'Weekly recorded Q&A \u2014 I answer members\u2019 questions on video',
+      '25 video lessons and 24 guides, plus the women\u2019s health library',
+      'Some flags give an automated tip and next steps',
+      'I see every flag and personally review every intake health screen',
     ],
-    button: 'Start Self-guided',
-    service: 'Gym Partnership — Self-guided',
+    button: 'Book a call',
+    service: 'Gym & Studio Partnerships',
   },
   {
-    tag: 'Most support, ~$2 more a member',
-    title: 'Guided',
-    subtitle: 'A personal reply from me on every single flag',
-    priceLabel: 'Flat monthly fee · up to 150 members',
-    price: '$849',
-    priceNote: '/ month (founding gyms $749)',
-    priceWeekly: 'About $5.66 a member a month (founding ~$4.99)',
-    desc: 'Everything in Self-guided, plus a personal reply from me on every flagged check-in, not just the common ones — real guidance for members who want it, with zero extra work for your trainers.',
+    tag: 'Most support \u00b7 about $2 more a member',
+    title: '+ Personal Replies',
+    subtitle: 'I answer every member\u2019s questions myself',
+    priceLabel: 'Add-on \u00b7 on top of Nutritionist',
+    price: '+$450',
+    priceNote: 'onboarding + $299 / month',
+    priceWeekly: '$648 / month all up, about $4.32 a member',
+    desc: 'Everything in Nutritionist, plus a personal reply from me on every question and every flagged progress review, within 2\u20133 business days.',
     points: [
-      'Everything in Self-guided',
-      'A personal reply from me on every flag, within 2–3 business days',
-      'Common flags also get an automated tip alongside the personal reply',
-      'Founding gyms lock in $749/month and the set-up fee is waived',
+      'Everything in Nutritionist',
+      'A personal reply from me on every member question',
+      'A personal reply on every flagged progress review, within 2\u20133 business days',
     ],
-    button: 'Start Guided',
-    service: 'Gym Partnership — Guided',
+    button: 'Book a call',
+    service: 'Gym & Studio Partnerships',
     highlight: true,
   },
 ]
@@ -186,42 +211,51 @@ const GYM_WHATS_INCLUDED = [
 const GYM_FLAG_CATEGORIES = [
   { n: '1', t: 'Weekly wellbeing', d: 'Energy, sleep, stress, hunger, habits and weight change.' },
   { n: '2', t: 'Safety screening', d: 'Exercise readiness and food allergies at sign-up.' },
-  { n: '3', t: 'Women’s health', d: 'Health history, pregnancy and cycles. Always a personal reply.' },
+  { n: '3', t: 'Women\u2019s health', d: 'Health history, pregnancy and cycles. Reviewed by me, with a GP referral if needed.' },
   { n: '4', t: 'Extra support', d: 'An upcoming event, feeling stuck or wanting more help.' },
   { n: '5', t: 'Week-specific', d: 'Under-fuelling, digestion, run-down and supplement safety.' },
   { n: '6', t: 'Tracking and mindset', d: 'Tracking anxiety, all-or-nothing thinking and rigid rules.' },
 ]
 
+// How a progress check is actually handled, by outcome.
+const GYM_FLAG_HANDLING = [
+  { t: 'Nothing flagged', d: 'No message. Questions are answered in the weekly Q&A, or by me with Personal Replies.' },
+  { t: 'Flagged answer', d: 'Some flags give an automated tip and next steps. With Personal Replies, I reply too.' },
+  { t: 'Initial health screen', d: 'Always reviewed by me. A personal reply only if a GP or support-line referral is needed.' },
+]
+
+// Paid by the member (or covered by the gym), on top of the gym's fee.
 const GYM_ADDONS = [
   {
-    title: 'Personal Feedback',
-    price: '$299',
-    priceNote: 'per member, for the length of their curriculum',
-    desc: 'A personal Loom video reply from me to every weekly progress check, for the length of their curriculum. Member opts in, or your gym subsidises it — works with either tier.',
+    title: 'Personalised 1:1',
+    price: 'from $397',
+    priceNote: 'the member pays',
+    desc: 'Nutrition plans with or without bloods, cycle and bloodwork education, and the 12-week Full Reset from $2,997.',
   },
   {
-    title: 'Plan Consults',
-    price: '$45',
-    priceNote: 'per consult',
-    desc: '20 minutes with me, in person at your gym or online, plus notes and a summary sent to the member. Talking through their plan, their path, and practical questions — not bloodwork review, medical advice, or ongoing coaching.',
+    title: 'Consults',
+    price: '$40',
+    priceNote: 'per 20 minutes',
+    desc: 'Current issues and a written summary, in person at your gym or online. Members pay, or your gym covers them.',
   },
 ]
 
 const GYM_HOW_IT_WORKS = [
   { n: '01', t: 'Set-up week', d: 'I brand your app and send your Gym Toolkit.' },
-  { n: '02', t: 'Members join', d: 'With your gym’s own code.' },
-  { n: '03', t: 'Education unfolds', d: 'Lessons, habits and their personalised plan, delivered week by week.' },
-  { n: '04', t: 'Every week', d: 'Progress checks, replies and the recorded Q&A.' },
+  { n: '02', t: 'Members join', d: 'With your gym\u2019s own code.' },
+  { n: '03', t: 'Onboarding', d: 'Every current member set up and overseen.' },
+  { n: '04', t: 'Then all year', d: 'New members from day one, questions answered every week.' },
 ]
 
 const GYM_FAQS = [
-  { q: 'Is this medical advice?', a: 'No. Education only, never clinical. Plan Consults stay in scope; anything medical goes to the member’s GP or a support line.' },
-  { q: 'What happens if something’s flagged?', a: 'Both tiers: an automated tip and next steps on common flags, plus I personally review every safety screening and sensitive health flag. Guided adds a personal reply from me on every flag, within 2–3 business days.' },
-  { q: 'How many members does this cover?', a: 'Up to 150 members on either tier, plus $2 per extra member a month.' },
-  { q: 'What’s the commitment?', a: 'A 3-month minimum, then monthly with 30 days’ notice. A one-off $490 set-up fee applies, waived for founding gyms.' },
-  { q: 'Does this replace our trainers?', a: 'No — it runs alongside your coaching, inside your gym’s own branded app, with zero extra time from your trainers. Members get a nutrition specialist without you needing a full-time hire.' },
-  { q: 'What do Plan Consults include?', a: 'Talking through their plan and targets, choosing or adjusting their path, practical questions on eating out, busy weeks and fuelling, and general supplement guidance — not bloodwork review, medical advice, a new bespoke plan, or ongoing coaching (that’s 1:1).' },
-  { q: 'Does it pay for itself?', a: 'If a membership is about $25 a week, Self-guided is covered by keeping about 5 members a month; Guided about 8.' },
+  { q: 'Is this medical advice?', a: 'No. It\u2019s nutrition education from an accredited sports nutritionist. Anything medical goes to the member\u2019s GP, and your Gym Toolkit gives your team the referral steps.' },
+  { q: 'What happens if something\u2019s flagged?', a: 'Some flags give an automated tip and next steps. I see every flag, and if a GP or support-line referral is needed, I reply personally. With Personal Replies, I reply to every flagged progress review.' },
+  { q: 'How many members does this cover?', a: 'Up to 150 members for the monthly fee. Over 150, it\u2019s +$2 a member (+$4 with Personal Replies).' },
+  { q: 'What\u2019s the commitment?', a: 'A one-off onboarding fee, then monthly from day one with 30 days\u2019 notice.' },
+  { q: 'How much time does it take members?', a: 'About 35 minutes a week: a 20-minute lesson, 15 minutes to plan their week, one small daily habit and a progress check.' },
+  { q: 'Does this replace our trainers?', a: 'No. Your coaches keep coaching. When members ask \u201cwhat should I eat?\u201d, they point them to the app. The coach redirect script in your Gym Toolkit shows them how.' },
+  { q: 'What do Consults include?', a: 'A 20-minute consult with me, in person at your gym or online. We talk through their plan and targets, practical questions like eating out and busy weeks, and general supplement guidance, with a written summary saved to their app. It doesn\u2019t include bloodwork review, medical or hormone advice, or event fuelling plans. $40, paid by members or covered by your gym.' },
+  { q: 'Does it pay for itself?', a: 'At members paying $60 a week, keeping 2 members covers the monthly fee, and 4 more cover onboarding. Each member gets $249 of program value.' },
 ]
 
 const EDUCATION_CARDS = [
@@ -867,43 +901,142 @@ export default function WaysToWorkWithMe() {
             </div>
           ) : active === 'gyms' ? (
             <div>
-              <div
-                className="text-center mb-10 mx-auto rounded-[2rem] px-8 py-8 md:px-12 md:py-9"
-                style={{ background: 'rgba(29,158,117,0.08)', border: '1px solid rgba(29,158,117,0.18)', maxWidth: 700 }}
-              >
-                <p style={{ color: INK, fontWeight: 300, fontSize: '1.05rem', lineHeight: 1.6 }}>
-                  Real nutrition education for your members, running inside your gym’s own branded app — 25 video lessons, 24 downloadable guides, and a women’s health library, built and run personally by me as an Accredited Sports Nutritionist. Give your members as much or as little personal guidance as you like: one flat monthly fee covers everyone, every flag is seen, and it takes zero extra time from your trainers.
+              {/* G1. Hero */}
+              <div className="text-center" style={{ maxWidth: 660, marginLeft: 'auto', marginRight: 'auto' }}>
+                <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: BERRY }}>For gym owners</p>
+                <h3 style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 'clamp(1.5rem,3.5vw,2.1rem)', lineHeight: 1.2, letterSpacing: '-0.02em', marginBottom: 16 }}>
+                  When members stop feeling the benefit, they leave.
+                </h3>
+                <p style={{ color: INK_SOFT, fontWeight: 300 }}>
+                  It’s not your training. Results are mostly made in the 23 hours they’re not in your gym. The Prokol Method gives every member a nutritionist on hand, all year, inside your gym’s own branded app. One flat monthly fee, no extra cost to members.
                 </p>
+
+                <div className="flex flex-wrap items-center justify-center gap-3 mt-7">
+                  <InquiryButton
+                    defaultService="Gym & Studio Partnerships"
+                    className="px-7 py-3.5 rounded-full text-sm font-bold text-white hover:opacity-90 transition-opacity"
+                    style={{ background: BERRY }}
+                  >
+                    Book a call
+                  </InquiryButton>
+                  {GYM_BROCHURE_URL && (
+                    <a
+                      href={GYM_BROCHURE_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-7 py-3.5 rounded-full text-sm font-bold transition-colors"
+                      style={{ border: '1px solid rgba(33,26,23,0.15)', color: INK }}
+                    >
+                      Download the gym brochure
+                    </a>
+                  )}
+                </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4 mb-14 max-w-2xl mx-auto">
-                {GYM_STATS.map((s) => (
-                  <div key={s.label} className="rounded-2xl text-center py-7 px-3" style={{ background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}>
-                    <p className="font-black" style={{ fontFamily: HEAD, fontSize: '2.25rem', lineHeight: 1, color: BERRY }}>{s.n}</p>
-                    <p className="text-sm mt-2" style={{ color: INK_SOFT }}>{s.label}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* What your gym gets */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
-                {GYM_WHATS_INCLUDED.map((item) => (
-                  <div key={item.label} className="flex flex-col items-center text-center gap-2">
-                    <span className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(29,158,117,0.1)', color: BERRY }}>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.d} />
-                      </svg>
-                    </span>
-                    <p className="text-xs leading-relaxed" style={{ color: INK_SOFT }}>{item.label}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* 41 built-in flags */}
+              {/* G2. Sound familiar? */}
               <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
-                <p className="font-bold text-lg mb-2 text-center" style={{ fontFamily: HEAD }}>41 built-in flags, built into the curriculum</p>
+                <p className="font-bold text-lg mb-2 text-center" style={{ fontFamily: HEAD }}>Sound familiar?</p>
+                <p className="text-sm text-center mb-8" style={{ color: INK_SOFT }}>You’re not doing anything wrong. You’re just fixing the wrong thing.</p>
+                <div className="grid md:grid-cols-2 gap-5 max-w-3xl mx-auto">
+                  {GYM_PROBLEM.map((c) => (
+                    <div
+                      key={c.t}
+                      className="rounded-2xl p-6"
+                      style={'highlight' in c && c.highlight
+                        ? { background: BERRY_DEEP, color: '#fff' }
+                        : { background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}
+                    >
+                      <p className="font-bold text-sm mb-2" style={{ fontFamily: HEAD, color: 'highlight' in c && c.highlight ? '#fff' : INK }}>{c.t}</p>
+                      <p className="text-xs leading-relaxed" style={{ color: 'highlight' in c && c.highlight ? 'rgba(255,255,255,0.8)' : INK_SOFT }}>{c.d}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* G3. The fix */}
+              <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                <div className="text-center mb-8" style={{ maxWidth: 660, marginLeft: 'auto', marginRight: 'auto' }}>
+                  <p className="font-bold text-lg mb-3" style={{ fontFamily: HEAD }}>It was never a willpower problem</p>
+                  <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>
+                    Most members were never taught how their body works. So the moment life gets busy, they’re tired or they’re starving at 3pm, the plan breaks and they’re back to guessing. Once they understand the why, they stop relying on willpower. They know what to do, and why. That’s what makes it stick.
+                  </p>
+                </div>
+                <div className="grid md:grid-cols-2 gap-5 max-w-3xl mx-auto">
+                  {GYM_FIX_CARDS.map((c) => (
+                    <div key={c.t} className="rounded-2xl p-6" style={{ background: 'rgba(29,158,117,0.08)', border: '1px solid rgba(29,158,117,0.18)' }}>
+                      <p className="font-bold text-sm mb-2" style={{ fontFamily: HEAD, color: INK }}>{c.t}</p>
+                      <p className="text-xs leading-relaxed" style={{ color: INK_SOFT }}>{c.d}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* G4. What every member gets */}
+              <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                <p className="font-bold text-lg mb-6 text-center" style={{ fontFamily: HEAD }}>What every member gets</p>
+
+                <div
+                  className="text-center mx-auto rounded-[2rem] px-8 py-8 md:px-12 md:py-9"
+                  style={{ background: 'rgba(29,158,117,0.08)', border: '1px solid rgba(29,158,117,0.18)', maxWidth: 700 }}
+                >
+                  <p style={{ color: INK, fontWeight: 300, fontSize: '1.05rem', lineHeight: 1.6 }}>
+                    A nutritionist on hand for every member, all year, inside your gym’s own branded app. Their plan, their macros and someone to ask, for as long as they’re a member. Plus 25 short video lessons and 24 guides that teach them the why, one small habit at a time. One flat monthly fee covers everyone, every flag is seen, and it takes zero extra time from your trainers.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 mt-10 max-w-2xl mx-auto">
+                  {GYM_STATS.map((s) => (
+                    <div key={s.label} className="rounded-2xl text-center py-7 px-3" style={{ background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}>
+                      <p className="font-black" style={{ fontFamily: HEAD, fontSize: '2.25rem', lineHeight: 1, color: BERRY }}>{s.n}</p>
+                      <p className="text-sm mt-2" style={{ color: INK_SOFT }}>{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-3 mt-10 max-w-3xl mx-auto">
+                  {GYM_MEMBER_FEATURES.map((f) => (
+                    <div key={f.t} className="rounded-xl p-4" style={{ background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}>
+                      <p className="font-bold text-sm" style={{ fontFamily: HEAD, color: INK }}>{f.t}</p>
+                      <p className="text-xs leading-relaxed mt-0.5" style={{ color: INK_SOFT }}>{f.d}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="text-center mt-8">
+                  <a
+                    href={TOPIC_OVERVIEWS_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block px-6 py-3 rounded-full text-sm font-bold transition-colors"
+                    style={{ border: '1px solid rgba(33,26,23,0.15)', color: INK }}
+                  >
+                    Full topic overviews →
+                  </a>
+                </div>
+              </div>
+
+              {/* G5. What your gym gets */}
+              <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                <p className="font-bold text-lg mb-8 text-center" style={{ fontFamily: HEAD }}>What your gym gets</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  {GYM_WHATS_INCLUDED.map((item) => (
+                    <div key={item.label} className="flex flex-col items-center text-center gap-2">
+                      <span className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(29,158,117,0.1)', color: BERRY }}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.d} />
+                        </svg>
+                      </span>
+                      <p className="text-xs leading-relaxed" style={{ color: INK_SOFT }}>{item.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* G6. Safety flags */}
+              <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                <p className="font-bold text-lg mb-2 text-center" style={{ fontFamily: HEAD }}>41 built-in flags across the progress reviews</p>
                 <p className="text-sm text-center mb-8" style={{ color: INK_SOFT, maxWidth: 560, marginLeft: 'auto', marginRight: 'auto' }}>
-                  Every progress check is scored against a real set of rules, built from actually coaching members at scale — not a generic checklist.
+                  Every progress check is screened against 41 built-in flags, so nothing slips through. I see every one.
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-5 max-w-3xl mx-auto">
                   {GYM_FLAG_CATEGORIES.map((c) => (
@@ -913,20 +1046,109 @@ export default function WaysToWorkWithMe() {
                     </div>
                   ))}
                 </div>
+
+                <div className="grid md:grid-cols-3 gap-5 mt-8 max-w-3xl mx-auto">
+                  {GYM_FLAG_HANDLING.map((h) => (
+                    <div key={h.t}>
+                      <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: BERRY }}>{h.t}</p>
+                      <p className="text-xs leading-relaxed" style={{ color: INK_SOFT }}>{h.d}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {/* How it works */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
-                {GYM_HOW_IT_WORKS.map((step) => (
-                  <div key={step.n}>
-                    <p className="text-xs font-bold tracking-widest mb-2" style={{ color: BERRY }}>{step.n}</p>
-                    <p className="font-bold mb-2" style={{ fontFamily: HEAD }}>{step.t}</p>
-                    <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>{step.d}</p>
-                  </div>
-                ))}
+              {/* G7. How it works */}
+              <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                <p className="font-bold text-lg mb-8 text-center" style={{ fontFamily: HEAD }}>How it works</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                  {GYM_HOW_IT_WORKS.map((step) => (
+                    <div key={step.n}>
+                      <p className="text-xs font-bold tracking-widest mb-2" style={{ color: BERRY }}>{step.n}</p>
+                      <p className="font-bold mb-2" style={{ fontFamily: HEAD }}>{step.t}</p>
+                      <p className="text-sm leading-relaxed" style={{ color: INK_SOFT }}>{step.d}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {/* FAQ */}
+              {/* G8. Pricing */}
+              <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                <p className="font-bold text-lg mb-2 text-center" style={{ fontFamily: HEAD }}>One set price for your gym</p>
+                <p className="text-sm text-center mb-8" style={{ color: INK_SOFT, maxWidth: 560, marginLeft: 'auto', marginRight: 'auto' }}>
+                  Every member included. Then add Personal Replies if you want me answering every member myself.
+                </p>
+
+                <div className="grid md:grid-cols-2 gap-5">
+                  {GYM_TIERS.map((t) => (
+                    <div
+                      key={t.title}
+                      className="rounded-2xl p-7 flex flex-col"
+                      style={t.highlight ? { background: BERRY_DEEP, color: '#fff' } : { background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}
+                    >
+                      <span
+                        className="inline-block text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full mb-4 self-start"
+                        style={t.highlight ? { background: 'rgba(255,255,255,0.15)', color: '#fff' } : { background: 'rgba(29,158,117,0.1)', color: BERRY }}
+                      >
+                        {t.tag}
+                      </span>
+                      <p className="font-bold text-lg" style={{ fontFamily: HEAD }}>{t.title}</p>
+                      <p className="text-sm font-normal mb-4" style={{ color: t.highlight ? 'rgba(255,255,255,0.8)' : INK_SOFT }}>{t.subtitle}</p>
+
+                      <div className="mb-4">
+                        <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: t.highlight ? 'rgba(255,255,255,0.85)' : BERRY }}>
+                          {t.priceLabel}
+                        </p>
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <span className="font-black" style={{ fontFamily: HEAD, fontSize: '2rem', lineHeight: 1, color: t.highlight ? '#fff' : INK }}>{t.price}</span>
+                          <span className="text-xs" style={{ color: t.highlight ? 'rgba(255,255,255,0.75)' : INK_SOFT }}>{t.priceNote}</span>
+                        </div>
+                        <p className="text-xs mt-1.5" style={{ color: t.highlight ? 'rgba(255,255,255,0.55)' : 'rgba(33,26,23,0.4)' }}>{t.priceWeekly}</p>
+                      </div>
+
+                      <p className="text-sm leading-relaxed mb-4" style={{ color: t.highlight ? 'rgba(255,255,255,0.8)' : INK_SOFT }}>{t.desc}</p>
+                      <ul className="space-y-1.5 mb-5 flex-1">
+                        {t.points.map((p) => (
+                          <li key={p} className="flex items-start gap-2 text-xs" style={{ color: t.highlight ? 'rgba(255,255,255,0.75)' : INK_SOFT }}>
+                            <span className="mt-1 w-1 h-1 rounded-full flex-shrink-0" style={{ background: t.highlight ? 'rgba(255,255,255,0.6)' : BERRY }} />
+                            {p}
+                          </li>
+                        ))}
+                      </ul>
+                      <InquiryButton
+                        defaultService={t.service}
+                        className="block w-full text-center px-5 py-3 rounded-full text-sm font-bold transition-opacity hover:opacity-90"
+                        style={t.highlight ? { background: '#fff', color: BERRY_DEEP } : { background: BERRY, color: '#fff' }}
+                      >
+                        {t.button}
+                      </InquiryButton>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="text-xs text-center mt-5" style={{ color: 'rgba(33,26,23,0.45)' }}>
+                  One-off onboarding, then monthly from day one with 30 days’ notice. Over 150 members: +$2 each (+$4 with Personal Replies). AUD ex GST.
+                </p>
+              </div>
+
+              {/* Member add-ons */}
+              <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
+                <p className="font-bold text-lg mb-2 text-center" style={{ fontFamily: HEAD }}>Member add-ons</p>
+                <p className="text-sm text-center mb-8" style={{ color: INK_SOFT }}>Optional extras on top, for members who want more.</p>
+                <div className="grid md:grid-cols-2 gap-5 max-w-3xl mx-auto">
+                  {GYM_ADDONS.map((a) => (
+                    <div key={a.title} className="rounded-2xl p-6" style={{ background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}>
+                      <p className="font-bold text-base mb-1" style={{ fontFamily: HEAD }}>{a.title}</p>
+                      <div className="flex items-baseline gap-2 mb-3 flex-wrap">
+                        <span className="font-black" style={{ fontFamily: HEAD, fontSize: '1.5rem', color: INK }}>{a.price}</span>
+                        <span className="text-xs" style={{ color: INK_SOFT }}>{a.priceNote}</span>
+                      </div>
+                      <p className="text-xs leading-relaxed" style={{ color: INK_SOFT }}>{a.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* G9. FAQ */}
               <div className="max-w-3xl mx-auto mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
                 <p className="font-bold text-lg mb-4 text-center" style={{ fontFamily: HEAD }}>Questions</p>
                 <div className="space-y-3">
@@ -944,80 +1166,39 @@ export default function WaysToWorkWithMe() {
                 </div>
               </div>
 
-              {/* Pricing */}
-              <div className="grid md:grid-cols-2 gap-5 mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
-                {GYM_TIERS.map((t) => (
-                  <div
-                    key={t.title}
-                    className="rounded-2xl p-7 flex flex-col"
-                    style={t.highlight ? { background: BERRY_DEEP, color: '#fff' } : { background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}
+              {/* G10. Closing banner */}
+              <div className="rounded-[2rem] px-8 py-12 mt-16 text-center" style={{ background: BERRY_DEEP }}>
+                <h3 style={{ fontFamily: HEAD, fontWeight: 800, fontSize: 'clamp(1.5rem,3.5vw,2.1rem)', color: '#fff', marginBottom: 10 }}>
+                  Stop chasing sign-ups just to stand still.
+                </h3>
+                <p className="mb-8" style={{ color: 'rgba(255,255,255,0.78)', fontWeight: 300 }}>
+                  Give every member a nutritionist, and a reason to stay.
+                </p>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <InquiryButton
+                    defaultService="Gym & Studio Partnerships"
+                    className="px-7 py-3.5 rounded-full text-sm font-bold transition-opacity hover:opacity-90"
+                    style={{ background: '#fff', color: BERRY_DEEP }}
                   >
-                    <span
-                      className="inline-block text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full mb-4"
-                      style={t.highlight ? { background: 'rgba(255,255,255,0.15)', color: '#fff' } : { background: 'rgba(29,158,117,0.1)', color: BERRY }}
+                    Book a call
+                  </InquiryButton>
+                  {GYM_BROCHURE_URL && (
+                    <a
+                      href={GYM_BROCHURE_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-7 py-3.5 rounded-full text-sm font-bold transition-colors"
+                      style={{ border: '1px solid rgba(255,255,255,0.35)', color: '#fff' }}
                     >
-                      {t.tag}
-                    </span>
-                    <p className="font-bold text-lg" style={{ fontFamily: HEAD }}>{t.title}</p>
-                    <p className="text-sm font-normal mb-4" style={{ color: t.highlight ? 'rgba(255,255,255,0.8)' : INK_SOFT }}>{t.subtitle}</p>
-
-                    <div className="mb-4">
-                      <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: t.highlight ? 'rgba(255,255,255,0.85)' : BERRY }}>
-                        {t.priceLabel}
-                      </p>
-                      <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="font-black" style={{ fontFamily: HEAD, fontSize: '2rem', lineHeight: 1, color: t.highlight ? '#fff' : INK }}>{t.price}</span>
-                        <span className="text-xs" style={{ color: t.highlight ? 'rgba(255,255,255,0.75)' : INK_SOFT }}>{t.priceNote}</span>
-                      </div>
-                      <p className="text-xs mt-1.5" style={{ color: t.highlight ? 'rgba(255,255,255,0.55)' : 'rgba(33,26,23,0.4)' }}>{t.priceWeekly}</p>
-                    </div>
-
-                    <p className="text-sm leading-relaxed mb-4" style={{ color: t.highlight ? 'rgba(255,255,255,0.8)' : INK_SOFT }}>{t.desc}</p>
-                    <ul className="space-y-1.5 mb-5 flex-1">
-                      {t.points.map((p) => (
-                        <li key={p} className="flex items-start gap-2 text-xs" style={{ color: t.highlight ? 'rgba(255,255,255,0.75)' : INK_SOFT }}>
-                          <span className="mt-1 w-1 h-1 rounded-full flex-shrink-0" style={{ background: t.highlight ? 'rgba(255,255,255,0.6)' : BERRY }} />
-                          {p}
-                        </li>
-                      ))}
-                    </ul>
-                    <InquiryButton
-                      defaultService={t.service}
-                      className="block w-full text-center px-5 py-3 rounded-full text-sm font-bold transition-opacity hover:opacity-90"
-                      style={t.highlight ? { background: '#fff', color: BERRY_DEEP } : { background: BERRY, color: '#fff' }}
-                    >
-                      {t.button}
-                    </InquiryButton>
-                  </div>
-                ))}
-              </div>
-
-              {/* Add-ons */}
-              <div className="mt-16 pt-16" style={{ borderTop: '1px solid rgba(33,26,23,0.08)' }}>
-                <p className="font-bold text-lg mb-2 text-center" style={{ fontFamily: HEAD }}>Add-ons</p>
-                <p className="text-sm text-center mb-8" style={{ color: INK_SOFT }}>Two optional extras for members who want more personal support.</p>
-                <div className="grid md:grid-cols-2 gap-5 max-w-3xl mx-auto">
-                  {GYM_ADDONS.map((a) => (
-                    <div key={a.title} className="rounded-2xl p-6" style={{ background: '#fff', border: '1px solid rgba(33,26,23,0.08)' }}>
-                      <p className="font-bold text-base mb-1" style={{ fontFamily: HEAD }}>{a.title}</p>
-                      <div className="flex items-baseline gap-2 mb-3">
-                        <span className="font-black" style={{ fontFamily: HEAD, fontSize: '1.5rem', color: INK }}>{a.price}</span>
-                        <span className="text-xs" style={{ color: INK_SOFT }}>{a.priceNote}</span>
-                      </div>
-                      <p className="text-xs leading-relaxed" style={{ color: INK_SOFT }}>{a.desc}</p>
-                    </div>
-                  ))}
+                      Download the gym brochure
+                    </a>
+                  )}
                 </div>
               </div>
 
-              {/* CTA */}
-              <div className="text-center mt-14">
-                <p className="text-sm mb-4" style={{ color: INK_SOFT }}>Not sure which tier fits your gym? Let&apos;s talk it through.</p>
-
-                <InquiryButton defaultService="Gym & Studio Partnerships" className="inline-block px-7 py-3.5 rounded-full text-sm font-bold text-white hover:opacity-90 transition-opacity" style={{ background: BERRY }}>
-                  Get in touch
-                </InquiryButton>
-              </div>
+              <p className="text-xs text-center mt-8" style={{ color: 'rgba(33,26,23,0.4)' }}>
+                Education only, not medical advice. Anything medical goes to a GP.
+              </p>
             </div>
           ) : (
             <div>
