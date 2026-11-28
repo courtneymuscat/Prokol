@@ -214,6 +214,10 @@ export default function MealPlansList({
   const [copying, setCopying] = useState<string | null>(null)
   const [dietFilter, setDietFilter] = useState('all')
   const [calorieFilter, setCalorieFilter] = useState('all')
+  // Plans arrived newest-first and unsorted, which is unreadable once there
+  // are dozens spanning three diets. Calories is the default because that's
+  // what a plan is chosen by.
+  const [sortBy, setSortBy] = useState<'calories' | 'name' | 'recent'>('calories')
 
   // Lazy-load archived plans on first switch into that view.
   useEffect(() => {
@@ -427,6 +431,15 @@ export default function MealPlansList({
                 <option key={b.label} value={b.label}>{b.label}</option>
               ))}
             </select>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as 'calories' | 'name' | 'recent')}
+              className="text-xs font-semibold text-gray-600 border border-gray-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="calories">Sort: calories (low to high)</option>
+              <option value="name">Sort: name (A–Z)</option>
+              <option value="recent">Sort: recently added</option>
+            </select>
             {(dietFilter !== 'all' || calorieFilter !== 'all') && (
               <button
                 onClick={() => { setDietFilter('all'); setCalorieFilter('all') }}
@@ -447,6 +460,15 @@ export default function MealPlansList({
               if (band && (p.total_calories < band.min || p.total_calories > band.max)) return false
             }
             return true
+          })
+          // Sorted within each section below, so Generic and the rest each
+          // read in the same order. `numeric` matters for names like
+          // "~1,200kcal" — a plain sort puts 1,200 after 1,100 but also after
+          // 900.
+          filteredPlans.sort((a, b) => {
+            if (sortBy === 'calories') return (a.total_calories ?? 0) - (b.total_calories ?? 0)
+            if (sortBy === 'name') return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+            return 0   // 'recent' — the API already returns newest first
           })
           if (filteredPlans.length === 0) {
             return (
